@@ -19,7 +19,7 @@ If you find this project helpful, consider buying me a coffee!
 
 ---
 
-## ✨ Features
+##  Features
 
 - **Full Playback Control** - Play, pause, skip, volume, shuffle, and repeat
 - **Queue Management** - Browse and manage your playback queue
@@ -31,7 +31,7 @@ If you find this project helpful, consider buying me a coffee!
 - **Thread-Safe** - FreeRTOS tasks with proper synchronization
 - **Performance Optimized** - PSRAM allocation, efficient string handling, robust networking
 
-## 🛠 Hardware
+##  Hardware
 
 This project requires the **GUITION JC4880P433C** development board:
 
@@ -47,9 +47,9 @@ This project requires the **GUITION JC4880P433C** development board:
 
 > **Note:** This firmware is specifically designed for the GUITION JC4880P433C board. It will not work on other ESP32 boards without significant modifications.
 
-## 📦 Installation
+## Installation
 
-### Option 1: Web Installer (Recommended)
+### Web Installer (Recommended)
 
 1. Visit the [Web Installer](https://opensurface.github.io/SonosESP/)
 2. Connect your ESP32-P4 via USB-C
@@ -58,20 +58,8 @@ This project requires the **GUITION JC4880P433C** development board:
 
 > Requires Chrome, Edge, or Opera browser with Web Serial support
 
-### Option 2: Manual Flash
 
-1. Download the latest firmware from [Releases](https://github.com/OpenSurface/SonosESP/releases)
-2. Flash using esptool:
-
-```bash
-esptool.py --chip esp32p4 --port COM3 --baud 921600 \
-  --before default_reset --after hard_reset write_flash \
-  0x0 bootloader.bin \
-  0x8000 partitions.bin \
-  0x10000 firmware.bin
-```
-
-### Option 3: OTA Update (After Initial Install)
+## OTA Update (After Initial Install)
 
 1. Connect to WiFi via Settings
 2. Navigate to Settings → Firmware Update
@@ -119,31 +107,13 @@ pio run --target upload
 pio device monitor
 ```
 
-## 🎨 First-Time Setup
+##  First-Time Setup
 
 1. **Power on** - Device will show WiFi setup if not configured
 2. **WiFi Setup** - Tap "Scan" to find networks, select yours, enter password
 3. **Sonos Discovery** - Navigate to Settings → Speakers and tap "Scan"
 4. **Start Playing** - Select a device and start controlling your music!
 
-## 🏗 Architecture
-
-```
-┌─────────────────────────────────────────┐
-│           User Interface (LVGL)         │
-│  Main | Devices | Queue | Browse | OTA  │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────┴────────────────────────┐
-│         Sonos Controller                │
-│  SOAP/UPnP Communication | Discovery    │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────┴────────────────────────┐
-│     ESP32-P4 + ESP32-C6 (WiFi)         │
-│  FreeRTOS | PSRAM | RGB Display | OTA  │
-└─────────────────────────────────────────┘
-```
 
 ### Key Components
 
@@ -154,14 +124,9 @@ pio device monitor
 - **UI Framework** - LVGL 9.4.0 with custom theme
 - **OTA Updates** - Automatic firmware updates from GitHub releases
 
-## 📝 Configuration
+## Configuration
 
 WiFi credentials are stored persistently in NVS (Non-Volatile Storage). Once configured via the UI, they survive reboots and power cycles.
-
-### Display Settings
-- Brightness control (0-100%)
-- Auto-dim timeout (0-300 seconds)
-- Dimmed brightness level
 
 ### Firmware Updates
 - Automatic OTA updates from GitHub releases
