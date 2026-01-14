@@ -7,7 +7,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <WiFiClientSecure.h>
 #include <JPEGDEC.h>
 #include <Preferences.h>
 #include <Update.h>
@@ -772,13 +771,11 @@ static void checkForUpdates() {
     }
     lv_timer_handler();
 
-    WiFiClientSecure client;
-    client.setInsecure();  // Skip certificate validation
-
     HTTPClient http;
-    http.begin(client, "https://api.github.com/repos/" GITHUB_REPO "/releases/latest");
+    http.begin("http://api.github.com/repos/" GITHUB_REPO "/releases/latest");
     http.addHeader("Accept", "application/vnd.github.v3+json");
     http.setTimeout(15000);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
     int httpCode = http.GET();
 
@@ -803,7 +800,8 @@ static void checkForUpdates() {
                 String name = asset["name"].as<String>();
                 if (name.indexOf("firmware.bin") >= 0) {
                     download_url = asset["browser_download_url"].as<String>();
-                    // Use HTTPS directly - ESP32-P4 supports it with WiFiClientSecure
+                    // Convert HTTPS to HTTP for ESP32-P4 compatibility
+                    download_url.replace("https://", "http://");
                     break;
                 }
             }
@@ -865,12 +863,10 @@ static void performOTAUpdate() {
     }
     lv_timer_handler();
 
-    WiFiClientSecure client;
-    client.setInsecure();  // Skip certificate validation
-
     HTTPClient http;
-    http.begin(client, download_url);
+    http.begin(download_url);
     http.setTimeout(60000);  // 60 second timeout for large files
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
     int httpCode = http.GET();
 
