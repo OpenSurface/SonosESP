@@ -42,10 +42,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install platformio
 
-    - name: Create credentials.h from template
-      run: |
-        cp include/credentials.h.example include/credentials.h
-
     - name: Clean LVGL ARM assembly files
       run: |
         echo "Removing ARM-specific assembly files from LVGL..."
