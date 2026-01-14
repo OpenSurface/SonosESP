@@ -1,6 +1,11 @@
 import os
 import shutil
-Import("env")
+
+try:
+    Import("env")  # type: ignore  # PlatformIO SCons function, not available in IDE
+except:
+    # For linting/IDE purposes when not running in PlatformIO
+    env = None  # type: ignore
 
 def remove_lvgl_asm_dirs():
     """Remove ARM-specific assembly files from LVGL that cause build errors on ESP32-P4"""

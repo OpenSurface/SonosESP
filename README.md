@@ -1,4 +1,4 @@
-# 🎵 ESP32-P4 Sonos Controller
+# SonosESP | ESP32-P4 Sonos Controller
 
 <div align="center">
 
