@@ -91,6 +91,10 @@ jobs:
       if: github.event_name == 'release'
       uses: softprops/action-gh-release@v1
       with:
-        files: sonos-controller-firmware.zip
+        files: |
+          sonos-controller-firmware.zip
+          .pio/build/esp32-p4/firmware.bin
+          .pio/build/esp32-p4/bootloader.bin
+          .pio/build/esp32-p4/partitions.bin
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
