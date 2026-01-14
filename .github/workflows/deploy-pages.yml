@@ -38,9 +38,9 @@ jobs:
         path: |
           ~/.platformio
           .pio
-        key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+        key: ${{ runner.os }}-pio-v2-${{ hashFiles('**/platformio.ini') }}
         restore-keys: |
-          ${{ runner.os }}-pio-
+          ${{ runner.os }}-pio-v2-
 
     - name: Install PlatformIO
       run: |
@@ -50,6 +50,14 @@ jobs:
     - name: Create credentials.h from template
       run: |
         cp include/credentials.h.example include/credentials.h
+
+    - name: Clean LVGL ARM assembly files
+      run: |
+        echo "Removing ARM-specific assembly files from LVGL..."
+        find .pio/libdeps/esp32-p4/lvgl/src/draw/sw/blend/ -name "*.S" -o -name "*.s" 2>/dev/null | xargs rm -f || true
+        rm -rf .pio/libdeps/esp32-p4/lvgl/src/draw/sw/blend/helium 2>/dev/null || true
+        rm -rf .pio/libdeps/esp32-p4/lvgl/src/draw/sw/blend/neon 2>/dev/null || true
+        echo "ARM assembly cleanup completed"
 
     - name: Build firmware
       run: pio run
