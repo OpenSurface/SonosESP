@@ -2541,61 +2541,6 @@ void processUpdates() {
     if (need && (millis() - lastUpdate > 200)) { updateUI(); lastUpdate = millis(); }
 }
 
-// Serial command handler for web installer WiFi configuration
-static String serialBuffer = "";
-void handleSerialCommands() {
-    while (Serial.available()) {
-        char c = Serial.read();
-        if (c == '\n' || c == '\r') {
-            if (serialBuffer.length() > 0) {
-                // Process command
-                if (serialBuffer.startsWith("wifi_ssid:")) {
-                    String ssid = serialBuffer.substring(10);
-                    wifiPrefs.putString("ssid", ssid);
-                    Serial.printf("WiFi SSID set: %s\n", ssid.c_str());
-                }
-                else if (serialBuffer.startsWith("wifi_pass:")) {
-                    String pass = serialBuffer.substring(10);
-                    wifiPrefs.putString("pass", pass);
-                    Serial.println("WiFi password set");
-                }
-                else if (serialBuffer == "wifi_connect") {
-                    String ssid = wifiPrefs.getString("ssid", "");
-                    String pass = wifiPrefs.getString("pass", "");
-                    Serial.printf("Connecting to WiFi: %s\n", ssid.c_str());
-                    WiFi.disconnect();
-                    WiFi.begin(ssid.c_str(), pass.c_str());
-
-                    // Wait up to 10 seconds for connection
-                    int tries = 0;
-                    while (WiFi.status() != WL_CONNECTED && tries++ < 20) {
-                        delay(500);
-                        Serial.print(".");
-                    }
-                    Serial.println();
-
-                    if (WiFi.status() == WL_CONNECTED) {
-                        Serial.printf("Connected! IP: %s\n", WiFi.localIP().toString().c_str());
-                        // Update WiFi status label if on settings screen
-                        if (lbl_wifi_status) {
-                            lv_label_set_text_fmt(lbl_wifi_status, LV_SYMBOL_WIFI " %s", WiFi.localIP().toString().c_str());
-                        }
-                    } else {
-                        Serial.println("Connection failed");
-                    }
-                }
-                serialBuffer = "";
-            }
-        } else {
-            serialBuffer += c;
-            // Prevent buffer overflow
-            if (serialBuffer.length() > 128) {
-                serialBuffer = "";
-            }
-        }
-    }
-}
-
 void setup() {
     Serial.begin(115200);
     delay(500);
@@ -2721,7 +2666,6 @@ void loop() {
     lv_tick_inc(3);
     lv_timer_handler();
     processUpdates();
-    handleSerialCommands();  // Handle WiFi configuration from web installer
     checkAutoDim();  // Check if screen should be dimmed
     vTaskDelay(pdMS_TO_TICKS(3));  // More efficient than delay() - allows other tasks to run
 }
