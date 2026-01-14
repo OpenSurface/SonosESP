@@ -134,7 +134,7 @@ WiFi credentials are stored persistently in NVS (Non-Volatile Storage). Once con
 - Progress indication during download
 - Safe rollback on failure
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
@@ -146,11 +146,11 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for gu
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with [LVGL](https://lvgl.io/) - Amazing embedded graphics library
 - [PlatformIO](https://platformio.org/) - Best embedded development platform
