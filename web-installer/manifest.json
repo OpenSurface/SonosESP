@@ -8,7 +8,7 @@
       "parts": [
         {
           "path": "bootloader.bin",
-          "offset": 8192
+          "offset": 0
         },
         {
           "path": "partitions.bin",
