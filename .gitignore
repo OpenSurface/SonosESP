@@ -6,7 +6,6 @@
 .vscode/ipch
 
 # Private files (DO NOT COMMIT)
-include/credentials.h
 INSTRUCTIONS.md
 OTA_FEATURE_SUMMARY.md
 GITHUB_RELEASE_CHECKLIST.md

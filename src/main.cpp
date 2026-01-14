@@ -16,11 +16,14 @@
 #include "display_driver.h"
 #include "touch_driver.h"
 #include "sonos_controller.h"
-#include "credentials.h"  // WiFi credentials (gitignored)
 #include "esp_heap_caps.h"
 
+// Default WiFi credentials (empty = force WiFi setup via UI)
+#define DEFAULT_WIFI_SSID     ""
+#define DEFAULT_WIFI_PASSWORD ""
+
 // Firmware version
-#define FIRMWARE_VERSION "1.0.6"
+#define FIRMWARE_VERSION "1.0.7"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -888,7 +891,8 @@ static void performOTAUpdate() {
             while (http.connected() && (written < contentLength)) {
                 size_t available = stream->available();
                 if (available) {
-                    int c = stream->readBytes(buff, min(available, sizeof(buff)));
+                    size_t toRead = available < sizeof(buff) ? available : sizeof(buff);
+                    int c = stream->readBytes(buff, toRead);
                     written += Update.write(buff, c);
 
                     int percent = (written * 100) / contentLength;

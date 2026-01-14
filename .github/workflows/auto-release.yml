@@ -63,11 +63,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install platformio
 
-    - name: Create credentials.h from template
-      if: steps.check_release.outputs.EXISTS == 'false'
-      run: |
-        cp include/credentials.h.example include/credentials.h
-
     - name: Clean LVGL ARM assembly files
       if: steps.check_release.outputs.EXISTS == 'false'
       run: |
