@@ -1,0 +1,127 @@
+name: Auto Release
+
+on:
+  push:
+    paths:
+      - 'version.json'
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  auto-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Read version from version.json
+      id: get_version
+      run: |
+        VERSION=$(jq -r '.version' version.json)
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+
+    - name: Check if release already exists
+      id: check_release
+      run: |
+        if gh release view "v${{ steps.get_version.outputs.VERSION }}" > /dev/null 2>&1; then
+          echo "EXISTS=true" >> $GITHUB_OUTPUT
+          echo "Release v${{ steps.get_version.outputs.VERSION }} already exists"
+        else
+          echo "EXISTS=false" >> $GITHUB_OUTPUT
+          echo "Release v${{ steps.get_version.outputs.VERSION }} does not exist"
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      if: steps.check_release.outputs.EXISTS == 'false'
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Cache PlatformIO
+      if: steps.check_release.outputs.EXISTS == 'false'
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.platformio
+          .pio
+        key: ${{ runner.os }}-pio-v2-${{ hashFiles('**/platformio.ini') }}
+        restore-keys: |
+          ${{ runner.os }}-pio-v2-
+
+    - name: Install PlatformIO
+      if: steps.check_release.outputs.EXISTS == 'false'
+      run: |
+        python -m pip install --upgrade pip
+        pip install platformio
+
+    - name: Create credentials.h from template
+      if: steps.check_release.outputs.EXISTS == 'false'
+      run: |
+        cp include/credentials.h.example include/credentials.h
+
+    - name: Clean LVGL ARM assembly files
+      if: steps.check_release.outputs.EXISTS == 'false'
+      run: |
+        echo "Removing ARM-specific assembly files from LVGL..."
+        find .pio/libdeps/esp32-p4/lvgl/src/draw/sw/blend/ -name "*.S" -o -name "*.s" 2>/dev/null | xargs rm -f || true
+        rm -rf .pio/libdeps/esp32-p4/lvgl/src/draw/sw/blend/helium 2>/dev/null || true
+        rm -rf .pio/libdeps/esp32-p4/lvgl/src/draw/sw/blend/neon 2>/dev/null || true
+        echo "ARM assembly cleanup completed"
+
+    - name: Build firmware
+      if: steps.check_release.outputs.EXISTS == 'false'
+      run: pio run
+
+    - name: Copy binaries to web-installer
+      if: steps.check_release.outputs.EXISTS == 'false'
+      run: |
+        mkdir -p web-installer
+        cp .pio/build/esp32-p4/bootloader.bin web-installer/
+        cp .pio/build/esp32-p4/partitions.bin web-installer/
+        cp .pio/build/esp32-p4/firmware.bin web-installer/
+
+    - name: Create release ZIP
+      if: steps.check_release.outputs.EXISTS == 'false'
+      run: |
+        cd .pio/build/esp32-p4
+        zip -r ../../../sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip bootloader.bin partitions.bin firmware.bin
+
+    - name: Create GitHub Release
+      if: steps.check_release.outputs.EXISTS == 'false'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.get_version.outputs.VERSION }}
+        name: Release v${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## SonosESP v${{ steps.get_version.outputs.VERSION }}
+
+          ### Installation
+          - **Web Installer**: Visit https://opensurface.github.io/SonosESP/
+          - **Manual Flash**: Download `sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip`
+          - **OTA Update**: Available from device settings
+
+          ### Files
+          - `firmware.bin` - For OTA updates
+          - `bootloader.bin`, `partitions.bin`, `firmware.bin` - For manual flashing
+          - `sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip` - Complete package
+
+          ---
+          *Auto-generated release*
+        files: |
+          sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip
+          .pio/build/esp32-p4/firmware.bin
+          .pio/build/esp32-p4/bootloader.bin
+          .pio/build/esp32-p4/partitions.bin
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

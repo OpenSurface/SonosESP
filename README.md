@@ -55,11 +55,7 @@ This project requires the **GUITION JC4880P433C** development board:
 2. Connect your ESP32-P4 via USB-C
 3. Click "Install Firmware" and select the COM port
 4. Wait for installation to complete
-5. **Optional:** Configure WiFi directly from the web installer
-   - After installation, a WiFi configuration section will appear
-   - Enter your WiFi SSID and password
-   - Click "Configure WiFi" to send credentials to the device
-   - Alternatively, use the on-screen keyboard after reboot
+5. Configure WiFi using the on-screen keyboard after reboot
 
 > Requires Chrome, Edge, or Opera browser with Web Serial support
 
@@ -74,27 +70,35 @@ The device supports automatic Over-The-Air (OTA) firmware updates from GitHub re
 4. If an update is available, tap "Install Update"
 5. Device will automatically download and install from GitHub releases
 
-### For Developers: Setting Up OTA Updates
+### For Developers: Creating a New Release
 
-To enable OTA updates for your fork:
+Releases are **fully automated**! Just update the version number:
 
-1. **Create a GitHub Release:**
-   - Go to your GitHub repository
-   - Navigate to "Releases" → "Create a new release"
-   - Tag version (e.g., `v1.0.1`)
-   - Upload the `firmware.bin` file from `.pio/build/esp32-p4/` as a release asset
-
-2. **Update firmware version in code:**
-   - Edit `src/main.cpp` line 22: `#define FIRMWARE_VERSION "1.0.1"`
-   - Update `web-installer/manifest.json` line 3: `"version": "1.0.1"`
-
-3. **Build and create release:**
-   ```bash
-   pio run
-   # Upload .pio/build/esp32-p4/firmware.bin to GitHub release
+1. **Edit `version.json`:**
+   ```json
+   {
+     "version": "1.0.1"
+   }
    ```
 
-The device will check `https://api.github.com/repos/OpenSurface/SonosESP/releases/latest` for updates. Make sure your releases are public and include the `firmware.bin` file.
+2. **Commit and push:**
+   ```bash
+   git add version.json
+   git commit -m "Release v1.0.1"
+   git push origin main
+   ```
+
+3. **That's it!** GitHub Actions will automatically:
+   - Build the firmware
+   - Create a release tagged `v1.0.1`
+   - Upload all binaries (`firmware.bin`, `bootloader.bin`, `partitions.bin`)
+   - Make it available for OTA updates
+
+**Note:** Make sure to also update:
+- `src/main.cpp` line 22: `#define FIRMWARE_VERSION "1.0.1"`
+- `web-installer/manifest.json` line 3: `"version": "1.0.1"`
+
+The device checks `https://api.github.com/repos/OpenSurface/SonosESP/releases/latest` for OTA updates.
 
 ## 🔧 Building from Source
 
