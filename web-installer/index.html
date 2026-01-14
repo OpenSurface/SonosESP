@@ -382,10 +382,25 @@
                     </div>
 
                     <div class="flash-section">
-                        <esp-web-install-button manifest="./manifest.json">
+                        <esp-web-install-button id="install-btn" manifest="./manifest.json">
                             <button slot="activate">INSTALL FIRMWARE</button>
                         </esp-web-install-button>
                         <p class="browser-info">Requires Chrome, Edge, or Opera</p>
+                    </div>
+
+                    <div id="wifi-section" style="display: none; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                        <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 1rem;">WiFi Configuration</h3>
+                        <div style="margin-bottom: 1rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; color: rgba(255, 255, 255, 0.7); font-size: 0.9rem;">Network SSID</label>
+                            <input type="text" id="wifi-ssid" placeholder="Enter WiFi SSID" style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #ffffff; font-size: 0.9rem; font-family: 'Inter', sans-serif;">
+                        </div>
+                        <div style="margin-bottom: 1rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; color: rgba(255, 255, 255, 0.7); font-size: 0.9rem;">Password</label>
+                            <input type="password" id="wifi-password" placeholder="Enter WiFi Password" style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #ffffff; font-size: 0.9rem; font-family: 'Inter', sans-serif;">
+                        </div>
+                        <button id="wifi-configure-btn" style="width: 100%; padding: 0.75rem 2rem; background: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.2); font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif;">
+                            Configure WiFi
+                        </button>
                     </div>
                 </div>
             </div>
@@ -480,19 +495,35 @@
 
             installButton.addEventListener('state-changed', (e) => {
                 const state = e.detail;
-                logMessage('info', '●', `State: ${state}`);
 
                 if (state === 'CONNECTED') {
                     logMessage('success', '✓', 'Device connected successfully');
                 } else if (state === 'PREPARING') {
                     logMessage('progress', '◆', 'Preparing flash operation...');
+                    logMessage('info', '→', 'Erasing existing firmware...');
                 } else if (state === 'WRITING') {
                     logMessage('progress', '▶', 'Writing firmware to device');
                 } else if (state === 'FINISHED') {
                     logMessage('success', '✓', 'Firmware installation complete');
-                    logMessage('info', '→', 'Device will reboot automatically');
+                    logMessage('success', '✓', 'Device will reboot automatically');
+                    logMessage('info', '→', 'You can now configure WiFi below (optional)');
+
+                    // Show WiFi configuration section
+                    setTimeout(() => {
+                        const wifiSection = document.getElementById('wifi-section');
+                        if (wifiSection) {
+                            wifiSection.style.display = 'block';
+                            logMessage('info', '●', 'WiFi configuration section now available');
+                        }
+                    }, 2000); // Show after 2 seconds
                 } else if (state === 'ERROR') {
                     logMessage('error', '✖', 'Installation failed - check connection');
+                } else if (state === 'MANIFEST') {
+                    logMessage('info', '●', 'Loading firmware manifest...');
+                } else if (state === 'ASK_ERASE') {
+                    logMessage('warning', '!', 'User confirmation required');
+                } else {
+                    logMessage('info', '●', `State: ${state}`);
                 }
             });
 
@@ -513,6 +544,68 @@
             });
         } else {
             logMessage('error', '✖', 'Install button not found - check esp-web-tools loaded');
+        }
+
+        // WiFi Configuration Handler
+        const wifiConfigureBtn = document.getElementById('wifi-configure-btn');
+        if (wifiConfigureBtn) {
+            wifiConfigureBtn.addEventListener('click', async () => {
+                const ssid = document.getElementById('wifi-ssid').value;
+                const password = document.getElementById('wifi-password').value;
+
+                if (!ssid) {
+                    logMessage('error', '✖', 'Please enter WiFi SSID');
+                    return;
+                }
+
+                if (!password) {
+                    logMessage('warning', '!', 'Configuring WiFi without password');
+                }
+
+                logMessage('info', '●', `Configuring WiFi: ${ssid}`);
+                wifiConfigureBtn.disabled = true;
+                wifiConfigureBtn.textContent = 'Configuring...';
+
+                try {
+                    // Get the device port from the install button
+                    const installBtn = document.getElementById('install-btn');
+                    const port = installBtn?.port;
+
+                    if (!port) {
+                        logMessage('error', '✖', 'Device not connected. Please install firmware first.');
+                        wifiConfigureBtn.disabled = false;
+                        wifiConfigureBtn.textContent = 'Configure WiFi';
+                        return;
+                    }
+
+                    // Send WiFi configuration via serial
+                    const encoder = new TextEncoder();
+                    const writer = port.writable.getWriter();
+
+                    // Send configuration commands
+                    await writer.write(encoder.encode(`wifi_ssid:${ssid}\n`));
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await writer.write(encoder.encode(`wifi_pass:${password}\n`));
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await writer.write(encoder.encode('wifi_connect\n'));
+
+                    writer.releaseLock();
+
+                    logMessage('success', '✓', 'WiFi credentials sent to device');
+                    logMessage('info', '→', 'Device will attempt to connect to WiFi');
+                    logMessage('info', '→', 'Check device display for connection status');
+
+                    wifiConfigureBtn.textContent = '✓ Configured';
+                    wifiConfigureBtn.style.background = 'rgba(78, 203, 113, 0.2)';
+                    wifiConfigureBtn.style.borderColor = 'rgba(78, 203, 113, 0.4)';
+
+                } catch (error) {
+                    logMessage('error', '✖', `WiFi configuration failed: ${error.message}`);
+                    logMessage('info', '→', 'You can configure WiFi manually using the device keyboard');
+                    wifiConfigureBtn.disabled = false;
+                    wifiConfigureBtn.textContent = 'Configure WiFi';
+                }
+            });
         }
     </script>
 </body>
