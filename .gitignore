@@ -15,6 +15,3 @@ GITHUB_RELEASE_CHECKLIST.md
 *.bin
 *.elf
 *.map
-
-# Exception: Allow binaries in web-installer for GitHub Pages
-!web-installer/*.bin
