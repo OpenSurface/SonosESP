@@ -4,13 +4,16 @@
 
 **A modern, touchscreen controller for Sonos speakers built with ESP32-P4**
 
-[![Build Firmware](https://github.com/OpenSurface/SonosESP/actions/workflows/build.yml/badge.svg)](https://github.com/OpenSurface/SonosESP/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-Ready-blue.svg)](https://platformio.org/)
 
 [Features](#features) • [Hardware](#hardware) • [Installation](#installation) • [Building](#building) • [Contributing](#contributing)
 
-<img src="docs/screenshot.png" alt="Sonos Controller" width="600">
+## ☕ Support
+
+If you find this project helpful, consider buying me a coffee!
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-orange?style=for-the-badge&logo=buy-me-a-coffee)](https://www.buymeacoffee.com/pizzapasta)
 
 </div>
 
@@ -188,11 +191,6 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 - [PlatformIO](https://platformio.org/) - Best embedded development platform
 - Sonos UPnP/SOAP API documentation and community
 
-## ☕ Support
-
-If you find this project helpful, consider buying me a coffee!
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-orange?style=for-the-badge&logo=buy-me-a-coffee)](https://www.buymeacoffee.com/opensurface)
 
 ---
 
