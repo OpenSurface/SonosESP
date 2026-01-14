@@ -772,12 +772,10 @@ static void checkForUpdates() {
     lv_timer_handler();
 
     HTTPClient http;
-    // Use HTTPS with certificate validation disabled (GitHub requires HTTPS)
-    http.begin("https://api.github.com/repos/" GITHUB_REPO "/releases/latest");
+    http.begin("http://api.github.com/repos/" GITHUB_REPO "/releases/latest");
     http.addHeader("Accept", "application/vnd.github.v3+json");
     http.setTimeout(15000);
-    // For ESP32-P4, we need to disable certificate validation for now
-    http.setInsecure();
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
     int httpCode = http.GET();
 
@@ -802,7 +800,8 @@ static void checkForUpdates() {
                 String name = asset["name"].as<String>();
                 if (name.indexOf("firmware.bin") >= 0) {
                     download_url = asset["browser_download_url"].as<String>();
-                    // Keep HTTPS URL for secure download
+                    // Convert HTTPS to HTTP for ESP32-P4 compatibility
+                    download_url.replace("https://", "http://");
                     break;
                 }
             }
@@ -867,8 +866,7 @@ static void performOTAUpdate() {
     HTTPClient http;
     http.begin(download_url);
     http.setTimeout(60000);  // 60 second timeout for large files
-    // Disable certificate validation for ESP32-P4
-    http.setInsecure();
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
     int httpCode = http.GET();
 
