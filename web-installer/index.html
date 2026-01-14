@@ -326,18 +326,6 @@
             <p><strong>Hardware Requirement:</strong> GUITION JC4880P433C (800x480 RGB, GT911 Touch, ESP32-P4 + ESP32-C6)</p>
         </div>
 
-        <div class="notice" style="border-left-color: #ffaa00; background: rgba(255, 170, 0, 0.05);">
-            <p><strong style="color: #ffaa00;">⚠️ ESP32-P4 Not Yet Supported by Web Installer</strong></p>
-            <p style="margin-top: 0.5rem;">ESP-Web-Tools does not yet support ESP32-P4. Please use manual flashing with esptool:</p>
-            <p style="margin-top: 0.5rem;">
-                <a href="https://github.com/OpenSurface/SonosESP/releases/latest/download/firmware-merged.bin"
-                   style="color: #ffaa00; text-decoration: underline;">Download firmware-merged.bin</a>
-            </p>
-            <p style="margin-top: 0.5rem; font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 4px;">
-                esptool.py --chip esp32p4 write_flash 0x0 firmware-merged.bin
-            </p>
-        </div>
-
         <div class="grid">
             <div class="card">
                 <div class="card-content">
