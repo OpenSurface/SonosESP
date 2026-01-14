@@ -32,23 +32,19 @@ jobs:
       with:
         path: |
           ~/.platformio
-          .pio
-        key: ${{ runner.os }}-pio-v2-${{ hashFiles('**/platformio.ini') }}
+        key: ${{ runner.os }}-pio-v3-${{ hashFiles('**/platformio.ini') }}
         restore-keys: |
-          ${{ runner.os }}-pio-v2-
+          ${{ runner.os }}-pio-v3-
 
     - name: Install PlatformIO
       run: |
         python -m pip install --upgrade pip
         pip install platformio
 
-    - name: Clean LVGL ARM assembly files
+    - name: Clean build directory
       run: |
-        echo "Removing ARM-specific assembly files from LVGL..."
-        find .pio/libdeps/esp32-p4/lvgl/src/draw/sw/blend/ -name "*.S" -o -name "*.s" 2>/dev/null | xargs rm -f || true
-        rm -rf .pio/libdeps/esp32-p4/lvgl/src/draw/sw/blend/helium 2>/dev/null || true
-        rm -rf .pio/libdeps/esp32-p4/lvgl/src/draw/sw/blend/neon 2>/dev/null || true
-        echo "ARM assembly cleanup completed"
+        rm -rf .pio
+        echo "Build directory cleaned"
 
     - name: Build firmware
       run: pio run
