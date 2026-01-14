@@ -89,11 +89,20 @@ jobs:
         cp .pio/build/esp32-p4/partitions.bin web-installer/
         cp .pio/build/esp32-p4/firmware.bin web-installer/
 
+    - name: Create merged firmware binary
+      if: steps.check_release.outputs.EXISTS == 'false'
+      run: |
+        pip install esptool
+        cd .pio/build/esp32-p4
+        python -m esptool --chip esp32p4 merge_bin -o ../../../firmware-merged.bin --flash_mode qio --flash_size 16MB 0x0 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin
+        echo "Merged firmware binary created successfully"
+
     - name: Create release ZIP
       if: steps.check_release.outputs.EXISTS == 'false'
       run: |
         cd .pio/build/esp32-p4
         zip -r ../../../sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip bootloader.bin partitions.bin firmware.bin
+        echo "Created release ZIP with individual binaries"
 
     - name: Create GitHub Release
       if: steps.check_release.outputs.EXISTS == 'false'
@@ -110,13 +119,26 @@ jobs:
           - **OTA Update**: Available from device settings
 
           ### Files
+          - `firmware-merged.bin` - **Single complete firmware file (RECOMMENDED for web installer)**
           - `firmware.bin` - For OTA updates
-          - `bootloader.bin`, `partitions.bin`, `firmware.bin` - For manual flashing
+          - `bootloader.bin`, `partitions.bin`, `firmware.bin` - For manual flashing with separate binaries
           - `sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip` - Complete package
+
+          ### Flash Instructions
+          **Using merged binary (easiest):**
+          ```
+          esptool.py --chip esp32p4 write_flash 0x0 firmware-merged.bin
+          ```
+
+          **Using separate binaries:**
+          ```
+          esptool.py --chip esp32p4 write_flash 0x0 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin
+          ```
 
           ---
           *Auto-generated release*
         files: |
+          firmware-merged.bin
           sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip
           .pio/build/esp32-p4/firmware.bin
           .pio/build/esp32-p4/bootloader.bin
