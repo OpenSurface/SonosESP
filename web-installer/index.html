@@ -451,8 +451,16 @@
         const installButton = document.querySelector('esp-web-install-button');
 
         if (installButton) {
+            // Log all events for debugging
+            ['state-changed', 'progress', 'error'].forEach(eventType => {
+                installButton.addEventListener(eventType, (e) => {
+                    console.log(`Event: ${eventType}`, e.detail);
+                });
+            });
+
             installButton.addEventListener('state-changed', (e) => {
                 const state = e.detail;
+                logMessage('info', '●', `State: ${state}`);
 
                 if (state === 'CONNECTED') {
                     logMessage('success', '✓', 'Device connected successfully');
@@ -476,6 +484,15 @@
                     }
                 }
             });
+
+            installButton.addEventListener('error', (e) => {
+                logMessage('error', '✖', `Error: ${e.detail?.message || 'Unknown error'}`);
+                if (e.detail?.error) {
+                    logMessage('error', '✖', `Details: ${e.detail.error}`);
+                }
+            });
+        } else {
+            logMessage('error', '✖', 'Install button not found - check esp-web-tools loaded');
         }
     </script>
 </body>
