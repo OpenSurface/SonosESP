@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pio run:*)",
+      "Bash(platformio run:*)",
+      "Bash(ls:*)",
+      "Bash(python -m platformio run:*)",
+      "Bash(C:/Users/sehmi/.platformio/penv/Scripts/pio.exe run)",
+      "Bash(C:/Users/sehmi/.platformio/penv/Scripts/pio.exe run --target upload)",
+      "Bash(C:/Users/sehmi/.platformio/penv/Scripts/pio.exe run --target clean)",
+      "Bash(wmic process where \"name like ''%esptool%'' or name like ''%pio%''\" delete)",
+      "Bash(~/.platformio/penv/Scripts/platformio.exe run)",
+      "Bash(~/.platformio/penv/Scripts/platformio run --target upload)",
+      "Bash(~/.platformio/penv/Scripts/platformio run)",
+      "Bash(~/.platformio/penv/Scripts/platformio.exe pkg list)",
+      "Bash(del /q ESP32_P4_MIGRATION_COMPLETE.md REDDIT_POST.md)"
+    ]
+  }
+}

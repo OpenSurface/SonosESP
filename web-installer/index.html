@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32-P4 Sonos Controller</title>
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 4rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            letter-spacing: -0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 1rem;
+            font-weight: 400;
+        }
+
+        .version {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.35rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Notice */
+        .notice {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 1.5rem;
+            margin-bottom: 3rem;
+            font-size: 0.95rem;
+        }
+
+        .notice strong {
+            color: #ffffff;
+        }
+
+        .notice p {
+            color: rgba(255, 255, 255, 0.7);
+            margin: 0;
+        }
+
+        /* Main Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Card */
+        .card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card h2 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+            color: #ffffff;
+        }
+
+        .card-content {
+            flex: 1;
+        }
+
+        /* Specs Table */
+        .specs {
+            margin-bottom: 0;
+        }
+
+        .spec-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+        }
+
+        .spec-row:last-child {
+            border-bottom: none;
+        }
+
+        .spec-label {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .spec-value {
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        .card-section {
+            margin-bottom: 2rem;
+        }
+
+        .card-section:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Steps */
+        .steps {
+            list-style: none;
+            counter-reset: step;
+        }
+
+        .steps li {
+            counter-increment: step;
+            margin-bottom: 1.5rem;
+            padding-left: 2.5rem;
+            position: relative;
+            font-size: 0.95rem;
+        }
+
+        .steps li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1.5rem;
+            height: 1.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .steps li strong {
+            display: block;
+            margin-bottom: 0.25rem;
+            color: #ffffff;
+        }
+
+        .steps li span {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+        }
+
+        /* Flash Button */
+        .flash-section {
+            margin: 2rem 0;
+        }
+
+        esp-web-install-button {
+            display: block;
+            margin: 2rem 0;
+        }
+
+        esp-web-install-button button {
+            width: 100%;
+            padding: 1rem 2rem;
+            background: #ffffff !important;
+            color: #000000 !important;
+            border: none;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        esp-web-install-button button:hover {
+            opacity: 0.9;
+        }
+
+        .browser-info {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        /* Console */
+        .console-wrapper {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            grid-column: 1 / -1;
+        }
+
+        .console-header {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .console {
+            background: #000000;
+            padding: 1.5rem;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .console::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .console::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .console::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .console::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .log-line {
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .log-time {
+            color: rgba(255, 255, 255, 0.4);
+            margin-right: 1rem;
+            font-size: 0.75rem;
+            min-width: 60px;
+        }
+
+        .log-icon {
+            margin-right: 0.5rem;
+            min-width: 20px;
+        }
+
+        .log-message {
+            flex: 1;
+        }
+
+        .log-info .log-icon { color: #4a9eff; }
+        .log-success .log-icon { color: #00ff88; }
+        .log-warning .log-icon { color: #ffaa00; }
+        .log-error .log-icon { color: #ff4444; }
+        .log-progress .log-icon { color: #aa88ff; }
+
+        /* Features */
+
+        /* Footer */
+        footer {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: #ffffff;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        footer a:hover {
+            border-bottom-color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 id="project-title">SonosESP Controller</h1>
+            <p class="subtitle">Web Firmware Installer</p>
+            <span class="version" id="project-version">v0.1.0</span>
+        </header>
+
+        <div class="notice">
+            <p><strong>Hardware Requirement:</strong> GUITION JC4880P433C (800x480 RGB, GT911 Touch, ESP32-P4 + ESP32-C6)</p>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-content">
+                    <div class="card-section">
+                        <h2>Hardware Specifications</h2>
+                        <div class="specs">
+                            <div class="spec-row">
+                                <span class="spec-label">Microcontroller</span>
+                                <span class="spec-value">ESP32-P4</span>
+                            </div>
+                            <div class="spec-row">
+                                <span class="spec-label">Display</span>
+                                <span class="spec-value">800×480 RGB</span>
+                            </div>
+                            <div class="spec-row">
+                                <span class="spec-label">Touch</span>
+                                <span class="spec-value">GT911 I2C</span>
+                            </div>
+                            <div class="spec-row">
+                                <span class="spec-label">Flash</span>
+                                <span class="spec-value">16 MB</span>
+                            </div>
+                            <div class="spec-row">
+                                <span class="spec-label">PSRAM</span>
+                                <span class="spec-value">OPI</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-content">
+                    <div class="card-section">
+                        <h2>Installation Steps</h2>
+                        <ol class="steps">
+                            <li>
+                                <strong>Connect Device</strong>
+                                <span>Plug ESP32-P4 via USB-C</span>
+                            </li>
+                            <li>
+                                <strong>Flash Firmware</strong>
+                                <span>Click button below, select COM port</span>
+                            </li>
+                            <li>
+                                <strong>Wait for Completion</strong>
+                                <span>Do not disconnect during flash</span>
+                            </li>
+                            <li>
+                                <strong>Configure WiFi</strong>
+                                <span>Use on-screen keyboard after reboot</span>
+                            </li>
+                        </ol>
+                    </div>
+
+                    <div class="flash-section">
+                        <esp-web-install-button manifest="./manifest.json">
+                            <button slot="activate">INSTALL FIRMWARE</button>
+                        </esp-web-install-button>
+                        <p class="browser-info">Requires Chrome, Edge, or Opera</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="console-wrapper">
+            <div class="console-header">Installation Log</div>
+            <div class="console" id="console"></div>
+        </div>
+
+        <footer>
+            <p>SonosESP Controller | <a href="https://github.com/OpenSurface/SonosESP" target="_blank">Documentation</a></p>
+        </footer>
+    </div>
+
+    <script>
+        // Fetch manifest data and update UI
+        fetch('./manifest.json')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('project-title').textContent = data.name;
+                document.getElementById('project-version').textContent = `v${data.version}`;
+            })
+            .catch(err => console.error('Failed to load manifest:', err));
+
+        // Console logging system
+        const console_elem = document.getElementById('console');
+
+        function getTimestamp() {
+            const now = new Date();
+            return now.toTimeString().split(' ')[0];
+        }
+
+        function logMessage(type, icon, message) {
+            const line = document.createElement('div');
+            line.className = `log-line log-${type}`;
+
+            const time = document.createElement('span');
+            time.className = 'log-time';
+            time.textContent = getTimestamp();
+
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'log-icon';
+            iconSpan.textContent = icon;
+
+            const msg = document.createElement('span');
+            msg.className = 'log-message';
+            msg.textContent = message;
+
+            line.appendChild(time);
+            line.appendChild(iconSpan);
+            line.appendChild(msg);
+            console_elem.appendChild(line);
+            console_elem.scrollTop = console_elem.scrollHeight;
+        }
+
+        // Initial messages
+        logMessage('info', '●', 'ESP32-P4 Web Installer initialized');
+        logMessage('info', '○', 'Waiting for device connection...');
+        logMessage('info', '→', 'Click "INSTALL FIRMWARE" to begin flashing');
+        logMessage('success', '✓', 'System ready');
+
+        // Monitor esp-web-install-button events
+        const installButton = document.querySelector('esp-web-install-button');
+
+        if (installButton) {
+            installButton.addEventListener('state-changed', (e) => {
+                const state = e.detail;
+
+                if (state === 'CONNECTED') {
+                    logMessage('success', '✓', 'Device connected successfully');
+                } else if (state === 'PREPARING') {
+                    logMessage('progress', '◆', 'Preparing flash operation...');
+                } else if (state === 'WRITING') {
+                    logMessage('progress', '▶', 'Writing firmware to device');
+                } else if (state === 'FINISHED') {
+                    logMessage('success', '✓', 'Firmware installation complete');
+                    logMessage('info', '→', 'Device will reboot automatically');
+                } else if (state === 'ERROR') {
+                    logMessage('error', '✖', 'Installation failed - check connection');
+                }
+            });
+
+            installButton.addEventListener('progress', (e) => {
+                if (e.detail && e.detail.percentage !== undefined) {
+                    const pct = Math.round(e.detail.percentage);
+                    if (pct % 10 === 0) { // Log every 10%
+                        logMessage('progress', '▶', `Progress: ${pct}%`);
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
