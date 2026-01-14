@@ -282,6 +282,7 @@
 
         .log-message {
             flex: 1;
+            white-space: pre-wrap;
         }
 
         .log-info .log-icon { color: #4a9eff; }
@@ -446,6 +447,25 @@
         logMessage('info', '○', 'Waiting for device connection...');
         logMessage('info', '→', 'Click "INSTALL FIRMWARE" to begin flashing');
         logMessage('success', '✓', 'System ready');
+
+        // Live Logs from ESP32 (SSE)
+        if (!!window.EventSource) {
+            const source = new EventSource('/events');
+
+            source.onopen = function(e) {
+                logMessage('success', '●', 'Live log stream connected');
+            };
+
+            source.onerror = function(e) {
+                if (e.target.readyState != EventSource.OPEN) {
+                    // Silent error to avoid cluttering UI when not served from ESP32
+                }
+            };
+
+            source.addEventListener('log', function(e) {
+                logMessage('info', '»', e.data);
+            }, false);
+        }
 
         // Monitor esp-web-install-button events
         const installButton = document.querySelector('esp-web-install-button');
