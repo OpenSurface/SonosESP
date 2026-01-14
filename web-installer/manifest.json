@@ -4,7 +4,7 @@
   "new_install_prompt_erase": true,
   "builds": [
     {
-      "chipFamily": "ESP32-P4",
+      "chipFamily": "ESP32-C6",
       "parts": [
         {
           "path": "bootloader.bin",
