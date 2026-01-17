@@ -73,7 +73,7 @@ def update_json_file(filepath, key, new_version):
         json.dump(data, f, indent=2)
         f.write('\n')
 
-    print(f"  ✓ {filepath}")
+    print(f"  [OK] {filepath}")
 
 def update_regex_file(filepath, pattern, replacement, new_version):
     """Update version in a file using regex"""
@@ -85,7 +85,7 @@ def update_regex_file(filepath, pattern, replacement, new_version):
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(new_content)
 
-    print(f"  ✓ {filepath}")
+    print(f"  [OK] {filepath}")
 
 def main():
     if len(sys.argv) < 2:
@@ -112,7 +112,7 @@ def main():
     for filepath, config in VERSION_FILES.items():
         path = Path(filepath)
         if not path.exists():
-            print(f"  ✗ {filepath} (not found)")
+            print(f"  [SKIP] {filepath} (not found)")
             continue
 
         if config['type'] == 'json':
@@ -120,7 +120,7 @@ def main():
         elif config['type'] == 'regex':
             update_regex_file(filepath, config['pattern'], config['replacement'], new_version)
 
-    print(f"\n✅ Version bumped to {new_version}")
+    print(f"\n[SUCCESS] Version bumped to {new_version}")
     print("\nNext steps:")
     print(f"  1. Build and test locally")
     print(f"  2. git add -A && git commit -m \"v{new_version}: <description>\"")
