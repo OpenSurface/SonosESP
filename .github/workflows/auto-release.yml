@@ -128,5 +128,6 @@ jobs:
           .pio/build/esp32-p4/partitions.bin
         draft: false
         prerelease: false
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
