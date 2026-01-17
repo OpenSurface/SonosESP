@@ -91,5 +91,6 @@ jobs:
           .pio/build/esp32-p4/firmware.bin
           .pio/build/esp32-p4/bootloader.bin
           .pio/build/esp32-p4/partitions.bin
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
