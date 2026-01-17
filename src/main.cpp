@@ -23,7 +23,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.0.10"
+#define FIRMWARE_VERSION "1.0.11"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -873,7 +873,11 @@ static void performOTAUpdate() {
     if (lbl_ota_progress) {
         lv_label_set_text(lbl_ota_progress, "0%");
     }
-    lv_timer_handler();
+
+    // Force immediate display refresh to show progress bar
+    lv_tick_inc(10);
+    lv_refr_now(NULL);  // Force immediate refresh
+    vTaskDelay(pdMS_TO_TICKS(200));
 
     WiFiClientSecure client;
     client.setInsecure();  // Skip certificate validation
@@ -893,7 +897,8 @@ static void performOTAUpdate() {
             if (lbl_ota_status) {
                 lv_label_set_text(lbl_ota_status, LV_SYMBOL_DOWNLOAD " Downloading firmware...");
             }
-            lv_timer_handler();
+            lv_tick_inc(10);
+            lv_refr_now(NULL);
 
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
@@ -911,21 +916,22 @@ static void performOTAUpdate() {
                     int percent = (written * 100) / contentLength;
                     uint32_t now = millis();
 
-                    // Update UI every 100ms OR on percentage change to prevent flicker
-                    if (now - lastUIUpdate >= 100 || (percent != lastPercent && percent % 2 == 0)) {
+                    // Update UI every 1000ms (1 second) to reduce flicker
+                    if (now - lastUIUpdate >= 1000 && percent != lastPercent) {
                         if (lbl_ota_progress) {
                             lv_label_set_text_fmt(lbl_ota_progress, "%d%%", percent);
                         }
                         if (bar_ota_progress) {
                             lv_bar_set_value(bar_ota_progress, percent, LV_ANIM_OFF);
                         }
-                        if (percent != lastPercent) {
-                            if (lbl_ota_status) {
-                                lv_label_set_text_fmt(lbl_ota_status, LV_SYMBOL_DOWNLOAD " Downloading... %d%%", percent);
-                            }
-                            lastPercent = percent;
+                        if (lbl_ota_status) {
+                            lv_label_set_text(lbl_ota_status, LV_SYMBOL_DOWNLOAD " Downloading firmware...");
                         }
-                        lv_timer_handler();
+                        lastPercent = percent;
+
+                        // Force display refresh
+                        lv_tick_inc(now - lastUIUpdate);
+                        lv_refr_now(NULL);
                         lastUIUpdate = now;
                     }
                 }
@@ -934,6 +940,7 @@ static void performOTAUpdate() {
             }
 
             if (written == contentLength) {
+                // DOWNLOAD COMPLETE - Show 100%
                 if (bar_ota_progress) {
                     lv_bar_set_value(bar_ota_progress, 100, LV_ANIM_OFF);
                 }
@@ -941,18 +948,51 @@ static void performOTAUpdate() {
                     lv_label_set_text(lbl_ota_progress, "100%");
                 }
                 if (lbl_ota_status) {
-                    lv_label_set_text(lbl_ota_status, LV_SYMBOL_REFRESH " Installing update...");
+                    lv_label_set_text(lbl_ota_status, LV_SYMBOL_OK " Download complete!");
                 }
-                lv_timer_handler();
+                lv_tick_inc(10);
+                lv_refr_now(NULL);
+                vTaskDelay(pdMS_TO_TICKS(500));
+
+                // START INSTALL - Reset progress bar and animate
+                if (bar_ota_progress) {
+                    lv_bar_set_value(bar_ota_progress, 0, LV_ANIM_OFF);
+                }
+                if (lbl_ota_progress) {
+                    lv_label_set_text(lbl_ota_progress, "");
+                }
+                if (lbl_ota_status) {
+                    lv_label_set_text(lbl_ota_status, LV_SYMBOL_REFRESH " Installing & verifying...");
+                }
+                lv_tick_inc(10);
+                lv_refr_now(NULL);
+
+                // Animate install progress (0-100% smoothly)
+                for (int i = 0; i <= 100; i += 10) {
+                    if (bar_ota_progress) {
+                        lv_bar_set_value(bar_ota_progress, i, LV_ANIM_OFF);
+                    }
+                    lv_tick_inc(50);
+                    lv_refr_now(NULL);
+                    vTaskDelay(pdMS_TO_TICKS(50));
+                }
             }
 
             if (Update.end()) {
                 if (Update.isFinished()) {
+                    // INSTALL COMPLETE
+                    if (bar_ota_progress) {
+                        lv_bar_set_value(bar_ota_progress, 100, LV_ANIM_OFF);
+                    }
+                    if (lbl_ota_progress) {
+                        lv_label_set_text(lbl_ota_progress, "Done!");
+                    }
                     if (lbl_ota_status) {
                         lv_label_set_text(lbl_ota_status, LV_SYMBOL_OK " Update complete! Rebooting...");
                         lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0x4ECB71), 0);
                     }
-                    lv_timer_handler();
+                    lv_tick_inc(10);
+                    lv_refr_now(NULL);
                     vTaskDelay(pdMS_TO_TICKS(2000));
                     ESP.restart();
                 } else {
