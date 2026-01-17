@@ -92,34 +92,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ steps.get_version.outputs.VERSION }}
-        name: Release v${{ steps.get_version.outputs.VERSION }}
-        body: |
-          ## SonosESP v${{ steps.get_version.outputs.VERSION }}
-
-          ### Installation
-          - **Web Installer**: Visit https://opensurface.github.io/SonosESP/
-          - **Manual Flash**: Download `sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip`
-          - **OTA Update**: Available from device settings
-
-          ### Files
-          - `firmware-merged.bin` - **Single complete firmware file (RECOMMENDED for web installer)**
-          - `firmware.bin` - For OTA updates
-          - `bootloader.bin`, `partitions.bin`, `firmware.bin` - For manual flashing with separate binaries
-          - `sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip` - Complete package
-
-          ### Flash Instructions
-          **Using merged binary (easiest):**
-          ```
-          esptool.py --chip esp32p4 write_flash 0x0 firmware-merged.bin
-          ```
-
-          **Using separate binaries:**
-          ```
-          esptool.py --chip esp32p4 write_flash 0x0 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin
-          ```
-
-          ---
-          *Auto-generated release*
+        name: v${{ steps.get_version.outputs.VERSION }}
         files: |
           firmware-merged.bin
           sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip
