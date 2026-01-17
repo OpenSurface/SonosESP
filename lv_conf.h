@@ -1,6 +1,7 @@
 /**
- * LVGL v9.4.0 Configuration for ESP32-8048S043C
- * 800x480 RGB Display - Performance Optimized
+ * LVGL v9.4.0 Configuration for ESP32-P4
+ * 800x480 MIPI-DSI Display - Performance Optimized
+ * Hardware: 360MHz RISC-V dual-core, 32MB PSRAM (OPI), 16MB Flash
  */
 
 #ifndef LV_CONF_H
@@ -16,12 +17,12 @@
 #define LV_COLOR_CHROMA_KEY lv_color_hex(0x00FF00)
 
 /**********************
- * MEMORY SETTINGS
+ * MEMORY SETTINGS (ESP32-P4 with 32MB PSRAM)
  *********************/
 #define LV_MEM_CUSTOM 1                         // Custom memory allocation
-#define LV_MEM_SIZE (256U * 1024U)              // 256KB for LVGL heap (increased for v9)
+#define LV_MEM_SIZE (512U * 1024U)              // 512KB for LVGL heap (leverage 32MB PSRAM)
 #define LV_MEM_ADR 0                            // Let LVGL allocate
-#define LV_MEM_BUF_MAX_NUM 16
+#define LV_MEM_BUF_MAX_NUM 32                   // More buffers for complex UIs
 #define LV_MEM_POOL_INCLUDE <stdlib.h>
 #define LV_MEM_POOL_ALLOC malloc
 #define LV_MEMCPY_MEMSET_STD 1
@@ -40,11 +41,11 @@
 #define LV_INDEV_DEF_READ_PERIOD 20            // 50Hz input polling (optimized for performance)
 #define LV_USE_PERF_MONITOR 0                  // Disable for production
 
-/* Rendering optimization */
-#define LV_LAYER_SIMPLE_BUF_SIZE (32U * 1024U) // 32KB layer buffer
-#define LV_IMG_CACHE_DEF_SIZE 10               // Cache 10 images
+/* Rendering optimization (ESP32-P4: 32MB PSRAM, 360MHz) */
+#define LV_LAYER_SIMPLE_BUF_SIZE (64U * 1024U) // 64KB layer buffer (more PSRAM available)
+#define LV_IMG_CACHE_DEF_SIZE 20               // Cache 20 images (album art caching)
 #define LV_GRADIENT_MAX_STOPS 8
-#define LV_GRAD_CACHE_DEF_SIZE 512
+#define LV_GRAD_CACHE_DEF_SIZE 1024            // Larger gradient cache
 
 /**********************
  * GPU ACCELERATION
@@ -55,7 +56,7 @@
 #define LV_DRAW_SW_GRADIENT_CACHE_DEF_SIZE 512
 #define LV_DRAW_SW_COMPLEX 1
 
-/* Disable ARM-specific acceleration (not compatible with ESP32-S3) */
+/* Disable ARM-specific acceleration (ESP32-P4 is RISC-V, not ARM) */
 #define LV_USE_DRAW_SW_ASM LV_DRAW_SW_ASM_NONE
 #define LV_DRAW_SW_SUPPORT_HELIUM 0
 #define LV_DRAW_SW_SUPPORT_NEON 0

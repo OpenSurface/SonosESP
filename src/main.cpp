@@ -23,7 +23,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.0.8"
+#define FIRMWARE_VERSION "1.0.9"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -753,6 +753,7 @@ static lv_obj_t* lbl_current_version = nullptr;
 static lv_obj_t* lbl_latest_version = nullptr;
 static lv_obj_t* btn_check_update = nullptr;
 static lv_obj_t* btn_install_update = nullptr;
+static lv_obj_t* bar_ota_progress = nullptr;  // Visual progress bar
 static String latest_version = "";
 static String download_url = "";
 
@@ -859,8 +860,14 @@ static void performOTAUpdate() {
     if (btn_check_update) lv_obj_add_state(btn_check_update, LV_STATE_DISABLED);
     if (btn_install_update) lv_obj_add_state(btn_install_update, LV_STATE_DISABLED);
 
+    // Show and reset progress bar
+    if (bar_ota_progress) {
+        lv_obj_clear_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
+        lv_bar_set_value(bar_ota_progress, 0, LV_ANIM_OFF);
+    }
+
     if (lbl_ota_status) {
-        lv_label_set_text(lbl_ota_status, LV_SYMBOL_DOWNLOAD " Downloading firmware...");
+        lv_label_set_text(lbl_ota_status, LV_SYMBOL_DOWNLOAD " Connecting to server...");
         lv_obj_set_style_text_color(lbl_ota_status, COL_ACCENT, 0);
     }
     if (lbl_ota_progress) {
@@ -883,10 +890,16 @@ static void performOTAUpdate() {
         bool canBegin = Update.begin(contentLength);
 
         if (canBegin) {
+            if (lbl_ota_status) {
+                lv_label_set_text(lbl_ota_status, LV_SYMBOL_DOWNLOAD " Downloading firmware...");
+            }
+            lv_timer_handler();
+
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
-            uint8_t buff[512];
+            uint8_t buff[1024];  // Larger buffer for faster transfer
             int lastPercent = -1;
+            uint32_t lastUIUpdate = millis();
 
             while (http.connected() && (written < contentLength)) {
                 size_t available = stream->available();
@@ -896,21 +909,37 @@ static void performOTAUpdate() {
                     written += Update.write(buff, c);
 
                     int percent = (written * 100) / contentLength;
-                    if (percent != lastPercent && percent % 5 == 0) {
+                    uint32_t now = millis();
+
+                    // Update UI every 100ms OR on percentage change to prevent flicker
+                    if (now - lastUIUpdate >= 100 || (percent != lastPercent && percent % 2 == 0)) {
                         if (lbl_ota_progress) {
                             lv_label_set_text_fmt(lbl_ota_progress, "%d%%", percent);
                         }
-                        if (lbl_ota_status) {
-                            lv_label_set_text_fmt(lbl_ota_status, LV_SYMBOL_DOWNLOAD " Downloading... %d%%", percent);
+                        if (bar_ota_progress) {
+                            lv_bar_set_value(bar_ota_progress, percent, LV_ANIM_OFF);
+                        }
+                        if (percent != lastPercent) {
+                            if (lbl_ota_status) {
+                                lv_label_set_text_fmt(lbl_ota_status, LV_SYMBOL_DOWNLOAD " Downloading... %d%%", percent);
+                            }
+                            lastPercent = percent;
                         }
                         lv_timer_handler();
-                        lastPercent = percent;
+                        lastUIUpdate = now;
                     }
                 }
+                // Small yield to prevent watchdog and allow display updates
                 vTaskDelay(pdMS_TO_TICKS(1));
             }
 
             if (written == contentLength) {
+                if (bar_ota_progress) {
+                    lv_bar_set_value(bar_ota_progress, 100, LV_ANIM_OFF);
+                }
+                if (lbl_ota_progress) {
+                    lv_label_set_text(lbl_ota_progress, "100%");
+                }
                 if (lbl_ota_status) {
                     lv_label_set_text(lbl_ota_status, LV_SYMBOL_REFRESH " Installing update...");
                 }
@@ -953,7 +982,10 @@ static void performOTAUpdate() {
 
     http.end();
 
-    // Re-enable buttons
+    // Hide progress bar and re-enable buttons
+    if (bar_ota_progress) {
+        lv_obj_add_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
+    }
     if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
     if (btn_install_update) lv_obj_clear_state(btn_install_update, LV_STATE_DISABLED);
 }
@@ -2263,10 +2295,24 @@ void createOTAScreen() {
     lv_obj_set_style_text_color(lbl_ota_progress, COL_ACCENT, 0);
     lv_obj_set_style_text_font(lbl_ota_progress, &lv_font_montserrat_20, 0);
 
+    // Visual progress bar (hidden by default)
+    bar_ota_progress = lv_bar_create(scr_ota);
+    lv_obj_set_size(bar_ota_progress, 720, 20);
+    lv_obj_set_pos(bar_ota_progress, 40, 260);
+    lv_bar_set_range(bar_ota_progress, 0, 100);
+    lv_bar_set_value(bar_ota_progress, 0, LV_ANIM_OFF);
+    lv_obj_set_style_bg_color(bar_ota_progress, lv_color_hex(0x333333), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(bar_ota_progress, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(bar_ota_progress, 10, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(bar_ota_progress, COL_ACCENT, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_opa(bar_ota_progress, LV_OPA_COVER, LV_PART_INDICATOR);
+    lv_obj_set_style_radius(bar_ota_progress, 10, LV_PART_INDICATOR);
+    lv_obj_add_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);  // Hidden until update starts
+
     // Check for Updates button
     btn_check_update = lv_btn_create(scr_ota);
     lv_obj_set_size(btn_check_update, 340, 60);
-    lv_obj_set_pos(btn_check_update, 40, 300);
+    lv_obj_set_pos(btn_check_update, 40, 310);
     lv_obj_set_style_bg_color(btn_check_update, COL_ACCENT, 0);
     lv_obj_set_style_radius(btn_check_update, 12, 0);
     lv_obj_add_event_cb(btn_check_update, ev_check_update, LV_EVENT_CLICKED, NULL);
@@ -2279,7 +2325,7 @@ void createOTAScreen() {
     // Install Update button (hidden by default)
     btn_install_update = lv_btn_create(scr_ota);
     lv_obj_set_size(btn_install_update, 340, 60);
-    lv_obj_set_pos(btn_install_update, 420, 300);
+    lv_obj_set_pos(btn_install_update, 420, 310);
     lv_obj_set_style_bg_color(btn_install_update, lv_color_hex(0x4ECB71), 0);
     lv_obj_set_style_radius(btn_install_update, 12, 0);
     lv_obj_add_event_cb(btn_install_update, ev_install_update, LV_EVENT_CLICKED, NULL);
