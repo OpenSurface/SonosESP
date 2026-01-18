@@ -23,7 +23,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.0.15"
+#define FIRMWARE_VERSION "1.0.16"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -67,7 +67,7 @@ static lv_obj_t *btn_play, *btn_prev, *btn_next, *btn_mute, *btn_shuffle, *btn_r
 static lv_obj_t *img_next_album, *lbl_next_title, *lbl_next_artist, *lbl_next_header;
 static lv_obj_t *lbl_wifi_icon, *lbl_device_name, *slider_vol;
 static lv_obj_t *list_devices, *list_queue, *lbl_status, *lbl_queue_status, *list_groups, *lbl_groups_status;
-static lv_obj_t *art_placeholder, *list_wifi, *lbl_wifi_status, *ta_password, *kb, *btn_wifi_scan, *btn_wifi_connect, *lbl_scan_text, *btn_sonos_scan;
+static lv_obj_t *art_placeholder, *list_wifi, *lbl_wifi_status, *ta_password, *kb, *btn_wifi_scan, *btn_wifi_connect, *lbl_scan_text, *btn_sonos_scan, *spinner_scan;
 // panel_right, panel_art, and slider_progress already declared above (before color function)
 
 #define ART_SIZE 420
@@ -443,18 +443,34 @@ static void ev_groups(lv_event_t* e) { sonos.updateGroupInfo(); refreshGroupsLis
 
 void createBrowseScreen();
 static void ev_discover(lv_event_t* e) {
+    Serial.println("[SCAN] Scan button pressed");
+
     // Disable scan button during discovery
     if (btn_sonos_scan) {
         lv_obj_add_state(btn_sonos_scan, LV_STATE_DISABLED);
         lv_obj_set_style_bg_color(btn_sonos_scan, lv_color_hex(0x555555), LV_STATE_DISABLED);
     }
 
-    lv_label_set_text(lbl_status, LV_SYMBOL_REFRESH " Discovering Sonos devices...");
+    // Show spinner
+    if (spinner_scan) {
+        Serial.println("[SCAN] Showing spinner");
+        lv_obj_remove_flag(spinner_scan, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(spinner_scan);  // Bring to front
+    } else {
+        Serial.println("[SCAN] ERROR: spinner_scan is NULL!");
+    }
+
+    lv_label_set_text(lbl_status, "Scanning for speakers...");
     lv_obj_set_style_text_color(lbl_status, COL_ACCENT, 0);
     lv_obj_clean(list_devices);
-    lv_timer_handler();  // Update UI immediately
+    lv_refr_now(NULL);  // Force immediate screen refresh
 
     int cnt = sonos.discoverDevices();
+
+    // Hide spinner
+    if (spinner_scan) {
+        lv_obj_add_flag(spinner_scan, LV_OBJ_FLAG_HIDDEN);
+    }
 
     // Re-enable scan button
     if (btn_sonos_scan) {
@@ -2132,6 +2148,18 @@ void createDevicesScreen() {
     lv_obj_set_style_bg_color(list_devices, COL_TEXT2, LV_PART_SCROLLBAR);
     lv_obj_set_style_width(list_devices, 6, LV_PART_SCROLLBAR);
     lv_obj_set_style_radius(list_devices, 3, LV_PART_SCROLLBAR);
+
+    // Spinner for scan feedback (centered in list area, hidden by default)
+    spinner_scan = lv_spinner_create(scr_devices);
+    lv_obj_set_size(spinner_scan, 100, 100);
+    lv_obj_center(spinner_scan);
+    lv_obj_set_style_arc_color(spinner_scan, COL_ACCENT, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(spinner_scan, lv_color_hex(0x555555), LV_PART_MAIN);
+    lv_obj_set_style_arc_width(spinner_scan, 10, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(spinner_scan, 10, LV_PART_MAIN);
+    lv_obj_set_style_arc_rounded(spinner_scan, true, LV_PART_INDICATOR);
+    lv_obj_move_foreground(spinner_scan);  // Ensure it's on top
+    lv_obj_add_flag(spinner_scan, LV_OBJ_FLAG_HIDDEN);  // Hidden by default
 }
 
 void createQueueScreen() {

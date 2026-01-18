@@ -6,6 +6,7 @@
 #include "sonos_controller.h"
 #include <HTTPClient.h>
 #include "esp_log.h"
+#include "lvgl.h"
 
 static const char* TAG = "SONOS";
 
@@ -77,6 +78,7 @@ int SonosController::discoverDevices() {
     udp.endPacket();
     
     unsigned long start = millis();
+    unsigned long lastUIUpdate = 0;
     while (millis() - start < 10000) {  // 10 seconds for large Sonos setups
         int size = udp.parsePacket();
         if (size > 0) {
@@ -86,12 +88,12 @@ int SonosController::discoverDevices() {
                 buf[len] = 0;
                 if (strstr(buf, "Sonos") || strstr(buf, "ZonePlayer")) {
                     IPAddress ip = udp.remoteIP();
-                    
+
                     bool exists = false;
                     for (int i = 0; i < deviceCount; i++) {
                         if (devices[i].ip == ip) { exists = true; break; }
                     }
-                    
+
                     if (!exists && deviceCount < MAX_SONOS_DEVICES) {
                         devices[deviceCount].ip = ip;
                         devices[deviceCount].roomName = ip.toString();
@@ -115,7 +117,16 @@ int SonosController::discoverDevices() {
                 }
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
+
+        // Update UI periodically to keep spinner animating
+        if (millis() - lastUIUpdate > 20) {
+            lv_tick_inc(20);
+            lv_timer_handler();
+            lv_refr_now(NULL);  // Force display refresh
+            lastUIUpdate = millis();
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
     
     udp.stop();
