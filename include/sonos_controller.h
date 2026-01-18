@@ -26,12 +26,15 @@ typedef enum {
     CMD_SET_REPEAT,
     CMD_SEEK,
     CMD_PLAY_QUEUE_ITEM,
-    CMD_UPDATE_STATE
+    CMD_UPDATE_STATE,
+    CMD_JOIN_GROUP,
+    CMD_LEAVE_GROUP
 } SonosCommand_e;
 
 typedef struct {
     SonosCommand_e type;
     int32_t value;
+    int32_t value2;  // Secondary value for group commands (target device index)
 } CommandRequest_t;
 
 // UI update notifications
@@ -42,7 +45,8 @@ typedef enum {
     UPDATE_TRANSPORT,
     UPDATE_QUEUE,
     UPDATE_ALBUM_ART,
-    UPDATE_ERROR
+    UPDATE_ERROR,
+    UPDATE_GROUPS
 } UIUpdateType_e;
 
 typedef struct {
@@ -92,6 +96,11 @@ struct SonosDevice {
     bool connected;
     uint32_t lastUpdateTime;
     uint32_t errorCount;
+
+    // Group info
+    String groupCoordinatorUUID;  // RINCON ID of the group coordinator (empty if standalone)
+    bool isGroupCoordinator;      // True if this device is the coordinator of its group
+    int groupMemberCount;         // Number of members in this device's group (1 if standalone)
 };
 
 class SonosController {
@@ -181,6 +190,13 @@ public:
     // Error handling
     void handleNetworkError(const char* message);
     void resetErrorCount();
+
+    // Group management
+    bool joinGroup(int deviceIndex, int coordinatorIndex);   // Join device to coordinator's group
+    bool leaveGroup(int deviceIndex);                        // Remove device from its group (make standalone)
+    void updateGroupInfo();                                  // Refresh group membership info for all devices
+    int getGroupMemberCount(int coordinatorIndex);           // Get number of members in a group
+    bool isDeviceInGroup(int deviceIndex, int coordinatorIndex);  // Check if device is in coordinator's group
 };
 
 #endif // SONOS_CONTROLLER_H

@@ -77,7 +77,7 @@ int SonosController::discoverDevices() {
     udp.endPacket();
     
     unsigned long start = millis();
-    while (millis() - start < 3000) {
+    while (millis() - start < 10000) {  // 10 seconds for large Sonos setups
         int size = udp.parsePacket();
         if (size > 0) {
             char buf[513];  // 512 + 1 for null terminator
@@ -105,7 +105,10 @@ int SonosController::discoverDevices() {
                         devices[deviceCount].currentTrackNumber = 0;
                         devices[deviceCount].totalTracks = 0;
                         devices[deviceCount].queueSize = 0;
-                        
+                        devices[deviceCount].groupCoordinatorUUID = "";
+                        devices[deviceCount].isGroupCoordinator = true;  // Standalone by default
+                        devices[deviceCount].groupMemberCount = 1;
+
                         ESP_LOGI(TAG, "Found: %s", ip.toString().c_str());
                         deviceCount++;
                     }
@@ -1242,4 +1245,180 @@ void SonosController::handleNetworkError(const char* msg) {
 void SonosController::resetErrorCount() {
     SonosDevice* dev = getCurrentDevice();
     if (dev) dev->errorCount = 0;
+}
+
+// ============================================================================
+// Group Management
+// ============================================================================
+
+bool SonosController::joinGroup(int deviceIndex, int coordinatorIndex) {
+    if (deviceIndex < 0 || deviceIndex >= deviceCount) return false;
+    if (coordinatorIndex < 0 || coordinatorIndex >= deviceCount) return false;
+    if (deviceIndex == coordinatorIndex) return false;  // Can't join self
+
+    SonosDevice* device = &devices[deviceIndex];
+    SonosDevice* coordinator = &devices[coordinatorIndex];
+
+    if (coordinator->rinconID.length() == 0) {
+        Serial.println("[GROUP] Coordinator has no RINCON ID");
+        return false;
+    }
+
+    // Build the x-rincon URI to join the coordinator
+    char uri[128];
+    snprintf(uri, sizeof(uri), "x-rincon:%s", coordinator->rinconID.c_str());
+
+    // Send SetAVTransportURI to the device we want to join
+    // This tells it to follow the coordinator's playback
+    char args[256];
+    snprintf(args, sizeof(args),
+        "<InstanceID>0</InstanceID>"
+        "<CurrentURI>%s</CurrentURI>"
+        "<CurrentURIMetaData></CurrentURIMetaData>",
+        uri);
+
+    // We need to send this to the device being joined, not the current device
+    // Save and restore current device
+    int savedIndex = currentDeviceIndex;
+    currentDeviceIndex = deviceIndex;
+
+    String resp = sendSOAP("AVTransport", "SetAVTransportURI", args);
+
+    currentDeviceIndex = savedIndex;
+
+    bool success = (resp.length() > 0 && resp.indexOf("Fault") < 0);
+
+    if (success) {
+        Serial.printf("[GROUP] %s joined group with coordinator %s\n",
+            device->roomName.c_str(), coordinator->roomName.c_str());
+
+        // Update group info
+        if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(100))) {
+            device->groupCoordinatorUUID = coordinator->rinconID;
+            device->isGroupCoordinator = false;
+            coordinator->isGroupCoordinator = true;
+            xSemaphoreGive(deviceMutex);
+        }
+
+        notifyUI(UPDATE_GROUPS);
+    } else {
+        Serial.printf("[GROUP] Failed to join %s to group\n", device->roomName.c_str());
+    }
+
+    return success;
+}
+
+bool SonosController::leaveGroup(int deviceIndex) {
+    if (deviceIndex < 0 || deviceIndex >= deviceCount) return false;
+
+    SonosDevice* device = &devices[deviceIndex];
+
+    // Save and restore current device
+    int savedIndex = currentDeviceIndex;
+    currentDeviceIndex = deviceIndex;
+
+    // BecomeCoordinatorOfStandaloneGroup makes the device leave its group
+    // and become a standalone player
+    String resp = sendSOAP("AVTransport", "BecomeCoordinatorOfStandaloneGroup",
+        "<InstanceID>0</InstanceID>");
+
+    currentDeviceIndex = savedIndex;
+
+    bool success = (resp.length() > 0 && resp.indexOf("Fault") < 0);
+
+    if (success) {
+        Serial.printf("[GROUP] %s left group (now standalone)\n", device->roomName.c_str());
+
+        if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(100))) {
+            device->groupCoordinatorUUID = "";
+            device->isGroupCoordinator = true;  // Standalone = coordinator of self
+            device->groupMemberCount = 1;
+            xSemaphoreGive(deviceMutex);
+        }
+
+        notifyUI(UPDATE_GROUPS);
+    } else {
+        Serial.printf("[GROUP] Failed to remove %s from group\n", device->roomName.c_str());
+    }
+
+    return success;
+}
+
+void SonosController::updateGroupInfo() {
+    // Query each device for its group coordinator
+    int savedIndex = currentDeviceIndex;
+
+    for (int i = 0; i < deviceCount; i++) {
+        currentDeviceIndex = i;
+        SonosDevice* dev = &devices[i];
+
+        // GetMediaInfo contains the current transport URI which tells us about grouping
+        String resp = sendSOAP("AVTransport", "GetMediaInfo", "<InstanceID>0</InstanceID>");
+
+        if (resp.length() > 0) {
+            String currentURI = extractXML(resp, "CurrentURI");
+
+            if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(100))) {
+                // Check if this device is following another (x-rincon:RINCON_xxx format)
+                if (currentURI.startsWith("x-rincon:")) {
+                    // Extract coordinator RINCON from URI
+                    dev->groupCoordinatorUUID = currentURI.substring(9);  // Skip "x-rincon:"
+                    dev->isGroupCoordinator = false;
+                } else {
+                    // Not following anyone - either standalone or is a coordinator
+                    dev->groupCoordinatorUUID = dev->rinconID;  // Self
+                    dev->isGroupCoordinator = true;
+                }
+                xSemaphoreGive(deviceMutex);
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(50));  // Small delay between queries
+    }
+
+    // Now count members for each coordinator
+    for (int i = 0; i < deviceCount; i++) {
+        if (devices[i].isGroupCoordinator) {
+            int count = 1;  // Count self
+            for (int j = 0; j < deviceCount; j++) {
+                if (i != j && devices[j].groupCoordinatorUUID == devices[i].rinconID) {
+                    count++;
+                }
+            }
+            devices[i].groupMemberCount = count;
+        } else {
+            devices[i].groupMemberCount = 0;  // Non-coordinators don't have members
+        }
+    }
+
+    currentDeviceIndex = savedIndex;
+    notifyUI(UPDATE_GROUPS);
+}
+
+int SonosController::getGroupMemberCount(int coordinatorIndex) {
+    if (coordinatorIndex < 0 || coordinatorIndex >= deviceCount) return 0;
+
+    SonosDevice* coordinator = &devices[coordinatorIndex];
+    if (!coordinator->isGroupCoordinator) return 0;
+
+    int count = 1;  // Count coordinator itself
+    for (int i = 0; i < deviceCount; i++) {
+        if (i != coordinatorIndex &&
+            devices[i].groupCoordinatorUUID == coordinator->rinconID) {
+            count++;
+        }
+    }
+    return count;
+}
+
+bool SonosController::isDeviceInGroup(int deviceIndex, int coordinatorIndex) {
+    if (deviceIndex < 0 || deviceIndex >= deviceCount) return false;
+    if (coordinatorIndex < 0 || coordinatorIndex >= deviceCount) return false;
+
+    if (deviceIndex == coordinatorIndex) return true;  // Coordinator is in own group
+
+    SonosDevice* device = &devices[deviceIndex];
+    SonosDevice* coordinator = &devices[coordinatorIndex];
+
+    return (device->groupCoordinatorUUID == coordinator->rinconID);
 }

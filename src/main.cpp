@@ -23,7 +23,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.0.14"
+#define FIRMWARE_VERSION "1.0.15"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -61,12 +61,12 @@ static int autodim_timeout = 30;          // Seconds before dimming (0 = disable
 static uint32_t last_touch_time = 0;
 static bool screen_dimmed = false;
 
-static lv_obj_t *scr_main, *scr_devices, *scr_queue, *scr_settings, *scr_wifi, *scr_sources, *scr_browse, *scr_display, *scr_ota;
+static lv_obj_t *scr_main, *scr_devices, *scr_queue, *scr_settings, *scr_wifi, *scr_sources, *scr_browse, *scr_display, *scr_ota, *scr_groups;
 static lv_obj_t *img_album, *lbl_title, *lbl_artist, *lbl_album, *lbl_time, *lbl_time_remaining;
 static lv_obj_t *btn_play, *btn_prev, *btn_next, *btn_mute, *btn_shuffle, *btn_repeat, *btn_queue;  // slider_progress declared above
 static lv_obj_t *img_next_album, *lbl_next_title, *lbl_next_artist, *lbl_next_header;
 static lv_obj_t *lbl_wifi_icon, *lbl_device_name, *slider_vol;
-static lv_obj_t *list_devices, *list_queue, *lbl_status, *lbl_queue_status;
+static lv_obj_t *list_devices, *list_queue, *lbl_status, *lbl_queue_status, *list_groups, *lbl_groups_status;
 static lv_obj_t *art_placeholder, *list_wifi, *lbl_wifi_status, *ta_password, *kb, *btn_wifi_scan, *btn_wifi_connect, *lbl_scan_text, *btn_sonos_scan;
 // panel_right, panel_art, and slider_progress already declared above (before color function)
 
@@ -95,6 +95,7 @@ static int art_offset_x = 0, art_offset_y = 0;
 static bool is_sonos_radio_art = false;  // Flag for Sonos Radio art quality optimization
 static String current_browse_id = "";
 static String current_browse_title = "";
+static int selected_group_coordinator = -1;  // Index of selected group coordinator for group management
 
 // Built-in LVGL keyboard - no custom maps needed
 
@@ -345,6 +346,8 @@ void requestAlbumArt(const String& url) {
 // Forward declarations
 static void refreshQueueList();
 static void refreshDeviceList();
+static void refreshGroupsList();
+void createGroupsScreen();
 
 // Event handlers
 static void ev_play(lv_event_t* e) { SonosDevice* d = sonos.getCurrentDevice(); if (d) d->isPlaying ? sonos.pause() : sonos.play(); }
@@ -436,6 +439,7 @@ static void ev_settings(lv_event_t* e) { lv_screen_load(scr_settings); }
 static void ev_display_settings(lv_event_t* e) { lv_screen_load(scr_display); }
 static void ev_back_main(lv_event_t* e) { lv_screen_load(scr_main); }
 static void ev_back_settings(lv_event_t* e) { lv_screen_load(scr_settings); }
+static void ev_groups(lv_event_t* e) { sonos.updateGroupInfo(); refreshGroupsList(); lv_screen_load(scr_groups); }
 
 void createBrowseScreen();
 static void ev_discover(lv_event_t* e) {
@@ -524,6 +528,301 @@ static void refreshDeviceList() {
             lv_screen_load(scr_main);
         }, LV_EVENT_CLICKED, NULL);
     }
+}
+
+// ============================================================================
+// Group Management UI
+// ============================================================================
+
+static void refreshGroupsList() {
+    if (!list_groups) return;
+    lv_obj_clean(list_groups);
+
+    int cnt = sonos.getDeviceCount();
+    if (cnt == 0) {
+        lv_label_set_text(lbl_groups_status, "No speakers found. Run discovery first.");
+        return;
+    }
+
+    // Count groups (coordinators)
+    int groupCount = 0;
+    for (int i = 0; i < cnt; i++) {
+        SonosDevice* dev = sonos.getDevice(i);
+        if (dev && dev->isGroupCoordinator) groupCount++;
+    }
+
+    lv_label_set_text_fmt(lbl_groups_status, "%d speaker%s, %d group%s",
+        cnt, cnt == 1 ? "" : "s",
+        groupCount, groupCount == 1 ? "" : "s");
+
+    // First pass: Show group coordinators with their members
+    for (int i = 0; i < cnt; i++) {
+        SonosDevice* dev = sonos.getDevice(i);
+        if (!dev || !dev->isGroupCoordinator) continue;
+
+        // Count members in this group
+        int memberCount = 0;
+        for (int j = 0; j < cnt; j++) {
+            SonosDevice* member = sonos.getDevice(j);
+            if (member && (j == i || member->groupCoordinatorUUID == dev->rinconID)) {
+                memberCount++;
+            }
+        }
+
+        // Create group header button
+        lv_obj_t* btn = lv_btn_create(list_groups);
+        lv_obj_set_size(btn, 720, 65);
+        lv_obj_set_user_data(btn, (void*)(intptr_t)i);
+        lv_obj_set_style_radius(btn, 12, 0);
+        lv_obj_set_style_shadow_width(btn, 0, 0);
+        lv_obj_set_style_pad_all(btn, 12, 0);
+
+        bool isSelected = (selected_group_coordinator == i);
+        lv_obj_set_style_bg_color(btn, isSelected ? COL_SELECTED : COL_CARD, 0);
+        lv_obj_set_style_bg_color(btn, COL_BTN_PRESSED, LV_STATE_PRESSED);
+
+        if (isSelected) {
+            lv_obj_set_style_border_width(btn, 2, 0);
+            lv_obj_set_style_border_color(btn, COL_ACCENT, 0);
+        } else {
+            lv_obj_set_style_border_width(btn, 0, 0);
+        }
+
+        // Group icon
+        lv_obj_t* icon = lv_label_create(btn);
+        lv_label_set_text(icon, memberCount > 1 ? LV_SYMBOL_AUDIO LV_SYMBOL_AUDIO : LV_SYMBOL_AUDIO);
+        lv_obj_set_style_text_color(icon, memberCount > 1 ? COL_ACCENT : COL_TEXT2, 0);
+        lv_obj_set_style_text_font(icon, &lv_font_montserrat_18, 0);
+        lv_obj_align(icon, LV_ALIGN_LEFT_MID, 5, 0);
+
+        // Room name (coordinator)
+        lv_obj_t* lbl = lv_label_create(btn);
+        lv_label_set_text(lbl, dev->roomName.c_str());
+        lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
+        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
+        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 55, -10);
+
+        // Member count subtitle
+        lv_obj_t* sub = lv_label_create(btn);
+        if (memberCount > 1) {
+            lv_label_set_text_fmt(sub, "%d speakers in group", memberCount);
+        } else {
+            lv_label_set_text(sub, "Standalone");
+        }
+        lv_obj_set_style_text_color(sub, COL_TEXT2, 0);
+        lv_obj_set_style_text_font(sub, &lv_font_montserrat_14, 0);
+        lv_obj_align(sub, LV_ALIGN_LEFT_MID, 55, 12);
+
+        // Click to select this group for management
+        lv_obj_add_event_cb(btn, [](lv_event_t* e) {
+            int idx = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
+            selected_group_coordinator = (selected_group_coordinator == idx) ? -1 : idx;
+            refreshGroupsList();
+        }, LV_EVENT_CLICKED, NULL);
+
+        // Show group members as sub-items if this group is selected
+        if (isSelected && memberCount > 1) {
+            for (int j = 0; j < cnt; j++) {
+                if (j == i) continue;  // Skip coordinator
+                SonosDevice* member = sonos.getDevice(j);
+                if (!member || member->groupCoordinatorUUID != dev->rinconID) continue;
+
+                // Member item (indented)
+                lv_obj_t* memBtn = lv_btn_create(list_groups);
+                lv_obj_set_size(memBtn, 680, 50);
+                lv_obj_set_user_data(memBtn, (void*)(intptr_t)j);
+                lv_obj_set_style_radius(memBtn, 8, 0);
+                lv_obj_set_style_shadow_width(memBtn, 0, 0);
+                lv_obj_set_style_pad_all(memBtn, 10, 0);
+                lv_obj_set_style_bg_color(memBtn, lv_color_hex(0x252525), 0);
+                lv_obj_set_style_bg_color(memBtn, COL_BTN_PRESSED, LV_STATE_PRESSED);
+                lv_obj_set_style_margin_left(memBtn, 40, 0);
+
+                lv_obj_t* memIcon = lv_label_create(memBtn);
+                lv_label_set_text(memIcon, LV_SYMBOL_RIGHT " " LV_SYMBOL_AUDIO);
+                lv_obj_set_style_text_color(memIcon, COL_TEXT2, 0);
+                lv_obj_set_style_text_font(memIcon, &lv_font_montserrat_16, 0);
+                lv_obj_align(memIcon, LV_ALIGN_LEFT_MID, 5, 0);
+
+                lv_obj_t* memLbl = lv_label_create(memBtn);
+                lv_label_set_text(memLbl, member->roomName.c_str());
+                lv_obj_set_style_text_color(memLbl, COL_TEXT, 0);
+                lv_obj_set_style_text_font(memLbl, &lv_font_montserrat_16, 0);
+                lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, 60, 0);
+
+                // Remove from group button
+                lv_obj_t* removeBtn = lv_btn_create(memBtn);
+                lv_obj_set_size(removeBtn, 90, 35);
+                lv_obj_align(removeBtn, LV_ALIGN_RIGHT_MID, -5, 0);
+                lv_obj_set_style_bg_color(removeBtn, lv_color_hex(0x8B0000), 0);
+                lv_obj_set_style_radius(removeBtn, 8, 0);
+                lv_obj_set_user_data(removeBtn, (void*)(intptr_t)j);
+
+                lv_obj_t* removeLbl = lv_label_create(removeBtn);
+                lv_label_set_text(removeLbl, "Remove");
+                lv_obj_set_style_text_color(removeLbl, COL_TEXT, 0);
+                lv_obj_set_style_text_font(removeLbl, &lv_font_montserrat_14, 0);
+                lv_obj_center(removeLbl);
+
+                lv_obj_add_event_cb(removeBtn, [](lv_event_t* e) {
+                    lv_event_stop_bubbling(e);
+                    int idx = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
+                    sonos.leaveGroup(idx);
+                    lv_label_set_text(lbl_groups_status, "Removing from group...");
+                    lv_timer_handler();
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                    sonos.updateGroupInfo();
+                    refreshGroupsList();
+                }, LV_EVENT_CLICKED, NULL);
+            }
+        }
+    }
+
+    // If a group is selected, show standalone speakers that can be added
+    if (selected_group_coordinator >= 0) {
+        SonosDevice* coordinator = sonos.getDevice(selected_group_coordinator);
+        if (coordinator) {
+            // Header for available speakers
+            lv_obj_t* hdr = lv_obj_create(list_groups);
+            lv_obj_set_size(hdr, 720, 40);
+            lv_obj_set_style_bg_color(hdr, lv_color_hex(0x1A1A1A), 0);
+            lv_obj_set_style_border_width(hdr, 0, 0);
+            lv_obj_set_style_pad_all(hdr, 10, 0);
+            lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
+
+            lv_obj_t* hdrLbl = lv_label_create(hdr);
+            lv_label_set_text_fmt(hdrLbl, "Add speakers to \"%s\":", coordinator->roomName.c_str());
+            lv_obj_set_style_text_color(hdrLbl, COL_ACCENT, 0);
+            lv_obj_set_style_text_font(hdrLbl, &lv_font_montserrat_16, 0);
+            lv_obj_align(hdrLbl, LV_ALIGN_LEFT_MID, 0, 0);
+
+            // Show standalone speakers (not in any group except their own)
+            for (int i = 0; i < cnt; i++) {
+                if (i == selected_group_coordinator) continue;
+                SonosDevice* dev = sonos.getDevice(i);
+                if (!dev) continue;
+
+                // Skip if already in the selected group
+                if (dev->groupCoordinatorUUID == coordinator->rinconID) continue;
+
+                // Only show if standalone (is own coordinator)
+                if (!dev->isGroupCoordinator) continue;
+
+                lv_obj_t* addBtn = lv_btn_create(list_groups);
+                lv_obj_set_size(addBtn, 720, 55);
+                lv_obj_set_user_data(addBtn, (void*)(intptr_t)i);
+                lv_obj_set_style_radius(addBtn, 10, 0);
+                lv_obj_set_style_shadow_width(addBtn, 0, 0);
+                lv_obj_set_style_pad_all(addBtn, 10, 0);
+                lv_obj_set_style_bg_color(addBtn, lv_color_hex(0x1E3A1E), 0);  // Dark green hint
+                lv_obj_set_style_bg_color(addBtn, lv_color_hex(0x2A5A2A), LV_STATE_PRESSED);
+
+                lv_obj_t* addIcon = lv_label_create(addBtn);
+                lv_label_set_text(addIcon, LV_SYMBOL_PLUS " " LV_SYMBOL_AUDIO);
+                lv_obj_set_style_text_color(addIcon, lv_color_hex(0x4ECB71), 0);
+                lv_obj_set_style_text_font(addIcon, &lv_font_montserrat_18, 0);
+                lv_obj_align(addIcon, LV_ALIGN_LEFT_MID, 5, 0);
+
+                lv_obj_t* addLbl = lv_label_create(addBtn);
+                lv_label_set_text_fmt(addLbl, "Add %s", dev->roomName.c_str());
+                lv_obj_set_style_text_color(addLbl, COL_TEXT, 0);
+                lv_obj_set_style_text_font(addLbl, &lv_font_montserrat_16, 0);
+                lv_obj_align(addLbl, LV_ALIGN_LEFT_MID, 60, 0);
+
+                lv_obj_add_event_cb(addBtn, [](lv_event_t* e) {
+                    int idx = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
+                    if (selected_group_coordinator >= 0) {
+                        sonos.joinGroup(idx, selected_group_coordinator);
+                        lv_label_set_text(lbl_groups_status, "Adding to group...");
+                        lv_timer_handler();
+                        vTaskDelay(pdMS_TO_TICKS(500));
+                        sonos.updateGroupInfo();
+                        refreshGroupsList();
+                    }
+                }, LV_EVENT_CLICKED, NULL);
+            }
+        }
+    }
+}
+
+void createGroupsScreen() {
+    scr_groups = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(scr_groups, lv_color_hex(0x1A1A1A), 0);
+
+    // Header
+    lv_obj_t* header = lv_obj_create(scr_groups);
+    lv_obj_set_size(header, 800, 70);
+    lv_obj_set_pos(header, 0, 0);
+    lv_obj_set_style_bg_color(header, lv_color_hex(0x252525), 0);
+    lv_obj_set_style_border_width(header, 0, 0);
+    lv_obj_set_style_radius(header, 0, 0);
+    lv_obj_set_style_pad_all(header, 0, 0);
+    lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Title
+    lv_obj_t* lbl_title = lv_label_create(header);
+    lv_label_set_text(lbl_title, "Speaker Groups");
+    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_color(lbl_title, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, 30, 0);
+
+    // Refresh button
+    lv_obj_t* btn_refresh = lv_button_create(header);
+    lv_obj_set_size(btn_refresh, 110, 50);
+    lv_obj_align(btn_refresh, LV_ALIGN_RIGHT_MID, -80, 0);
+    lv_obj_set_style_bg_color(btn_refresh, COL_ACCENT, 0);
+    lv_obj_set_style_radius(btn_refresh, 25, 0);
+    lv_obj_set_style_shadow_width(btn_refresh, 0, 0);
+    lv_obj_add_event_cb(btn_refresh, [](lv_event_t* e) {
+        lv_label_set_text(lbl_groups_status, LV_SYMBOL_REFRESH " Refreshing groups...");
+        lv_timer_handler();
+        sonos.updateGroupInfo();
+        refreshGroupsList();
+    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* lbl_refresh = lv_label_create(btn_refresh);
+    lv_label_set_text(lbl_refresh, LV_SYMBOL_REFRESH " Refresh");
+    lv_obj_set_style_text_color(lbl_refresh, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_text_font(lbl_refresh, &lv_font_montserrat_16, 0);
+    lv_obj_center(lbl_refresh);
+
+    // Close button
+    lv_obj_t* btn_close = lv_button_create(header);
+    lv_obj_set_size(btn_close, 50, 50);
+    lv_obj_align(btn_close, LV_ALIGN_RIGHT_MID, -20, 0);
+    lv_obj_set_style_bg_color(btn_close, lv_color_hex(0x333333), 0);
+    lv_obj_set_style_radius(btn_close, 25, 0);
+    lv_obj_set_style_shadow_width(btn_close, 0, 0);
+    lv_obj_add_event_cb(btn_close, ev_back_settings, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* ico_close = lv_label_create(btn_close);
+    lv_label_set_text(ico_close, LV_SYMBOL_CLOSE);
+    lv_obj_set_style_text_color(ico_close, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_font(ico_close, &lv_font_montserrat_24, 0);
+    lv_obj_center(ico_close);
+
+    // Status label
+    lbl_groups_status = lv_label_create(scr_groups);
+    lv_obj_align(lbl_groups_status, LV_ALIGN_TOP_LEFT, 40, 85);
+    lv_label_set_text(lbl_groups_status, "Tap a group to manage it");
+    lv_obj_set_style_text_color(lbl_groups_status, COL_TEXT2, 0);
+    lv_obj_set_style_text_font(lbl_groups_status, &lv_font_montserrat_14, 0);
+
+    // Groups list
+    list_groups = lv_obj_create(scr_groups);
+    lv_obj_set_size(list_groups, 720, 360);
+    lv_obj_set_pos(list_groups, 40, 115);
+    lv_obj_set_style_bg_color(list_groups, lv_color_hex(0x1A1A1A), 0);
+    lv_obj_set_style_border_width(list_groups, 0, 0);
+    lv_obj_set_style_radius(list_groups, 0, 0);
+    lv_obj_set_style_pad_all(list_groups, 0, 0);
+    lv_obj_set_style_pad_row(list_groups, 8, 0);
+    lv_obj_set_flex_flow(list_groups, LV_FLEX_FLOW_COLUMN);
+
+    // Scrollbar styling
+    lv_obj_set_style_pad_right(list_groups, 8, LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_opa(list_groups, LV_OPA_30, LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_color(list_groups, COL_TEXT2, LV_PART_SCROLLBAR);
+    lv_obj_set_style_width(list_groups, 6, LV_PART_SCROLLBAR);
+    lv_obj_set_style_radius(list_groups, 3, LV_PART_SCROLLBAR);
 }
 
 static void refreshQueueList() {
@@ -1988,19 +2287,33 @@ void createSettingsScreen() {
 
     // Speakers Button
     lv_obj_t* btn_speakers = lv_button_create(scr_settings);
-    lv_obj_set_size(btn_speakers, 720, 80);
+    lv_obj_set_size(btn_speakers, 345, 80);
     lv_obj_set_pos(btn_speakers, 40, 385);
     lv_obj_set_style_bg_color(btn_speakers, lv_color_hex(0x2A2A2A), 0);
     lv_obj_set_style_radius(btn_speakers, 15, 0);
     lv_obj_set_style_shadow_width(btn_speakers, 0, 0);
     lv_obj_add_event_cb(btn_speakers, ev_devices, LV_EVENT_CLICKED, NULL);
     lv_obj_t* lbl_speakers = lv_label_create(btn_speakers);
-    lv_label_set_text(lbl_speakers, LV_SYMBOL_AUDIO "  Sonos Speakers");
+    lv_label_set_text(lbl_speakers, LV_SYMBOL_AUDIO "  Speakers");
     lv_obj_set_style_text_color(lbl_speakers, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_font(lbl_speakers, &lv_font_montserrat_24, 0);
     lv_obj_align(lbl_speakers, LV_ALIGN_LEFT_MID, 30, 0);
 
-    // Music Sources Button (moved down to make room for OTA)
+    // Speaker Groups Button (next to Speakers)
+    lv_obj_t* btn_groups = lv_button_create(scr_settings);
+    lv_obj_set_size(btn_groups, 345, 80);
+    lv_obj_set_pos(btn_groups, 415, 385);
+    lv_obj_set_style_bg_color(btn_groups, lv_color_hex(0x2A2A2A), 0);
+    lv_obj_set_style_radius(btn_groups, 15, 0);
+    lv_obj_set_style_shadow_width(btn_groups, 0, 0);
+    lv_obj_add_event_cb(btn_groups, ev_groups, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* lbl_groups = lv_label_create(btn_groups);
+    lv_label_set_text(lbl_groups, LV_SYMBOL_AUDIO LV_SYMBOL_AUDIO "  Groups");
+    lv_obj_set_style_text_color(lbl_groups, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_font(lbl_groups, &lv_font_montserrat_24, 0);
+    lv_obj_align(lbl_groups, LV_ALIGN_LEFT_MID, 30, 0);
+
+    // Music Sources Button
     lv_obj_t* btn_sources = lv_button_create(scr_settings);
     lv_obj_set_size(btn_sources, 720, 80);
     lv_obj_set_pos(btn_sources, 40, 480);
@@ -2735,6 +3048,9 @@ void setup() {
     updateBootProgress(80);
 
     createSourcesScreen();
+    updateBootProgress(83);
+
+    createGroupsScreen();
     updateBootProgress(85);
 
     art_mutex = xSemaphoreCreateMutex();
