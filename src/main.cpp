@@ -394,7 +394,6 @@ void setBrightness(int level) {
     brightness_level = constrain(level, 10, 100);  // 10-100% range
     display_set_brightness(brightness_level);
     wifiPrefs.putInt("brightness", brightness_level);
-    Serial.printf("[DISPLAY] Brightness set to: %d%%\n", brightness_level);
 }
 
 void resetScreenTimeout() {
@@ -1612,7 +1611,7 @@ void createMainScreen() {
 
     // Music Sources button - scale effect
     lv_obj_t* btn_sources = lv_btn_create(panel_right);
-    lv_obj_set_size(btn_sources, 36, 36);
+    lv_obj_set_size(btn_sources, 38, 38);
     lv_obj_set_pos(btn_sources, 285, 18);
     lv_obj_set_style_bg_opa(btn_sources, LV_OPA_TRANSP, 0);
     lv_obj_set_style_shadow_width(btn_sources, 0, 0);
@@ -1629,7 +1628,7 @@ void createMainScreen() {
 
     // Settings button
     lv_obj_t* btn_settings = lv_btn_create(panel_right);
-    lv_obj_set_size(btn_settings, 36, 36);
+    lv_obj_set_size(btn_settings, 38, 38);
     lv_obj_set_pos(btn_settings, 335, 18);
     lv_obj_set_style_bg_opa(btn_settings, LV_OPA_TRANSP, 0);
     lv_obj_set_style_shadow_width(btn_settings, 0, 0);

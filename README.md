@@ -11,9 +11,9 @@
 
 ## ☕ Support
 
-If you find this project helpful, consider buying me a coffee!
+If you find this project helpful, consider supporting me on Ko-fi!
 
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-orange?style=for-the-badge&logo=buy-me-a-coffee)](https://www.buymeacoffee.com/pizzapasta)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?style=for-the-badge&logo=ko-fi)](https://ko-fi.com/pizzapasta)
 
 </div>
 
