@@ -56,30 +56,40 @@ void SonosController::startTasks() {
 int SonosController::discoverDevices() {
     ESP_LOGI(TAG, "Starting discovery...");
     deviceCount = 0;
-    
+
     udp.stop();
     vTaskDelay(pdMS_TO_TICKS(50));
-    
+
     IPAddress multicast(239, 255, 255, 250);
     if (!udp.beginMulticast(multicast, 1900)) {
         ESP_LOGE(TAG, "UDP multicast failed");
         return 0;
     }
-    
-    const char* msg = 
+
+    const char* msg =
         "M-SEARCH * HTTP/1.1\r\n"
         "HOST: 239.255.255.250:1900\r\n"
         "MAN: \"ssdp:discover\"\r\n"
-        "MX: 2\r\n"
+        "MX: 3\r\n"
         "ST: urn:schemas-upnp-org:device:ZonePlayer:1\r\n\r\n";
-    
-    udp.beginPacket(multicast, 1900);
-    udp.write((const uint8_t*)msg, strlen(msg));
-    udp.endPacket();
-    
+
+    // Send 3 discovery bursts for more reliable detection
+    // Some devices may miss the first packet due to network timing
+    for (int burst = 0; burst < 3; burst++) {
+        udp.beginPacket(multicast, 1900);
+        udp.write((const uint8_t*)msg, strlen(msg));
+        udp.endPacket();
+        ESP_LOGI(TAG, "Sent discovery packet %d/3", burst + 1);
+
+        if (burst < 2) {
+            vTaskDelay(pdMS_TO_TICKS(150));  // 150ms between bursts
+        }
+    }
+
+    int rawDeviceCount = 0;  // Count of IPs found before dedup
     unsigned long start = millis();
     unsigned long lastUIUpdate = 0;
-    while (millis() - start < 10000) {  // 10 seconds for large Sonos setups
+    while (millis() - start < 12000) {  // 12 seconds for large Sonos setups
         int size = udp.parsePacket();
         if (size > 0) {
             char buf[513];  // 512 + 1 for null terminator
@@ -111,8 +121,9 @@ int SonosController::discoverDevices() {
                         devices[deviceCount].isGroupCoordinator = true;  // Standalone by default
                         devices[deviceCount].groupMemberCount = 1;
 
-                        ESP_LOGI(TAG, "Found: %s", ip.toString().c_str());
+                        ESP_LOGI(TAG, "Found IP: %s", ip.toString().c_str());
                         deviceCount++;
+                        rawDeviceCount++;
                     }
                 }
             }
@@ -128,18 +139,54 @@ int SonosController::discoverDevices() {
 
         vTaskDelay(pdMS_TO_TICKS(5));
     }
-    
+
     udp.stop();
-    
+
+    ESP_LOGI(TAG, "Found %d raw IP(s), fetching room names...", rawDeviceCount);
+
+    // Fetch room names for all discovered devices
     for (int i = 0; i < deviceCount; i++) {
         getRoomName(&devices[i]);
+
+        // Update UI while fetching room names
+        lv_tick_inc(10);
+        lv_timer_handler();
+        lv_refr_now(NULL);
     }
-    
+
+    // Deduplicate by room name to handle stereo pairs
+    // In stereo pairs, both speakers respond to SSDP but have the same room name
+    // Keep the first occurrence (usually the primary/left speaker)
+    int uniqueCount = 0;
+    for (int i = 0; i < deviceCount; i++) {
+        bool isDuplicate = false;
+        for (int j = 0; j < uniqueCount; j++) {
+            if (devices[j].roomName == devices[i].roomName) {
+                ESP_LOGI(TAG, "Filtering duplicate room: %s (stereo pair)", devices[i].roomName.c_str());
+                isDuplicate = true;
+                break;
+            }
+        }
+
+        if (!isDuplicate) {
+            if (i != uniqueCount) {
+                // Move device to compact position
+                devices[uniqueCount] = devices[i];
+            }
+            uniqueCount++;
+        }
+    }
+
+    if (uniqueCount < deviceCount) {
+        ESP_LOGI(TAG, "Filtered %d duplicate(s) from stereo pairs", deviceCount - uniqueCount);
+    }
+    deviceCount = uniqueCount;
+
     if (deviceCount > 0) {
         prefs.putString("device_ip", devices[0].ip.toString());
     }
-    
-    ESP_LOGI(TAG, "Found %d device(s)", deviceCount);
+
+    ESP_LOGI(TAG, "Discovery complete: %d visible zone(s)", deviceCount);
     return deviceCount;
 }
 
