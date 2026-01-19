@@ -1,6 +1,6 @@
 {
   "name": "ESP32-P4 Sonos Controller",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "new_install_prompt_erase": true,
   "builds": [
     {

@@ -73,23 +73,24 @@ int SonosController::discoverDevices() {
         "MX: 3\r\n"
         "ST: urn:schemas-upnp-org:device:ZonePlayer:1\r\n\r\n";
 
-    // Send 3 discovery bursts for more reliable detection
-    // Some devices may miss the first packet due to network timing
-    for (int burst = 0; burst < 3; burst++) {
+    // Send 5 discovery bursts for more reliable detection
+    // Multiple bursts help reach speakers that are idle/sleeping
+    // Longer spacing gives network time to settle between bursts
+    for (int burst = 0; burst < 5; burst++) {
         udp.beginPacket(multicast, 1900);
         udp.write((const uint8_t*)msg, strlen(msg));
         udp.endPacket();
-        ESP_LOGI(TAG, "Sent discovery packet %d/3", burst + 1);
+        ESP_LOGI(TAG, "Sent discovery packet %d/5", burst + 1);
 
-        if (burst < 2) {
-            vTaskDelay(pdMS_TO_TICKS(150));  // 150ms between bursts
+        if (burst < 4) {
+            vTaskDelay(pdMS_TO_TICKS(300));  // 300ms between bursts
         }
     }
 
     int rawDeviceCount = 0;  // Count of IPs found before dedup
     unsigned long start = millis();
     unsigned long lastUIUpdate = 0;
-    while (millis() - start < 12000) {  // 12 seconds for large Sonos setups
+    while (millis() - start < 20000) {  // 20 seconds for large Sonos setups (10+ zones)
         int size = udp.parsePacket();
         if (size > 0) {
             char buf[513];  // 512 + 1 for null terminator
@@ -121,9 +122,15 @@ int SonosController::discoverDevices() {
                         devices[deviceCount].isGroupCoordinator = true;  // Standalone by default
                         devices[deviceCount].groupMemberCount = 1;
 
-                        ESP_LOGI(TAG, "Found IP: %s", ip.toString().c_str());
+                        ESP_LOGI(TAG, "SSDP Response #%d: %s", deviceCount + 1, ip.toString().c_str());
                         deviceCount++;
                         rawDeviceCount++;
+                    } else if (exists) {
+                        ESP_LOGD(TAG, "Ignoring duplicate SSDP response from: %s", ip.toString().c_str());
+                    }
+
+                    if (deviceCount >= MAX_SONOS_DEVICES) {
+                        ESP_LOGW(TAG, "Reached MAX_SONOS_DEVICES limit (%d)", MAX_SONOS_DEVICES);
                     }
                 }
             }
@@ -145,8 +152,11 @@ int SonosController::discoverDevices() {
     ESP_LOGI(TAG, "Found %d raw IP(s), fetching room names...", rawDeviceCount);
 
     // Fetch room names for all discovered devices
+    ESP_LOGI(TAG, "Fetching room names for %d device(s)...", deviceCount);
     for (int i = 0; i < deviceCount; i++) {
+        ESP_LOGI(TAG, "Fetching room name %d/%d from %s", i + 1, deviceCount, devices[i].ip.toString().c_str());
         getRoomName(&devices[i]);
+        ESP_LOGI(TAG, "  -> Room name: '%s'", devices[i].roomName.c_str());
 
         // Update UI while fetching room names
         lv_tick_inc(10);
@@ -157,18 +167,32 @@ int SonosController::discoverDevices() {
     // Deduplicate by room name to handle stereo pairs
     // In stereo pairs, both speakers respond to SSDP but have the same room name
     // Keep the first occurrence (usually the primary/left speaker)
+    ESP_LOGI(TAG, "Starting deduplication process...");
     int uniqueCount = 0;
     for (int i = 0; i < deviceCount; i++) {
+        // Normalize room name: trim whitespace and convert to lowercase for comparison
+        String normalizedCurrent = devices[i].roomName;
+        normalizedCurrent.trim();
+        normalizedCurrent.toLowerCase();
+
         bool isDuplicate = false;
         for (int j = 0; j < uniqueCount; j++) {
-            if (devices[j].roomName == devices[i].roomName) {
-                ESP_LOGI(TAG, "Filtering duplicate room: %s (stereo pair)", devices[i].roomName.c_str());
+            String normalizedExisting = devices[j].roomName;
+            normalizedExisting.trim();
+            normalizedExisting.toLowerCase();
+
+            if (normalizedExisting == normalizedCurrent) {
+                ESP_LOGI(TAG, "  [DUPLICATE] '%s' (%s) matches existing '%s' (%s) - filtering out",
+                    devices[i].roomName.c_str(), devices[i].ip.toString().c_str(),
+                    devices[j].roomName.c_str(), devices[j].ip.toString().c_str());
                 isDuplicate = true;
                 break;
             }
         }
 
         if (!isDuplicate) {
+            ESP_LOGI(TAG, "  [UNIQUE] '%s' (%s) - keeping",
+                devices[i].roomName.c_str(), devices[i].ip.toString().c_str());
             if (i != uniqueCount) {
                 // Move device to compact position
                 devices[uniqueCount] = devices[i];
@@ -177,8 +201,11 @@ int SonosController::discoverDevices() {
         }
     }
 
-    if (uniqueCount < deviceCount) {
-        ESP_LOGI(TAG, "Filtered %d duplicate(s) from stereo pairs", deviceCount - uniqueCount);
+    int filteredCount = deviceCount - uniqueCount;
+    if (filteredCount > 0) {
+        ESP_LOGI(TAG, "Filtered %d duplicate(s) from stereo pairs", filteredCount);
+    } else {
+        ESP_LOGI(TAG, "No duplicates found - all %d devices are unique", uniqueCount);
     }
     deviceCount = uniqueCount;
 
@@ -196,7 +223,7 @@ void SonosController::getRoomName(SonosDevice* dev) {
     snprintf(url, sizeof(url), "http://%s:1400/xml/device_description.xml", dev->ip.toString().c_str());
 
     http.begin(url);
-    http.setTimeout(2000);
+    http.setTimeout(3000);  // Increased from 2s to 3s for slower networks
 
     int code = http.GET();
     if (code == 200) {
@@ -205,15 +232,21 @@ void SonosController::getRoomName(SonosDevice* dev) {
         int end = xml.indexOf("</roomName>");
         if (start > 0 && end > start) {
             dev->roomName = xml.substring(start + 10, end);
-            ESP_LOGI(TAG, "Room: %s", dev->roomName.c_str());
+            ESP_LOGI(TAG, "  Room name fetched successfully: '%s'", dev->roomName.c_str());
+        } else {
+            ESP_LOGW(TAG, "  Failed to parse room name from XML for %s", dev->ip.toString().c_str());
         }
 
         start = xml.indexOf("<UDN>uuid:");
         end = xml.indexOf("</UDN>", start);
         if (start > 0 && end > start) {
             dev->rinconID = xml.substring(start + 10, end);
-            Serial.printf("[DEVICE] RINCON ID: %s\n", dev->rinconID.c_str());
+            ESP_LOGI(TAG, "  RINCON ID: %s", dev->rinconID.c_str());
+        } else {
+            ESP_LOGW(TAG, "  Failed to parse RINCON ID from XML for %s", dev->ip.toString().c_str());
         }
+    } else {
+        ESP_LOGE(TAG, "  HTTP GET failed with code %d for %s (keeping IP as name)", code, dev->ip.toString().c_str());
     }
     http.end();
 }
