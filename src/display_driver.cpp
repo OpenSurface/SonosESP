@@ -153,17 +153,10 @@ bool display_init(void) {
 }
 
 void display_set_brightness(uint8_t brightness_percent) {
-    static uint8_t last_brightness = 255;
     if (lcd) {
         // Clamp brightness to 0-100%
         if (brightness_percent > 100) brightness_percent = 100;
         lcd->example_bsp_set_lcd_backlight(brightness_percent);
-
-        // Only log significant brightness changes (>10% difference)
-        if (last_brightness == 255 || abs(brightness_percent - last_brightness) >= 10) {
-            Serial.printf("[DISPLAY] Brightness set to %d%%\n", brightness_percent);
-            last_brightness = brightness_percent;
-        }
     }
 }
 
