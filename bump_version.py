@@ -25,7 +25,7 @@ VERSION_FILES = {
         'type': 'json',
         'key': 'version'
     },
-    'src/main.cpp': {
+    'include/ui_common.h': {
         'type': 'regex',
         'pattern': r'#define FIRMWARE_VERSION "([^"]+)"',
         'replacement': '#define FIRMWARE_VERSION "{version}"'
