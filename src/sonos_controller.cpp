@@ -70,27 +70,36 @@ int SonosController::discoverDevices() {
         "M-SEARCH * HTTP/1.1\r\n"
         "HOST: 239.255.255.250:1900\r\n"
         "MAN: \"ssdp:discover\"\r\n"
-        "MX: 3\r\n"
+        "MX: 1\r\n"
         "ST: urn:schemas-upnp-org:device:ZonePlayer:1\r\n\r\n";
 
-    // Send 5 discovery bursts for more reliable detection
-    // Multiple bursts help reach speakers that are idle/sleeping
-    // Longer spacing gives network time to settle between bursts
+    // Send discovery to both multicast (239.255.255.250) AND broadcast (255.255.255.255)
+    // This ensures discovery works even if routers don't properly handle multicast
+    // Send 5 bursts with 500ms spacing for balance between coverage and speed
+    IPAddress broadcast(255, 255, 255, 255);
+
     for (int burst = 0; burst < 5; burst++) {
+        // Send to multicast address (standard UPnP)
         udp.beginPacket(multicast, 1900);
         udp.write((const uint8_t*)msg, strlen(msg));
         udp.endPacket();
-        ESP_LOGI(TAG, "Sent discovery packet %d/5", burst + 1);
+
+        // Also send to broadcast address (for networks with multicast issues)
+        udp.beginPacket(broadcast, 1900);
+        udp.write((const uint8_t*)msg, strlen(msg));
+        udp.endPacket();
+
+        ESP_LOGI(TAG, "Sent discovery burst %d/5 (multicast + broadcast)", burst + 1);
 
         if (burst < 4) {
-            vTaskDelay(pdMS_TO_TICKS(300));  // 300ms between bursts
+            vTaskDelay(pdMS_TO_TICKS(500));  // 500ms between bursts - balance between coverage and speed
         }
     }
 
     int rawDeviceCount = 0;  // Count of IPs found before dedup
     unsigned long start = millis();
     unsigned long lastUIUpdate = 0;
-    while (millis() - start < 20000) {  // 20 seconds for large Sonos setups (10+ zones)
+    while (millis() - start < 15000) {  // 15 seconds total (5 bursts * 0.5s = 2.5s send + 12.5s listen)
         int size = udp.parsePacket();
         if (size > 0) {
             char buf[513];  // 512 + 1 for null terminator
@@ -149,7 +158,19 @@ int SonosController::discoverDevices() {
 
     udp.stop();
 
-    ESP_LOGI(TAG, "Found %d raw IP(s), fetching room names...", rawDeviceCount);
+    ESP_LOGI(TAG, "Discovery window closed. Found %d raw IP(s) before deduplication.", rawDeviceCount);
+
+    if (deviceCount == 0) {
+        ESP_LOGW(TAG, "No Sonos devices responded to discovery. Check network connectivity and ensure devices are powered on.");
+        return 0;
+    }
+
+    if (deviceCount == 1 && rawDeviceCount == 1) {
+        ESP_LOGW(TAG, "Only 1 device found. If you have more speakers, try scanning again or check:");
+        ESP_LOGW(TAG, "  - All speakers are powered on and connected to WiFi");
+        ESP_LOGW(TAG, "  - ESP32 and Sonos devices are on the same network/VLAN");
+        ESP_LOGW(TAG, "  - Router allows multicast/UPnP traffic");
+    }
 
     // Fetch room names for all discovered devices
     ESP_LOGI(TAG, "Fetching room names for %d device(s)...", deviceCount);
