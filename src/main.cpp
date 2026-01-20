@@ -15,15 +15,24 @@ void setup() {
     Serial.println("\n=== SONOS CONTROLLER ===");
     Serial.printf("Free heap: %d, PSRAM: %d\n", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
+    // Initialize WiFi preferences with debug logging
     wifiPrefs.begin("sonos_wifi", false);
+    String ssid = wifiPrefs.getString("ssid", DEFAULT_WIFI_SSID);
+    String pass = wifiPrefs.getString("pass", DEFAULT_WIFI_PASSWORD);
+
+    // Debug: Log what was loaded from NVS
+    if (ssid.length() > 0) {
+        Serial.printf("[WIFI] Loaded from NVS: SSID='%s' (pass length: %d)\n", ssid.c_str(), pass.length());
+    } else {
+        Serial.println("[WIFI] No saved credentials found in NVS, using defaults");
+    }
 
     // Brightness will be set after display_init() is called
     Serial.println("[DISPLAY] ESP32-P4 uses ST7701 backlight control (no PWM needed)");
 
-    String ssid = wifiPrefs.getString("ssid", DEFAULT_WIFI_SSID);
-    String pass = wifiPrefs.getString("pass", DEFAULT_WIFI_PASSWORD);
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid.c_str(), pass.c_str());
+    Serial.printf("[WIFI] Connecting to '%s'", ssid.c_str());
     int tries = 0;
     while (WiFi.status() != WL_CONNECTED && tries++ < 20) {
         vTaskDelay(pdMS_TO_TICKS(500));

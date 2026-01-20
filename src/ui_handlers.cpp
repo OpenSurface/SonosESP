@@ -317,8 +317,20 @@ void ev_wifi_connect(lv_event_t* e) {
     }
 
     if (WiFi.status() == WL_CONNECTED) {
+        // Save credentials to NVS
+        Serial.printf("[WIFI] Saving credentials to NVS: SSID='%s'\n", selectedSSID.c_str());
         wifiPrefs.putString("ssid", selectedSSID);
         wifiPrefs.putString("pass", pwd);
+
+        // Verify write succeeded
+        String verifySSID = wifiPrefs.getString("ssid", "");
+        String verifyPass = wifiPrefs.getString("pass", "");
+
+        if (verifySSID == selectedSSID && verifyPass == pwd) {
+            Serial.println("[WIFI] Credentials successfully saved and verified in NVS");
+        } else {
+            Serial.println("[WIFI] WARNING: NVS verification failed! Credentials may not persist.");
+        }
 
         String ip = WiFi.localIP().toString();
         lv_label_set_text_fmt(lbl_wifi_status,
