@@ -205,7 +205,7 @@ void albumArtTask(void* param) {
                     markIndex = fetchUrl.indexOf("mark=https");
                 }
                 if (fetchUrl.indexOf("sonosradio.imgix.net") != -1 && markIndex != -1) {
-                    ESP_LOGI("ART", "Sonos Radio art detected");
+                    Serial.println("[ART] Sonos Radio art detected");
                     int markStart = markIndex + 5;  // After "mark="
                     int markEnd = fetchUrl.indexOf("&", markStart);
                     if (markEnd == -1) markEnd = fetchUrl.length();
@@ -213,7 +213,7 @@ void albumArtTask(void* param) {
                     String originalUrl = fetchUrl;
                     fetchUrl = fetchUrl.substring(markStart, markEnd);
                     is_sonos_radio_art = true;
-                    ESP_LOGI("ART", "Extracted: %s", fetchUrl.c_str());
+                    Serial.printf("[ART] Extracted: %s\n", fetchUrl.c_str());
                 }
 
                 strncpy(url, fetchUrl.c_str(), sizeof(url) - 1);
@@ -237,9 +237,9 @@ void albumArtTask(void* param) {
                 // Reduced from 400KB to 200KB to avoid WiFi buffer exhaustion (Issue #7)
                 if ((len_known && len < (int)max_art_size) || !len_known) {
                     if (len_known) {
-                        ESP_LOGI("ART", "Downloading album art: %d bytes", len);
+                        Serial.printf("[ART] Downloading album art: %d bytes\n", len);
                     } else {
-                        ESP_LOGI("ART", "Downloading album art: unknown length");
+                        Serial.println("[ART] Downloading album art: unknown length");
                     }
                     size_t alloc_len = len_known ? (size_t)len : max_art_size;
                     uint8_t* jpgBuf = (uint8_t*)heap_caps_malloc(alloc_len, MALLOC_CAP_SPIRAM);
@@ -267,7 +267,7 @@ void albumArtTask(void* param) {
 
                             if (actualRead == 0) {
                                 if (len_known) {
-                                    ESP_LOGW("ART", "Read timeout at %d/%d bytes", bytesRead, len);
+                                Serial.printf("[ART] Read timeout at %d/%d bytes\n", (int)bytesRead, len);
                                     readSuccess = false;
                                 }
                                 break;
@@ -278,22 +278,22 @@ void albumArtTask(void* param) {
                         }
 
                         if (!len_known && bytesRead >= max_art_size) {
-                            ESP_LOGW("ART", "Album art too large (max 200KB)");
+                            Serial.println("[ART] Album art too large (max 200KB)");
                             readSuccess = false;
                         }
 
-                        ESP_LOGI("ART", "Album art read: %d bytes (len_known=%d)", (int)bytesRead, len_known ? 1 : 0);
+                        Serial.printf("[ART] Album art read: %d bytes (len_known=%d)\n", (int)bytesRead, len_known ? 1 : 0);
 
                         int read = bytesRead;
                         if ((len_known ? (read == len) : (read > 0)) && readSuccess) {
-                            ESP_LOGI("ART", "Opening JPEG with %d bytes", read);
+                            Serial.printf("[ART] Opening JPEG with %d bytes\n", read);
                             if (jpeg.openRAM(jpgBuf, read, jpegDraw)) {
                                 jpeg.setPixelType(RGB565_LITTLE_ENDIAN);
                                 int w = jpeg.getWidth();
                                 int h = jpeg.getHeight();
                                 jpeg_image_width = w;   // Store for callback
                                 jpeg_image_height = h;  // Store for callback
-                                ESP_LOGI("ART", "JPEG: %dx%d", w, h);
+                                Serial.printf("[ART] JPEG: %dx%d\n", w, h);
 
                                 // Allocate buffer for full decoded image
                                 size_t decoded_size = w * h * 2;
@@ -310,7 +310,7 @@ void albumArtTask(void* param) {
                                     jpeg.decode(0, 0, 0);
                                     jpeg.close();
 
-                                    ESP_LOGI("ART", "Decoded %dx%d", w, h);
+                                    Serial.printf("[ART] Decoded %dx%d\n", w, h);
 
                                     // Restore art_temp_buffer pointer
                                     art_temp_buffer = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
@@ -320,9 +320,9 @@ void albumArtTask(void* param) {
                                         memset(art_temp_buffer, 0, ART_SIZE * ART_SIZE * 2);
 
                                         // Scale to exact 420x420 using bilinear interpolation
-                                        ESP_LOGI("ART", "Bilinear scaling %dx%d -> 420x420", w, h);
+                                        Serial.printf("[ART] Bilinear scaling %dx%d -> 420x420\n", w, h);
                                         scaleImageBilinear(decoded_buffer, w, h, art_temp_buffer, ART_SIZE, ART_SIZE);
-                                        ESP_LOGI("ART", "Scaling complete");
+                                        Serial.println("[ART] Scaling complete");
 
                                         // Sample dominant color from scaled image
                                         sampleDominantColor(art_temp_buffer, ART_SIZE, ART_SIZE);
@@ -361,21 +361,21 @@ void albumArtTask(void* param) {
                                         }
                                     }
                                 } else {
-                                    ESP_LOGW("ART", "Failed to allocate %d bytes for decoded image", decoded_size);
+                                    Serial.printf("[ART] Failed to allocate %d bytes for decoded image\n", (int)decoded_size);
                                 }
                             }
                         }
                         heap_caps_free(jpgBuf);
                     } else {
-                        ESP_LOGW("ART", "Failed to allocate %d bytes for album art", len);
+                        Serial.printf("[ART] Failed to allocate %d bytes for album art\n", len);
                     }
                 } else if (len >= 200000) {
-                    ESP_LOGW("ART", "Album art too large: %d bytes (max 200KB)", len);
+                    Serial.printf("[ART] Album art too large: %d bytes (max 200KB)\n", len);
                 } else {
-                    ESP_LOGW("ART", "Invalid album art size: %d bytes", len);
+                    Serial.printf("[ART] Invalid album art size: %d bytes\n", len);
                 }
             } else {
-                ESP_LOGW("ART", "HTTP error %d fetching album art", code);
+                Serial.printf("[ART] HTTP error %d fetching album art\n", code);
             }
             http.end();
         }
