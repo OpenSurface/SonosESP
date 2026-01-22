@@ -223,6 +223,7 @@ void albumArtTask(void* param) {
             xSemaphoreGive(art_mutex);
         }
         if (url[0] != '\0') {
+            Serial.printf("[ART] URL: %s\n", url);
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
                 http.begin(secure_client, url);
@@ -305,12 +306,15 @@ void albumArtTask(void* param) {
 
                                 if (decoded_buffer) {
                                     jpeg_decode_buffer = decoded_buffer;
+                                    // Clear decoded buffer to avoid stale tiles when decoder skips blocks
+                                    memset(decoded_buffer, 0, decoded_size);
 
                                     // Decode full image at original size (no scaling)
                                     jpeg.decode(0, 0, 0);
                                     jpeg.close();
 
                                     Serial.printf("[ART] Decoded %dx%d\n", w, h);
+                                    jpeg_decode_buffer = nullptr;
 
                                     if (art_temp_buffer) {
                                         // Clear output buffer
