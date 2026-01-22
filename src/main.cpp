@@ -34,8 +34,8 @@ void setup() {
     WiFi.begin(ssid.c_str(), pass.c_str());
     Serial.printf("[WIFI] Connecting to '%s'", ssid.c_str());
     int tries = 0;
-    while (WiFi.status() != WL_CONNECTED && tries++ < 20) {
-        vTaskDelay(pdMS_TO_TICKS(500));
+    while (WiFi.status() != WL_CONNECTED && tries++ < 40) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
         Serial.print(".");
     }
     if (WiFi.status() == WL_CONNECTED) {
