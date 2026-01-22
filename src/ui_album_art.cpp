@@ -174,6 +174,8 @@ void albumArtTask(void* param) {
 
     // HTTPClient for album art
     HTTPClient http;
+    WiFiClientSecure secure_client;
+    secure_client.setInsecure();  // Skip certificate validation for album art hosts
     static char url[512];
 
     // Temporary buffer for decoded full-size image
@@ -188,16 +190,15 @@ void albumArtTask(void* param) {
                 // Decode HTML entities (&amp; -> &)
                 fetchUrl.replace("&amp;", "&");
 
-                // Convert HTTPS to HTTP (ESP32-P4 doesn't support HTTPS natively)
-                if (fetchUrl.startsWith("https://")) {
-                    fetchUrl.replace("https://", "http://");
-                }
-
                 // Sonos Radio fix: extract high-quality art from embedded mark parameter
                 is_sonos_radio_art = false;
-                if (fetchUrl.indexOf("sonosradio.imgix.net") != -1 && fetchUrl.indexOf("mark=http") != -1) {
+                int markIndex = fetchUrl.indexOf("mark=http");
+                if (markIndex == -1) {
+                    markIndex = fetchUrl.indexOf("mark=https");
+                }
+                if (fetchUrl.indexOf("sonosradio.imgix.net") != -1 && markIndex != -1) {
                     ESP_LOGI("ART", "Sonos Radio art detected");
-                    int markStart = fetchUrl.indexOf("mark=http") + 5;
+                    int markStart = markIndex + 5;  // After "mark="
                     int markEnd = fetchUrl.indexOf("&", markStart);
                     if (markEnd == -1) markEnd = fetchUrl.length();
 
@@ -213,7 +214,12 @@ void albumArtTask(void* param) {
             xSemaphoreGive(art_mutex);
         }
         if (url[0] != '\0') {
-            http.begin(url);
+            bool use_https = (strncmp(url, "https://", 8) == 0);
+            if (use_https) {
+                http.begin(secure_client, url);
+            } else {
+                http.begin(url);
+            }
             http.setTimeout(10000);  // Increased timeout for chunked reading
             int code = http.GET();
             if (code == 200) {

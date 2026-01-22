@@ -16,12 +16,12 @@
 #include "esp_heap_caps.h"
 
 // Default WiFi credentials (empty = force WiFi setup via UI)
-#define DEFAULT_WIFI_SSID     ""
+#define DEFAULT_WIFI_SSID ""
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.0.24"
-#define GITHUB_REPO "OpenSurface/SonosESP"
+#define FIRMWARE_VERSION "1.0.25"
+#define GITHUB_REPO "BaileyLawson/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
 // Album art size
@@ -81,8 +81,8 @@ extern lv_obj_t *btn_groups_scan, *spinner_groups_scan;
 
 // Album art
 extern lv_img_dsc_t art_dsc;
-extern uint16_t* art_buffer;
-extern uint16_t* art_temp_buffer;
+extern uint16_t *art_buffer;
+extern uint16_t *art_temp_buffer;
 extern String last_art_url, pending_art_url;
 extern volatile bool art_ready;
 extern SemaphoreHandle_t art_mutex;
@@ -111,13 +111,13 @@ extern String current_browse_title;
 extern int selected_group_coordinator;
 
 // OTA update state
-extern lv_obj_t* lbl_ota_status;
-extern lv_obj_t* lbl_ota_progress;
-extern lv_obj_t* lbl_current_version;
-extern lv_obj_t* lbl_latest_version;
-extern lv_obj_t* btn_check_update;
-extern lv_obj_t* btn_install_update;
-extern lv_obj_t* bar_ota_progress;
+extern lv_obj_t *lbl_ota_status;
+extern lv_obj_t *lbl_ota_progress;
+extern lv_obj_t *lbl_current_version;
+extern lv_obj_t *lbl_latest_version;
+extern lv_obj_t *btn_check_update;
+extern lv_obj_t *btn_install_update;
+extern lv_obj_t *bar_ota_progress;
 extern String latest_version;
 extern String download_url;
 
@@ -145,28 +145,28 @@ void refreshGroupsList();
 // ============================================================================
 // Function Declarations - Event Handlers
 // ============================================================================
-void ev_play(lv_event_t* e);
-void ev_prev(lv_event_t* e);
-void ev_next(lv_event_t* e);
-void ev_shuffle(lv_event_t* e);
-void ev_repeat(lv_event_t* e);
-void ev_progress(lv_event_t* e);
-void ev_vol_slider(lv_event_t* e);
-void ev_mute(lv_event_t* e);
-void ev_devices(lv_event_t* e);
-void ev_queue(lv_event_t* e);
-void ev_settings(lv_event_t* e);
-void ev_display_settings(lv_event_t* e);
-void ev_back_main(lv_event_t* e);
-void ev_back_settings(lv_event_t* e);
-void ev_groups(lv_event_t* e);
-void ev_discover(lv_event_t* e);
-void ev_queue_item(lv_event_t* e);
-void ev_wifi_scan(lv_event_t* e);
-void ev_wifi_connect(lv_event_t* e);
-void ev_check_update(lv_event_t* e);
-void ev_install_update(lv_event_t* e);
-void ev_ota_settings(lv_event_t* e);
+void ev_play(lv_event_t *e);
+void ev_prev(lv_event_t *e);
+void ev_next(lv_event_t *e);
+void ev_shuffle(lv_event_t *e);
+void ev_repeat(lv_event_t *e);
+void ev_progress(lv_event_t *e);
+void ev_vol_slider(lv_event_t *e);
+void ev_mute(lv_event_t *e);
+void ev_devices(lv_event_t *e);
+void ev_queue(lv_event_t *e);
+void ev_settings(lv_event_t *e);
+void ev_display_settings(lv_event_t *e);
+void ev_back_main(lv_event_t *e);
+void ev_back_settings(lv_event_t *e);
+void ev_groups(lv_event_t *e);
+void ev_discover(lv_event_t *e);
+void ev_queue_item(lv_event_t *e);
+void ev_wifi_scan(lv_event_t *e);
+void ev_wifi_connect(lv_event_t *e);
+void ev_check_update(lv_event_t *e);
+void ev_install_update(lv_event_t *e);
+void ev_ota_settings(lv_event_t *e);
 
 // ============================================================================
 // Function Declarations - Utilities
@@ -175,14 +175,14 @@ void setBackgroundColor(uint32_t hex_color);
 void setBrightness(int level);
 void resetScreenTimeout();
 void checkAutoDim();
-void requestAlbumArt(const String& url);
+void requestAlbumArt(const String &url);
 void updateUI();
 void processUpdates();
-String urlEncode(const char* url);
-void cleanupBrowseData(lv_obj_t* list);
-lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
+String urlEncode(const char *url);
+void cleanupBrowseData(lv_obj_t *list);
+lv_obj_t *createSettingsSidebar(lv_obj_t *screen, int activeIdx);
 
 // Album art task
-void albumArtTask(void* param);
+void albumArtTask(void *param);
 
 #endif // UI_COMMON_H
