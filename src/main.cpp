@@ -38,10 +38,14 @@ void setup() {
     Serial.println("[DISPLAY] ESP32-P4 uses ST7701 backlight control (no PWM needed)");
 
     WiFi.mode(WIFI_STA);
+    // ESP32-C6 WiFi initialization delay - fixes ESP-Hosted SDIO timing issues
+    // The ESP32-C6 co-processor needs time to initialize SDIO before accepting connections
+    // Without this delay, SDIO RX queue can overflow during association causing timeouts
+    vTaskDelay(pdMS_TO_TICKS(2000));
     WiFi.begin(ssid.c_str(), pass.c_str());
     Serial.printf("[WIFI] Connecting to '%s'", ssid.c_str());
     int tries = 0;
-    while (WiFi.status() != WL_CONNECTED && tries++ < 20) {
+    while (WiFi.status() != WL_CONNECTED && tries++ < 40) {  // Increased to 40 tries (20 seconds)
         vTaskDelay(pdMS_TO_TICKS(500));
         Serial.print(".");
     }

@@ -15,3 +15,4 @@ RELEASE_INSTRUCTIONS.md
 *.bin
 *.elf
 *.map
+WORKFLOW.md
