@@ -217,7 +217,7 @@ void albumArtTask(void* param) {
                     Serial.printf("[ART] Extracted: %s\n", fetchUrl.c_str());
                 }
 
-                // Sonos getaa URLs can contain unescaped '?' in the u= parameter; encode it
+                // Sonos getaa URLs can contain unescaped '?' and '&' in the u= parameter; encode them only
                 if (fetchUrl.indexOf("/getaa?") != -1) {
                     int uPos = fetchUrl.indexOf("u=");
                     if (uPos != -1) {
@@ -225,7 +225,17 @@ void albumArtTask(void* param) {
                         int uEnd = fetchUrl.indexOf("&", uStart);
                         if (uEnd == -1) uEnd = fetchUrl.length();
                         String uValue = fetchUrl.substring(uStart, uEnd);
-                        String uEncoded = urlEncode(uValue.c_str());
+                        String uEncoded = "";
+                        for (int i = 0; i < uValue.length(); i++) {
+                            char c = uValue[i];
+                            if (c == '?') {
+                                uEncoded += "%3F";
+                            } else if (c == '&') {
+                                uEncoded += "%26";
+                            } else {
+                                uEncoded += c;
+                            }
+                        }
                         fetchUrl = fetchUrl.substring(0, uStart) + uEncoded + fetchUrl.substring(uEnd);
                     }
                 }
