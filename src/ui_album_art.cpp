@@ -282,8 +282,11 @@ void albumArtTask(void* param) {
                             readSuccess = false;
                         }
 
+                        ESP_LOGI("ART", "Album art read: %d bytes (len_known=%d)", (int)bytesRead, len_known ? 1 : 0);
+
                         int read = bytesRead;
                         if ((len_known ? (read == len) : (read > 0)) && readSuccess) {
+                            ESP_LOGI("ART", "Opening JPEG with %d bytes", read);
                             if (jpeg.openRAM(jpgBuf, read, jpegDraw)) {
                                 jpeg.setPixelType(RGB565_LITTLE_ENDIAN);
                                 int w = jpeg.getWidth();
