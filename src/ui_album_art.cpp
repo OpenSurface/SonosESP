@@ -134,16 +134,39 @@ void albumArtTask(void* param) {
         }
         if (url[0] != '\0') {
             http.begin(url);
-            http.setTimeout(5000);
+            http.setTimeout(10000);  // Increased timeout for chunked reading
             int code = http.GET();
             if (code == 200) {
                 int len = http.getSize();
-                if (len > 0 && len < 400000) {
+                // Reduced from 400KB to 200KB to avoid WiFi buffer exhaustion (Issue #7)
+                if (len > 0 && len < 200000) {
+                    ESP_LOGI("ART", "Downloading album art: %d bytes", len);
                     uint8_t* jpgBuf = (uint8_t*)heap_caps_malloc(len, MALLOC_CAP_SPIRAM);
                     if (jpgBuf) {
                         WiFiClient* stream = http.getStreamPtr();
-                        int read = stream->readBytes(jpgBuf, len);
-                        if (read == len) {
+
+                        // Chunked reading to avoid WiFi buffer exhaustion (Issue #7)
+                        // Read in 4KB chunks with yields to let WiFi driver process
+                        const size_t chunkSize = 4096;
+                        size_t bytesRead = 0;
+                        bool readSuccess = true;
+
+                        while (bytesRead < len && stream->connected()) {
+                            size_t toRead = min(chunkSize, len - bytesRead);
+                            size_t actualRead = stream->readBytes(jpgBuf + bytesRead, toRead);
+
+                            if (actualRead == 0) {
+                                ESP_LOGW("ART", "Read timeout at %d/%d bytes", bytesRead, len);
+                                readSuccess = false;
+                                break;
+                            }
+
+                            bytesRead += actualRead;
+                            vTaskDelay(pdMS_TO_TICKS(1));  // Yield to WiFi task
+                        }
+
+                        int read = bytesRead;
+                        if (read == len && readSuccess) {
                             if (jpeg.openRAM(jpgBuf, len, jpegDraw)) {
                                 jpeg.setPixelType(RGB565_LITTLE_ENDIAN);
                                 int w = jpeg.getWidth();
@@ -215,8 +238,16 @@ void albumArtTask(void* param) {
                             }
                         }
                         heap_caps_free(jpgBuf);
+                    } else {
+                        ESP_LOGW("ART", "Failed to allocate %d bytes for album art", len);
                     }
+                } else if (len >= 200000) {
+                    ESP_LOGW("ART", "Album art too large: %d bytes (max 200KB)", len);
+                } else {
+                    ESP_LOGW("ART", "Invalid album art size: %d bytes", len);
                 }
+            } else {
+                ESP_LOGW("ART", "HTTP error %d fetching album art", code);
             }
             http.end();
         }
