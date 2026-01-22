@@ -224,10 +224,17 @@ void albumArtTask(void* param) {
             int code = http.GET();
             if (code == 200) {
                 int len = http.getSize();
+                const size_t max_art_size = 200000;
+                const bool len_known = (len > 0);
                 // Reduced from 400KB to 200KB to avoid WiFi buffer exhaustion (Issue #7)
-                if (len > 0 && len < 200000) {
-                    ESP_LOGI("ART", "Downloading album art: %d bytes", len);
-                    uint8_t* jpgBuf = (uint8_t*)heap_caps_malloc(len, MALLOC_CAP_SPIRAM);
+                if ((len_known && len < (int)max_art_size) || !len_known) {
+                    if (len_known) {
+                        ESP_LOGI("ART", "Downloading album art: %d bytes", len);
+                    } else {
+                        ESP_LOGI("ART", "Downloading album art: unknown length");
+                    }
+                    size_t alloc_len = len_known ? (size_t)len : max_art_size;
+                    uint8_t* jpgBuf = (uint8_t*)heap_caps_malloc(alloc_len, MALLOC_CAP_SPIRAM);
                     if (jpgBuf) {
                         WiFiClient* stream = http.getStreamPtr();
 
@@ -237,13 +244,24 @@ void albumArtTask(void* param) {
                         size_t bytesRead = 0;
                         bool readSuccess = true;
 
-                        while (bytesRead < len && stream->connected()) {
-                            size_t toRead = min(chunkSize, len - bytesRead);
+                        while (stream->connected() && bytesRead < alloc_len) {
+                            size_t available = stream->available();
+                            if (available == 0) {
+                                vTaskDelay(pdMS_TO_TICKS(1));
+                                if (!stream->connected()) break;
+                                continue;
+                            }
+
+                            size_t remaining = len_known ? ((size_t)len - bytesRead) : (alloc_len - bytesRead);
+                            size_t toRead = min(chunkSize, remaining);
+                            toRead = min(toRead, available);
                             size_t actualRead = stream->readBytes(jpgBuf + bytesRead, toRead);
 
                             if (actualRead == 0) {
-                                ESP_LOGW("ART", "Read timeout at %d/%d bytes", bytesRead, len);
-                                readSuccess = false;
+                                if (len_known) {
+                                    ESP_LOGW("ART", "Read timeout at %d/%d bytes", bytesRead, len);
+                                    readSuccess = false;
+                                }
                                 break;
                             }
 
@@ -251,9 +269,14 @@ void albumArtTask(void* param) {
                             vTaskDelay(pdMS_TO_TICKS(1));  // Yield to WiFi task
                         }
 
+                        if (!len_known && bytesRead >= max_art_size) {
+                            ESP_LOGW("ART", "Album art too large (max 200KB)");
+                            readSuccess = false;
+                        }
+
                         int read = bytesRead;
-                        if (read == len && readSuccess) {
-                            if (jpeg.openRAM(jpgBuf, len, jpegDraw)) {
+                        if ((len_known ? (read == len) : (read > 0)) && readSuccess) {
+                            if (jpeg.openRAM(jpgBuf, read, jpegDraw)) {
                                 jpeg.setPixelType(RGB565_LITTLE_ENDIAN);
                                 int w = jpeg.getWidth();
                                 int h = jpeg.getHeight();
