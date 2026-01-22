@@ -8,8 +8,10 @@
 // Album Art Functions
 static uint32_t color_r_sum = 0, color_g_sum = 0, color_b_sum = 0;
 static int color_sample_count = 0;
-static int jpeg_image_width = 0;  // Store full image width for callback
-static int jpeg_image_height = 0; // Store full image height for callback
+static int jpeg_image_width = 0;   // Store full image width for callback
+static int jpeg_image_height = 0;  // Store full image height for callback
+static int jpeg_output_width = 0;  // Actual decoded output width
+static int jpeg_output_height = 0; // Actual decoded output height
 static uint16_t* jpeg_decode_buffer = nullptr;  // Destination for JPEG decode
 
 // Apply dominant color instantly to both panels and update button feedback colors
@@ -158,6 +160,11 @@ static int jpegDraw(JPEGDRAW* pDraw) {
     int w = pDraw->iWidth;
     int h = pDraw->iHeight;
 
+    int out_w = src_x + w;
+    int out_h = src_y + h;
+    if (out_w > jpeg_output_width) jpeg_output_width = out_w;
+    if (out_h > jpeg_output_height) jpeg_output_height = out_h;
+
     // Copy MCU block to temp buffer using full image width
     for (int row = 0; row < h; row++) {
         int dy = src_y + row;
@@ -240,8 +247,10 @@ void albumArtTask(void* param) {
                     }
                 }
 
-                strncpy(url, fetchUrl.c_str(), sizeof(url) - 1);
-                url[sizeof(url) - 1] = '\0';
+                if (fetchUrl != last_art_url) {
+                    strncpy(url, fetchUrl.c_str(), sizeof(url) - 1);
+                    url[sizeof(url) - 1] = '\0';
+                }
             }
             xSemaphoreGive(art_mutex);
         }
@@ -318,6 +327,8 @@ void albumArtTask(void* param) {
                                 int h = jpeg.getHeight();
                                 jpeg_image_width = w;   // Store for callback
                                 jpeg_image_height = h;  // Store for callback
+                                jpeg_output_width = 0;
+                                jpeg_output_height = 0;
                                 Serial.printf("[ART] JPEG: %dx%d\n", w, h);
 
                                 // Allocate buffer for full decoded image
@@ -340,13 +351,40 @@ void albumArtTask(void* param) {
                                     jpeg_decode_buffer = nullptr;
 
                                     if (art_temp_buffer) {
+                                        int out_w = jpeg_output_width > 0 ? jpeg_output_width : w;
+                                        int out_h = jpeg_output_height > 0 ? jpeg_output_height : h;
+                                        uint16_t* src_buffer = decoded_buffer;
+                                        bool needs_compact = (out_w != w) || (out_h != h);
+
+                                        if (needs_compact) {
+                                            Serial.printf("[ART] Output size: %dx%d (scaled)\n", out_w, out_h);
+                                            size_t compact_size = (size_t)out_w * (size_t)out_h * 2;
+                                            uint16_t* compact_buffer = (uint16_t*)heap_caps_malloc(compact_size, MALLOC_CAP_SPIRAM);
+                                            if (compact_buffer) {
+                                                for (int y = 0; y < out_h; y++) {
+                                                    memcpy(&compact_buffer[y * out_w],
+                                                           &decoded_buffer[y * w],
+                                                           (size_t)out_w * 2);
+                                                }
+                                                src_buffer = compact_buffer;
+                                            } else {
+                                                Serial.println("[ART] Failed to allocate compact buffer");
+                                                out_w = w;
+                                                out_h = h;
+                                            }
+                                        }
+
                                         // Clear output buffer
                                         memset(art_temp_buffer, 0, ART_SIZE * ART_SIZE * 2);
 
                                         // Scale to exact 420x420 using bilinear interpolation
-                                        Serial.printf("[ART] Bilinear scaling %dx%d -> 420x420\n", w, h);
-                                        scaleImageBilinear(decoded_buffer, w, h, art_temp_buffer, ART_SIZE, ART_SIZE);
+                                        Serial.printf("[ART] Bilinear scaling %dx%d -> 420x420\n", out_w, out_h);
+                                        scaleImageBilinear(src_buffer, out_w, out_h, art_temp_buffer, ART_SIZE, ART_SIZE);
                                         Serial.println("[ART] Scaling complete");
+
+                                        if (src_buffer != decoded_buffer) {
+                                            heap_caps_free(src_buffer);
+                                        }
 
                                         // Sample dominant color from scaled image
                                         sampleDominantColor(art_temp_buffer, ART_SIZE, ART_SIZE);

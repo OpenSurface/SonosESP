@@ -38,10 +38,11 @@ void setup() {
     Serial.println("[DISPLAY] ESP32-P4 uses ST7701 backlight control (no PWM needed)");
 
     WiFi.mode(WIFI_STA);
+    vTaskDelay(pdMS_TO_TICKS(2000)); // Wait for WiFi hardware
     WiFi.begin(ssid.c_str(), pass.c_str());
     Serial.printf("[WIFI] Connecting to '%s'", ssid.c_str());
     int tries = 0;
-    while (WiFi.status() != WL_CONNECTED && tries++ < 20) {
+    while (WiFi.status() != WL_CONNECTED && tries++ < 40) {
         vTaskDelay(pdMS_TO_TICKS(500));
         Serial.print(".");
     }
