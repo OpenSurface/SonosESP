@@ -10,6 +10,7 @@ INSTRUCTIONS.md
 OTA_FEATURE_SUMMARY.md
 GITHUB_RELEASE_CHECKLIST.md
 RELEASE_INSTRUCTIONS.md
+bump_version.py
 
 # Build artifacts
 *.bin
