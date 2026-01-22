@@ -9,6 +9,7 @@
 static uint32_t color_r_sum = 0, color_g_sum = 0, color_b_sum = 0;
 static int color_sample_count = 0;
 static int jpeg_image_width = 0;  // Store full image width for callback
+static int jpeg_image_height = 0; // Store full image height for callback
 
 // Apply dominant color instantly to both panels and update button feedback colors
 void setBackgroundColor(uint32_t hex_color) {
@@ -159,9 +160,16 @@ static int jpegDraw(JPEGDRAW* pDraw) {
     // Copy MCU block to temp buffer using full image width
     for (int row = 0; row < h; row++) {
         int dy = src_y + row;
-        if (dy < 0 || dy >= jpeg_image_width) continue;
+        if (dy < 0 || dy >= jpeg_image_height) continue;
+        if (src_x < 0 || src_x >= jpeg_image_width) continue;
 
-        memcpy(&art_temp_buffer[dy * jpeg_image_width + src_x], &src[row * w], w * 2);
+        int copy_w = w;
+        if (src_x + copy_w > jpeg_image_width) {
+            copy_w = jpeg_image_width - src_x;
+        }
+        if (copy_w <= 0) continue;
+
+        memcpy(&art_temp_buffer[dy * jpeg_image_width + src_x], &src[row * w], copy_w * 2);
     }
 
     return 1;
@@ -280,7 +288,8 @@ void albumArtTask(void* param) {
                                 jpeg.setPixelType(RGB565_LITTLE_ENDIAN);
                                 int w = jpeg.getWidth();
                                 int h = jpeg.getHeight();
-                                jpeg_image_width = w;  // Store for callback
+                                jpeg_image_width = w;   // Store for callback
+                                jpeg_image_height = h;  // Store for callback
                                 ESP_LOGI("ART", "JPEG: %dx%d", w, h);
 
                                 // Allocate buffer for full decoded image
