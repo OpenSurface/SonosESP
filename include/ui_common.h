@@ -20,8 +20,8 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.0.22"
-#define GITHUB_REPO "OpenSurface/SonosESP"
+#define FIRMWARE_VERSION "1.0.23"
+#define GITHUB_REPO "BaileyLawson/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
 // Album art size
