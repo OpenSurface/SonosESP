@@ -217,6 +217,19 @@ void albumArtTask(void* param) {
                     Serial.printf("[ART] Extracted: %s\n", fetchUrl.c_str());
                 }
 
+                // Sonos getaa URLs can contain unescaped '?' in the u= parameter; encode it
+                if (fetchUrl.indexOf("/getaa?") != -1) {
+                    int uPos = fetchUrl.indexOf("u=");
+                    if (uPos != -1) {
+                        int uStart = uPos + 2;
+                        int uEnd = fetchUrl.indexOf("&", uStart);
+                        if (uEnd == -1) uEnd = fetchUrl.length();
+                        String uValue = fetchUrl.substring(uStart, uEnd);
+                        String uEncoded = urlEncode(uValue.c_str());
+                        fetchUrl = fetchUrl.substring(0, uStart) + uEncoded + fetchUrl.substring(uEnd);
+                    }
+                }
+
                 strncpy(url, fetchUrl.c_str(), sizeof(url) - 1);
                 url[sizeof(url) - 1] = '\0';
             }
@@ -346,6 +359,7 @@ void albumArtTask(void* param) {
                                         // Copy completed image from temp to display buffer atomically
                                         memcpy(art_buffer, art_temp_buffer, ART_SIZE * ART_SIZE * 2);
 
+                                        memset(&art_dsc, 0, sizeof(art_dsc));
                                         art_dsc.header.w = ART_SIZE;
                                         art_dsc.header.h = ART_SIZE;
                                         art_dsc.header.cf = LV_COLOR_FORMAT_RGB565;
