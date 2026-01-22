@@ -23,13 +23,13 @@ If you find this project helpful, consider supporting me on Ko-fi!
 
 - **Full Playback Control** - Play, pause, skip, volume, shuffle, and repeat
 - **Queue Management** - Browse and manage your playback queue
-- **Album Art Display** - High-quality JPEG rendering with automatic dominant color extraction
+- **Album Art Display** - High-quality JPEG rendering with bilinear scaling and automatic dominant color extraction
 - **Music Browsing** - Navigate your Sonos library, playlists, and favorites
 - **Multi-Room** - Switch between multiple Sonos devices
 - **WiFi Configuration** - Easy on-screen WiFi setup with built-in keyboard
 - **OTA Updates** - Automatic firmware updates from GitHub releases
 - **Thread-Safe** - FreeRTOS tasks with proper synchronization
-- **Performance Optimized** - PSRAM allocation, efficient string handling, robust networking
+- **Performance Optimized** - PSRAM allocation, efficient string handling, robust networking, fast fixed-point math
 
 ##  Hardware
 
@@ -85,6 +85,7 @@ The device supports automatic Over-The-Air (OTA) firmware updates from GitHub re
 - **Memory Management** - PSRAM for album art, heap monitoring
 - **Network Layer** - HTTPClient for SOAP requests, UDP for discovery
 - **UI Framework** - LVGL 9.4.0 with custom theme
+- **Image Processing** - Custom bilinear scaling with fixed-point math for arbitrary album art sizes
 - **OTA Updates** - Automatic firmware updates from GitHub releases
 
 ## Configuration
