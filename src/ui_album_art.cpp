@@ -10,6 +10,7 @@ static uint32_t color_r_sum = 0, color_g_sum = 0, color_b_sum = 0;
 static int color_sample_count = 0;
 static int jpeg_image_width = 0;  // Store full image width for callback
 static int jpeg_image_height = 0; // Store full image height for callback
+static uint16_t* jpeg_decode_buffer = nullptr;  // Destination for JPEG decode
 
 // Apply dominant color instantly to both panels and update button feedback colors
 void setBackgroundColor(uint32_t hex_color) {
@@ -149,7 +150,7 @@ void scaleImageBilinear(uint16_t* src, int src_w, int src_h, uint16_t* dst, int 
 
 // JPEGDEC callback - decode to temporary buffer with any source dimensions
 static int jpegDraw(JPEGDRAW* pDraw) {
-    if (!art_temp_buffer) return 0;
+    if (!jpeg_decode_buffer) return 0;
 
     uint16_t* src = pDraw->pPixels;
     int src_x = pDraw->x;
@@ -169,7 +170,7 @@ static int jpegDraw(JPEGDRAW* pDraw) {
         }
         if (copy_w <= 0) continue;
 
-        memcpy(&art_temp_buffer[dy * jpeg_image_width + src_x], &src[row * w], copy_w * 2);
+        memcpy(&jpeg_decode_buffer[dy * jpeg_image_width + src_x], &src[row * w], copy_w * 2);
     }
 
     return 1;
@@ -303,17 +304,13 @@ void albumArtTask(void* param) {
                                 decoded_buffer = (uint16_t*)heap_caps_malloc(decoded_size, MALLOC_CAP_SPIRAM);
 
                                 if (decoded_buffer) {
-                                    // Use decoded_buffer as temp buffer for full image
-                                    art_temp_buffer = decoded_buffer;
+                                    jpeg_decode_buffer = decoded_buffer;
 
                                     // Decode full image at original size (no scaling)
                                     jpeg.decode(0, 0, 0);
                                     jpeg.close();
 
                                     Serial.printf("[ART] Decoded %dx%d\n", w, h);
-
-                                    // Restore art_temp_buffer pointer
-                                    art_temp_buffer = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
 
                                     if (art_temp_buffer) {
                                         // Clear output buffer
