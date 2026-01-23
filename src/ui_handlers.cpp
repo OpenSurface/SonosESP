@@ -506,6 +506,10 @@ static void performOTAUpdate() {
             lv_tick_inc(10);
             lv_refr_now(NULL);
 
+            // Dim backlight heavily during download to hide flash write flicker
+            int original_brightness = brightness_level;
+            display_set_brightness(5);  // 5% brightness during download
+
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
             // Use 16KB buffer to reduce flash write frequency and minimize blue flicker
@@ -548,6 +552,9 @@ static void performOTAUpdate() {
             }
 
             if (written == contentLength) {
+                // Restore brightness after download
+                display_set_brightness(original_brightness);
+
                 // DOWNLOAD COMPLETE - Show 100%
                 if (bar_ota_progress) {
                     lv_bar_set_value(bar_ota_progress, 100, LV_ANIM_OFF);
@@ -588,20 +595,24 @@ static void performOTAUpdate() {
 
             if (Update.end()) {
                 if (Update.isFinished()) {
-                    // INSTALL COMPLETE
-                    if (bar_ota_progress) {
-                        lv_bar_set_value(bar_ota_progress, 100, LV_ANIM_OFF);
-                    }
-                    if (lbl_ota_progress) {
-                        lv_label_set_text(lbl_ota_progress, "Done!");
-                    }
-                    if (lbl_ota_status) {
-                        lv_label_set_text(lbl_ota_status, LV_SYMBOL_OK " Update complete! Rebooting...");
-                        lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0x4ECB71), 0);
-                    }
+                    // INSTALL COMPLETE - Clean screen and show "REBOOTING..." message
+                    lv_obj_clean(lv_screen_active());  // Remove all children
+                    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x000000), 0);
+
+                    // Create centered "REBOOTING..." label
+                    lv_obj_t *reboot_label = lv_label_create(lv_screen_active());
+                    lv_label_set_text(reboot_label, "REBOOTING...");
+                    lv_obj_set_style_text_color(reboot_label, lv_color_hex(0xFFFFFF), 0);
+                    lv_obj_center(reboot_label);
+
                     lv_tick_inc(10);
                     lv_refr_now(NULL);
-                    vTaskDelay(pdMS_TO_TICKS(2000));
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+
+                    // Turn off backlight before restart to avoid blue screen flash
+                    display_set_brightness(0);
+                    vTaskDelay(pdMS_TO_TICKS(100));
+
                     ESP.restart();
                 } else {
                     if (lbl_ota_status) {
