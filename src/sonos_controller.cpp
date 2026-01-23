@@ -5,10 +5,7 @@
 
 #include "sonos_controller.h"
 #include <HTTPClient.h>
-#include "esp_log.h"
 #include "lvgl.h"
-
-static const char* TAG = "SONOS";
 
 // Debounce for button presses
 static uint32_t lastCommandTime = 0;
@@ -37,7 +34,7 @@ void SonosController::begin() {
     commandQueue = xQueueCreate(10, sizeof(CommandRequest_t));
     uiUpdateQueue = xQueueCreate(20, sizeof(UIUpdate_t));
     prefs.begin("sonos", false);
-    ESP_LOGI(TAG, "SonosController initialized");
+    Serial.printf("[SONOS] SonosController initialized\n");
 }
 
 void SonosController::startTasks() {
@@ -47,22 +44,23 @@ void SonosController::startTasks() {
     if (pollingTaskHandle == NULL) {
         xTaskCreatePinnedToCore(pollingTaskFunction, "SonosPoll", 4096, this, 3, &pollingTaskHandle, 1);  // Priority 3, reduced stack
     }
-    ESP_LOGI(TAG, "Background tasks started");
+    Serial.printf("[SONOS] Background tasks started\n");
 }
 
 // ============================================================================
 // Discovery
 // ============================================================================
 int SonosController::discoverDevices() {
-    ESP_LOGI(TAG, "Starting discovery...");
+    Serial.printf("[SONOS] Starting discovery...\n");
     deviceCount = 0;
 
     udp.stop();
     vTaskDelay(pdMS_TO_TICKS(50));
 
     IPAddress multicast(239, 255, 255, 250);
-    if (!udp.beginMulticast(multicast, 1900)) {
-        ESP_LOGE(TAG, "UDP multicast failed");
+    // Bind a UDP socket to receive unicast SSDP responses (replies go to the sender's source port)
+    if (!udp.begin(1900)) {
+        Serial.printf("[SONOS] UDP begin failed on port 1900\n");
         return 0;
     }
 
@@ -89,7 +87,7 @@ int SonosController::discoverDevices() {
         udp.write((const uint8_t*)msg, strlen(msg));
         udp.endPacket();
 
-        ESP_LOGI(TAG, "Sent discovery burst %d/5 (multicast + broadcast)", burst + 1);
+        Serial.printf("[SONOS] Sent discovery burst %d/5 (multicast + broadcast)\n", burst + 1);
 
         if (burst < 4) {
             vTaskDelay(pdMS_TO_TICKS(500));  // 500ms between bursts - balance between coverage and speed
@@ -102,11 +100,13 @@ int SonosController::discoverDevices() {
     while (millis() - start < 15000) {  // 15 seconds total (5 bursts * 0.5s = 2.5s send + 12.5s listen)
         int size = udp.parsePacket();
         if (size > 0) {
-            char buf[513];  // 512 + 1 for null terminator
+            char buf[1025];  // 1024 + 1 for null terminator
             int len = udp.read(buf, sizeof(buf) - 1);
             if (len > 0 && len < (int)sizeof(buf)) {  // Safety check
                 buf[len] = 0;
-                if (strstr(buf, "Sonos") || strstr(buf, "ZonePlayer")) {
+                String resp = buf;
+                resp.toLowerCase();
+                if (resp.indexOf("sonos") >= 0 || resp.indexOf("zoneplayer") >= 0) {
                     IPAddress ip = udp.remoteIP();
 
                     bool exists = false;
@@ -131,15 +131,15 @@ int SonosController::discoverDevices() {
                         devices[deviceCount].isGroupCoordinator = true;  // Standalone by default
                         devices[deviceCount].groupMemberCount = 1;
 
-                        ESP_LOGI(TAG, "SSDP Response #%d: %s", deviceCount + 1, ip.toString().c_str());
+                        Serial.printf("[SONOS] SSDP Response #%d: %s\n", deviceCount + 1, ip.toString().c_str());
                         deviceCount++;
                         rawDeviceCount++;
                     } else if (exists) {
-                        ESP_LOGD(TAG, "Ignoring duplicate SSDP response from: %s", ip.toString().c_str());
+                        Serial.printf("[SONOS] Ignoring duplicate SSDP response from: %s\n", ip.toString().c_str());
                     }
 
                     if (deviceCount >= MAX_SONOS_DEVICES) {
-                        ESP_LOGW(TAG, "Reached MAX_SONOS_DEVICES limit (%d)", MAX_SONOS_DEVICES);
+                        Serial.printf("[SONOS] Reached MAX_SONOS_DEVICES limit (%d)\n", MAX_SONOS_DEVICES);
                     }
                 }
             }
@@ -158,26 +158,26 @@ int SonosController::discoverDevices() {
 
     udp.stop();
 
-    ESP_LOGI(TAG, "Discovery window closed. Found %d raw IP(s) before deduplication.", rawDeviceCount);
+    Serial.printf("[SONOS] Discovery window closed. Found %d raw IP(s) before deduplication.\n", rawDeviceCount);
 
     if (deviceCount == 0) {
-        ESP_LOGW(TAG, "No Sonos devices responded to discovery. Check network connectivity and ensure devices are powered on.");
+        Serial.printf("[SONOS] No Sonos devices responded to discovery. Check network connectivity and ensure devices are powered on.\n");
         return 0;
     }
 
     if (deviceCount == 1 && rawDeviceCount == 1) {
-        ESP_LOGW(TAG, "Only 1 device found. If you have more speakers, try scanning again or check:");
-        ESP_LOGW(TAG, "  - All speakers are powered on and connected to WiFi");
-        ESP_LOGW(TAG, "  - ESP32 and Sonos devices are on the same network/VLAN");
-        ESP_LOGW(TAG, "  - Router allows multicast/UPnP traffic");
+        Serial.printf("[SONOS] Only 1 device found. If you have more speakers, try scanning again or check:\n");
+        Serial.printf("[SONOS]   - All speakers are powered on and connected to WiFi\n");
+        Serial.printf("[SONOS]   - ESP32 and Sonos devices are on the same network/VLAN\n");
+        Serial.printf("[SONOS]   - Router allows multicast/UPnP traffic\n");
     }
 
     // Fetch room names for all discovered devices
-    ESP_LOGI(TAG, "Fetching room names for %d device(s)...", deviceCount);
+    Serial.printf("[SONOS] Fetching room names for %d device(s)...\n", deviceCount);
     for (int i = 0; i < deviceCount; i++) {
-        ESP_LOGI(TAG, "Fetching room name %d/%d from %s", i + 1, deviceCount, devices[i].ip.toString().c_str());
+        Serial.printf("[SONOS] Fetching room name %d/%d from %s\n", i + 1, deviceCount, devices[i].ip.toString().c_str());
         getRoomName(&devices[i]);
-        ESP_LOGI(TAG, "  -> Room name: '%s'", devices[i].roomName.c_str());
+        Serial.printf("[SONOS]   -> Room name: '%s'\n", devices[i].roomName.c_str());
 
         // Update UI while fetching room names
         lv_tick_inc(10);
@@ -188,7 +188,7 @@ int SonosController::discoverDevices() {
     // Deduplicate by room name to handle stereo pairs
     // In stereo pairs, both speakers respond to SSDP but have the same room name
     // Keep the first occurrence (usually the primary/left speaker)
-    ESP_LOGI(TAG, "Starting deduplication process...");
+    Serial.printf("[SONOS] Starting deduplication process...\n");
     int uniqueCount = 0;
     for (int i = 0; i < deviceCount; i++) {
         // Normalize room name: trim whitespace and convert to lowercase for comparison
@@ -203,7 +203,7 @@ int SonosController::discoverDevices() {
             normalizedExisting.toLowerCase();
 
             if (normalizedExisting == normalizedCurrent) {
-                ESP_LOGI(TAG, "  [DUPLICATE] '%s' (%s) matches existing '%s' (%s) - filtering out",
+                Serial.printf("[SONOS]   [DUPLICATE] '%s' (%s) matches existing '%s' (%s) - filtering out\n",
                     devices[i].roomName.c_str(), devices[i].ip.toString().c_str(),
                     devices[j].roomName.c_str(), devices[j].ip.toString().c_str());
                 isDuplicate = true;
@@ -212,7 +212,7 @@ int SonosController::discoverDevices() {
         }
 
         if (!isDuplicate) {
-            ESP_LOGI(TAG, "  [UNIQUE] '%s' (%s) - keeping",
+            Serial.printf("[SONOS]   [UNIQUE] '%s' (%s) - keeping\n",
                 devices[i].roomName.c_str(), devices[i].ip.toString().c_str());
             if (i != uniqueCount) {
                 // Move device to compact position
@@ -224,9 +224,9 @@ int SonosController::discoverDevices() {
 
     int filteredCount = deviceCount - uniqueCount;
     if (filteredCount > 0) {
-        ESP_LOGI(TAG, "Filtered %d duplicate(s) from stereo pairs", filteredCount);
+        Serial.printf("[SONOS] Filtered %d duplicate(s) from stereo pairs\n", filteredCount);
     } else {
-        ESP_LOGI(TAG, "No duplicates found - all %d devices are unique", uniqueCount);
+        Serial.printf("[SONOS] No duplicates found - all %d devices are unique\n", uniqueCount);
     }
     deviceCount = uniqueCount;
 
@@ -234,7 +234,7 @@ int SonosController::discoverDevices() {
         prefs.putString("device_ip", devices[0].ip.toString());
     }
 
-    ESP_LOGI(TAG, "Discovery complete: %d visible zone(s)", deviceCount);
+    Serial.printf("[SONOS] Discovery complete: %d visible zone(s)\n", deviceCount);
     return deviceCount;
 }
 
@@ -253,21 +253,21 @@ void SonosController::getRoomName(SonosDevice* dev) {
         int end = xml.indexOf("</roomName>");
         if (start > 0 && end > start) {
             dev->roomName = xml.substring(start + 10, end);
-            ESP_LOGI(TAG, "  Room name fetched successfully: '%s'", dev->roomName.c_str());
+            Serial.printf("[SONOS]   Room name fetched successfully: '%s'\n", dev->roomName.c_str());
         } else {
-            ESP_LOGW(TAG, "  Failed to parse room name from XML for %s", dev->ip.toString().c_str());
+            Serial.printf("[SONOS]   Failed to parse room name from XML for %s\n", dev->ip.toString().c_str());
         }
 
         start = xml.indexOf("<UDN>uuid:");
         end = xml.indexOf("</UDN>", start);
         if (start > 0 && end > start) {
             dev->rinconID = xml.substring(start + 10, end);
-            ESP_LOGI(TAG, "  RINCON ID: %s", dev->rinconID.c_str());
+            Serial.printf("[SONOS]   RINCON ID: %s\n", dev->rinconID.c_str());
         } else {
-            ESP_LOGW(TAG, "  Failed to parse RINCON ID from XML for %s", dev->ip.toString().c_str());
+            Serial.printf("[SONOS]   Failed to parse RINCON ID from XML for %s\n", dev->ip.toString().c_str());
         }
     } else {
-        ESP_LOGE(TAG, "  HTTP GET failed with code %d for %s (keeping IP as name)", code, dev->ip.toString().c_str());
+        Serial.printf("[SONOS]   HTTP GET failed with code %d for %s (keeping IP as name)\n", code, dev->ip.toString().c_str());
     }
     http.end();
 }
@@ -296,7 +296,7 @@ void SonosController::selectDevice(int index) {
     if (index >= 0 && index < deviceCount) {
         currentDeviceIndex = index;
         devices[index].connected = true;
-        ESP_LOGI(TAG, "Selected: %s", devices[index].ip.toString().c_str());
+        Serial.printf("[SONOS] Selected: %s\n", devices[index].ip.toString().c_str());
     }
 }
 
@@ -366,7 +366,7 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
         // Immediate disconnect on network errors (connection refused, timeout, etc)
         if (code == -1 || code == -11) {
             if (dev->connected) {
-                Serial.printf("[SONOS] Device disconnected (network error %d)\n", code);
+                Serial.printf("[SONOS] Device disconnected (network error %d)\n\n", code);
             }
             dev->connected = false;
             dev->errorCount = 10;  // Set high to prevent flapping
@@ -1127,7 +1127,7 @@ bool SonosController::updateQueue() {
         "<SortCriteria></SortCriteria>");
     
     if (resp.length() == 0) {
-        ESP_LOGW(TAG, "Queue response empty");
+        Serial.printf("[SONOS] Queue response empty\n");
         return false;
     }
     
@@ -1141,7 +1141,7 @@ bool SonosController::updateQueue() {
         }
         
         String numReturned = extractXML(resp, "NumberReturned");
-        ESP_LOGI(TAG, "Queue: total=%d, returned=%s", dev->totalTracks, numReturned.c_str());
+        Serial.printf("[SONOS] Queue: total=%d, returned=%s\n", dev->totalTracks, numReturned.c_str());
         
         // Get the Result which contains DIDL-Lite
         String result = extractXML(resp, "Result");
@@ -1174,7 +1174,7 @@ bool SonosController::updateQueue() {
             pos = itemEnd + 7;
         }
         
-        ESP_LOGI(TAG, "Parsed %d queue items", dev->queueSize);
+        Serial.printf("[SONOS] Parsed %d queue items\n", dev->queueSize);
         
         xSemaphoreGive(deviceMutex);
         notifyUI(UPDATE_QUEUE);
@@ -1300,7 +1300,7 @@ void SonosController::networkTaskFunction(void* param) {
     SonosController* ctrl = (SonosController*)param;
     CommandRequest_t cmd;
     
-    ESP_LOGI(TAG, "Network task started");
+    Serial.printf("[SONOS] Network task started\n");
     
     while (1) {
         if (xQueueReceive(ctrl->commandQueue, &cmd, pdMS_TO_TICKS(20))) {
@@ -1314,7 +1314,7 @@ void SonosController::pollingTaskFunction(void* param) {
     SonosController* ctrl = (SonosController*)param;
     uint32_t tick = 0;
     
-    ESP_LOGI(TAG, "Polling task started");
+    Serial.printf("[SONOS] Polling task started\n");
     
     // Initial queue load
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -1351,7 +1351,7 @@ void SonosController::pollingTaskFunction(void* param) {
 }
 
 void SonosController::handleNetworkError(const char* msg) {
-    ESP_LOGE(TAG, "Error: %s", msg);
+    Serial.printf("[SONOS] Error: %s\n", msg);
 }
 
 void SonosController::resetErrorCount() {
