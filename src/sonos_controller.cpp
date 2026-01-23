@@ -58,8 +58,9 @@ int SonosController::discoverDevices() {
     vTaskDelay(pdMS_TO_TICKS(50));
 
     IPAddress multicast(239, 255, 255, 250);
-    if (!udp.beginMulticast(multicast, 1900)) {
-        Serial.printf("[SONOS] UDP multicast failed\n");
+    // Bind a UDP socket to receive unicast SSDP responses (replies go to the sender's source port)
+    if (!udp.begin(1900)) {
+        Serial.printf("[SONOS] UDP begin failed on port 1900\n");
         return 0;
     }
 
@@ -99,11 +100,13 @@ int SonosController::discoverDevices() {
     while (millis() - start < 15000) {  // 15 seconds total (5 bursts * 0.5s = 2.5s send + 12.5s listen)
         int size = udp.parsePacket();
         if (size > 0) {
-            char buf[513];  // 512 + 1 for null terminator
+            char buf[1025];  // 1024 + 1 for null terminator
             int len = udp.read(buf, sizeof(buf) - 1);
             if (len > 0 && len < (int)sizeof(buf)) {  // Safety check
                 buf[len] = 0;
-                if (strstr(buf, "Sonos") || strstr(buf, "ZonePlayer")) {
+                String resp = buf;
+                resp.toLowerCase();
+                if (resp.indexOf("sonos") >= 0 || resp.indexOf("zoneplayer") >= 0) {
                     IPAddress ip = udp.remoteIP();
 
                     bool exists = false;
