@@ -102,6 +102,17 @@ WiFi credentials are stored persistently in NVS (Non-Volatile Storage). Once con
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+## Contributors
+
+Thanks to these wonderful people who have contributed to this project:
+
+<a href="https://github.com/OpenSurface/SonosESP/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=OpenSurface/SonosESP" />
+</a>
+
+Special thanks to:
+- **[@BaileyLawson](https://github.com/BaileyLawson)** - First external contributor! Added HTTPS album art support, dual buffers, speaker scanning fixes, and more.
+
 ## License
 
 This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
