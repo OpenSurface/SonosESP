@@ -508,7 +508,9 @@ static void performOTAUpdate() {
 
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
-            uint8_t buff[1024];  // Larger buffer for faster transfer
+            // Use 16KB buffer to reduce flash write frequency and minimize blue flicker
+            // (Each flash write disables external memory cache, causing RGB LCD PSRAM access issues)
+            static uint8_t buff[16384];  // 16KB - reduces ~500KB firmware to ~31 flash writes instead of 500
             int lastPercent = -1;
             uint32_t lastUIUpdate = millis();
 
