@@ -456,9 +456,7 @@ void albumArtTask(void* param) {
                             }
 
                             // Continue with scaling and display if decode succeeded
-                            if (decodeSuccess && decoded_buffer) {
-
-                                    if (art_temp_buffer) {
+                            if (decodeSuccess && decoded_buffer && art_temp_buffer) {
                                         int out_w = jpeg_output_width > 0 ? jpeg_output_width : w;
                                         int out_h = jpeg_output_height > 0 ? jpeg_output_height : h;
                                         uint16_t* src_buffer = decoded_buffer;
@@ -530,8 +528,6 @@ void albumArtTask(void* param) {
                                             color_ready = true;
                                             xSemaphoreGive(art_mutex);
                                         }
-                                    }
-                                }
 
                                 // Free decoded buffer
                                 if (decoded_buffer) {
