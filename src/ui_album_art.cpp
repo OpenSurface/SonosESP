@@ -215,6 +215,17 @@ static int pngDraw(PNGDRAW* pDraw) {
     return 1;  // Continue decoding
 }
 
+// Extract domain from URL for source change detection
+String extractDomain(const char* url) {
+    String urlStr = String(url);
+    int start = urlStr.indexOf("://");
+    if (start == -1) return "";
+    start += 3;  // Skip "://"
+    int end = urlStr.indexOf("/", start);
+    if (end == -1) end = urlStr.length();
+    return urlStr.substring(start, end);
+}
+
 void albumArtTask(void* param) {
     art_buffer = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
     art_temp_buffer = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
@@ -225,6 +236,7 @@ void albumArtTask(void* param) {
     WiFiClientSecure secure_client;
     secure_client.setInsecure();  // Skip certificate validation for album art hosts
     static char url[512];
+    static char prev_url[512] = "";  // Track previous URL for source change detection
 
     // Temporary buffer for decoded full-size image
     uint16_t* decoded_buffer = nullptr;
@@ -288,8 +300,26 @@ void albumArtTask(void* param) {
         }
         if (url[0] != '\0') {
             Serial.printf("[ART] URL: %s\n", url);
-            // Brief delay to let WiFi stack release buffers from previous operations (e.g., queue fetch)
-            vTaskDelay(pdMS_TO_TICKS(100));
+
+            // Detect source changes by comparing domains
+            String currentDomain = extractDomain(url);
+            String previousDomain = extractDomain(prev_url);
+            bool isSourceChange = (prev_url[0] != '\0' && currentDomain != previousDomain && currentDomain.length() > 0);
+
+            if (isSourceChange) {
+                // Source change (Spotify → Apple Music, etc.) - longer delay for WiFi to settle
+                Serial.printf("[ART] Source change detected (%s → %s) - waiting 800ms\n",
+                              previousDomain.c_str(), currentDomain.c_str());
+                vTaskDelay(pdMS_TO_TICKS(800));
+            } else {
+                // Same source, just track change - brief delay to let WiFi release buffers
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+
+            // Update previous URL for next iteration
+            strncpy(prev_url, url, sizeof(prev_url) - 1);
+            prev_url[sizeof(prev_url) - 1] = '\0';
+
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
                 http.begin(secure_client, url);
@@ -343,6 +373,17 @@ void albumArtTask(void* param) {
 
                             bytesRead += actualRead;
                             vTaskDelay(pdMS_TO_TICKS(1));  // Yield to WiFi task
+
+                            // Check if user switched sources - abort current download if new URL arrived
+                            if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(1))) {
+                                bool shouldAbort = (pending_art_url.length() > 0 && pending_art_url != url);
+                                xSemaphoreGive(art_mutex);
+                                if (shouldAbort) {
+                                    Serial.println("[ART] Source changed during download - aborting");
+                                    readSuccess = false;
+                                    break;
+                                }
+                            }
                         }
 
                         if (!len_known && bytesRead >= max_art_size) {
