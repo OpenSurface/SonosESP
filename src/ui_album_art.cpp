@@ -229,44 +229,10 @@ void albumArtTask(void* param) {
     // Temporary buffer for decoded full-size image
     uint16_t* decoded_buffer = nullptr;
 
-    // WiFi buffer protection - prevent simultaneous downloads
-    static bool download_in_progress = false;
-    static String current_download_url = "";
-    static String current_original_url = "";  // Track original URL before extraction
-    static uint32_t last_radio_art_time = 0;
-    static bool was_radio_last = false;
-    static uint32_t last_mode_change_time = 0;
-    static uint32_t last_download_complete_time = 0;  // Track when last download finished
-
     while (1) {
         url[0] = '\0';  // Clear URL
-        String originalPendingUrl = "";
         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(10))) {
             if (pending_art_url.length() > 0 && pending_art_url != last_art_url) {
-                originalPendingUrl = pending_art_url;  // Store before any modifications
-                // Radio throttling: max once per 5 seconds to prevent WiFi buffer exhaustion
-                bool isRadio = pending_art_url.indexOf("x-sonosapi-stream:") > 0 ||
-                               pending_art_url.indexOf("x-rincon-mp3radio:") > 0 ||
-                               pending_art_url.indexOf("x-sonosapi-radio:") > 0;
-
-                // Detect mode change: radio -> music requires delay for queue fetch
-                if (was_radio_last && !isRadio) {
-                    last_mode_change_time = millis();
-                    Serial.println("[ART] Mode change: radio -> music - delaying art for queue fetch");
-                }
-                was_radio_last = isRadio;
-
-                if (isRadio) {
-                    uint32_t now = millis();
-                    if (now - last_radio_art_time < 5000) {
-                        // Skip - too soon
-                        xSemaphoreGive(art_mutex);
-                        vTaskDelay(pdMS_TO_TICKS(1000));
-                        continue;
-                    }
-                    last_radio_art_time = now;
-                }
-
                 String fetchUrl = pending_art_url;
 
                 // Decode HTML entities (&amp; -> &)
@@ -321,40 +287,6 @@ void albumArtTask(void* param) {
             xSemaphoreGive(art_mutex);
         }
         if (url[0] != '\0') {
-            // Wait after mode change (radio -> music) ONCE to let queue fetch complete
-            // Queue fetch for 500 items takes ~2-3 seconds and exhausts WiFi buffers
-            if (last_mode_change_time > 0) {
-                uint32_t elapsed = millis() - last_mode_change_time;
-                if (elapsed < 3000) {
-                    Serial.println("[ART] Waiting for queue fetch to complete...");
-                    vTaskDelay(pdMS_TO_TICKS(500));
-                    continue;
-                } else {
-                    // Delay complete - clear flag
-                    last_mode_change_time = 0;
-                }
-            }
-
-            // Prevent simultaneous downloads - WiFi buffer protection
-            if (download_in_progress) {
-                Serial.println("[ART] Download already in progress - waiting");
-                vTaskDelay(pdMS_TO_TICKS(200));
-                continue;
-            }
-
-            // Wait after previous download to let WiFi buffers clear
-            // Rapid successive downloads exhaust ESP32-P4's limited WiFi buffers
-            if (last_download_complete_time > 0) {
-                uint32_t elapsed = millis() - last_download_complete_time;
-                if (elapsed < 1000) {  // 1 second between downloads
-                    vTaskDelay(pdMS_TO_TICKS(200));
-                    continue;
-                }
-            }
-
-            download_in_progress = true;
-            current_download_url = String(url);
-            current_original_url = originalPendingUrl;  // Track original URL for comparison
             Serial.printf("[ART] URL: %s\n", url);
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
@@ -362,7 +294,7 @@ void albumArtTask(void* param) {
             } else {
                 http.begin(url);
             }
-            http.setTimeout(8000);  // Conservative timeout to reduce WiFi load
+            http.setTimeout(10000);  // Increased timeout for chunked reading
             int code = http.GET();
             if (code == 200) {
                 int len = http.getSize();
@@ -385,21 +317,8 @@ void albumArtTask(void* param) {
                         const size_t chunkSize = 4096;
                         size_t bytesRead = 0;
                         bool readSuccess = true;
-                        bool aborted = false;
 
                         while (stream->connected() && bytesRead < alloc_len) {
-                            // Check if source changed - abort to prevent WiFi buffer buildup
-                            // Compare against original URL (before extraction) to avoid false positives
-                            if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(1))) {
-                                if (pending_art_url != current_original_url && pending_art_url.length() > 0) {
-                                    Serial.println("[ART] Source changed - aborting download");
-                                    aborted = true;
-                                    xSemaphoreGive(art_mutex);
-                                    break;
-                                }
-                                xSemaphoreGive(art_mutex);
-                            }
-
                             size_t available = stream->available();
                             if (available == 0) {
                                 vTaskDelay(pdMS_TO_TICKS(1));
@@ -429,106 +348,24 @@ void albumArtTask(void* param) {
                             readSuccess = false;
                         }
 
-                        // Handle abort - drain WiFi buffers to prevent crashes
-                        if (aborted) {
-                            Serial.println("[ART] Download aborted - draining WiFi buffers");
-                            while (stream->available() > 0 && stream->connected()) {
-                                uint8_t dummy[256];
-                                int avail = stream->available();
-                                size_t toRead = (avail < 256) ? avail : 256;
-                                stream->readBytes(dummy, toRead);
-                                vTaskDelay(pdMS_TO_TICKS(1));
-                            }
-                            heap_caps_free(jpgBuf);
-                            http.end();
-                            download_in_progress = false;
-                            current_download_url = "";
-                            current_original_url = "";
-                            vTaskDelay(pdMS_TO_TICKS(500));  // WiFi cleanup delay
-                            continue;
-                        }
-
                         Serial.printf("[ART] Album art read: %d bytes (len_known=%d)\n", (int)bytesRead, len_known ? 1 : 0);
 
                         int read = bytesRead;
                         if ((len_known ? (read == len) : (read > 0)) && readSuccess) {
-                            // Check image format by magic bytes
+                            // Detect image format by magic bytes
                             bool isJPEG = (read >= 3 && jpgBuf[0] == 0xFF && jpgBuf[1] == 0xD8 && jpgBuf[2] == 0xFF);
                             bool isPNG = (read >= 4 && jpgBuf[0] == 0x89 && jpgBuf[1] == 0x50 && jpgBuf[2] == 0x4E && jpgBuf[3] == 0x47);
 
-                            if (!isJPEG && !isPNG) {
-                                Serial.printf("[ART] Unknown image format (bytes: %02X %02X %02X %02X) - skipping\n",
-                                    jpgBuf[0], jpgBuf[1], read > 2 ? jpgBuf[2] : 0, read > 3 ? jpgBuf[3] : 0);
-                                if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
-                                    last_art_url = url;  // Prevent retries
-                                    xSemaphoreGive(art_mutex);
-                                }
-                                heap_caps_free(jpgBuf);
-                                http.end();
-                                download_in_progress = false;
-                                current_download_url = "";
-                                vTaskDelay(pdMS_TO_TICKS(1000));
-                                continue;
-                            }
-
-                            int w = 0, h = 0;
-                            bool decodeSuccess = false;
-
                             if (isPNG) {
-                                // Decode PNG image
                                 Serial.printf("[ART] Opening PNG with %d bytes\n", read);
-                                int openResult = png.openRAM(jpgBuf, read, pngDraw);
-                                if (openResult == PNG_SUCCESS) {
-                                    w = png.getWidth();
-                                    h = png.getHeight();
-                                    jpeg_image_width = w;
-                                    jpeg_image_height = h;
+                                if (png.openRAM(jpgBuf, read, pngDraw)) {
+                                    int w, h;
+                                    png.getSize(&w, &h);
+                                    jpeg_image_width = w;   // Reuse for PNG
+                                    jpeg_image_height = h;  // Reuse for PNG
                                     jpeg_output_width = 0;
                                     jpeg_output_height = 0;
                                     Serial.printf("[ART] PNG: %dx%d\n", w, h);
-
-                                    // Allocate buffer for decoded image
-                                    size_t decoded_size = w * h * 2;
-                                    if (decoded_buffer) {
-                                        heap_caps_free(decoded_buffer);
-                                    }
-                                    decoded_buffer = (uint16_t*)heap_caps_malloc(decoded_size, MALLOC_CAP_SPIRAM);
-
-                                    if (decoded_buffer) {
-                                        jpeg_decode_buffer = decoded_buffer;
-                                        memset(decoded_buffer, 0, decoded_size);
-
-                                        // Decode PNG
-                                        int decResult = png.decode(NULL, 0);
-                                        png.close();
-
-                                        if (decResult == PNG_SUCCESS) {
-                                            Serial.printf("[ART] PNG decoded %dx%d\n", w, h);
-                                            decodeSuccess = true;
-                                        } else {
-                                            Serial.printf("[ART] PNG decode failed: %d\n", decResult);
-                                        }
-                                        jpeg_decode_buffer = nullptr;
-                                    } else {
-                                        Serial.printf("[ART] Failed to allocate %d bytes for PNG\n", (int)decoded_size);
-                                        png.close();
-                                    }
-                                } else {
-                                    Serial.printf("[ART] PNG openRAM failed: %d\n", openResult);
-                                }
-                            } else {
-                                // Decode JPEG image
-                                Serial.printf("[ART] Opening JPEG with %d bytes\n", read);
-                                int openResult = jpeg.openRAM(jpgBuf, read, jpegDraw);
-                                if (openResult == 1) {  // JPEGDEC returns 1 on success, 0 on failure!
-                                    jpeg.setPixelType(RGB565_LITTLE_ENDIAN);
-                                    w = jpeg.getWidth();
-                                    h = jpeg.getHeight();
-                                    jpeg_image_width = w;
-                                    jpeg_image_height = h;
-                                    jpeg_output_width = 0;
-                                    jpeg_output_height = 0;
-                                    Serial.printf("[ART] JPEG: %dx%d\n", w, h);
 
                                     // Allocate buffer for full decoded image
                                     size_t decoded_size = w * h * 2;
@@ -541,24 +378,122 @@ void albumArtTask(void* param) {
                                         jpeg_decode_buffer = decoded_buffer;
                                         memset(decoded_buffer, 0, decoded_size);
 
-                                        // Decode full image at original size
-                                        jpeg.decode(0, 0, 0);
-                                        jpeg.close();
+                                        // Decode PNG
+                                        png.decode(NULL, 0);
+                                        png.close();
 
-                                        Serial.printf("[ART] JPEG decoded %dx%d\n", w, h);
+                                        Serial.printf("[ART] Decoded %dx%d\n", w, h);
                                         jpeg_decode_buffer = nullptr;
-                                        decodeSuccess = true;
-                                    } else {
-                                        Serial.printf("[ART] Failed to allocate %d bytes for JPEG\n", (int)decoded_size);
-                                        jpeg.close();
-                                    }
-                                } else {
-                                    Serial.printf("[ART] JPEG openRAM failed: %d\n", openResult);
-                                }
-                            }
 
-                            // Continue with scaling and display if decode succeeded
-                            if (decodeSuccess && decoded_buffer && art_temp_buffer) {
+                                        if (art_temp_buffer) {
+                                            int out_w = jpeg_output_width > 0 ? jpeg_output_width : w;
+                                            int out_h = jpeg_output_height > 0 ? jpeg_output_height : h;
+                                            uint16_t* src_buffer = decoded_buffer;
+                                            bool needs_compact = (out_w != w) || (out_h != h);
+
+                                            if (needs_compact) {
+                                                Serial.printf("[ART] Output size: %dx%d (scaled)\n", out_w, out_h);
+                                                size_t compact_size = (size_t)out_w * (size_t)out_h * 2;
+                                                uint16_t* compact_buffer = (uint16_t*)heap_caps_malloc(compact_size, MALLOC_CAP_SPIRAM);
+                                                if (compact_buffer) {
+                                                    for (int y = 0; y < out_h; y++) {
+                                                        memcpy(&compact_buffer[y * out_w],
+                                                               &decoded_buffer[y * w],
+                                                               (size_t)out_w * 2);
+                                                    }
+                                                    src_buffer = compact_buffer;
+                                                } else {
+                                                    Serial.println("[ART] Failed to allocate compact buffer");
+                                                    out_w = w;
+                                                    out_h = h;
+                                                }
+                                            }
+
+                                            // Clear output buffer
+                                            memset(art_temp_buffer, 0, ART_SIZE * ART_SIZE * 2);
+
+                                            // Scale to exact 420x420 using bilinear interpolation
+                                            Serial.printf("[ART] Bilinear scaling %dx%d -> 420x420\n", out_w, out_h);
+                                            scaleImageBilinear(src_buffer, out_w, out_h, art_temp_buffer, ART_SIZE, ART_SIZE);
+                                            Serial.println("[ART] Scaling complete");
+
+                                            if (src_buffer != decoded_buffer) {
+                                                heap_caps_free(src_buffer);
+                                            }
+
+                                            // Sample dominant color from scaled image
+                                            sampleDominantColor(art_temp_buffer, ART_SIZE, ART_SIZE);
+
+                                            // Calculate dominant color
+                                            uint32_t new_color = 0x1a1a1a;  // Default dark color
+                                            if (color_sample_count > 0) {
+                                                uint8_t avg_r = color_r_sum / color_sample_count;
+                                                uint8_t avg_g = color_g_sum / color_sample_count;
+                                                uint8_t avg_b = color_b_sum / color_sample_count;
+
+                                                // Darken for background (multiply by 0.4)
+                                                avg_r = (avg_r * 4) / 10;
+                                                avg_g = (avg_g * 4) / 10;
+                                                avg_b = (avg_b * 4) / 10;
+
+                                                new_color = (avg_r << 16) | (avg_g << 8) | avg_b;
+                                            }
+
+                                            // Copy completed image from temp to display buffer atomically
+                                            memcpy(art_buffer, art_temp_buffer, ART_SIZE * ART_SIZE * 2);
+
+                                            memset(&art_dsc, 0, sizeof(art_dsc));
+                                            art_dsc.header.w = ART_SIZE;
+                                            art_dsc.header.h = ART_SIZE;
+                                            art_dsc.header.cf = LV_COLOR_FORMAT_RGB565;
+                                            art_dsc.data_size = ART_SIZE * ART_SIZE * 2;
+                                            art_dsc.data = (const uint8_t*)art_buffer;
+
+                                            // Update all shared variables atomically under mutex
+                                            if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                                                last_art_url = url;
+                                                dominant_color = new_color;
+                                                art_ready = true;
+                                                color_ready = true;
+                                                xSemaphoreGive(art_mutex);
+                                            }
+                                        }
+                                    } else {
+                                        Serial.printf("[ART] Failed to allocate %d bytes for decoded image\n", (int)decoded_size);
+                                    }
+                                }
+                            } else if (isJPEG) {
+                                Serial.printf("[ART] Opening JPEG with %d bytes\n", read);
+                                if (jpeg.openRAM(jpgBuf, read, jpegDraw)) {
+                                jpeg.setPixelType(RGB565_LITTLE_ENDIAN);
+                                int w = jpeg.getWidth();
+                                int h = jpeg.getHeight();
+                                jpeg_image_width = w;   // Store for callback
+                                jpeg_image_height = h;  // Store for callback
+                                jpeg_output_width = 0;
+                                jpeg_output_height = 0;
+                                Serial.printf("[ART] JPEG: %dx%d\n", w, h);
+
+                                // Allocate buffer for full decoded image
+                                size_t decoded_size = w * h * 2;
+                                if (decoded_buffer) {
+                                    heap_caps_free(decoded_buffer);
+                                }
+                                decoded_buffer = (uint16_t*)heap_caps_malloc(decoded_size, MALLOC_CAP_SPIRAM);
+
+                                if (decoded_buffer) {
+                                    jpeg_decode_buffer = decoded_buffer;
+                                    // Clear decoded buffer to avoid stale tiles when decoder skips blocks
+                                    memset(decoded_buffer, 0, decoded_size);
+
+                                    // Decode full image at original size (no scaling)
+                                    jpeg.decode(0, 0, 0);
+                                    jpeg.close();
+
+                                    Serial.printf("[ART] Decoded %dx%d\n", w, h);
+                                    jpeg_decode_buffer = nullptr;
+
+                                    if (art_temp_buffer) {
                                         int out_w = jpeg_output_width > 0 ? jpeg_output_width : w;
                                         int out_h = jpeg_output_height > 0 ? jpeg_output_height : h;
                                         uint16_t* src_buffer = decoded_buffer;
@@ -630,15 +565,12 @@ void albumArtTask(void* param) {
                                             color_ready = true;
                                             xSemaphoreGive(art_mutex);
                                         }
-
-                                        // Mark download completion time for WiFi buffer recovery
-                                        last_download_complete_time = millis();
-
-                                // Free decoded buffer
-                                if (decoded_buffer) {
-                                    heap_caps_free(decoded_buffer);
-                                    decoded_buffer = nullptr;
+                                    }
+                                } else {
+                                    Serial.printf("[ART] Failed to allocate %d bytes for decoded image\n", (int)decoded_size);
                                 }
+                            } else {
+                                Serial.println("[ART] Unknown image format (not JPEG or PNG)");
                             }
                         }
                         heap_caps_free(jpgBuf);
@@ -646,13 +578,7 @@ void albumArtTask(void* param) {
                         Serial.printf("[ART] Failed to allocate %d bytes for album art\n", len);
                     }
                 } else if (len >= 200000) {
-                    Serial.printf("[ART] Album art too large: %d bytes (max 200KB) - rejecting\n", len);
-                    // Don't try to drain - the image is too large and would crash
-                    // Just mark as processed to prevent retries
-                    if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
-                        last_art_url = pending_art_url;
-                        xSemaphoreGive(art_mutex);
-                    }
+                    Serial.printf("[ART] Album art too large: %d bytes (max 200KB)\n", len);
                 } else {
                     Serial.printf("[ART] Invalid album art size: %d bytes\n", len);
                 }
@@ -660,11 +586,8 @@ void albumArtTask(void* param) {
                 Serial.printf("[ART] HTTP error %d fetching album art\n", code);
             }
             http.end();
-            download_in_progress = false;
-            current_download_url = "";
-            current_original_url = "";
         }
-        vTaskDelay(pdMS_TO_TICKS(200));
+        vTaskDelay(pdMS_TO_TICKS(200));  // Reduced from 500ms for faster art updates
     }
 }
 
