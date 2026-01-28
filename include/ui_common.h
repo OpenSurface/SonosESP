@@ -185,4 +185,9 @@ lv_obj_t *createSettingsSidebar(lv_obj_t *screen, int activeIdx);
 // Album art task
 void albumArtTask(void *param);
 
+// Radio mode UI adaptation
+bool isCurrentlyRadio();
+void setRadioMode(bool enable);
+void updateRadioModeUI();
+
 #endif // UI_COMMON_H

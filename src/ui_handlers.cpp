@@ -874,8 +874,14 @@ void updateUI() {
         ui_repeat = d->repeatMode;
     }
 
-    // Album art - fast instant update
-    if (d->albumArtURL.length() > 0) requestAlbumArt(d->albumArtURL);
+    // Album art - only request if URL changed to prevent download loops
+    static String last_art_url = "";
+    if (d->albumArtURL != last_art_url) {
+        if (d->albumArtURL.length() > 0) {
+            requestAlbumArt(d->albumArtURL);
+        }
+        last_art_url = d->albumArtURL;
+    }
     if (xSemaphoreTake(art_mutex, 0)) {
         if (art_ready) {
             lv_img_set_src(img_album, &art_dsc);
@@ -889,6 +895,9 @@ void updateUI() {
         }
         xSemaphoreGive(art_mutex);
     }
+
+    // Radio mode UI adaptation - must be at the END of updateUI()
+    updateRadioModeUI();
 }
 
 void processUpdates() {
