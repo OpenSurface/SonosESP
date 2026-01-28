@@ -632,49 +632,18 @@ void albumArtTask(void* param) {
                         Serial.printf("[ART] Failed to allocate %d bytes for album art\n", len);
                     }
                 } else if (len >= 200000) {
-                    Serial.printf("[ART] Album art too large: %d bytes (max 200KB)\n", len);
-                    // CRITICAL: Drain response to prevent WiFi buffer exhaustion
-                    WiFiClient* stream = http.getStreamPtr();
-                    if (stream) {
-                        Serial.println("[ART] Draining large image from WiFi buffers");
-                        while (stream->available() > 0 && stream->connected()) {
-                            uint8_t dummy[256];
-                            int avail = stream->available();
-                            size_t toRead = (avail < 256) ? avail : 256;
-                            stream->readBytes(dummy, toRead);
-                            vTaskDelay(pdMS_TO_TICKS(1));
-                        }
-                        Serial.println("[ART] WiFi buffer drain complete");
+                    Serial.printf("[ART] Album art too large: %d bytes (max 200KB) - rejecting\n", len);
+                    // Don't try to drain - the image is too large and would crash
+                    // Just mark as processed to prevent retries
+                    if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
+                        last_art_url = pending_art_url;
+                        xSemaphoreGive(art_mutex);
                     }
                 } else {
                     Serial.printf("[ART] Invalid album art size: %d bytes\n", len);
-                    // Drain any response data to prevent WiFi buffer issues
-                    WiFiClient* stream = http.getStreamPtr();
-                    if (stream && stream->available() > 0) {
-                        Serial.println("[ART] Draining invalid size response from WiFi buffers");
-                        while (stream->available() > 0 && stream->connected()) {
-                            uint8_t dummy[256];
-                            int avail = stream->available();
-                            size_t toRead = (avail < 256) ? avail : 256;
-                            stream->readBytes(dummy, toRead);
-                            vTaskDelay(pdMS_TO_TICKS(1));
-                        }
-                    }
                 }
             } else {
                 Serial.printf("[ART] HTTP error %d fetching album art\n", code);
-                // Drain any partial response data to prevent WiFi buffer issues
-                WiFiClient* stream = http.getStreamPtr();
-                if (stream && stream->available() > 0) {
-                    Serial.println("[ART] Draining error response from WiFi buffers");
-                    while (stream->available() > 0 && stream->connected()) {
-                        uint8_t dummy[256];
-                        int avail = stream->available();
-                        size_t toRead = (avail < 256) ? avail : 256;
-                        stream->readBytes(dummy, toRead);
-                        vTaskDelay(pdMS_TO_TICKS(1));
-                    }
-                }
             }
             http.end();
             download_in_progress = false;

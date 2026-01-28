@@ -933,6 +933,17 @@ void updateUI() {
                 }
             }
 
+            // Deezer: reduce image size to avoid "too large" errors (1000x1000 = 358KB)
+            if (artURL.indexOf("dzcdn.net") > 0) {
+                if (artURL.indexOf("/1000x1000-") > 0) {
+                    artURL.replace("/1000x1000-", "/250x250-");
+                    Serial.println("[ART] Deezer - reduced to 250x250");
+                } else if (artURL.indexOf("/500x500-") > 0) {
+                    artURL.replace("/500x500-", "/250x250-");
+                    Serial.println("[ART] Deezer - reduced to 250x250");
+                }
+            }
+
             requestAlbumArt(artURL);
             last_art_url = artURL;  // Track the actual URL we requested
         } else {
