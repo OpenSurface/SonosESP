@@ -256,6 +256,19 @@ void albumArtTask(void* param) {
                     Serial.printf("[ART] Extracted: %s\n", fetchUrl.c_str());
                 }
 
+                // Reduce image size for known providers to avoid 200KB limit
+                // Deezer (cdn-images.dzcdn.net): 1000x1000 → 400x400
+                if (fetchUrl.indexOf("cdn-images.dzcdn.net") != -1) {
+                    fetchUrl.replace("/1000x1000-", "/400x400-");
+                    Serial.println("[ART] Deezer - reduced to 400x400");
+                }
+                // TuneIn (cdn-profiles.tunein.com): request smaller size
+                if (fetchUrl.indexOf("cdn-profiles.tunein.com") != -1 && fetchUrl.indexOf("?d=") != -1) {
+                    fetchUrl.replace("?d=1024", "?d=400");
+                    fetchUrl.replace("?d=600", "?d=400");
+                    Serial.println("[ART] TuneIn - reduced to 400x400");
+                }
+
                 // Sonos getaa URLs can contain unescaped '?' and '&' in the u= parameter; encode them only
                 if (fetchUrl.indexOf("/getaa?") != -1) {
                     int uPos = fetchUrl.indexOf("u=");
