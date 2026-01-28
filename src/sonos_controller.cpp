@@ -1466,13 +1466,16 @@ void SonosController::networkTaskFunction(void* param) {
 void SonosController::pollingTaskFunction(void* param) {
     SonosController* ctrl = (SonosController*)param;
     uint32_t tick = 0;
-    
+
     Serial.printf("[SONOS] Polling task started\n");
-    
+
     // Initial queue load
     vTaskDelay(pdMS_TO_TICKS(1000));
     ctrl->updateQueue();
-    
+
+    // Track previous URI to detect station changes
+    static String previousURI = "";
+
     while (1) {
         SonosDevice* dev = ctrl->getCurrentDevice();
 
@@ -1481,9 +1484,21 @@ void SonosController::pollingTaskFunction(void* param) {
             ctrl->updateTrackInfo();
             ctrl->updatePlaybackState();
 
-            // Media info for radio (station name) every 15 seconds (50 * 300ms)
+            // Detect station change and fetch station name immediately
+            if (dev->isRadioStation && dev->currentURI != previousURI) {
+                Serial.printf("[RADIO] Station changed - fetching station name immediately\n");
+                ctrl->updateMediaInfo();
+                previousURI = dev->currentURI;
+            }
+
+            // Media info for radio (station name) periodic refresh every 15 seconds
             if (tick % 50 == 0 && dev->isRadioStation) {
                 ctrl->updateMediaInfo();
+            }
+
+            // Clear previous URI when not on radio
+            if (!dev->isRadioStation && previousURI.length() > 0) {
+                previousURI = "";
             }
 
             // Volume every 1.5 seconds (5 * 300ms)

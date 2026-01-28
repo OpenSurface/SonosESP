@@ -878,7 +878,20 @@ void updateUI() {
     static String last_art_url = "";
     if (d->albumArtURL != last_art_url) {
         if (d->albumArtURL.length() > 0) {
-            requestAlbumArt(d->albumArtURL);
+            String artURL = d->albumArtURL;
+
+            // Apple Music: reduce image size to avoid "too large" errors
+            if (artURL.indexOf("mzstatic.com") > 0) {
+                if (artURL.indexOf("/1400x1400bb.jpg") > 0) {
+                    artURL.replace("/1400x1400bb.jpg", "/400x400bb.jpg");
+                    Serial.println("[ART] Apple Music - reduced to 400x400");
+                } else if (artURL.indexOf("/1080x1080cc.jpg") > 0) {
+                    artURL.replace("/1080x1080cc.jpg", "/400x400cc.jpg");
+                    Serial.println("[ART] Apple Music - reduced to 400x400");
+                }
+            }
+
+            requestAlbumArt(artURL);
         }
         last_art_url = d->albumArtURL;
     }
