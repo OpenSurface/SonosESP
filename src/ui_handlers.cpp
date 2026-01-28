@@ -808,8 +808,9 @@ void updateUI() {
     }
 
     // Next track info - find next track in queue
+    // SKIP FOR RADIO MODE - radio stations don't have a queue/next track
     static String last_next_title = "";
-    if (d->queueSize > 0 && d->currentTrackNumber > 0) {
+    if (!d->isRadioStation && d->queueSize > 0 && d->currentTrackNumber > 0) {
         int nextIdx = -1;
 
         // Find next track after current
@@ -876,19 +877,20 @@ void updateUI() {
 
     // Album art - only request if URL changed to prevent download loops
     static String last_art_url = "";
-    static bool was_radio = false;
+    static String last_track_uri = "";
 
-    // Force refresh when switching between radio and music modes
-    bool mode_changed = (was_radio != d->isRadioStation);
-    if (mode_changed) {
-        Serial.printf("[ART] Mode changed: %s -> %s\n",
-                     was_radio ? "radio" : "music",
-                     d->isRadioStation ? "radio" : "music");
-        last_art_url = "";  // Force refresh on mode change
-        was_radio = d->isRadioStation;
+    // Detect source/track changes by URI - works for ALL sources (radio, music, etc)
+    bool source_changed = (d->currentURI != last_track_uri);
+    if (source_changed && d->currentURI.length() > 0) {
+        Serial.printf("[ART] Source changed - URI: %s -> %s\n",
+                     last_track_uri.length() > 30 ? (last_track_uri.substring(0, 30) + "...").c_str() : last_track_uri.c_str(),
+                     d->currentURI.length() > 30 ? (d->currentURI.substring(0, 30) + "...").c_str() : d->currentURI.c_str());
+        last_art_url = "";  // Force art refresh on any source change
+        last_track_uri = d->currentURI;
     }
 
-    if (d->albumArtURL != last_art_url || mode_changed) {
+    // Request album art if URL changed or source changed
+    if (d->albumArtURL != last_art_url || source_changed) {
         if (d->albumArtURL.length() > 0) {
             String artURL = d->albumArtURL;
 
