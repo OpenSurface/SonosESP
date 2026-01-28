@@ -233,6 +233,8 @@ void albumArtTask(void* param) {
     static bool download_in_progress = false;
     static String current_download_url = "";
     static uint32_t last_radio_art_time = 0;
+    static bool was_radio_last = false;
+    static uint32_t last_mode_change_time = 0;
 
     while (1) {
         url[0] = '\0';  // Clear URL
@@ -242,6 +244,13 @@ void albumArtTask(void* param) {
                 bool isRadio = pending_art_url.indexOf("x-sonosapi-stream:") > 0 ||
                                pending_art_url.indexOf("x-rincon-mp3radio:") > 0 ||
                                pending_art_url.indexOf("x-sonosapi-radio:") > 0;
+
+                // Detect mode change: radio -> music requires delay for queue fetch
+                if (was_radio_last && !isRadio) {
+                    last_mode_change_time = millis();
+                    Serial.println("[ART] Mode change: radio -> music - delaying art for queue fetch");
+                }
+                was_radio_last = isRadio;
 
                 if (isRadio) {
                     uint32_t now = millis();
@@ -308,6 +317,14 @@ void albumArtTask(void* param) {
             xSemaphoreGive(art_mutex);
         }
         if (url[0] != '\0') {
+            // Wait after mode change (radio -> music) to let queue fetch complete
+            // Queue fetch for 500 items takes ~2-3 seconds and exhausts WiFi buffers
+            if (last_mode_change_time > 0 && (millis() - last_mode_change_time < 3000)) {
+                Serial.println("[ART] Waiting for queue fetch to complete...");
+                vTaskDelay(pdMS_TO_TICKS(500));
+                continue;
+            }
+
             // Prevent simultaneous downloads - WiFi buffer protection
             if (download_in_progress) {
                 Serial.println("[ART] Download already in progress - waiting");
