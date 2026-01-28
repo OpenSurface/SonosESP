@@ -301,8 +301,9 @@ void albumArtTask(void* param) {
         }
         if (url[0] != '\0') {
             Serial.printf("[ART] URL: %s\n", url);
-            // Small delay to let WiFi buffers settle after any previous operations
-            vTaskDelay(pdMS_TO_TICKS(500));
+            // Longer delay to let WiFi buffers fully clear between downloads
+            // Radio stations change tracks frequently, need more recovery time
+            vTaskDelay(pdMS_TO_TICKS(1500));
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
                 http.begin(secure_client, url);
@@ -374,6 +375,7 @@ void albumArtTask(void* param) {
                             if (isPNG) {
                                 Serial.printf("[ART] Opening PNG with %d bytes\n", read);
                                 if (png.openRAM(jpgBuf, read, pngDraw)) {
+                                    Serial.println("[ART] PNG openRAM success");
                                     int w = png.getWidth();
                                     int h = png.getHeight();
                                     jpeg_image_width = w;   // Reuse for PNG
@@ -476,6 +478,8 @@ void albumArtTask(void* param) {
                                     } else {
                                         Serial.printf("[ART] Failed to allocate %d bytes for decoded image\n", (int)decoded_size);
                                     }
+                                } else {
+                                    Serial.println("[ART] PNG openRAM failed - invalid or corrupt PNG data");
                                 }
                             } else if (isJPEG) {
                                 Serial.printf("[ART] Opening JPEG with %d bytes\n", read);
