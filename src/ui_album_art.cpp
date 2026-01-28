@@ -1,9 +1,10 @@
 /**
  * UI Album Art Handling
- * Album art loading with JPEGDEC + bilinear scaling for arbitrary sizes
+ * Album art loading with JPEGDEC + PNGdec + bilinear scaling for arbitrary sizes
  */
 
 #include "ui_common.h"
+#include <PNGdec.h>
 
 // Album Art Functions
 static uint32_t color_r_sum = 0, color_g_sum = 0, color_b_sum = 0;
@@ -12,7 +13,10 @@ static int jpeg_image_width = 0;   // Store full image width for callback
 static int jpeg_image_height = 0;  // Store full image height for callback
 static int jpeg_output_width = 0;  // Actual decoded output width
 static int jpeg_output_height = 0; // Actual decoded output height
-static uint16_t* jpeg_decode_buffer = nullptr;  // Destination for JPEG decode
+static uint16_t* jpeg_decode_buffer = nullptr;  // Destination for JPEG/PNG decode
+
+// PNG decoder instance
+static PNG png;
 
 // Apply dominant color instantly to both panels and update button feedback colors
 void setBackgroundColor(uint32_t hex_color) {
@@ -183,6 +187,34 @@ static int jpegDraw(JPEGDRAW* pDraw) {
     return 1;
 }
 
+// PNGdec callback - decode to temporary buffer (same as JPEG but for PNG format)
+static int pngDraw(PNGDRAW* pDraw) {
+    if (!jpeg_decode_buffer) return 0;
+
+    // Get RGB565 pixels from PNG decoder
+    uint16_t lineBuffer[512];  // Max width we support
+    int w = pDraw->iWidth;
+    if (w > 512) w = 512;
+
+    // Convert PNG line to RGB565
+    png.getLineAsRGB565(pDraw, lineBuffer, PNG_RGB565_LITTLE_ENDIAN, 0xFFFFFFFF);
+
+    int y = pDraw->y;
+    if (y < 0 || y >= jpeg_image_height) return 1;
+
+    // Copy to decode buffer
+    int copy_w = w;
+    if (copy_w > jpeg_image_width) copy_w = jpeg_image_width;
+
+    memcpy(&jpeg_decode_buffer[y * jpeg_image_width], lineBuffer, copy_w * 2);
+
+    // Track output dimensions
+    if (copy_w > jpeg_output_width) jpeg_output_width = copy_w;
+    if (y + 1 > jpeg_output_height) jpeg_output_height = y + 1;
+
+    return 1;  // Continue decoding
+}
+
 void albumArtTask(void* param) {
     art_buffer = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
     art_temp_buffer = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
@@ -320,35 +352,111 @@ void albumArtTask(void* param) {
 
                         int read = bytesRead;
                         if ((len_known ? (read == len) : (read > 0)) && readSuccess) {
-                            Serial.printf("[ART] Opening JPEG with %d bytes\n", read);
-                            if (jpeg.openRAM(jpgBuf, read, jpegDraw)) {
-                                jpeg.setPixelType(RGB565_LITTLE_ENDIAN);
-                                int w = jpeg.getWidth();
-                                int h = jpeg.getHeight();
-                                jpeg_image_width = w;   // Store for callback
-                                jpeg_image_height = h;  // Store for callback
-                                jpeg_output_width = 0;
-                                jpeg_output_height = 0;
-                                Serial.printf("[ART] JPEG: %dx%d\n", w, h);
+                            // Check image format by magic bytes
+                            bool isJPEG = (read >= 3 && jpgBuf[0] == 0xFF && jpgBuf[1] == 0xD8 && jpgBuf[2] == 0xFF);
+                            bool isPNG = (read >= 4 && jpgBuf[0] == 0x89 && jpgBuf[1] == 0x50 && jpgBuf[2] == 0x4E && jpgBuf[3] == 0x47);
 
-                                // Allocate buffer for full decoded image
-                                size_t decoded_size = w * h * 2;
-                                if (decoded_buffer) {
-                                    heap_caps_free(decoded_buffer);
+                            if (!isJPEG && !isPNG) {
+                                Serial.printf("[ART] Unknown image format (bytes: %02X %02X %02X %02X) - skipping\n",
+                                    jpgBuf[0], jpgBuf[1], read > 2 ? jpgBuf[2] : 0, read > 3 ? jpgBuf[3] : 0);
+                                if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
+                                    last_art_url = url;  // Prevent retries
+                                    xSemaphoreGive(art_mutex);
                                 }
-                                decoded_buffer = (uint16_t*)heap_caps_malloc(decoded_size, MALLOC_CAP_SPIRAM);
+                                heap_caps_free(jpgBuf);
+                                http.end();
+                                vTaskDelay(pdMS_TO_TICKS(1000));
+                                continue;
+                            }
 
-                                if (decoded_buffer) {
-                                    jpeg_decode_buffer = decoded_buffer;
-                                    // Clear decoded buffer to avoid stale tiles when decoder skips blocks
-                                    memset(decoded_buffer, 0, decoded_size);
+                            int w = 0, h = 0;
+                            bool decodeSuccess = false;
 
-                                    // Decode full image at original size (no scaling)
-                                    jpeg.decode(0, 0, 0);
-                                    jpeg.close();
+                            if (isPNG) {
+                                // Decode PNG image
+                                Serial.printf("[ART] Opening PNG with %d bytes\n", read);
+                                int openResult = png.openRAM(jpgBuf, read, pngDraw);
+                                if (openResult == PNG_SUCCESS) {
+                                    w = png.getWidth();
+                                    h = png.getHeight();
+                                    jpeg_image_width = w;
+                                    jpeg_image_height = h;
+                                    jpeg_output_width = 0;
+                                    jpeg_output_height = 0;
+                                    Serial.printf("[ART] PNG: %dx%d\n", w, h);
 
-                                    Serial.printf("[ART] Decoded %dx%d\n", w, h);
-                                    jpeg_decode_buffer = nullptr;
+                                    // Allocate buffer for decoded image
+                                    size_t decoded_size = w * h * 2;
+                                    if (decoded_buffer) {
+                                        heap_caps_free(decoded_buffer);
+                                    }
+                                    decoded_buffer = (uint16_t*)heap_caps_malloc(decoded_size, MALLOC_CAP_SPIRAM);
+
+                                    if (decoded_buffer) {
+                                        jpeg_decode_buffer = decoded_buffer;
+                                        memset(decoded_buffer, 0, decoded_size);
+
+                                        // Decode PNG
+                                        int decResult = png.decode(NULL, 0);
+                                        png.close();
+
+                                        if (decResult == PNG_SUCCESS) {
+                                            Serial.printf("[ART] PNG decoded %dx%d\n", w, h);
+                                            decodeSuccess = true;
+                                        } else {
+                                            Serial.printf("[ART] PNG decode failed: %d\n", decResult);
+                                        }
+                                        jpeg_decode_buffer = nullptr;
+                                    } else {
+                                        Serial.printf("[ART] Failed to allocate %d bytes for PNG\n", (int)decoded_size);
+                                        png.close();
+                                    }
+                                } else {
+                                    Serial.printf("[ART] PNG openRAM failed: %d\n", openResult);
+                                }
+                            } else {
+                                // Decode JPEG image
+                                Serial.printf("[ART] Opening JPEG with %d bytes\n", read);
+                                int openResult = jpeg.openRAM(jpgBuf, read, jpegDraw);
+                                if (openResult == 1) {  // JPEGDEC returns 1 on success, 0 on failure!
+                                    jpeg.setPixelType(RGB565_LITTLE_ENDIAN);
+                                    w = jpeg.getWidth();
+                                    h = jpeg.getHeight();
+                                    jpeg_image_width = w;
+                                    jpeg_image_height = h;
+                                    jpeg_output_width = 0;
+                                    jpeg_output_height = 0;
+                                    Serial.printf("[ART] JPEG: %dx%d\n", w, h);
+
+                                    // Allocate buffer for full decoded image
+                                    size_t decoded_size = w * h * 2;
+                                    if (decoded_buffer) {
+                                        heap_caps_free(decoded_buffer);
+                                    }
+                                    decoded_buffer = (uint16_t*)heap_caps_malloc(decoded_size, MALLOC_CAP_SPIRAM);
+
+                                    if (decoded_buffer) {
+                                        jpeg_decode_buffer = decoded_buffer;
+                                        memset(decoded_buffer, 0, decoded_size);
+
+                                        // Decode full image at original size
+                                        jpeg.decode(0, 0, 0);
+                                        jpeg.close();
+
+                                        Serial.printf("[ART] JPEG decoded %dx%d\n", w, h);
+                                        jpeg_decode_buffer = nullptr;
+                                        decodeSuccess = true;
+                                    } else {
+                                        Serial.printf("[ART] Failed to allocate %d bytes for JPEG\n", (int)decoded_size);
+                                        jpeg.close();
+                                    }
+                                } else {
+                                    Serial.printf("[ART] JPEG openRAM failed: %d\n", openResult);
+                                }
+                            }
+
+                            // Continue with scaling and display if decode succeeded
+                            if (decodeSuccess && decoded_buffer) {
 
                                     if (art_temp_buffer) {
                                         int out_w = jpeg_output_width > 0 ? jpeg_output_width : w;
@@ -423,8 +531,12 @@ void albumArtTask(void* param) {
                                             xSemaphoreGive(art_mutex);
                                         }
                                     }
-                                } else {
-                                    Serial.printf("[ART] Failed to allocate %d bytes for decoded image\n", (int)decoded_size);
+                                }
+
+                                // Free decoded buffer
+                                if (decoded_buffer) {
+                                    heap_caps_free(decoded_buffer);
+                                    decoded_buffer = nullptr;
                                 }
                             }
                         }

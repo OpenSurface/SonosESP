@@ -891,9 +891,37 @@ void updateUI() {
 
     // Request album art if URL changed or source changed
     if (d->albumArtURL != last_art_url || source_changed) {
-        if (d->albumArtURL.length() > 0) {
-            String artURL = d->albumArtURL;
+        String artURL = "";
 
+        // Determine which art to use
+        if (d->albumArtURL.length() > 0) {
+            artURL = d->albumArtURL;
+        }
+
+        // RADIO STATION LOGO FALLBACK:
+        // If playing radio and no song art available, use station logo instead
+        if (d->isRadioStation) {
+            bool hasSongArt = (artURL.length() > 0);
+            bool hasStationLogo = (d->radioStationArtURL.length() > 0);
+
+            // If no song art but have station logo, use the logo
+            if (!hasSongArt && hasStationLogo) {
+                artURL = d->radioStationArtURL;
+                Serial.println("[ART] Radio: Using station logo (no song art)");
+            }
+            // If song art is just a generic Sonos radio icon, prefer the actual station logo
+            else if (hasSongArt && hasStationLogo && artURL.indexOf("/getaa?") > 0) {
+                // Check if it's pointing to the radio URI (generic icon)
+                if (artURL.indexOf("x-sonosapi-stream") > 0 ||
+                    artURL.indexOf("x-rincon-mp3radio") > 0 ||
+                    artURL.indexOf("x-sonosapi-radio") > 0) {
+                    artURL = d->radioStationArtURL;
+                    Serial.println("[ART] Radio: Using station logo (replacing generic icon)");
+                }
+            }
+        }
+
+        if (artURL.length() > 0) {
             // Apple Music: reduce image size to avoid "too large" errors
             if (artURL.indexOf("mzstatic.com") > 0) {
                 if (artURL.indexOf("/1400x1400bb.jpg") > 0) {
@@ -906,7 +934,7 @@ void updateUI() {
             }
 
             requestAlbumArt(artURL);
-            last_art_url = d->albumArtURL;
+            last_art_url = artURL;  // Track the actual URL we requested
         } else {
             // No art available - clear display and tracking
             if (last_art_url.length() > 0) {
