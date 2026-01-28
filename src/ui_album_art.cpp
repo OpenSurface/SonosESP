@@ -582,6 +582,29 @@ void albumArtTask(void* param) {
                     }
                 } else if (len >= 200000) {
                     Serial.printf("[ART] Album art too large: %d bytes (max 200KB)\n", len);
+                    // Must drain the connection to prevent WiFi RX buffer overflow
+                    // Server is already sending data even though we're rejecting it
+                    WiFiClient* stream = http.getStreamPtr();
+                    uint8_t drainBuf[512];
+                    int drained = 0;
+                    unsigned long startDrain = millis();
+                    while (stream->connected() && drained < len) {
+                        size_t available = stream->available();
+                        if (available > 0) {
+                            size_t toRead = min((size_t)512, available);
+                            toRead = min(toRead, (size_t)(len - drained));
+                            size_t read = stream->readBytes(drainBuf, toRead);
+                            drained += read;
+                        } else {
+                            vTaskDelay(pdMS_TO_TICKS(10));
+                        }
+                        // Abort drain if taking too long (max 3 seconds)
+                        if (millis() - startDrain > 3000) {
+                            Serial.println("[ART] Drain timeout - closing connection");
+                            break;
+                        }
+                    }
+                    Serial.printf("[ART] Drained %d/%d bytes from connection\n", drained, len);
                 } else {
                     Serial.printf("[ART] Invalid album art size: %d bytes\n", len);
                 }
