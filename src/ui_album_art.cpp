@@ -236,6 +236,7 @@ void albumArtTask(void* param) {
     static uint32_t last_radio_art_time = 0;
     static bool was_radio_last = false;
     static uint32_t last_mode_change_time = 0;
+    static uint32_t last_download_complete_time = 0;  // Track when last download finished
 
     while (1) {
         url[0] = '\0';  // Clear URL
@@ -339,6 +340,16 @@ void albumArtTask(void* param) {
                 Serial.println("[ART] Download already in progress - waiting");
                 vTaskDelay(pdMS_TO_TICKS(200));
                 continue;
+            }
+
+            // Wait after previous download to let WiFi buffers clear
+            // Rapid successive downloads exhaust ESP32-P4's limited WiFi buffers
+            if (last_download_complete_time > 0) {
+                uint32_t elapsed = millis() - last_download_complete_time;
+                if (elapsed < 1000) {  // 1 second between downloads
+                    vTaskDelay(pdMS_TO_TICKS(200));
+                    continue;
+                }
             }
 
             download_in_progress = true;
@@ -619,6 +630,9 @@ void albumArtTask(void* param) {
                                             color_ready = true;
                                             xSemaphoreGive(art_mutex);
                                         }
+
+                                        // Mark download completion time for WiFi buffer recovery
+                                        last_download_complete_time = millis();
 
                                 // Free decoded buffer
                                 if (decoded_buffer) {
