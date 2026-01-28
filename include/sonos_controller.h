@@ -85,7 +85,14 @@ struct SonosDevice {
     String trackDuration;    // Total duration "0:03:47"
     int relTimeSeconds;      // Current position in seconds
     int durationSeconds;     // Total duration in seconds
-    
+
+    // Radio station info
+    bool isRadioStation;          // True if playing radio (detected by URI pattern)
+    String currentURI;            // Track URI (needed for radio detection)
+    String radioStationName;      // Station name from GetMediaInfo's CurrentURIMetaData
+    String radioStationArtURL;    // Station logo URL (fallback when song has no art)
+    String streamContent;         // Current song from r:streamContent (if available)
+
     // Queue
     int currentTrackNumber;
     int totalTracks;
@@ -178,6 +185,7 @@ public:
     
     // State queries (thread-safe)
     bool updateTrackInfo();
+    bool updateMediaInfo();          // Get station name for radio from GetMediaInfo
     bool updatePlaybackState();
     bool updateVolume();
     bool updateQueue();

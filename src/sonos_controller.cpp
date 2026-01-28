@@ -462,7 +462,17 @@ String SonosController::decodeHTML(String text) {
         // UTF-8 smart punctuation (3-byte)
         {"\xE2\x80\x98", "'"}, {"\xE2\x80\x99", "'"}, {"\xE2\x80\x9C", "\""},
         {"\xE2\x80\x9D", "\""}, {"\xE2\x80\x93", "-"}, {"\xE2\x80\x94", "--"},
-        {"\xE2\x80\xA6", "..."}
+        {"\xE2\x80\xA6", "..."},
+
+        // Special spaces and separators (Apple Music uses these in station names)
+        {"\xC2\xA0", " "},       // Non-breaking space (U+00A0)
+        {"\xE2\x80\x82", " "},   // En space (U+2002)
+        {"\xE2\x80\x83", " "},   // Em space (U+2003)
+        {"\xE2\x80\x89", " "},   // Thin space (U+2009)
+        {"\xE2\x80\x8B", ""},    // Zero-width space (U+200B) - remove
+        {"\xE2\x80\x8C", ""},    // Zero-width non-joiner (U+200C) - remove
+        {"\xE2\x80\x8D", ""},    // Zero-width joiner (U+200D) - remove
+        {"\xEF\xBB\xBF", ""}     // BOM (U+FEFF) - remove
     };
 
     // Single pass through replacements
@@ -995,6 +1005,60 @@ void SonosController::notifyUI(UIUpdateType_e type) {
     xQueueSend(uiUpdateQueue, &upd, 0);
 }
 
+// Helper: Detect if URI is a radio station
+// Based on research: x-sonosapi-stream:, x-rincon-mp3radio:, x-sonosapi-radio:, aac://, hls-radio:
+static bool isRadioURI(const String& uri) {
+    return uri.startsWith("x-sonosapi-stream:") ||
+           uri.startsWith("x-rincon-mp3radio:") ||
+           uri.startsWith("x-sonosapi-radio:") ||
+           uri.startsWith("aac://") ||
+           uri.startsWith("hls-radio:");
+}
+
+// Helper: Parse r:streamContent for current song info
+// Formats: "Artist - Title" OR "TYPE=SNG|TITLE xxx|ARTIST xxx|ALBUM xxx"
+// Based on research from node-sonos Issue #106 and OpenHAB Issue #13208
+static void parseStreamContent(const String& content, String& outArtist, String& outTitle) {
+    if (content.length() == 0) return;
+
+    // Format 1: Pipe-delimited (SiriusXM, Apple Music)
+    // Example: "BR P|TYPE=SNG|TITLE Talk To Me|ARTIST Kopecky"
+    if (content.indexOf("TYPE=") >= 0 && content.indexOf("|") > 0) {
+        // Extract TITLE
+        int titleIdx = content.indexOf("TITLE ");
+        if (titleIdx >= 0) {
+            titleIdx += 6; // Skip "TITLE "
+            int titleEnd = content.indexOf("|", titleIdx);
+            if (titleEnd < 0) titleEnd = content.length();
+            outTitle = content.substring(titleIdx, titleEnd);
+            outTitle.trim();
+        }
+
+        // Extract ARTIST
+        int artistIdx = content.indexOf("ARTIST ");
+        if (artistIdx >= 0) {
+            artistIdx += 7; // Skip "ARTIST "
+            int artistEnd = content.indexOf("|", artistIdx);
+            if (artistEnd < 0) artistEnd = content.length();
+            outArtist = content.substring(artistIdx, artistEnd);
+            outArtist.trim();
+        }
+    }
+    // Format 2: Simple "Artist - Title" (TuneIn)
+    else if (content.indexOf(" - ") > 0) {
+        int sepIdx = content.indexOf(" - ");
+        outArtist = content.substring(0, sepIdx);
+        outTitle = content.substring(sepIdx + 3);
+        outArtist.trim();
+        outTitle.trim();
+    }
+    // Format 3: Plain text - use as title
+    else {
+        outTitle = content;
+        outTitle.trim();
+    }
+}
+
 bool SonosController::updateTrackInfo() {
     String resp = sendSOAP("AVTransport", "GetPositionInfo", "<InstanceID>0</InstanceID>");
     if (resp.length() == 0) return false;
@@ -1008,20 +1072,46 @@ bool SonosController::updateTrackInfo() {
         if (trackNum.length() > 0) {
             dev->currentTrackNumber = trackNum.toInt();
         }
-        
+
         dev->relTime = extractXML(resp, "RelTime");
         dev->relTimeSeconds = timeToSeconds(dev->relTime);
-        
+
         dev->trackDuration = extractXML(resp, "TrackDuration");
         dev->durationSeconds = timeToSeconds(dev->trackDuration);
-        
+
+        // Extract TrackURI and detect radio
+        String trackURI = extractXML(resp, "TrackURI");
+        dev->currentURI = trackURI;
+        dev->isRadioStation = isRadioURI(trackURI);
+
         // Get metadata and decode HTML entities
         String meta = extractXML(resp, "TrackMetaData");
         meta = decodeHTML(meta);
 
+        // Extract r:streamContent for radio (contains current song info)
+        String streamContent = extractXML(meta, "r:streamContent");
+        streamContent = decodeHTML(streamContent);
+        dev->streamContent = streamContent;
+
         String newTrack = decodeHTML(extractXML(meta, "dc:title"));
         String newArtist = decodeHTML(extractXML(meta, "dc:creator"));
         String newAlbum = decodeHTML(extractXML(meta, "upnp:album"));
+
+        // For radio: parse streamContent for current song info
+        // streamContent overrides dc:title/dc:creator when available
+        if (dev->isRadioStation && streamContent.length() > 0) {
+            String parsedArtist = "";
+            String parsedTitle = "";
+            parseStreamContent(streamContent, parsedArtist, parsedTitle);
+
+            // Use parsed info if we got something useful
+            if (parsedTitle.length() > 0) {
+                newTrack = parsedTitle;
+            }
+            if (parsedArtist.length() > 0) {
+                newArtist = parsedArtist;
+            }
+        }
 
         // Extract album art URL
         String art = extractXML(meta, "upnp:albumArtURI");
@@ -1056,6 +1146,69 @@ bool SonosController::updateTrackInfo() {
             notifyUI(UPDATE_TRACK_INFO);
         }
 
+        return true;
+    }
+    return false;
+}
+
+// Get station name for radio from GetMediaInfo
+// For radio: CurrentURIMetaData contains the actual station name
+// For music: This returns queue/playlist info (less useful)
+bool SonosController::updateMediaInfo() {
+    SonosDevice* dev = getCurrentDevice();
+    if (!dev) return false;
+
+    // Only fetch media info for radio stations
+    if (!dev->isRadioStation) {
+        // Clear radio station info when not playing radio
+        if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
+            dev->radioStationName = "";
+            dev->radioStationArtURL = "";
+            xSemaphoreGive(deviceMutex);
+        }
+        return true;
+    }
+
+    String resp = sendSOAP("AVTransport", "GetMediaInfo", "<InstanceID>0</InstanceID>");
+    if (resp.length() == 0) return false;
+
+    if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
+        // Extract CurrentURIMetaData
+        String meta = extractXML(resp, "CurrentURIMetaData");
+        meta = decodeHTML(meta);
+
+        // Extract station name from dc:title
+        String stationName = extractXML(meta, "dc:title");
+        stationName = decodeHTML(stationName);
+
+        // Extract station logo from upnp:albumArtURI
+        String stationArt = extractXML(meta, "upnp:albumArtURI");
+        stationArt = decodeHTML(stationArt);
+
+        // Store station name if valid (not URL junk)
+        if (stationName.length() > 0) {
+            // Filter out URL junk
+            bool isJunk = (stationName.indexOf("?") > 0 ||
+                          stationName.indexOf(".mp3") > 0 ||
+                          stationName.indexOf(".m3u8") > 0 ||
+                          stationName.indexOf("accessKey=") > 0);
+
+            if (!isJunk) {
+                dev->radioStationName = stationName;
+            }
+        }
+
+        // Store station logo URL
+        if (stationArt.length() > 0) {
+            if (stationArt.startsWith("/")) {
+                // Local Sonos path - convert to full URL
+                dev->radioStationArtURL = "http://" + dev->ip.toString() + ":1400" + stationArt;
+            } else {
+                dev->radioStationArtURL = stationArt;
+            }
+        }
+
+        xSemaphoreGive(deviceMutex);
         return true;
     }
     return false;
@@ -1328,6 +1481,11 @@ void SonosController::pollingTaskFunction(void* param) {
             ctrl->updateTrackInfo();
             ctrl->updatePlaybackState();
 
+            // Media info for radio (station name) every 15 seconds (50 * 300ms)
+            if (tick % 50 == 0 && dev->isRadioStation) {
+                ctrl->updateMediaInfo();
+            }
+
             // Volume every 1.5 seconds (5 * 300ms)
             if (tick % 5 == 0) {
                 ctrl->updateVolume();
@@ -1338,8 +1496,8 @@ void SonosController::pollingTaskFunction(void* param) {
                 ctrl->updateTransportSettings();
             }
 
-            // Queue every 15 seconds (50 * 300ms)
-            if (tick % 50 == 0) {
+            // Queue every 15 seconds (50 * 300ms) - skip for radio
+            if (tick % 50 == 0 && !dev->isRadioStation) {
                 ctrl->updateQueue();
             }
 
