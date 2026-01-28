@@ -232,14 +232,17 @@ void albumArtTask(void* param) {
     // WiFi buffer protection - prevent simultaneous downloads
     static bool download_in_progress = false;
     static String current_download_url = "";
+    static String current_original_url = "";  // Track original URL before extraction
     static uint32_t last_radio_art_time = 0;
     static bool was_radio_last = false;
     static uint32_t last_mode_change_time = 0;
 
     while (1) {
         url[0] = '\0';  // Clear URL
+        String originalPendingUrl = "";
         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(10))) {
             if (pending_art_url.length() > 0 && pending_art_url != last_art_url) {
+                originalPendingUrl = pending_art_url;  // Store before any modifications
                 // Radio throttling: max once per 5 seconds to prevent WiFi buffer exhaustion
                 bool isRadio = pending_art_url.indexOf("x-sonosapi-stream:") > 0 ||
                                pending_art_url.indexOf("x-rincon-mp3radio:") > 0 ||
@@ -340,6 +343,7 @@ void albumArtTask(void* param) {
 
             download_in_progress = true;
             current_download_url = String(url);
+            current_original_url = originalPendingUrl;  // Track original URL for comparison
             Serial.printf("[ART] URL: %s\n", url);
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
@@ -374,8 +378,9 @@ void albumArtTask(void* param) {
 
                         while (stream->connected() && bytesRead < alloc_len) {
                             // Check if source changed - abort to prevent WiFi buffer buildup
+                            // Compare against original URL (before extraction) to avoid false positives
                             if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(1))) {
-                                if (pending_art_url != current_download_url && pending_art_url.length() > 0) {
+                                if (pending_art_url != current_original_url && pending_art_url.length() > 0) {
                                     Serial.println("[ART] Source changed - aborting download");
                                     aborted = true;
                                     xSemaphoreGive(art_mutex);
@@ -427,6 +432,7 @@ void albumArtTask(void* param) {
                             http.end();
                             download_in_progress = false;
                             current_download_url = "";
+                            current_original_url = "";
                             vTaskDelay(pdMS_TO_TICKS(500));  // WiFi cleanup delay
                             continue;
                         }
@@ -627,15 +633,53 @@ void albumArtTask(void* param) {
                     }
                 } else if (len >= 200000) {
                     Serial.printf("[ART] Album art too large: %d bytes (max 200KB)\n", len);
+                    // CRITICAL: Drain response to prevent WiFi buffer exhaustion
+                    WiFiClient* stream = http.getStreamPtr();
+                    if (stream) {
+                        Serial.println("[ART] Draining large image from WiFi buffers");
+                        while (stream->available() > 0 && stream->connected()) {
+                            uint8_t dummy[256];
+                            int avail = stream->available();
+                            size_t toRead = (avail < 256) ? avail : 256;
+                            stream->readBytes(dummy, toRead);
+                            vTaskDelay(pdMS_TO_TICKS(1));
+                        }
+                        Serial.println("[ART] WiFi buffer drain complete");
+                    }
                 } else {
                     Serial.printf("[ART] Invalid album art size: %d bytes\n", len);
+                    // Drain any response data to prevent WiFi buffer issues
+                    WiFiClient* stream = http.getStreamPtr();
+                    if (stream && stream->available() > 0) {
+                        Serial.println("[ART] Draining invalid size response from WiFi buffers");
+                        while (stream->available() > 0 && stream->connected()) {
+                            uint8_t dummy[256];
+                            int avail = stream->available();
+                            size_t toRead = (avail < 256) ? avail : 256;
+                            stream->readBytes(dummy, toRead);
+                            vTaskDelay(pdMS_TO_TICKS(1));
+                        }
+                    }
                 }
             } else {
                 Serial.printf("[ART] HTTP error %d fetching album art\n", code);
+                // Drain any partial response data to prevent WiFi buffer issues
+                WiFiClient* stream = http.getStreamPtr();
+                if (stream && stream->available() > 0) {
+                    Serial.println("[ART] Draining error response from WiFi buffers");
+                    while (stream->available() > 0 && stream->connected()) {
+                        uint8_t dummy[256];
+                        int avail = stream->available();
+                        size_t toRead = (avail < 256) ? avail : 256;
+                        stream->readBytes(dummy, toRead);
+                        vTaskDelay(pdMS_TO_TICKS(1));
+                    }
+                }
             }
             http.end();
             download_in_progress = false;
             current_download_url = "";
+            current_original_url = "";
         }
         vTaskDelay(pdMS_TO_TICKS(200));
     }
