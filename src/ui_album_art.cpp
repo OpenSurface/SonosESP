@@ -236,6 +236,7 @@ void albumArtTask(void* param) {
     static uint32_t last_radio_art_time = 0;
     static bool was_radio_last = false;
     static uint32_t last_mode_change_time = 0;
+    static uint32_t last_source_change_time = 0;  // Track ANY source change for queue fetch coordination
 
     while (1) {
         url[0] = '\0';  // Clear URL
@@ -248,12 +249,18 @@ void albumArtTask(void* param) {
                                pending_art_url.indexOf("x-rincon-mp3radio:") > 0 ||
                                pending_art_url.indexOf("x-sonosapi-radio:") > 0;
 
-                // Detect mode change: radio -> music requires delay for queue fetch
+                // Detect mode change: radio -> music requires longer delay for queue fetch
                 if (was_radio_last && !isRadio) {
                     last_mode_change_time = millis();
                     Serial.println("[ART] Mode change: radio -> music - delaying art for queue fetch");
                 }
                 was_radio_last = isRadio;
+
+                // Track source changes for music services (queue fetch coordination)
+                // When user changes tracks in YouTube Music/Spotify, queue refetch happens
+                if (!isRadio) {
+                    last_source_change_time = millis();
+                }
 
                 if (isRadio) {
                     uint32_t now = millis();
@@ -325,12 +332,25 @@ void albumArtTask(void* param) {
             if (last_mode_change_time > 0) {
                 uint32_t elapsed = millis() - last_mode_change_time;
                 if (elapsed < 3000) {
-                    Serial.println("[ART] Waiting for queue fetch to complete...");
+                    Serial.println("[ART] Waiting for queue fetch to complete (mode change)...");
                     vTaskDelay(pdMS_TO_TICKS(500));
                     continue;
                 } else {
                     // Delay complete - clear flag
                     last_mode_change_time = 0;
+                }
+            }
+
+            // Wait after source change in music services (track changes within playlist)
+            // Prevents queue fetch + album art download collision
+            if (last_source_change_time > 0) {
+                uint32_t elapsed = millis() - last_source_change_time;
+                if (elapsed < 1500) {  // 1.5 second delay for track changes
+                    vTaskDelay(pdMS_TO_TICKS(200));
+                    continue;
+                } else {
+                    // Delay complete - clear flag
+                    last_source_change_time = 0;
                 }
             }
 
