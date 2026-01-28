@@ -131,6 +131,19 @@ void updateRadioModeUI() {
     }
 
     // Update UI labels
+    static String last_displayed_title = "";
+    static String last_displayed_artist = "";
+
+    // Only log when actually changing
+    if (displayTitle != last_displayed_title || displayArtist != last_displayed_artist) {
+        Serial.printf("[RADIO UI] Updating display - Title: '%s', Artist: '%s'\n",
+                     displayTitle.c_str(), displayArtist.c_str());
+        Serial.printf("[RADIO UI] Source data - StationName: '%s', CurrentTrack: '%s', CurrentArtist: '%s'\n",
+                     dev->radioStationName.c_str(), dev->currentTrack.c_str(), dev->currentArtist.c_str());
+        last_displayed_title = displayTitle;
+        last_displayed_artist = displayArtist;
+    }
+
     if (lbl_title) {
         lv_label_set_text(lbl_title, displayTitle.c_str());
     }

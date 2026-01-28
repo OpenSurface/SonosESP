@@ -1489,11 +1489,13 @@ void SonosController::pollingTaskFunction(void* param) {
                 Serial.printf("[RADIO] Station changed - fetching station name immediately\n");
                 ctrl->updateMediaInfo();
                 previousURI = dev->currentURI;
+                vTaskDelay(pdMS_TO_TICKS(200));  // Allow network to recover after GetMediaInfo
             }
 
             // Media info for radio (station name) periodic refresh every 15 seconds
             if (tick % 50 == 0 && dev->isRadioStation) {
                 ctrl->updateMediaInfo();
+                vTaskDelay(pdMS_TO_TICKS(200));  // Allow network to recover
             }
 
             // Clear previous URI when not on radio

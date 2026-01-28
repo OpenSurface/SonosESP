@@ -876,7 +876,19 @@ void updateUI() {
 
     // Album art - only request if URL changed to prevent download loops
     static String last_art_url = "";
-    if (d->albumArtURL != last_art_url) {
+    static bool was_radio = false;
+
+    // Force refresh when switching between radio and music modes
+    bool mode_changed = (was_radio != d->isRadioStation);
+    if (mode_changed) {
+        Serial.printf("[ART] Mode changed: %s -> %s\n",
+                     was_radio ? "radio" : "music",
+                     d->isRadioStation ? "radio" : "music");
+        last_art_url = "";  // Force refresh on mode change
+        was_radio = d->isRadioStation;
+    }
+
+    if (d->albumArtURL != last_art_url || mode_changed) {
         if (d->albumArtURL.length() > 0) {
             String artURL = d->albumArtURL;
 
@@ -892,8 +904,16 @@ void updateUI() {
             }
 
             requestAlbumArt(artURL);
+            last_art_url = d->albumArtURL;
+        } else {
+            // No art available - clear display and tracking
+            if (last_art_url.length() > 0) {
+                Serial.println("[ART] No art URL - clearing display");
+                if (img_album) lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
+                if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+                last_art_url = "";
+            }
         }
-        last_art_url = d->albumArtURL;
     }
     if (xSemaphoreTake(art_mutex, 0)) {
         if (art_ready) {
