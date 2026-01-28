@@ -317,32 +317,24 @@ void albumArtTask(void* param) {
             xSemaphoreGive(art_mutex);
         }
         if (url[0] != '\0') {
-            // Wait after mode change (radio -> music) to let queue fetch complete
+            // Wait after mode change (radio -> music) ONCE to let queue fetch complete
             // Queue fetch for 500 items takes ~2-3 seconds and exhausts WiFi buffers
-            if (last_mode_change_time > 0 && (millis() - last_mode_change_time < 3000)) {
-                Serial.println("[ART] Waiting for queue fetch to complete...");
-                vTaskDelay(pdMS_TO_TICKS(500));
-                continue;
+            if (last_mode_change_time > 0) {
+                uint32_t elapsed = millis() - last_mode_change_time;
+                if (elapsed < 3000) {
+                    Serial.println("[ART] Waiting for queue fetch to complete...");
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                    continue;
+                } else {
+                    // Delay complete - clear flag
+                    last_mode_change_time = 0;
+                }
             }
 
             // Prevent simultaneous downloads - WiFi buffer protection
             if (download_in_progress) {
                 Serial.println("[ART] Download already in progress - waiting");
                 vTaskDelay(pdMS_TO_TICKS(200));
-                continue;
-            }
-
-            // Double-check URL hasn't changed before starting
-            bool should_skip = false;
-            if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(10))) {
-                if (pending_art_url != String(url)) {
-                    Serial.println("[ART] URL changed before download - skipping");
-                    should_skip = true;
-                }
-                xSemaphoreGive(art_mutex);
-            }
-            if (should_skip) {
-                vTaskDelay(pdMS_TO_TICKS(100));
                 continue;
             }
 
