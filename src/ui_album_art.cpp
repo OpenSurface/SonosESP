@@ -288,6 +288,8 @@ void albumArtTask(void* param) {
         }
         if (url[0] != '\0') {
             Serial.printf("[ART] URL: %s\n", url);
+            // Brief delay to let WiFi stack release buffers from previous operations (e.g., queue fetch)
+            vTaskDelay(pdMS_TO_TICKS(100));
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
                 http.begin(secure_client, url);
