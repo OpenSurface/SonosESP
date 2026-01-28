@@ -229,10 +229,31 @@ void albumArtTask(void* param) {
     // Temporary buffer for decoded full-size image
     uint16_t* decoded_buffer = nullptr;
 
+    // WiFi buffer protection - prevent simultaneous downloads
+    static bool download_in_progress = false;
+    static String current_download_url = "";
+    static uint32_t last_radio_art_time = 0;
+
     while (1) {
         url[0] = '\0';  // Clear URL
         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(10))) {
             if (pending_art_url.length() > 0 && pending_art_url != last_art_url) {
+                // Radio throttling: max once per 5 seconds to prevent WiFi buffer exhaustion
+                bool isRadio = pending_art_url.indexOf("x-sonosapi-stream:") > 0 ||
+                               pending_art_url.indexOf("x-rincon-mp3radio:") > 0 ||
+                               pending_art_url.indexOf("x-sonosapi-radio:") > 0;
+
+                if (isRadio) {
+                    uint32_t now = millis();
+                    if (now - last_radio_art_time < 5000) {
+                        // Skip - too soon
+                        xSemaphoreGive(art_mutex);
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+                        continue;
+                    }
+                    last_radio_art_time = now;
+                }
+
                 String fetchUrl = pending_art_url;
 
                 // Decode HTML entities (&amp; -> &)
@@ -287,6 +308,29 @@ void albumArtTask(void* param) {
             xSemaphoreGive(art_mutex);
         }
         if (url[0] != '\0') {
+            // Prevent simultaneous downloads - WiFi buffer protection
+            if (download_in_progress) {
+                Serial.println("[ART] Download already in progress - waiting");
+                vTaskDelay(pdMS_TO_TICKS(200));
+                continue;
+            }
+
+            // Double-check URL hasn't changed before starting
+            bool should_skip = false;
+            if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(10))) {
+                if (pending_art_url != String(url)) {
+                    Serial.println("[ART] URL changed before download - skipping");
+                    should_skip = true;
+                }
+                xSemaphoreGive(art_mutex);
+            }
+            if (should_skip) {
+                vTaskDelay(pdMS_TO_TICKS(100));
+                continue;
+            }
+
+            download_in_progress = true;
+            current_download_url = String(url);
             Serial.printf("[ART] URL: %s\n", url);
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
@@ -294,7 +338,7 @@ void albumArtTask(void* param) {
             } else {
                 http.begin(url);
             }
-            http.setTimeout(10000);  // Increased timeout for chunked reading
+            http.setTimeout(8000);  // Conservative timeout to reduce WiFi load
             int code = http.GET();
             if (code == 200) {
                 int len = http.getSize();
@@ -317,8 +361,20 @@ void albumArtTask(void* param) {
                         const size_t chunkSize = 4096;
                         size_t bytesRead = 0;
                         bool readSuccess = true;
+                        bool aborted = false;
 
                         while (stream->connected() && bytesRead < alloc_len) {
+                            // Check if source changed - abort to prevent WiFi buffer buildup
+                            if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(1))) {
+                                if (pending_art_url != current_download_url && pending_art_url.length() > 0) {
+                                    Serial.println("[ART] Source changed - aborting download");
+                                    aborted = true;
+                                    xSemaphoreGive(art_mutex);
+                                    break;
+                                }
+                                xSemaphoreGive(art_mutex);
+                            }
+
                             size_t available = stream->available();
                             if (available == 0) {
                                 vTaskDelay(pdMS_TO_TICKS(1));
@@ -348,6 +404,24 @@ void albumArtTask(void* param) {
                             readSuccess = false;
                         }
 
+                        // Handle abort - drain WiFi buffers to prevent crashes
+                        if (aborted) {
+                            Serial.println("[ART] Download aborted - draining WiFi buffers");
+                            while (stream->available() > 0 && stream->connected()) {
+                                uint8_t dummy[256];
+                                int avail = stream->available();
+                                size_t toRead = (avail < 256) ? avail : 256;
+                                stream->readBytes(dummy, toRead);
+                                vTaskDelay(pdMS_TO_TICKS(1));
+                            }
+                            heap_caps_free(jpgBuf);
+                            http.end();
+                            download_in_progress = false;
+                            current_download_url = "";
+                            vTaskDelay(pdMS_TO_TICKS(500));  // WiFi cleanup delay
+                            continue;
+                        }
+
                         Serial.printf("[ART] Album art read: %d bytes (len_known=%d)\n", (int)bytesRead, len_known ? 1 : 0);
 
                         int read = bytesRead;
@@ -365,6 +439,8 @@ void albumArtTask(void* param) {
                                 }
                                 heap_caps_free(jpgBuf);
                                 http.end();
+                                download_in_progress = false;
+                                current_download_url = "";
                                 vTaskDelay(pdMS_TO_TICKS(1000));
                                 continue;
                             }
@@ -549,8 +625,10 @@ void albumArtTask(void* param) {
                 Serial.printf("[ART] HTTP error %d fetching album art\n", code);
             }
             http.end();
+            download_in_progress = false;
+            current_download_url = "";
         }
-        vTaskDelay(pdMS_TO_TICKS(200));  // Reduced from 500ms for faster art updates
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
 
