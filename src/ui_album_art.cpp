@@ -301,10 +301,20 @@ void albumArtTask(void* param) {
         }
         if (url[0] != '\0') {
             Serial.printf("[ART] URL: %s\n", url);
-            // Long delay to let WiFi buffers fully clear
-            // ESP32-P4 external WiFi has very limited buffers
-            // Source changes (radio→spotify) need time for queue fetch to complete
-            vTaskDelay(pdMS_TO_TICKS(3000));
+
+            // Skip album art if there was a recent source change
+            // ESP32-P4 external WiFi has extremely limited buffers
+            // Source changes trigger heavy WiFi activity (queue fetch, metadata)
+            unsigned long timeSinceSourceChange = millis() - last_source_change_time;
+            if (timeSinceSourceChange < 5000) {
+                Serial.printf("[ART] Skipping - source changed %lums ago (need 5s)\n", timeSinceSourceChange);
+                url[0] = '\0';  // Clear URL to skip this download
+                vTaskDelay(pdMS_TO_TICKS(500));  // Wait before checking again
+                continue;
+            }
+
+            // Brief delay to let WiFi buffers settle
+            vTaskDelay(pdMS_TO_TICKS(500));
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
                 http.begin(secure_client, url);

@@ -90,6 +90,7 @@ extern uint32_t dominant_color;
 extern volatile bool color_ready;
 extern int art_offset_x, art_offset_y;
 extern bool is_sonos_radio_art;
+extern unsigned long last_source_change_time;
 
 // UI state
 extern String ui_title, ui_artist, ui_repeat;

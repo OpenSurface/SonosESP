@@ -886,6 +886,7 @@ void updateUI() {
                      last_track_uri.length() > 30 ? (last_track_uri.substring(0, 30) + "...").c_str() : last_track_uri.c_str(),
                      d->currentURI.length() > 30 ? (d->currentURI.substring(0, 30) + "...").c_str() : d->currentURI.c_str());
         last_art_url = "";  // Force art refresh on any source change
+        last_source_change_time = millis();  // Track when source changed for WiFi buffer management
         last_track_uri = d->currentURI;
     }
 
