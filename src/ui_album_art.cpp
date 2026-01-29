@@ -301,9 +301,10 @@ void albumArtTask(void* param) {
         }
         if (url[0] != '\0') {
             Serial.printf("[ART] URL: %s\n", url);
-            // Longer delay to let WiFi buffers fully clear between downloads
-            // Radio stations change tracks frequently, need more recovery time
-            vTaskDelay(pdMS_TO_TICKS(1500));
+            // Long delay to let WiFi buffers fully clear
+            // ESP32-P4 external WiFi has very limited buffers
+            // Source changes (radio→spotify) need time for queue fetch to complete
+            vTaskDelay(pdMS_TO_TICKS(3000));
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
                 http.begin(secure_client, url);
