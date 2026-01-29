@@ -878,20 +878,46 @@ void updateUI() {
     // Album art - only request if URL changed to prevent download loops
     static String last_art_url = "";
     static String last_track_uri = "";
+    static String last_source_prefix = "";
 
-    // Detect source/track changes by URI - works for ALL sources (radio, music, etc)
-    bool source_changed = (d->currentURI != last_track_uri);
-    if (source_changed && d->currentURI.length() > 0) {
-        Serial.printf("[ART] Source changed - URI: %s -> %s\n",
-                     last_track_uri.length() > 30 ? (last_track_uri.substring(0, 30) + "...").c_str() : last_track_uri.c_str(),
-                     d->currentURI.length() > 30 ? (d->currentURI.substring(0, 30) + "...").c_str() : d->currentURI.c_str());
-        last_art_url = "";  // Force art refresh on any source change
-        last_source_change_time = millis();  // Track when source changed for WiFi buffer management
+    // Extract source prefix to detect actual source changes (not just track changes)
+    String current_source_prefix = "";
+    if (d->currentURI.startsWith("x-sonos-vli:")) {
+        current_source_prefix = "x-sonos-vli";  // Spotify, Apple Music, etc
+    } else if (d->currentURI.startsWith("hls-radio://")) {
+        current_source_prefix = "hls-radio";  // Radio
+    } else if (d->currentURI.startsWith("x-sonos-http:")) {
+        current_source_prefix = "x-sonos-http";  // Radio
+    } else if (d->currentURI.startsWith("x-rincon-mp3radio:")) {
+        current_source_prefix = "x-rincon-mp3radio";  // Radio
+    } else {
+        // Extract first part before colon for unknown sources
+        int colonPos = d->currentURI.indexOf(':');
+        if (colonPos > 0) {
+            current_source_prefix = d->currentURI.substring(0, colonPos);
+        }
+    }
+
+    // Detect ACTUAL source changes (Spotify→Radio, not Spotify track1→track2)
+    bool actual_source_change = (current_source_prefix != last_source_prefix && current_source_prefix.length() > 0);
+
+    // Detect any URI change (track or source)
+    bool uri_changed = (d->currentURI != last_track_uri);
+
+    if (uri_changed && d->currentURI.length() > 0) {
+        if (actual_source_change) {
+            Serial.printf("[ART] SOURCE CHANGE: %s -> %s\n", last_source_prefix.c_str(), current_source_prefix.c_str());
+            last_source_change_time = millis();  // Track when SOURCE changed for WiFi buffer management
+            last_source_prefix = current_source_prefix;
+        } else {
+            Serial.printf("[ART] Track changed (same source: %s)\n", current_source_prefix.c_str());
+        }
+        last_art_url = "";  // Force art refresh on any URI change
         last_track_uri = d->currentURI;
     }
 
-    // Request album art if URL changed or source changed
-    if (d->albumArtURL != last_art_url || source_changed) {
+    // Request album art if URL changed or URI changed
+    if (d->albumArtURL != last_art_url || uri_changed) {
         String artURL = "";
 
         // Determine which art to use
