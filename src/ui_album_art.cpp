@@ -374,7 +374,8 @@ void albumArtTask(void* param) {
 
                             if (isPNG) {
                                 Serial.printf("[ART] Opening PNG with %d bytes\n", read);
-                                if (png.openRAM(jpgBuf, read, pngDraw)) {
+                                int pngResult = png.openRAM(jpgBuf, read, pngDraw);
+                                if (pngResult == 0) {  // PNG_SUCCESS = 0 (different from JPEG!)
                                     Serial.println("[ART] PNG openRAM success");
                                     int w = png.getWidth();
                                     int h = png.getHeight();
@@ -479,7 +480,7 @@ void albumArtTask(void* param) {
                                         Serial.printf("[ART] Failed to allocate %d bytes for decoded image\n", (int)decoded_size);
                                     }
                                 } else {
-                                    Serial.println("[ART] PNG openRAM failed - invalid or corrupt PNG data");
+                                    Serial.printf("[ART] PNG openRAM failed - error code: %d\n", pngResult);
                                 }
                             } else if (isJPEG) {
                                 Serial.printf("[ART] Opening JPEG with %d bytes\n", read);
