@@ -312,9 +312,6 @@ void albumArtTask(void* param) {
                 vTaskDelay(pdMS_TO_TICKS(500));  // Wait before checking again
                 continue;
             }
-
-            // Brief delay to let WiFi buffers settle
-            vTaskDelay(pdMS_TO_TICKS(500));
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
                 http.begin(secure_client, url);
