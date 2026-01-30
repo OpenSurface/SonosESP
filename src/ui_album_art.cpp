@@ -312,6 +312,14 @@ void albumArtTask(void* param) {
                 vTaskDelay(pdMS_TO_TICKS(500));  // Wait before checking again
                 continue;
             }
+
+            // After source change cooldown, give WiFi extra time to stabilize
+            // The queue fetch and other operations may still be finishing
+            if (timeSinceSourceChange < 7000) {
+                Serial.println("[ART] Post-cooldown stabilization delay");
+                vTaskDelay(pdMS_TO_TICKS(500));
+            }
+
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
                 http.begin(secure_client, url);
