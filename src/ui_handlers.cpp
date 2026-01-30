@@ -919,6 +919,7 @@ void updateUI() {
     // Request album art if URL changed or URI changed
     if (d->albumArtURL != last_art_url || uri_changed) {
         String artURL = "";
+        bool usingStationLogo = false;  // Track if we're using station logo (PNG allowed)
 
         // Determine which art to use
         if (d->albumArtURL.length() > 0) {
@@ -934,6 +935,7 @@ void updateUI() {
             // If no song art but have station logo, use the logo
             if (!hasSongArt && hasStationLogo) {
                 artURL = d->radioStationArtURL;
+                usingStationLogo = true;
                 Serial.println("[ART] Radio: Using station logo (no song art)");
             }
             // If song art is just a generic Sonos radio icon, prefer the actual station logo
@@ -943,10 +945,14 @@ void updateUI() {
                     artURL.indexOf("x-rincon-mp3radio") > 0 ||
                     artURL.indexOf("x-sonosapi-radio") > 0) {
                     artURL = d->radioStationArtURL;
+                    usingStationLogo = true;
                     Serial.println("[ART] Radio: Using station logo (replacing generic icon)");
                 }
             }
         }
+
+        // Set the flag for album art task to know if PNG is allowed
+        pending_is_station_logo = usingStationLogo;
 
         if (artURL.length() > 0) {
             // Apple Music: reduce image size to avoid "too large" errors

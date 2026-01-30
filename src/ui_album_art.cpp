@@ -229,11 +229,20 @@ void albumArtTask(void* param) {
     // Temporary buffer for decoded full-size image
     uint16_t* decoded_buffer = nullptr;
 
+    // Simple backoff for error recovery
+    int consecutiveErrors = 0;
+    const int maxBackoff = 5000;  // Max 5 second backoff
+
+    // Startup delay - let WiFi and Sonos stabilize before making art requests
+    vTaskDelay(pdMS_TO_TICKS(3000));
+
     while (1) {
         url[0] = '\0';  // Clear URL
+        bool isStationLogo = false;  // Track if this is a station logo (PNG allowed)
         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(10))) {
             if (pending_art_url.length() > 0 && pending_art_url != last_art_url) {
                 String fetchUrl = pending_art_url;
+                isStationLogo = pending_is_station_logo;  // Capture flag while holding mutex
 
                 // Decode HTML entities (&amp; -> &)
                 fetchUrl.replace("&amp;", "&");
@@ -302,22 +311,11 @@ void albumArtTask(void* param) {
         if (url[0] != '\0') {
             Serial.printf("[ART] URL: %s\n", url);
 
-            // Skip album art if there was a recent source change
-            // ESP32-P4 external WiFi has extremely limited buffers
-            // Source changes trigger heavy WiFi activity (queue fetch, metadata)
-            unsigned long timeSinceSourceChange = millis() - last_source_change_time;
-            if (timeSinceSourceChange < 5000) {
-                Serial.printf("[ART] Skipping - source changed %lums ago (need 5s)\n", timeSinceSourceChange);
-                url[0] = '\0';  // Clear URL to skip this download
-                vTaskDelay(pdMS_TO_TICKS(500));  // Wait before checking again
+            // Simple WiFi check - don't try to download if not connected
+            if (WiFi.status() != WL_CONNECTED) {
+                Serial.println("[ART] WiFi not connected, skipping");
+                vTaskDelay(pdMS_TO_TICKS(1000));
                 continue;
-            }
-
-            // After source change cooldown, give WiFi extra time to stabilize
-            // The queue fetch and other operations may still be finishing
-            if (timeSinceSourceChange < 7000) {
-                Serial.println("[ART] Post-cooldown stabilization delay");
-                vTaskDelay(pdMS_TO_TICKS(500));
             }
 
             bool use_https = (strncmp(url, "https://", 8) == 0);
@@ -388,7 +386,8 @@ void albumArtTask(void* param) {
                             bool isJPEG = (read >= 3 && jpgBuf[0] == 0xFF && jpgBuf[1] == 0xD8 && jpgBuf[2] == 0xFF);
                             bool isPNG = (read >= 4 && jpgBuf[0] == 0x89 && jpgBuf[1] == 0x50 && jpgBuf[2] == 0x4E && jpgBuf[3] == 0x47);
 
-                            if (isPNG) {
+                            // Only decode PNG for radio station logos (not regular album art)
+                            if (isPNG && isStationLogo) {
                                 Serial.printf("[ART] Opening PNG with %d bytes\n", read);
                                 int pngResult = png.openRAM(jpgBuf, read, pngDraw);
                                 if (pngResult == 0) {  // PNG_SUCCESS = 0 (different from JPEG!)
@@ -491,6 +490,7 @@ void albumArtTask(void* param) {
                                                 color_ready = true;
                                                 xSemaphoreGive(art_mutex);
                                             }
+                                            consecutiveErrors = 0;  // Success - reset backoff
                                         }
                                     } else {
                                         Serial.printf("[ART] Failed to allocate %d bytes for decoded image\n", (int)decoded_size);
@@ -498,6 +498,9 @@ void albumArtTask(void* param) {
                                 } else {
                                     Serial.printf("[ART] PNG openRAM failed - error code: %d\n", pngResult);
                                 }
+                            } else if (isPNG && !isStationLogo) {
+                                // PNG detected but not a station logo - skip (only JPEG for normal album art)
+                                Serial.println("[ART] PNG detected but not station logo - skipping");
                             } else if (isJPEG) {
                                 Serial.printf("[ART] Opening JPEG with %d bytes\n", read);
                                 if (jpeg.openRAM(jpgBuf, read, jpegDraw)) {
@@ -601,6 +604,7 @@ void albumArtTask(void* param) {
                                             color_ready = true;
                                             xSemaphoreGive(art_mutex);
                                         }
+                                        consecutiveErrors = 0;  // Success - reset backoff
                                     }
                                 } else {
                                     Serial.printf("[ART] Failed to allocate %d bytes for decoded image\n", (int)decoded_size);
@@ -644,10 +648,18 @@ void albumArtTask(void* param) {
                 }
             } else {
                 Serial.printf("[ART] HTTP error %d fetching album art\n", code);
+                consecutiveErrors++;
             }
             http.end();
+
+            // On success, reset backoff. On error, increase delay.
+            if (consecutiveErrors > 0) {
+                int backoff = min(500 * consecutiveErrors, maxBackoff);
+                Serial.printf("[ART] Backing off %dms after %d errors\n", backoff, consecutiveErrors);
+                vTaskDelay(pdMS_TO_TICKS(backoff));
+            }
         }
-        vTaskDelay(pdMS_TO_TICKS(200));  // Reduced from 500ms for faster art updates
+        vTaskDelay(pdMS_TO_TICKS(500));  // Give WiFi breathing room between requests
     }
 }
 
