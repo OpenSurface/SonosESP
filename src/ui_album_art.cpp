@@ -229,13 +229,6 @@ void albumArtTask(void* param) {
     // Temporary buffer for decoded full-size image
     uint16_t* decoded_buffer = nullptr;
 
-    // Simple backoff for error recovery
-    int consecutiveErrors = 0;
-    const int maxBackoff = 5000;  // Max 5 second backoff
-
-    // Startup delay - let WiFi and Sonos stabilize before making art requests
-    vTaskDelay(pdMS_TO_TICKS(3000));
-
     while (1) {
         url[0] = '\0';  // Clear URL
         bool isStationLogo = false;  // Track if this is a station logo (PNG allowed)
@@ -341,16 +334,15 @@ void albumArtTask(void* param) {
                     if (jpgBuf) {
                         WiFiClient* stream = http.getStreamPtr();
 
-                        // Chunked reading with aggressive yielding to prevent RX buffer overflow
-                        // ESP32-P4 SDIO WiFi has very limited buffers
-                        const size_t chunkSize = 1024;  // Small chunks
+                        // Chunked reading to avoid WiFi buffer issues
+                        const size_t chunkSize = 4096;  // 4KB chunks
                         size_t bytesRead = 0;
                         bool readSuccess = true;
 
                         while (stream->connected() && bytesRead < alloc_len) {
                             size_t available = stream->available();
                             if (available == 0) {
-                                vTaskDelay(pdMS_TO_TICKS(5));
+                                vTaskDelay(pdMS_TO_TICKS(1));
                                 if (!stream->connected()) break;
                                 continue;
                             }
@@ -369,7 +361,7 @@ void albumArtTask(void* param) {
                             }
 
                             bytesRead += actualRead;
-                            vTaskDelay(pdMS_TO_TICKS(5));  // Longer yield for WiFi RX buffer
+                            vTaskDelay(pdMS_TO_TICKS(1));  // Yield to WiFi task
                         }
 
                         if (!len_known && bytesRead >= max_art_size) {
@@ -489,7 +481,6 @@ void albumArtTask(void* param) {
                                                 color_ready = true;
                                                 xSemaphoreGive(art_mutex);
                                             }
-                                            consecutiveErrors = 0;  // Success - reset backoff
                                         }
                                     } else {
                                         Serial.printf("[ART] Failed to allocate %d bytes for decoded image\n", (int)decoded_size);
@@ -603,7 +594,6 @@ void albumArtTask(void* param) {
                                             color_ready = true;
                                             xSemaphoreGive(art_mutex);
                                         }
-                                        consecutiveErrors = 0;  // Success - reset backoff
                                     }
                                 } else {
                                     Serial.printf("[ART] Failed to allocate %d bytes for decoded image\n", (int)decoded_size);
@@ -647,18 +637,10 @@ void albumArtTask(void* param) {
                 }
             } else {
                 Serial.printf("[ART] HTTP error %d fetching album art\n", code);
-                consecutiveErrors++;
             }
             http.end();
-
-            // On success, reset backoff. On error, increase delay.
-            if (consecutiveErrors > 0) {
-                int backoff = min(500 * consecutiveErrors, maxBackoff);
-                Serial.printf("[ART] Backing off %dms after %d errors\n", backoff, consecutiveErrors);
-                vTaskDelay(pdMS_TO_TICKS(backoff));
-            }
         }
-        vTaskDelay(pdMS_TO_TICKS(500));  // Give WiFi breathing room between requests
+        vTaskDelay(pdMS_TO_TICKS(100));  // Brief delay between requests
     }
 }
 
