@@ -321,7 +321,7 @@ void albumArtTask(void* param) {
             int code = http.GET();
             if (code == 200) {
                 int len = http.getSize();
-                const size_t max_art_size = 150000;  // 150KB max (most images are 50-100KB)
+                const size_t max_art_size = 200000;  // 200KB max
                 const bool len_known = (len > 0);
                 if ((len_known && len < (int)max_art_size) || !len_known) {
                     if (len_known) {
@@ -365,7 +365,7 @@ void albumArtTask(void* param) {
                         }
 
                         if (!len_known && bytesRead >= max_art_size) {
-                            Serial.println("[ART] Album art too large (max 150KB)");
+                            Serial.println("[ART] Album art too large (max 200KB)");
                             readSuccess = false;
                         }
 
@@ -607,8 +607,8 @@ void albumArtTask(void* param) {
                     } else {
                         Serial.printf("[ART] Failed to allocate %d bytes for album art\n", len);
                     }
-                } else if (len >= 150000) {
-                    Serial.printf("[ART] Album art too large: %d bytes (max 150KB)\n", len);
+                } else if (len >= 200000) {
+                    Serial.printf("[ART] Album art too large: %d bytes (max 200KB)\n", len);
                     // Must drain the connection to prevent WiFi RX buffer overflow
                     // Server is already sending data even though we're rejecting it
                     WiFiClient* stream = http.getStreamPtr();
@@ -632,6 +632,11 @@ void albumArtTask(void* param) {
                         }
                     }
                     Serial.printf("[ART] Drained %d/%d bytes from connection\n", drained, len);
+                    // Mark as done to prevent retry loop
+                    if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                        last_art_url = url;
+                        xSemaphoreGive(art_mutex);
+                    }
                 } else {
                     Serial.printf("[ART] Invalid album art size: %d bytes\n", len);
                 }
