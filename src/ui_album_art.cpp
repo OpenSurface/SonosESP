@@ -265,7 +265,12 @@ void albumArtTask(void* param) {
                     Serial.printf("[ART] Extracted: %s\n", fetchUrl.c_str());
                 }
 
-                // Reduce image size for known providers to avoid 200KB limit
+                // Reduce image size for known providers to stay under 120KB limit
+                // Spotify (i.scdn.co): 640x640 → 300x300 (ab67616d0000b273 → ab67616d00004851)
+                if (fetchUrl.indexOf("i.scdn.co/image/ab67616d0000b273") != -1) {
+                    fetchUrl.replace("ab67616d0000b273", "ab67616d00004851");
+                    Serial.println("[ART] Spotify - reduced to 300x300");
+                }
                 // Deezer (cdn-images.dzcdn.net): 1000x1000 → 400x400
                 if (fetchUrl.indexOf("cdn-images.dzcdn.net") != -1) {
                     fetchUrl.replace("/1000x1000-", "/400x400-");
@@ -328,9 +333,8 @@ void albumArtTask(void* param) {
             int code = http.GET();
             if (code == 200) {
                 int len = http.getSize();
-                const size_t max_art_size = 200000;
+                const size_t max_art_size = 120000;  // 120KB max to avoid RX buffer overflow
                 const bool len_known = (len > 0);
-                // Reduced from 400KB to 200KB to avoid WiFi buffer exhaustion (Issue #7)
                 if ((len_known && len < (int)max_art_size) || !len_known) {
                     if (len_known) {
                         Serial.printf("[ART] Downloading album art: %d bytes\n", len);
@@ -342,16 +346,16 @@ void albumArtTask(void* param) {
                     if (jpgBuf) {
                         WiFiClient* stream = http.getStreamPtr();
 
-                        // Chunked reading to avoid WiFi buffer exhaustion (Issue #7)
-                        // Read in 4KB chunks with yields to let WiFi driver process
-                        const size_t chunkSize = 4096;
+                        // Chunked reading with aggressive yielding to prevent RX buffer overflow
+                        // ESP32-P4 SDIO WiFi has very limited buffers
+                        const size_t chunkSize = 1024;  // Small chunks
                         size_t bytesRead = 0;
                         bool readSuccess = true;
 
                         while (stream->connected() && bytesRead < alloc_len) {
                             size_t available = stream->available();
                             if (available == 0) {
-                                vTaskDelay(pdMS_TO_TICKS(1));
+                                vTaskDelay(pdMS_TO_TICKS(5));
                                 if (!stream->connected()) break;
                                 continue;
                             }
@@ -370,11 +374,11 @@ void albumArtTask(void* param) {
                             }
 
                             bytesRead += actualRead;
-                            vTaskDelay(pdMS_TO_TICKS(1));  // Yield to WiFi task
+                            vTaskDelay(pdMS_TO_TICKS(5));  // Longer yield for WiFi RX buffer
                         }
 
                         if (!len_known && bytesRead >= max_art_size) {
-                            Serial.println("[ART] Album art too large (max 200KB)");
+                            Serial.println("[ART] Album art too large (max 120KB)");
                             readSuccess = false;
                         }
 
@@ -618,8 +622,8 @@ void albumArtTask(void* param) {
                     } else {
                         Serial.printf("[ART] Failed to allocate %d bytes for album art\n", len);
                     }
-                } else if (len >= 200000) {
-                    Serial.printf("[ART] Album art too large: %d bytes (max 200KB)\n", len);
+                } else if (len >= 120000) {
+                    Serial.printf("[ART] Album art too large: %d bytes (max 120KB)\n", len);
                     // Must drain the connection to prevent WiFi RX buffer overflow
                     // Server is already sending data even though we're rejecting it
                     WiFiClient* stream = http.getStreamPtr();
