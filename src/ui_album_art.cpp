@@ -265,12 +265,7 @@ void albumArtTask(void* param) {
                     Serial.printf("[ART] Extracted: %s\n", fetchUrl.c_str());
                 }
 
-                // Reduce image size for known providers to stay under 120KB limit
-                // Spotify (i.scdn.co): 640x640 → 300x300 (ab67616d0000b273 → ab67616d00004851)
-                if (fetchUrl.indexOf("i.scdn.co/image/ab67616d0000b273") != -1) {
-                    fetchUrl.replace("ab67616d0000b273", "ab67616d00004851");
-                    Serial.println("[ART] Spotify - reduced to 300x300");
-                }
+                // Reduce image size for known providers to stay under size limit
                 // Deezer (cdn-images.dzcdn.net): 1000x1000 → 400x400
                 if (fetchUrl.indexOf("cdn-images.dzcdn.net") != -1) {
                     fetchUrl.replace("/1000x1000-", "/400x400-");
@@ -333,7 +328,7 @@ void albumArtTask(void* param) {
             int code = http.GET();
             if (code == 200) {
                 int len = http.getSize();
-                const size_t max_art_size = 120000;  // 120KB max to avoid RX buffer overflow
+                const size_t max_art_size = 150000;  // 150KB max (most images are 50-100KB)
                 const bool len_known = (len > 0);
                 if ((len_known && len < (int)max_art_size) || !len_known) {
                     if (len_known) {
@@ -378,7 +373,7 @@ void albumArtTask(void* param) {
                         }
 
                         if (!len_known && bytesRead >= max_art_size) {
-                            Serial.println("[ART] Album art too large (max 120KB)");
+                            Serial.println("[ART] Album art too large (max 150KB)");
                             readSuccess = false;
                         }
 
@@ -622,8 +617,8 @@ void albumArtTask(void* param) {
                     } else {
                         Serial.printf("[ART] Failed to allocate %d bytes for album art\n", len);
                     }
-                } else if (len >= 120000) {
-                    Serial.printf("[ART] Album art too large: %d bytes (max 120KB)\n", len);
+                } else if (len >= 150000) {
+                    Serial.printf("[ART] Album art too large: %d bytes (max 150KB)\n", len);
                     // Must drain the connection to prevent WiFi RX buffer overflow
                     // Server is already sending data even though we're rejecting it
                     WiFiClient* stream = http.getStreamPtr();

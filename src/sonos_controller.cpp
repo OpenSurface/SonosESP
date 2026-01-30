@@ -363,13 +363,23 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
     } else {
         Serial.printf("[SOAP] HTTP error %d for %s.%s\n", code, service, action);
         dev->errorCount++;
-        // Immediate disconnect on network errors (connection refused, timeout, etc)
-        if (code == -1 || code == -11) {
+        // Only disconnect after multiple consecutive errors
+        // This handles temporary network issues during source changes
+        if (code == -1) {
+            // Connection refused - immediate disconnect
             if (dev->connected) {
-                Serial.printf("[SONOS] Device disconnected (network error %d)\n\n", code);
+                Serial.printf("[SONOS] Device disconnected (connection refused)\n");
             }
             dev->connected = false;
-            dev->errorCount = 10;  // Set high to prevent flapping
+            dev->errorCount = 10;
+        } else if (code == -11) {
+            // Timeout - might be temporary (source change), need 3 consecutive timeouts
+            if (dev->errorCount >= 3) {
+                if (dev->connected) {
+                    Serial.printf("[SONOS] Device disconnected (repeated timeouts)\n");
+                }
+                dev->connected = false;
+            }
         } else if (dev->errorCount > 5) {
             if (dev->connected) {
                 Serial.println("[SONOS] Device disconnected (too many errors)");
@@ -1466,6 +1476,7 @@ void SonosController::networkTaskFunction(void* param) {
 void SonosController::pollingTaskFunction(void* param) {
     SonosController* ctrl = (SonosController*)param;
     uint32_t tick = 0;
+    uint32_t reconnectTick = 0;
 
     Serial.printf("[SONOS] Polling task started\n");
 
@@ -1478,6 +1489,23 @@ void SonosController::pollingTaskFunction(void* param) {
 
     while (1) {
         SonosDevice* dev = ctrl->getCurrentDevice();
+
+        // Auto-reconnect when disconnected
+        if (dev && !dev->connected) {
+            reconnectTick++;
+            // Try to reconnect every 2 seconds (7 * 300ms)
+            if (reconnectTick % 7 == 0) {
+                Serial.println("[SONOS] Attempting to reconnect...");
+                dev->errorCount = 0;  // Reset error count
+                ctrl->updateTrackInfo();  // Try to fetch data
+                if (dev->connected) {
+                    Serial.println("[SONOS] Reconnected successfully!");
+                    ctrl->updateQueue();  // Refresh queue on reconnect
+                }
+            }
+        } else {
+            reconnectTick = 0;
+        }
 
         if (dev && dev->connected) {
             // Track info every cycle for instant updates when changing sources
