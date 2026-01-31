@@ -343,6 +343,15 @@ void albumArtTask(void* param) {
                 http.begin(url);
             }
             http.setTimeout(10000);  // Increased timeout for chunked reading
+
+            // CRITICAL: Acquire network_mutex to serialize WiFi access
+            // Prevents SDIO buffer overflow when SOAP requests happen during album art download
+            if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(10000))) {
+                Serial.println("[ART] Failed to acquire network mutex - skipping download");
+                http.end();
+                continue;
+            }
+
             int code = http.GET();
             if (code == 200) {
                 int len = http.getSize();
@@ -411,6 +420,16 @@ void albumArtTask(void* param) {
                                     Serial.println("[ART] PNG openRAM success");
                                     int w = png.getWidth();
                                     int h = png.getHeight();
+
+                                    // Validate PNG dimensions to prevent crashes from malformed files
+                                    if (w == 0 || h == 0 || w > 1000 || h > 1000) {
+                                        Serial.printf("[ART] Invalid PNG dimensions: %dx%d (must be 1-1000)\n", w, h);
+                                        png.close();
+                                        heap_caps_free(jpgBuf);
+                                        jpgBuf = nullptr;
+                                        continue;
+                                    }
+
                                     jpeg_image_width = w;   // Reuse for PNG
                                     jpeg_image_height = h;  // Reuse for PNG
                                     jpeg_output_width = 0;
@@ -662,6 +681,9 @@ void albumArtTask(void* param) {
                 Serial.printf("[ART] HTTP error %d fetching album art\n", code);
             }
             http.end();
+
+            // Release network mutex after HTTP operation completes
+            xSemaphoreGive(network_mutex);
         }
         vTaskDelay(pdMS_TO_TICKS(100));  // Check for new URLs
     }

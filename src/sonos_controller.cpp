@@ -287,8 +287,11 @@ SonosDevice* SonosController::getDevice(int index) {
 }
 
 SonosDevice* SonosController::getCurrentDevice() {
-    if (currentDeviceIndex >= 0 && currentDeviceIndex < deviceCount) {
-        return &devices[currentDeviceIndex];
+    // Use local copy to prevent TOCTOU (time-of-check-time-of-use) race
+    // Reading int is atomic on 32-bit systems, so no mutex needed for performance
+    int index = currentDeviceIndex;
+    if (index >= 0 && index < deviceCount) {
+        return &devices[index];
     }
     return nullptr;
 }
@@ -331,6 +334,14 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
     // Build URL without String concatenation
     snprintf(url, sizeof(url), "http://%s:1400%s", dev->ip.toString().c_str(), endpoint);
 
+    // Validate args size to prevent buffer overflow
+    // SOAP wrapper adds ~400 bytes, so args must stay under 1600 bytes
+    size_t args_len = strlen(args);
+    if (args_len > 1600) {
+        Serial.printf("[SONOS] ERROR: SOAP args too large (%d bytes, max 1600)\n", args_len);
+        return "";
+    }
+
     // Build SOAP body without String concatenation
     snprintf(body, sizeof(body),
         "<?xml version=\"1.0\"?>"
@@ -353,6 +364,14 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
     static char soapActionHeader[280];
     snprintf(soapActionHeader, sizeof(soapActionHeader), "\"%s\"", soapAction);
     http.addHeader("SOAPAction", soapActionHeader);
+
+    // CRITICAL: Acquire network_mutex to serialize WiFi access
+    // Prevents SDIO buffer overflow when album art downloads happen during SOAP requests
+    if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(5000))) {
+        Serial.println("[SOAP] Failed to acquire network mutex - request failed");
+        http.end();
+        return "";
+    }
 
     int code = http.POST(body);
     String response = "";  // Keep String for return value (used by callers)
@@ -390,6 +409,10 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
     }
 
     http.end();
+
+    // Release network mutex after HTTP operation completes
+    xSemaphoreGive(network_mutex);
+
     return response;
 }
 

@@ -8,9 +8,8 @@
 # Private files (DO NOT COMMIT)
 INSTRUCTIONS.md
 OTA_FEATURE_SUMMARY.md
-GITHUB_RELEASE_CHECKLIST.md
 RELEASE_INSTRUCTIONS.md
-bump_version.py
+CODE_REVIEW_ACTION_PLAN.md
 
 # Build artifacts
 *.bin
