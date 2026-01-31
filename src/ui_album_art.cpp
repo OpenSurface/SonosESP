@@ -336,27 +336,36 @@ void albumArtTask(void* param) {
                 continue;
             }
 
+            // Detect if URL is from Sonos device itself (e.g., /getaa for YouTube Music)
+            // These don't need per-chunk mutex since Sonos HTTP server serializes requests anyway
+            bool isFromSonosDevice = (strstr(url, ":1400/") != nullptr);
+
             bool use_https = (strncmp(url, "https://", 8) == 0);
             if (use_https) {
                 http.begin(secure_client, url);
             } else {
                 http.begin(url);
             }
-            http.setTimeout(10000);  // Increased timeout for chunked reading
+            http.setTimeout(10000);
 
-            // CRITICAL: Acquire network_mutex briefly to initiate HTTP GET
-            // We'll release it and re-acquire per chunk to allow SOAP requests between chunks
-            if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS))) {
-                Serial.println("[ART] Failed to acquire network mutex - skipping download");
-                http.end();
-                continue;
+            // CRITICAL INSIGHT: Sonos device art vs external art need different handling
+            // - External art (Spotify): Need network_mutex to prevent WiFi SDIO overflow
+            // - Sonos device art (YouTube Music): DON'T use mutex - Sonos HTTP server serializes
+            //   Using mutex for Sonos art blocks SOAP requests to same device!
+            if (!isFromSonosDevice) {
+                if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS))) {
+                    Serial.println("[ART] Failed to acquire network mutex - skipping download");
+                    http.end();
+                    continue;
+                }
             }
 
             int code = http.GET();
 
-            // Release mutex immediately after GET - stream is now open
-            // We'll acquire per-chunk to allow SOAP requests to sneak in
-            xSemaphoreGive(network_mutex);
+            // Release mutex after GET for external servers (will re-acquire per chunk)
+            if (!isFromSonosDevice) {
+                xSemaphoreGive(network_mutex);
+            }
 
             if (code == 200) {
                 int len = http.getSize();
@@ -390,18 +399,22 @@ void albumArtTask(void* param) {
                             size_t toRead = min(chunkSize, remaining);
                             toRead = min(toRead, available);
 
-                            // Acquire mutex for this chunk read to prevent SDIO overflow
-                            // Release after each chunk so SOAP requests can happen between chunks
-                            if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(1000))) {
-                                Serial.println("[ART] Chunk read mutex timeout - aborting download");
-                                readSuccess = false;
-                                break;
+                            // Per-chunk mutex ONLY for external servers
+                            // For Sonos device, we're holding mutex for entire download
+                            if (!isFromSonosDevice) {
+                                if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(1000))) {
+                                    Serial.println("[ART] Chunk read mutex timeout - aborting download");
+                                    readSuccess = false;
+                                    break;
+                                }
                             }
 
                             size_t actualRead = stream->readBytes(jpgBuf + bytesRead, toRead);
 
-                            // Release mutex immediately after chunk read
-                            xSemaphoreGive(network_mutex);
+                            // Release mutex after chunk (external servers only)
+                            if (!isFromSonosDevice) {
+                                xSemaphoreGive(network_mutex);
+                            }
 
                             if (actualRead == 0) {
                                 if (len_known) {
@@ -698,7 +711,8 @@ void albumArtTask(void* param) {
                 Serial.printf("[ART] HTTP error %d fetching album art\n", code);
             }
             http.end();
-            // Note: Mutex was already released after http.GET() and per-chunk reads
+            // Note: For external servers, mutex was released per-chunk
+            // For Sonos device, no mutex was used (Sonos HTTP server handles serialization)
         }
         vTaskDelay(pdMS_TO_TICKS(100));  // Check for new URLs
     }
