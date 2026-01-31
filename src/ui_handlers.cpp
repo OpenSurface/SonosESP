@@ -484,6 +484,11 @@ static void performOTAUpdate() {
         }
     }
 
+    // CRITICAL: Suspend Sonos polling tasks to prevent WiFi buffer overflow during OTA
+    // Sonos SOAP requests can compete with OTA firmware download for WiFi TX/RX buffers
+    Serial.println("[OTA] Suspending Sonos tasks");
+    sonos.suspendTasks();
+
     // Disable buttons during update
     if (btn_check_update) lv_obj_add_state(btn_check_update, LV_STATE_DISABLED);
     if (btn_install_update) lv_obj_add_state(btn_install_update, LV_STATE_DISABLED);
@@ -676,6 +681,10 @@ static void performOTAUpdate() {
         art_shutdown_requested = false;
         xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);
     }
+
+    // Resume Sonos tasks (if update failed - successful update will restart device)
+    Serial.println("[OTA] Resuming Sonos tasks");
+    sonos.resumeTasks();
 }
 
 void ev_check_update(lv_event_t* e) {

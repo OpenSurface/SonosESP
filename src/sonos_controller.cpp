@@ -1586,6 +1586,30 @@ void SonosController::resetErrorCount() {
     if (dev) dev->errorCount = 0;
 }
 
+void SonosController::suspendTasks() {
+    // Suspend Sonos polling/network tasks for OTA to prevent WiFi buffer overflow
+    if (pollingTaskHandle) {
+        Serial.println("[SONOS] Suspending polling task for OTA");
+        vTaskSuspend(pollingTaskHandle);
+    }
+    if (networkTaskHandle) {
+        Serial.println("[SONOS] Suspending network task for OTA");
+        vTaskSuspend(networkTaskHandle);
+    }
+}
+
+void SonosController::resumeTasks() {
+    // Resume Sonos tasks after OTA
+    if (pollingTaskHandle) {
+        Serial.println("[SONOS] Resuming polling task");
+        vTaskResume(pollingTaskHandle);
+    }
+    if (networkTaskHandle) {
+        Serial.println("[SONOS] Resuming network task");
+        vTaskResume(networkTaskHandle);
+    }
+}
+
 // ============================================================================
 // Group Management
 // ============================================================================

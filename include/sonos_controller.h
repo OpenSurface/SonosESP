@@ -205,6 +205,10 @@ public:
     void updateGroupInfo();                                  // Refresh group membership info for all devices
     int getGroupMemberCount(int coordinatorIndex);           // Get number of members in a group
     bool isDeviceInGroup(int deviceIndex, int coordinatorIndex);  // Check if device is in coordinator's group
+
+    // Task management for OTA
+    void suspendTasks();  // Suspend polling/network tasks for OTA
+    void resumeTasks();   // Resume polling/network tasks after OTA
 };
 
 #endif // SONOS_CONTROLLER_H
