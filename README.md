@@ -130,6 +130,4 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 
 **Built with ❤️ and vibes** • [Report Bug](https://github.com/OpenSurface/SonosESP/issues) • [Request Feature](https://github.com/OpenSurface/SonosESP/issues)
 
-*This project was vibe-coded for fun!* 🎉
-
 </div>
