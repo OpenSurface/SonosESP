@@ -344,8 +344,8 @@ void albumArtTask(void* param) {
             }
             http.setTimeout(10000);  // Increased timeout for chunked reading
 
-            // CRITICAL: Acquire network_mutex to serialize WiFi access
-            // Prevents SDIO buffer overflow when SOAP requests happen during album art download
+            // CRITICAL: Acquire network_mutex briefly to initiate HTTP GET
+            // We'll release it and re-acquire per chunk to allow SOAP requests between chunks
             if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS))) {
                 Serial.println("[ART] Failed to acquire network mutex - skipping download");
                 http.end();
@@ -353,6 +353,11 @@ void albumArtTask(void* param) {
             }
 
             int code = http.GET();
+
+            // Release mutex immediately after GET - stream is now open
+            // We'll acquire per-chunk to allow SOAP requests to sneak in
+            xSemaphoreGive(network_mutex);
+
             if (code == 200) {
                 int len = http.getSize();
                 const size_t max_art_size = MAX_ART_SIZE;
@@ -384,11 +389,23 @@ void albumArtTask(void* param) {
                             size_t remaining = len_known ? ((size_t)len - bytesRead) : (alloc_len - bytesRead);
                             size_t toRead = min(chunkSize, remaining);
                             toRead = min(toRead, available);
+
+                            // Acquire mutex for this chunk read to prevent SDIO overflow
+                            // Release after each chunk so SOAP requests can happen between chunks
+                            if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(1000))) {
+                                Serial.println("[ART] Chunk read mutex timeout - aborting download");
+                                readSuccess = false;
+                                break;
+                            }
+
                             size_t actualRead = stream->readBytes(jpgBuf + bytesRead, toRead);
+
+                            // Release mutex immediately after chunk read
+                            xSemaphoreGive(network_mutex);
 
                             if (actualRead == 0) {
                                 if (len_known) {
-                                Serial.printf("[ART] Read timeout at %d/%d bytes\n", (int)bytesRead, len);
+                                    Serial.printf("[ART] Read timeout at %d/%d bytes\n", (int)bytesRead, len);
                                     readSuccess = false;
                                 }
                                 break;
@@ -681,9 +698,7 @@ void albumArtTask(void* param) {
                 Serial.printf("[ART] HTTP error %d fetching album art\n", code);
             }
             http.end();
-
-            // Release network mutex after HTTP operation completes
-            xSemaphoreGive(network_mutex);
+            // Note: Mutex was already released after http.GET() and per-chunk reads
         }
         vTaskDelay(pdMS_TO_TICKS(100));  // Check for new URLs
     }
