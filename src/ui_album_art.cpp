@@ -219,6 +219,67 @@ static int pngDraw(PNGDRAW* pDraw) {
     return 1;  // Continue decoding
 }
 
+// Prepare and sanitize album art URL
+// Handles: HTML entity decoding, Sonos Radio URL extraction, size reduction, URL encoding
+static String prepareAlbumArtURL(const String& rawUrl) {
+    String fetchUrl = decodeHTMLEntities(rawUrl);
+
+    // Sonos Radio fix: extract high-quality art from embedded mark parameter
+    is_sonos_radio_art = false;  // Reset flag
+    int markIndex = fetchUrl.indexOf("mark=http");
+    if (markIndex == -1) {
+        markIndex = fetchUrl.indexOf("mark=https");
+    }
+    if (fetchUrl.indexOf("sonosradio.imgix.net") != -1 && markIndex != -1) {
+        Serial.println("[ART] Sonos Radio art detected");
+        int markStart = markIndex + 5;  // After "mark="
+        int markEnd = fetchUrl.indexOf("&", markStart);
+        if (markEnd == -1) markEnd = fetchUrl.length();
+
+        fetchUrl = fetchUrl.substring(markStart, markEnd);
+        is_sonos_radio_art = true;
+        Serial.printf("[ART] Extracted: %s\n", fetchUrl.c_str());
+    }
+
+    // Reduce image size for known providers to stay under size limit
+    // Deezer: 1000x1000 → 400x400
+    if (fetchUrl.indexOf("dzcdn.net") != -1) {
+        fetchUrl.replace("/1000x1000-", "/400x400-");
+        Serial.println("[ART] Deezer - reduced to 400x400");
+    }
+    // TuneIn (cdn-profiles.tunein.com): keep original size
+    // Note: logoq is 145x145, logog is 600x600 (too big for PNG decode)
+    if (fetchUrl.indexOf("cdn-profiles.tunein.com") != -1 && fetchUrl.indexOf("?d=") != -1) {
+        fetchUrl.replace("?d=1024", "?d=400");
+        fetchUrl.replace("?d=600", "?d=400");
+    }
+
+    // Sonos getaa URLs can contain unescaped '?' and '&' in the u= parameter; encode them only
+    if (fetchUrl.indexOf("/getaa?") != -1) {
+        int uPos = fetchUrl.indexOf("u=");
+        if (uPos != -1) {
+            int uStart = uPos + 2;
+            int uEnd = fetchUrl.indexOf("&", uStart);
+            if (uEnd == -1) uEnd = fetchUrl.length();
+            String uValue = fetchUrl.substring(uStart, uEnd);
+            String uEncoded = "";
+            for (int i = 0; i < uValue.length(); i++) {
+                char c = uValue[i];
+                if (c == '?') {
+                    uEncoded += "%3F";
+                } else if (c == '&') {
+                    uEncoded += "%26";
+                } else {
+                    uEncoded += c;
+                }
+            }
+            fetchUrl = fetchUrl.substring(0, uStart) + uEncoded + fetchUrl.substring(uEnd);
+        }
+    }
+
+    return fetchUrl;
+}
+
 void albumArtTask(void* param) {
     art_buffer = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
     art_temp_buffer = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
@@ -259,65 +320,8 @@ void albumArtTask(void* param) {
         bool isStationLogo = false;  // Track if this is a station logo (PNG allowed)
         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(10))) {
             if (pending_art_url.length() > 0 && pending_art_url != last_art_url) {
-                String fetchUrl = pending_art_url;
                 isStationLogo = pending_is_station_logo;  // Capture flag while holding mutex
-
-                // Decode HTML entities
-                fetchUrl = decodeHTMLEntities(fetchUrl);
-
-                // Sonos Radio fix: extract high-quality art from embedded mark parameter
-                is_sonos_radio_art = false;
-                int markIndex = fetchUrl.indexOf("mark=http");
-                if (markIndex == -1) {
-                    markIndex = fetchUrl.indexOf("mark=https");
-                }
-                if (fetchUrl.indexOf("sonosradio.imgix.net") != -1 && markIndex != -1) {
-                    Serial.println("[ART] Sonos Radio art detected");
-                    int markStart = markIndex + 5;  // After "mark="
-                    int markEnd = fetchUrl.indexOf("&", markStart);
-                    if (markEnd == -1) markEnd = fetchUrl.length();
-
-                    String originalUrl = fetchUrl;
-                    fetchUrl = fetchUrl.substring(markStart, markEnd);
-                    is_sonos_radio_art = true;
-                    Serial.printf("[ART] Extracted: %s\n", fetchUrl.c_str());
-                }
-
-                // Reduce image size for known providers to stay under size limit
-                // Deezer: 1000x1000 → 400x400
-                if (fetchUrl.indexOf("dzcdn.net") != -1) {
-                    fetchUrl.replace("/1000x1000-", "/400x400-");
-                    Serial.println("[ART] Deezer - reduced to 400x400");
-                }
-                // TuneIn (cdn-profiles.tunein.com): keep original size
-                // Note: logoq is 145x145, logog is 600x600 (too big for PNG decode)
-                if (fetchUrl.indexOf("cdn-profiles.tunein.com") != -1 && fetchUrl.indexOf("?d=") != -1) {
-                    fetchUrl.replace("?d=1024", "?d=400");
-                    fetchUrl.replace("?d=600", "?d=400");
-                }
-
-                // Sonos getaa URLs can contain unescaped '?' and '&' in the u= parameter; encode them only
-                if (fetchUrl.indexOf("/getaa?") != -1) {
-                    int uPos = fetchUrl.indexOf("u=");
-                    if (uPos != -1) {
-                        int uStart = uPos + 2;
-                        int uEnd = fetchUrl.indexOf("&", uStart);
-                        if (uEnd == -1) uEnd = fetchUrl.length();
-                        String uValue = fetchUrl.substring(uStart, uEnd);
-                        String uEncoded = "";
-                        for (int i = 0; i < uValue.length(); i++) {
-                            char c = uValue[i];
-                            if (c == '?') {
-                                uEncoded += "%3F";
-                            } else if (c == '&') {
-                                uEncoded += "%26";
-                            } else {
-                                uEncoded += c;
-                            }
-                        }
-                        fetchUrl = fetchUrl.substring(0, uStart) + uEncoded + fetchUrl.substring(uEnd);
-                    }
-                }
+                String fetchUrl = prepareAlbumArtURL(pending_art_url);
 
                 if (fetchUrl != last_art_url) {
                     strncpy(url, fetchUrl.c_str(), sizeof(url) - 1);
