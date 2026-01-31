@@ -947,6 +947,9 @@ void updateUI() {
             Serial.printf("[ART] SOURCE CHANGE: %s -> %s\n", last_source_prefix.c_str(), current_source_prefix.c_str());
             last_source_change_time = millis();  // Track when SOURCE changed for WiFi buffer management
             last_source_prefix = current_source_prefix;
+            // CRITICAL: Abort any in-progress album art download immediately
+            // This prevents Spotify download from blocking YouTube Music download
+            art_abort_download = true;
         } else {
             Serial.printf("[ART] Track changed (same source: %s)\n", current_source_prefix.c_str());
         }

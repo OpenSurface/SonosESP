@@ -215,6 +215,7 @@ inline String decodeHTMLEntities(const String& str) {
 // Album art task
 extern TaskHandle_t albumArtTaskHandle;
 extern volatile bool art_shutdown_requested;
+extern volatile bool art_abort_download;
 void albumArtTask(void *param);
 
 // Radio mode UI adaptation

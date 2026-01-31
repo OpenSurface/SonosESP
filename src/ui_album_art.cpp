@@ -399,6 +399,14 @@ void albumArtTask(void* param) {
                         bool readSuccess = true;
 
                         while (stream->connected() && bytesRead < alloc_len) {
+                            // Check if source changed - abort download immediately
+                            if (art_abort_download) {
+                                Serial.println("[ART] Source changed - aborting current download");
+                                art_abort_download = false;  // Clear flag
+                                readSuccess = false;
+                                break;
+                            }
+
                             size_t available = stream->available();
                             if (available == 0) {
                                 vTaskDelay(pdMS_TO_TICKS(1));
