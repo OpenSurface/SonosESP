@@ -112,6 +112,7 @@ String pending_art_url = "";
 volatile bool art_ready = false;
 SemaphoreHandle_t art_mutex = nullptr;
 TaskHandle_t albumArtTaskHandle = nullptr;
+volatile bool art_shutdown_requested = false;  // Signal album art to stop gracefully
 uint32_t dominant_color = 0x1a1a1a;
 volatile bool color_ready = false;
 int art_offset_x = 0;

@@ -462,11 +462,26 @@ static void performOTAUpdate() {
         return;
     }
 
-    // CRITICAL: Suspend album art task to prevent WiFi buffer overflow during OTA
+    // CRITICAL: Stop album art task gracefully to prevent WiFi buffer overflow during OTA
     // Album art downloads can compete with OTA firmware download for WiFi TX/RX buffers
     if (albumArtTaskHandle) {
-        Serial.println("[OTA] Suspending album art task");
-        vTaskSuspend(albumArtTaskHandle);
+        Serial.println("[OTA] Requesting album art shutdown");
+        art_shutdown_requested = true;
+
+        // Wait for task to finish current operation and exit (max 3 seconds)
+        int wait_count = 0;
+        while (albumArtTaskHandle != NULL && wait_count < 30) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+            wait_count++;
+        }
+
+        if (albumArtTaskHandle == NULL) {
+            Serial.println("[OTA] Album art task stopped successfully");
+        } else {
+            Serial.println("[OTA] Album art task did not stop - forcing delete");
+            vTaskDelete(albumArtTaskHandle);
+            albumArtTaskHandle = NULL;
+        }
     }
 
     // Disable buttons during update
@@ -655,10 +670,11 @@ static void performOTAUpdate() {
     if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
     if (btn_install_update) lv_obj_clear_state(btn_install_update, LV_STATE_DISABLED);
 
-    // Resume album art task (if update failed - successful update will restart device)
-    if (albumArtTaskHandle) {
-        Serial.println("[OTA] Resuming album art task");
-        vTaskResume(albumArtTaskHandle);
+    // Restart album art task (if update failed - successful update will restart device)
+    if (albumArtTaskHandle == NULL) {
+        Serial.println("[OTA] Restarting album art task");
+        art_shutdown_requested = false;
+        xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);
     }
 }
 

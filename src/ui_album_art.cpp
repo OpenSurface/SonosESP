@@ -247,6 +247,14 @@ void albumArtTask(void* param) {
     uint16_t* decoded_buffer = nullptr;
 
     while (1) {
+        // Check if shutdown requested (for OTA update)
+        if (art_shutdown_requested) {
+            Serial.println("[ART] Shutdown requested - exiting task");
+            albumArtTaskHandle = NULL;  // Clear handle before deleting
+            vTaskDelete(NULL);  // Delete self
+            return;
+        }
+
         url[0] = '\0';  // Clear URL
         bool isStationLogo = false;  // Track if this is a station logo (PNG allowed)
         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(10))) {

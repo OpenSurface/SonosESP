@@ -20,7 +20,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.0.28"
+#define FIRMWARE_VERSION "1.1.0"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -188,6 +188,7 @@ lv_obj_t *createSettingsSidebar(lv_obj_t *screen, int activeIdx);
 
 // Album art task
 extern TaskHandle_t albumArtTaskHandle;
+extern volatile bool art_shutdown_requested;
 void albumArtTask(void *param);
 
 // Radio mode UI adaptation
