@@ -137,7 +137,7 @@ void setup() {
     updateBootProgress(85);
 
     art_mutex = xSemaphoreCreateMutex();
-    xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, NULL, 0);  // Core 0, Priority 1 (low)
+    xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);  // Core 0, Priority 1 (low)
     updateBootProgress(90);
 
     sonos.begin();

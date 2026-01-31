@@ -462,6 +462,13 @@ static void performOTAUpdate() {
         return;
     }
 
+    // CRITICAL: Suspend album art task to prevent WiFi buffer overflow during OTA
+    // Album art downloads can compete with OTA firmware download for WiFi TX/RX buffers
+    if (albumArtTaskHandle) {
+        Serial.println("[OTA] Suspending album art task");
+        vTaskSuspend(albumArtTaskHandle);
+    }
+
     // Disable buttons during update
     if (btn_check_update) lv_obj_add_state(btn_check_update, LV_STATE_DISABLED);
     if (btn_install_update) lv_obj_add_state(btn_install_update, LV_STATE_DISABLED);
@@ -647,6 +654,12 @@ static void performOTAUpdate() {
     }
     if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
     if (btn_install_update) lv_obj_clear_state(btn_install_update, LV_STATE_DISABLED);
+
+    // Resume album art task (if update failed - successful update will restart device)
+    if (albumArtTaskHandle) {
+        Serial.println("[OTA] Resuming album art task");
+        vTaskResume(albumArtTaskHandle);
+    }
 }
 
 void ev_check_update(lv_event_t* e) {

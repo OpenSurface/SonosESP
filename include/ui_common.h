@@ -187,6 +187,7 @@ void cleanupBrowseData(lv_obj_t *list);
 lv_obj_t *createSettingsSidebar(lv_obj_t *screen, int activeIdx);
 
 // Album art task
+extern TaskHandle_t albumArtTaskHandle;
 void albumArtTask(void *param);
 
 // Radio mode UI adaptation
