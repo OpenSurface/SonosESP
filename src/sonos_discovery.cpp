@@ -5,8 +5,6 @@
 
 #include "sonos_controller.h"
 #include "ui_common.h"
-#include <WiFiUDP.h>
-#include <HTTPClient.h>
 
 // ============================================================================
 // Discovery
