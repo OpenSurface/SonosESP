@@ -262,8 +262,8 @@ void albumArtTask(void* param) {
                 String fetchUrl = pending_art_url;
                 isStationLogo = pending_is_station_logo;  // Capture flag while holding mutex
 
-                // Decode HTML entities (&amp; -> &)
-                fetchUrl.replace("&amp;", "&");
+                // Decode HTML entities
+                fetchUrl = decodeHTMLEntities(fetchUrl);
 
                 // Sonos Radio fix: extract high-quality art from embedded mark parameter
                 is_sonos_radio_art = false;
@@ -346,7 +346,7 @@ void albumArtTask(void* param) {
 
             // CRITICAL: Acquire network_mutex to serialize WiFi access
             // Prevents SDIO buffer overflow when SOAP requests happen during album art download
-            if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(10000))) {
+            if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS))) {
                 Serial.println("[ART] Failed to acquire network mutex - skipping download");
                 http.end();
                 continue;
@@ -355,7 +355,7 @@ void albumArtTask(void* param) {
             int code = http.GET();
             if (code == 200) {
                 int len = http.getSize();
-                const size_t max_art_size = 280000;  // 280KB max - allows Spotify 640x640 images
+                const size_t max_art_size = MAX_ART_SIZE;
                 const bool len_known = (len > 0);
                 if ((len_known && len < (int)max_art_size) || !len_known) {
                     if (len_known) {
@@ -369,7 +369,7 @@ void albumArtTask(void* param) {
                         WiFiClient* stream = http.getStreamPtr();
 
                         // Chunked reading to avoid WiFi buffer issues
-                        const size_t chunkSize = 4096;  // 4KB chunks
+                        const size_t chunkSize = ART_CHUNK_SIZE;
                         size_t bytesRead = 0;
                         bool readSuccess = true;
 

@@ -24,8 +24,23 @@
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
-// Album art size
+// Album art configuration
 #define ART_SIZE 420
+#define MAX_ART_SIZE 280000          // 280KB max - allows Spotify 640x640 images
+#define ART_CHUNK_SIZE 4096          // 4KB chunks for HTTP downloads
+#define ART_READ_TIMEOUT_MS 5000     // 5 second timeout for image downloads
+#define ART_COMPACT_THRESHOLD 200000 // Compact buffer if image >200KB
+
+// Network configuration
+#define NETWORK_MUTEX_TIMEOUT_MS 5000    // Timeout for acquiring network mutex (SOAP)
+#define NETWORK_MUTEX_TIMEOUT_ART_MS 10000 // Longer timeout for album art downloads
+#define WIFI_RECONNECT_INTERVAL_MS 2000  // Try reconnect every 2 seconds
+
+// Task configuration
+#define TASK_PRIORITY_ALBUM_ART 1    // Low priority - background task
+#define TASK_PRIORITY_NETWORK 2      // Medium priority
+#define TASK_PRIORITY_POLLING 3      // High priority - UI responsiveness
+#define TASK_STACK_ALBUM_ART 8192    // 8KB stack for album art task
 
 // Sonos logo declaration
 LV_IMG_DECLARE(Sonos_idnu60bqes_1);
@@ -185,6 +200,17 @@ void processUpdates();
 String urlEncode(const char *url);
 void cleanupBrowseData(lv_obj_t *list);
 lv_obj_t *createSettingsSidebar(lv_obj_t *screen, int activeIdx);
+
+// HTML entity decoding helper (inline to avoid code duplication)
+inline String decodeHTMLEntities(const String& str) {
+    String result = str;
+    result.replace("&lt;", "<");
+    result.replace("&gt;", ">");
+    result.replace("&quot;", "\"");
+    result.replace("&#39;", "'");
+    result.replace("&amp;", "&");  // Must be last to avoid double-decoding
+    return result;
+}
 
 // Album art task
 extern TaskHandle_t albumArtTaskHandle;

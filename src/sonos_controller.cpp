@@ -367,7 +367,7 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
 
     // CRITICAL: Acquire network_mutex to serialize WiFi access
     // Prevents SDIO buffer overflow when album art downloads happen during SOAP requests
-    if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(5000))) {
+    if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
         Serial.println("[SOAP] Failed to acquire network mutex - request failed");
         http.end();
         return "";
@@ -624,10 +624,7 @@ bool SonosController::saveCurrentTrack(const char* playlistName) {
     String queueDIDL = extractXML(browseQueue, "Result");
 
     // Decode HTML entities
-    queueDIDL.replace("&lt;", "<");
-    queueDIDL.replace("&gt;", ">");
-    queueDIDL.replace("&quot;", "\"");
-    queueDIDL.replace("&amp;", "&");
+    queueDIDL = decodeHTMLEntities(queueDIDL);
 
     // Find the item for current track number
     String trackMetadata = "";
@@ -682,10 +679,7 @@ bool SonosController::saveCurrentTrack(const char* playlistName) {
         "<SortCriteria></SortCriteria>");
 
     String didlContent = extractXML(browseResp, "Result");
-    didlContent.replace("&lt;", "<");
-    didlContent.replace("&gt;", ">");
-    didlContent.replace("&quot;", "\"");
-    didlContent.replace("&amp;", "&");
+    didlContent = decodeHTMLEntities(didlContent);
 
     String playlistID = "";
     pos = 0;
@@ -778,10 +772,7 @@ String SonosController::browseContent(const char* objectID, int startIndex, int 
 
     // Extract and decode DIDL
     String didl = extractXML(resp, "Result");
-    didl.replace("&lt;", "<");
-    didl.replace("&gt;", ">");
-    didl.replace("&quot;", "\"");
-    didl.replace("&amp;", "&");
+    didl = decodeHTMLEntities(didl);
 
     return didl;
 }
@@ -885,11 +876,7 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
 
     Serial.printf("[CONTAINER] Loading container: %s\n", containerURI);
 
-    String metaDecoded = String(metadata);
-    metaDecoded.replace("&amp;", "&");
-    metaDecoded.replace("&lt;", "<");
-    metaDecoded.replace("&gt;", ">");
-    metaDecoded.replace("&quot;", "\"");
+    String metaDecoded = decodeHTMLEntities(String(metadata));
 
     String metaEncoded = metaDecoded;
     metaEncoded.replace("&", "&amp;");
@@ -1007,10 +994,7 @@ String SonosController::getCurrentTrackInfo() {
     String metadata = extractXML(resp, "TrackMetaData");
 
     // Decode HTML entities in metadata
-    metadata.replace("&lt;", "<");
-    metadata.replace("&gt;", ">");
-    metadata.replace("&quot;", "\"");
-    metadata.replace("&amp;", "&");
+    metadata = decodeHTMLEntities(metadata);
 
     // Format output for serial monitor
     String result = "===== TRACK URI =====\n" + uri +
