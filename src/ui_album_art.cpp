@@ -349,10 +349,20 @@ void albumArtTask(void* param) {
             http.setTimeout(10000);
 
             // CRITICAL INSIGHT: Sonos device art vs external art need different handling
-            // - External art (Spotify): Need network_mutex to prevent WiFi SDIO overflow
-            // - Sonos device art (YouTube Music): DON'T use mutex - Sonos HTTP server serializes
-            //   Using mutex for Sonos art blocks SOAP requests to same device!
-            if (!isFromSonosDevice) {
+            // - External art (Spotify): Acquire mutex, release per-chunk (prevents SDIO overflow)
+            // - Sonos device art (YouTube Music): Quick check if SOAP is active, then proceed
+            //   without holding mutex (Sonos HTTP server serializes, only 1 response at a time)
+            if (isFromSonosDevice) {
+                // Quick check: is SOAP currently active? If so, skip this art download
+                if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(100))) {
+                    Serial.println("[ART] SOAP active - skipping Sonos device art download");
+                    http.end();
+                    continue;
+                }
+                // Mutex acquired - SOAP is idle, release immediately and proceed without mutex
+                xSemaphoreGive(network_mutex);
+            } else {
+                // External server: acquire mutex for SDIO protection
                 if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS))) {
                     Serial.println("[ART] Failed to acquire network mutex - skipping download");
                     http.end();
@@ -363,6 +373,7 @@ void albumArtTask(void* param) {
             int code = http.GET();
 
             // Release mutex after GET for external servers (will re-acquire per chunk)
+            // For Sonos device, mutex was already released before GET
             if (!isFromSonosDevice) {
                 xSemaphoreGive(network_mutex);
             }
