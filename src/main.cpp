@@ -15,6 +15,9 @@ void setup() {
     Serial.println("\n=== SONOS CONTROLLER ===");
     Serial.printf("Free heap: %d, PSRAM: %d\n", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
+    // Create network mutex to serialize WiFi access (prevents SDIO buffer overflow)
+    network_mutex = xSemaphoreCreateMutex();
+
     // Initialize preferences with debug logging
     wifiPrefs.begin("sonos_wifi", false);
     String ssid = wifiPrefs.getString("ssid", DEFAULT_WIFI_SSID);

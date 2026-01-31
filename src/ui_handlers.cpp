@@ -955,7 +955,9 @@ void updateUI() {
         pending_is_station_logo = usingStationLogo;
 
         if (artURL.length() > 0) {
-            // Apple Music: reduce image size to avoid "too large" errors
+            // Note: Using ESP32-P4 hardware JPEG decoder - can handle full 640x640 Spotify images!
+
+            // Apple Music: reduce image size to avoid "too large" errors (1400x1400 can be 500KB+)
             if (artURL.indexOf("mzstatic.com") > 0) {
                 if (artURL.indexOf("/1400x1400bb.jpg") > 0) {
                     artURL.replace("/1400x1400bb.jpg", "/400x400bb.jpg");

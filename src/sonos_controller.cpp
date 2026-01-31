@@ -6,6 +6,7 @@
 #include "sonos_controller.h"
 #include <HTTPClient.h>
 #include "lvgl.h"
+#include "ui_common.h"  // For last_queue_fetch_time
 
 // Debounce for button presses
 static uint32_t lastCommandTime = 0;
@@ -1338,7 +1339,7 @@ bool SonosController::updateQueue() {
         }
         
         Serial.printf("[SONOS] Parsed %d queue items\n", dev->queueSize);
-        
+
         xSemaphoreGive(deviceMutex);
         notifyUI(UPDATE_QUEUE);
         return true;

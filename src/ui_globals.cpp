@@ -118,6 +118,8 @@ int art_offset_y = 0;
 bool is_sonos_radio_art = false;
 bool pending_is_station_logo = false;
 unsigned long last_source_change_time = 0;
+volatile unsigned long last_queue_fetch_time = 0;
+SemaphoreHandle_t network_mutex = NULL;  // Created in main.cpp
 
 // Color sampling
 uint32_t color_r_sum = 0;
