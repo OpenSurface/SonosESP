@@ -424,6 +424,34 @@ void albumArtTask(void* param) {
                             readSuccess = false;
                         }
 
+                        // CRITICAL: Drain connection if aborted to prevent WiFi SDIO buffer overflow
+                        if (!readSuccess && len_known && bytesRead < len) {
+                            Serial.printf("[ART] Draining aborted connection: %d/%d bytes remaining\n", len - bytesRead, len);
+                            uint8_t drainBuf[512];
+                            size_t remaining = len - bytesRead;
+                            size_t drained = 0;
+                            unsigned long startDrain = millis();
+
+                            while (stream->connected() && drained < remaining) {
+                                size_t available = stream->available();
+                                if (available > 0) {
+                                    size_t toRead = min((size_t)512, available);
+                                    toRead = min(toRead, remaining - drained);
+                                    size_t read = stream->readBytes(drainBuf, toRead);
+                                    drained += read;
+                                } else {
+                                    vTaskDelay(pdMS_TO_TICKS(10));
+                                }
+                                // Abort drain if taking too long (max 2 seconds)
+                                if (millis() - startDrain > 2000) {
+                                    Serial.println("[ART] Drain timeout - closing connection");
+                                    break;
+                                }
+                            }
+                            Serial.printf("[ART] Drained %d bytes - waiting 500ms before retry\n", (int)drained);
+                            vTaskDelay(pdMS_TO_TICKS(500));  // Wait for WiFi buffers to clear
+                        }
+
                         Serial.printf("[ART] Album art read: %d bytes (len_known=%d)\n", (int)bytesRead, len_known ? 1 : 0);
 
                         int read = bytesRead;
