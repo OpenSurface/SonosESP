@@ -395,9 +395,10 @@ static void checkForUpdates() {
         apiUrl = "https://api.github.com/repos/" GITHUB_REPO "/releases/latest";
         Serial.println("[OTA] Checking Stable channel (latest stable release)");
     } else {
-        // Nightly: Get most recent release (including prereleases)
-        apiUrl = "https://api.github.com/repos/" GITHUB_REPO "/releases?per_page=1";
-        Serial.println("[OTA] Checking Nightly channel (latest release including prereleases)");
+        // Nightly: Get recent releases (GitHub API doesn't sort prereleases first)
+        // We'll fetch multiple and filter for the most recent nightly
+        apiUrl = "https://api.github.com/repos/" GITHUB_REPO "/releases?per_page=5";
+        Serial.println("[OTA] Checking Nightly channel (fetching recent releases)");
     }
 
     http.begin(client, apiUrl);
@@ -414,12 +415,34 @@ static void checkForUpdates() {
         DeserializationError error = deserializeJson(doc, payload);
 
         if (!error) {
-            // For nightly channel, extract first element from array
+            // For nightly channel, search array for first nightly release
             JsonVariant releaseObj;
             if (ota_channel == 1) {
-                // Nightly: response is an array, get first element
+                // Nightly: response is an array, find first nightly release
                 if (doc.is<JsonArray>() && doc.size() > 0) {
-                    releaseObj = doc[0];
+                    bool found = false;
+                    for (JsonVariant release : doc.as<JsonArray>()) {
+                        String tag = release["tag_name"].as<String>();
+                        // Check if this is a nightly release
+                        if (tag.indexOf("-nightly") >= 0) {
+                            releaseObj = release;
+                            found = true;
+                            Serial.printf("[OTA] Found nightly release: %s\n", tag.c_str());
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        Serial.println("[OTA] No nightly releases found in recent releases");
+                        if (lbl_ota_status) {
+                            lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " No nightly releases found");
+                            lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+                        }
+                        if (lbl_latest_version) {
+                            lv_label_set_text(lbl_latest_version, "Latest (Nightly): None");
+                        }
+                        http.end();
+                        return;
+                    }
                 } else {
                     Serial.println("[OTA] Error: Expected array response for nightly channel");
                     if (lbl_ota_status) {
