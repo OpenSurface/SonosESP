@@ -5,7 +5,6 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
-#include <JPEGDEC.h>
 #include <Preferences.h>
 #include <Update.h>
 #include <ArduinoJson.h>
@@ -62,7 +61,6 @@ extern lv_color_t COL_SELECTED;
 // Global Objects - extern declarations
 // ============================================================================
 extern SonosController sonos;
-extern JPEGDEC jpeg;
 extern Preferences wifiPrefs;
 
 // Display brightness settings

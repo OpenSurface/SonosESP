@@ -22,7 +22,6 @@ lv_color_t COL_SELECTED = lv_color_hex(0x333333);
 // Core Objects
 // ============================================================================
 SonosController sonos;
-JPEGDEC jpeg;
 Preferences wifiPrefs;
 
 // ============================================================================

@@ -158,40 +158,7 @@ void scaleImageBilinear(uint16_t* src, int src_w, int src_h, uint16_t* dst, int 
     }
 }
 
-// JPEGDEC callback - decode to temporary buffer with any source dimensions
-static int jpegDraw(JPEGDRAW* pDraw) {
-    if (!jpeg_decode_buffer) return 0;
-
-    uint16_t* src = pDraw->pPixels;
-    int src_x = pDraw->x;
-    int src_y = pDraw->y;
-    int w = pDraw->iWidth;
-    int h = pDraw->iHeight;
-
-    int out_w = src_x + w;
-    int out_h = src_y + h;
-    if (out_w > jpeg_output_width) jpeg_output_width = out_w;
-    if (out_h > jpeg_output_height) jpeg_output_height = out_h;
-
-    // Copy MCU block to temp buffer using full image width
-    for (int row = 0; row < h; row++) {
-        int dy = src_y + row;
-        if (dy < 0 || dy >= jpeg_image_height) continue;
-        if (src_x < 0 || src_x >= jpeg_image_width) continue;
-
-        int copy_w = w;
-        if (src_x + copy_w > jpeg_image_width) {
-            copy_w = jpeg_image_width - src_x;
-        }
-        if (copy_w <= 0) continue;
-
-        memcpy(&jpeg_decode_buffer[dy * jpeg_image_width + src_x], &src[row * w], copy_w * 2);
-    }
-
-    return 1;
-}
-
-// PNGdec callback - decode to temporary buffer (same as JPEG but for PNG format)
+// PNGdec callback - decode to temporary buffer
 static int pngDraw(PNGDRAW* pDraw) {
     if (!jpeg_decode_buffer) return 0;
 
