@@ -411,23 +411,33 @@ static void checkForUpdates() {
     if (httpCode == 200) {
         String payload = http.getString();
         JsonDocument doc;
-        DeserializationError error;
-
-        // For nightly, parse array response and get first element
-        if (ota_channel == 1) {
-            error = deserializeJson(doc, payload);
-            if (!error && doc.is<JsonArray>() && doc.size() > 0) {
-                doc = doc[0];  // Get first release from array
-            }
-        } else {
-            error = deserializeJson(doc, payload);
-        }
+        DeserializationError error = deserializeJson(doc, payload);
 
         if (!error) {
-            latest_version = doc["tag_name"].as<String>();
+            // For nightly channel, extract first element from array
+            JsonVariant releaseObj;
+            if (ota_channel == 1) {
+                // Nightly: response is an array, get first element
+                if (doc.is<JsonArray>() && doc.size() > 0) {
+                    releaseObj = doc[0];
+                } else {
+                    Serial.println("[OTA] Error: Expected array response for nightly channel");
+                    if (lbl_ota_status) {
+                        lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " No nightly releases found");
+                        lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+                    }
+                    http.end();
+                    return;
+                }
+            } else {
+                // Stable: response is a single object
+                releaseObj = doc.as<JsonVariant>();
+            }
+
+            latest_version = releaseObj["tag_name"].as<String>();
             latest_version.replace("v", "");  // Remove 'v' prefix
 
-            bool isPrerelease = doc["prerelease"].as<bool>();
+            bool isPrerelease = releaseObj["prerelease"].as<bool>();
             const char* channelName = ota_channel == 0 ? "Stable" : "Nightly";
 
             if (lbl_latest_version) {
@@ -442,7 +452,7 @@ static void checkForUpdates() {
                           channelName, latest_version.c_str(), isPrerelease ? "yes" : "no");
 
             // Find firmware.bin asset
-            JsonArray assets = doc["assets"];
+            JsonArray assets = releaseObj["assets"];
             for (JsonObject asset : assets) {
                 String name = asset["name"].as<String>();
                 if (name.indexOf("firmware.bin") >= 0) {
