@@ -440,6 +440,37 @@ static void checkForUpdates() {
             bool isPrerelease = releaseObj["prerelease"].as<bool>();
             const char* channelName = ota_channel == 0 ? "Stable" : "Nightly";
 
+            // CRITICAL: Filter out nightly versions from Stable channel
+            // A nightly version may have been incorrectly marked as stable (prerelease=false)
+            // Always check the tag name to ensure Stable channel only shows stable versions
+            if (ota_channel == 0 && latest_version.indexOf("-nightly") >= 0) {
+                Serial.printf("[OTA] Skipping nightly version in Stable channel: v%s\n", latest_version.c_str());
+                if (lbl_ota_status) {
+                    lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " No stable releases found");
+                    lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+                }
+                if (lbl_latest_version) {
+                    lv_label_set_text(lbl_latest_version, "Latest (Stable): None");
+                }
+                http.end();
+                return;
+            }
+
+            // CRITICAL: Filter out stable versions from Nightly channel
+            // Nightly channel should only show prerelease versions with "-nightly" in tag
+            if (ota_channel == 1 && latest_version.indexOf("-nightly") < 0) {
+                Serial.printf("[OTA] Skipping stable version in Nightly channel: v%s\n", latest_version.c_str());
+                if (lbl_ota_status) {
+                    lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " No nightly releases found");
+                    lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+                }
+                if (lbl_latest_version) {
+                    lv_label_set_text(lbl_latest_version, "Latest (Nightly): None");
+                }
+                http.end();
+                return;
+            }
+
             if (lbl_latest_version) {
                 if (isPrerelease && ota_channel == 1) {
                     lv_label_set_text_fmt(lbl_latest_version, "Latest (%s): v%s (prerelease)", channelName, latest_version.c_str());
