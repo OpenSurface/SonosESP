@@ -27,12 +27,35 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Read version from version.json
+      id: get_version
+      run: |
+        VERSION=$(jq -r '.version' version.json)
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $VERSION"
+
+    - name: Check if nightly version
+      id: check_nightly
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        if echo "$VERSION" | grep -q "nightly"; then
+          echo "IS_NIGHTLY=true" >> $GITHUB_OUTPUT
+          echo "⚠️ Nightly version detected ($VERSION)"
+          echo "Web installer deployment skipped for nightly builds"
+          echo "Use the nightly-release.yml workflow for nightly builds"
+        else
+          echo "IS_NIGHTLY=false" >> $GITHUB_OUTPUT
+          echo "✓ Stable version detected - proceeding with web installer deployment"
+        fi
+
     - name: Set up Python
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
     - name: Cache PlatformIO
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       uses: actions/cache@v4
       with:
         path: |
@@ -42,19 +65,23 @@ jobs:
           ${{ runner.os }}-pio-v3-
 
     - name: Install PlatformIO
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       run: |
         python -m pip install --upgrade pip
         pip install platformio
 
     - name: Clean build directory
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       run: |
         rm -rf .pio
         echo "Build directory cleaned"
 
     - name: Build firmware
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       run: pio run
 
     - name: Copy binaries to web-installer
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       run: |
         mkdir -p web-installer
         cp .pio/build/esp32-p4/bootloader.bin web-installer/
@@ -63,13 +90,16 @@ jobs:
         ls -la web-installer/
 
     - name: Setup Pages
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       uses: actions/configure-pages@v4
 
     - name: Upload artifact
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       uses: actions/upload-pages-artifact@v3
       with:
         path: './web-installer'
 
     - name: Deploy to GitHub Pages
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       id: deployment
       uses: actions/deploy-pages@v4

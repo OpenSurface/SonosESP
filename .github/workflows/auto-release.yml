@@ -27,18 +27,22 @@ jobs:
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "Building version: $VERSION"
 
-    - name: Skip if nightly version
+    - name: Check if nightly version
+      id: check_nightly
       run: |
         VERSION="${{ steps.get_version.outputs.VERSION }}"
         if echo "$VERSION" | grep -q "nightly"; then
+          echo "IS_NIGHTLY=true" >> $GITHUB_OUTPUT
           echo "⚠️ Nightly version detected ($VERSION)"
           echo "Stable auto-release workflow will not run for nightly versions"
           echo "Use the nightly-release.yml workflow for nightly builds"
-          exit 0
+        else
+          echo "IS_NIGHTLY=false" >> $GITHUB_OUTPUT
+          echo "✓ Stable version detected - proceeding with release"
         fi
-        echo "✓ Stable version detected - proceeding with release"
 
     - name: Check if release already exists
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       id: check_release
       run: |
         if gh release view "v${{ steps.get_version.outputs.VERSION }}" > /dev/null 2>&1; then
@@ -52,13 +56,13 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Set up Python
-      if: steps.check_release.outputs.EXISTS == 'false'
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
     - name: Cache PlatformIO
-      if: steps.check_release.outputs.EXISTS == 'false'
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       uses: actions/cache@v4
       with:
         path: |
@@ -68,23 +72,23 @@ jobs:
           ${{ runner.os }}-pio-v3-
 
     - name: Install PlatformIO
-      if: steps.check_release.outputs.EXISTS == 'false'
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       run: |
         python -m pip install --upgrade pip
         pip install platformio
 
     - name: Clean build directory
-      if: steps.check_release.outputs.EXISTS == 'false'
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       run: |
         rm -rf .pio
         echo "Build directory cleaned"
 
     - name: Build firmware
-      if: steps.check_release.outputs.EXISTS == 'false'
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       run: pio run
 
     - name: Create merged firmware binary
-      if: steps.check_release.outputs.EXISTS == 'false'
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       run: |
         pip install esptool
         cd .pio/build/esp32-p4
@@ -92,14 +96,14 @@ jobs:
         echo "Merged firmware binary created successfully"
 
     - name: Create release ZIP
-      if: steps.check_release.outputs.EXISTS == 'false'
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       run: |
         cd .pio/build/esp32-p4
         zip -r ../../../sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip bootloader.bin partitions.bin firmware.bin
         echo "Created release ZIP with individual binaries"
 
     - name: Create GitHub Release
-      if: steps.check_release.outputs.EXISTS == 'false'
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ steps.get_version.outputs.VERSION }}
