@@ -586,6 +586,12 @@ static void performOTAUpdate() {
     Serial.println("[OTA] Suspending Sonos tasks");
     sonos.suspendTasks();
 
+    // OPTIMIZATION: Disable WiFi auto-reconnect and power save during OTA
+    // Prevents WiFi from scanning or reconnecting mid-download
+    WiFi.setAutoReconnect(false);
+    WiFi.setSleep(false);  // Disable WiFi power save for stable connection
+    Serial.println("[OTA] WiFi optimized: auto-reconnect OFF, power-save OFF");
+
     // Disable buttons during update
     if (btn_check_update) lv_obj_add_state(btn_check_update, LV_STATE_DISABLED);
     if (btn_install_update) lv_obj_add_state(btn_install_update, LV_STATE_DISABLED);
@@ -621,6 +627,21 @@ static void performOTAUpdate() {
 
     if (httpCode == 200) {
         int contentLength = http.getSize();
+
+        // OPTIMIZATION: Pre-download validation
+        if (contentLength <= 0 || contentLength > 10 * 1024 * 1024) {  // Max 10MB
+            Serial.printf("[OTA] Invalid firmware size: %d bytes\n", contentLength);
+            if (lbl_ota_status) {
+                lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " Invalid firmware file");
+                lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+            }
+            http.end();
+            WiFi.setAutoReconnect(true);  // Re-enable auto-reconnect
+            sonos.resumeTasks();
+            return;
+        }
+
+        Serial.printf("[OTA] Firmware size: %d bytes (%.1f KB)\n", contentLength, contentLength / 1024.0);
         bool canBegin = Update.begin(contentLength);
 
         if (canBegin) {
@@ -636,9 +657,10 @@ static void performOTAUpdate() {
 
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
-            // Use 16KB buffer to reduce flash write frequency and minimize blue flicker
-            // (Each flash write disables external memory cache, causing RGB LCD PSRAM access issues)
-            static uint8_t buff[16384];  // 16KB - reduces ~500KB firmware to ~31 flash writes instead of 500
+            // OPTIMIZATION: Use 32KB buffer for faster downloads (if sufficient RAM)
+            // Each flash write disables external memory cache, causing RGB LCD PSRAM access issues
+            // 32KB buffer reduces ~500KB firmware to ~16 flash writes (vs 31 with 16KB)
+            static uint8_t buff[32768];  // 32KB buffer for optimal performance
             int lastPercent = -1;
             uint32_t lastUIUpdate = millis();
 
@@ -771,6 +793,10 @@ static void performOTAUpdate() {
     }
     if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
     if (btn_install_update) lv_obj_clear_state(btn_install_update, LV_STATE_DISABLED);
+
+    // Re-enable WiFi features (if update failed - successful update will restart device)
+    WiFi.setAutoReconnect(true);
+    Serial.println("[OTA] WiFi auto-reconnect re-enabled");
 
     // Restart album art task (if update failed - successful update will restart device)
     if (albumArtTaskHandle == NULL) {
