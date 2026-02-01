@@ -559,15 +559,8 @@ static void performOTAUpdate() {
         return;
     }
 
-    // ========================================================================
-    // KILL ALL NETWORK ACTIVITY - DEDICATE ESP32 TO OTA ONLY
-    // ========================================================================
-    Serial.println("[OTA] ========================================");
-    Serial.println("[OTA] STOPPING ALL NETWORK ACTIVITY");
-    Serial.println("[OTA] ========================================");
-
-    // STEP 1: Stop album art task to free memory (~8KB stack)
-    Serial.println("[OTA] [1/4] Stopping album art task");
+    // Stop album art task to free memory and prevent competing downloads
+    Serial.println("[OTA] Stopping album art task");
     if (albumArtTaskHandle) {
         art_shutdown_requested = true;
         int wait_count = 0;
@@ -576,48 +569,20 @@ static void performOTAUpdate() {
             wait_count++;
         }
         if (albumArtTaskHandle == NULL) {
-            Serial.println("[OTA] ✓ Album art task stopped - freed ~8KB");
+            Serial.println("[OTA] Album art task stopped");
         } else {
-            Serial.println("[OTA] ✗ Album art task did not stop - forcing delete");
+            Serial.println("[OTA] Forcing album art task delete");
             vTaskDelete(albumArtTaskHandle);
             albumArtTaskHandle = NULL;
         }
     }
 
-    // STEP 2: Suspend Sonos tasks (polling, network)
-    Serial.println("[OTA] [2/4] Suspending Sonos polling and network tasks");
-    sonos.suspendTasks();
-    Serial.println("[OTA] ✓ Sonos tasks suspended");
-
-    // STEP 3: Wait for ongoing HTTP requests to finish/timeout
-    // Suspended tasks might still have active HTTP connections
-    Serial.println("[OTA] [3/4] Waiting 2 seconds for ongoing HTTP requests to finish");
-    vTaskDelay(pdMS_TO_TICKS(2000));
-    Serial.println("[OTA] ✓ HTTP requests should be closed");
-
-    // STEP 4: Take OTA mutex - BLOCKS any new network operations
-    Serial.println("[OTA] [4/4] Taking OTA mutex - BLOCKING all new network operations");
-    if (xSemaphoreTake(ota_mutex, portMAX_DELAY) != pdTRUE) {
-        Serial.println("[OTA] ERROR: Failed to take OTA mutex!");
-        if (lbl_ota_status) {
-            lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " OTA mutex error");
-            lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
-        }
-        return;
-    }
-    Serial.println("[OTA] ✓ OTA mutex acquired - ESP32 dedicated to OTA download");
-    Serial.println("[OTA] ========================================");
-
-    // OPTIMIZATION: Set flag to skip non-essential loop functions during OTA
-    // Skips processUpdates() and checkAutoDim() in main loop
+    // Set flag to skip non-essential tasks during OTA
     ota_in_progress = true;
-    Serial.println("[OTA] Non-essential tasks disabled (processUpdates, checkAutoDim)");
 
-    // OPTIMIZATION: Disable WiFi auto-reconnect and power save during OTA
-    // Prevents WiFi from scanning or reconnecting mid-download
+    // Optimize WiFi for OTA download
     WiFi.setAutoReconnect(false);
-    WiFi.setSleep(false);  // Disable WiFi power save for stable connection
-    Serial.println("[OTA] WiFi optimized: auto-reconnect OFF, power-save OFF");
+    WiFi.setSleep(false);
 
     // Disable buttons during update
     if (btn_check_update) lv_obj_add_state(btn_check_update, LV_STATE_DISABLED);
@@ -663,11 +628,8 @@ static void performOTAUpdate() {
                 lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
             }
             http.end();
-            WiFi.setAutoReconnect(true);  // Re-enable auto-reconnect
-            ota_in_progress = false;  // Re-enable loop functions
-            sonos.resumeTasks();
-            xSemaphoreGive(ota_mutex);  // Release OTA mutex
-            Serial.println("[OTA] OTA mutex released (invalid firmware size)");
+            WiFi.setAutoReconnect(true);
+            ota_in_progress = false;
             return;
         }
 
@@ -835,20 +797,9 @@ static void performOTAUpdate() {
 
     // Restart album art task (if update failed - successful update will restart device)
     if (albumArtTaskHandle == NULL) {
-        Serial.println("[OTA] Restarting album art task");
         art_shutdown_requested = false;
         xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);
     }
-
-    // Resume Sonos tasks (if update failed - successful update will restart device)
-    Serial.println("[OTA] Resuming Sonos tasks");
-    sonos.resumeTasks();
-
-    // ========================================================================
-    // CRITICAL: Release OTA mutex - allow network operations to resume
-    // ========================================================================
-    xSemaphoreGive(ota_mutex);
-    Serial.println("[OTA] OTA mutex released - network operations can resume");
 }
 
 void ev_check_update(lv_event_t* e) {

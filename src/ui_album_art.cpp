@@ -319,19 +319,6 @@ void albumArtTask(void* param) {
             }
             http.setTimeout(10000);
 
-            // CRITICAL: Check OTA mutex FIRST - OTA has ABSOLUTE PRIORITY
-            // If OTA is in progress, SKIP album art download
-            // This prevents SDIO buffer exhaustion during firmware downloads
-            if (xSemaphoreTake(ota_mutex, 0) == pdTRUE) {
-                // OTA is NOT running - release immediately and continue
-                xSemaphoreGive(ota_mutex);
-            } else {
-                // OTA IS RUNNING - SKIP this album art download
-                Serial.println("[ART] OTA in progress - SKIPPING download");
-                http.end();
-                continue;
-            }
-
             // REVERT TO v1.1.1: Hold network_mutex for ENTIRE download (no per-chunk)
             // This prevents SDIO crashes but blocks SOAP during art download
             if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS))) {
