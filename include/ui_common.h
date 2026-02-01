@@ -139,6 +139,7 @@ extern lv_obj_t *dd_ota_channel;
 extern String latest_version;
 extern String download_url;
 extern int ota_channel;  // 0=Stable, 1=Nightly
+extern volatile bool ota_in_progress;  // Flag to skip non-essential tasks during OTA
 
 // ============================================================================
 // Function Declarations - Screen Creation

@@ -586,6 +586,11 @@ static void performOTAUpdate() {
     Serial.println("[OTA] Suspending Sonos tasks");
     sonos.suspendTasks();
 
+    // OPTIMIZATION: Set flag to skip non-essential loop functions during OTA
+    // Skips processUpdates() and checkAutoDim() in main loop
+    ota_in_progress = true;
+    Serial.println("[OTA] Non-essential tasks disabled (processUpdates, checkAutoDim)");
+
     // OPTIMIZATION: Disable WiFi auto-reconnect and power save during OTA
     // Prevents WiFi from scanning or reconnecting mid-download
     WiFi.setAutoReconnect(false);
@@ -637,6 +642,7 @@ static void performOTAUpdate() {
             }
             http.end();
             WiFi.setAutoReconnect(true);  // Re-enable auto-reconnect
+            ota_in_progress = false;  // Re-enable loop functions
             sonos.resumeTasks();
             return;
         }
@@ -798,6 +804,10 @@ static void performOTAUpdate() {
     // Re-enable WiFi features (if update failed - successful update will restart device)
     WiFi.setAutoReconnect(true);
     Serial.println("[OTA] WiFi auto-reconnect re-enabled");
+
+    // Re-enable loop functions (if update failed - successful update will restart device)
+    ota_in_progress = false;
+    Serial.println("[OTA] Non-essential tasks re-enabled (processUpdates, checkAutoDim)");
 
     // Restart album art task (if update failed - successful update will restart device)
     if (albumArtTaskHandle == NULL) {

@@ -167,7 +167,12 @@ void setup() {
 void loop() {
     lv_tick_inc(3);
     lv_timer_handler();
-    processUpdates();
-    checkAutoDim();  // Check if screen should be dimmed
+
+    // Skip non-essential functions during OTA update for better WiFi stability
+    if (!ota_in_progress) {
+        processUpdates();
+        checkAutoDim();
+    }
+
     vTaskDelay(pdMS_TO_TICKS(3));  // More efficient than delay() - allows other tasks to run
 }
