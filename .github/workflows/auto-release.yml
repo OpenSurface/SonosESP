@@ -27,6 +27,17 @@ jobs:
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "Building version: $VERSION"
 
+    - name: Skip if nightly version
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        if echo "$VERSION" | grep -q "nightly"; then
+          echo "⚠️ Nightly version detected ($VERSION)"
+          echo "Stable auto-release workflow will not run for nightly versions"
+          echo "Use the nightly-release.yml workflow for nightly builds"
+          exit 0
+        fi
+        echo "✓ Stable version detected - proceeding with release"
+
     - name: Check if release already exists
       id: check_release
       run: |

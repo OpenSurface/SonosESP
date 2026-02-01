@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version_tag:
-        description: 'Version tag (e.g., 1.2.0-nightly.20250201)'
+        description: 'Version tag (e.g., 1.2.0-nightly.abc1234)'
         required: true
         type: string
 
@@ -23,9 +23,10 @@ jobs:
 
     - name: Validate version tag format
       run: |
-        if ! echo "${{ inputs.version_tag }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]+$'; then
-          echo "Error: Version tag must match format: X.Y.Z-nightly.YYYYMMDD"
-          echo "Example: 1.2.0-nightly.20250201"
+        if ! echo "${{ inputs.version_tag }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-nightly\.[a-f0-9]{7}$'; then
+          echo "Error: Version tag must match format: X.Y.Z-nightly.COMMITHASH"
+          echo "Example: 1.2.0-nightly.abc1234"
+          echo "Provided: ${{ inputs.version_tag }}"
           exit 1
         fi
         echo "Version tag validated: ${{ inputs.version_tag }}"

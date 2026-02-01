@@ -11,7 +11,6 @@ Usage:
 import json
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 
 def get_current_version():
@@ -20,16 +19,31 @@ def get_current_version():
         data = json.load(f)
         return data['version']
 
+def get_git_commit_sha():
+    """Get current git commit SHA (short form)"""
+    try:
+        result = subprocess.run(['git', 'rev-parse', '--short=7', 'HEAD'],
+                              capture_output=True,
+                              text=True,
+                              check=True)
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
 def generate_nightly_tag(base_version):
-    """Generate nightly tag: X.Y.Z-nightly.YYYYMMDD"""
+    """Generate nightly tag: X.Y.Z-nightly.COMMITHASH"""
     # Remove any existing -nightly suffix
     if '-nightly' in base_version:
         base_version = base_version.split('-nightly')[0]
 
-    # Get today's date in YYYYMMDD format
-    date_suffix = datetime.now().strftime("%Y%m%d")
+    # Get git commit SHA
+    commit_sha = get_git_commit_sha()
+    if not commit_sha:
+        print("[ERROR] Could not get git commit SHA")
+        print("[INFO] Make sure you're in a git repository")
+        sys.exit(1)
 
-    return f"{base_version}-nightly.{date_suffix}"
+    return f"{base_version}-nightly.{commit_sha}"
 
 def check_gh_cli():
     """Check if GitHub CLI (gh) is installed"""
@@ -99,13 +113,25 @@ def main():
         print(f"  1. Go to: https://github.com/OpenSurface/SonosESP/actions/workflows/nightly-release.yml")
         print(f"  2. Click 'Run workflow'")
         print(f"  3. Enter version tag: {nightly_tag}")
+        print(f"     Format: X.Y.Z-nightly.COMMITHASH (7 hex chars)")
         print(f"  4. Click 'Run workflow'")
         sys.exit(1)
 
     # Confirm
+    # Get commit info for display
+    try:
+        commit_msg = subprocess.run(['git', 'log', '-1', '--pretty=%s'],
+                                   capture_output=True, text=True, check=True).stdout.strip()
+        commit_author = subprocess.run(['git', 'log', '-1', '--pretty=%an'],
+                                      capture_output=True, text=True, check=True).stdout.strip()
+    except:
+        commit_msg = "Unknown"
+        commit_author = "Unknown"
+
     print(f"\n[CONFIRM] This will create a nightly prerelease:")
     print(f"  - Tag: v{nightly_tag}")
-    print(f"  - Branch: (current)")
+    print(f"  - Commit: {commit_msg}")
+    print(f"  - Author: {commit_author}")
     print(f"  - Marked as: Prerelease (unstable)")
     print(f"\nContinue? [y/N]: ", end='')
 
