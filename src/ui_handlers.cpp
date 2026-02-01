@@ -657,10 +657,11 @@ static void performOTAUpdate() {
 
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
-            // OPTIMIZATION: Use 32KB buffer for faster downloads (if sufficient RAM)
+            // OPTIMIZATION: Use 16KB buffer (tested and proven stable)
             // Each flash write disables external memory cache, causing RGB LCD PSRAM access issues
-            // 32KB buffer reduces ~500KB firmware to ~16 flash writes (vs 31 with 16KB)
-            static uint8_t buff[32768];  // 32KB buffer for optimal performance
+            // 16KB buffer reduces ~500KB firmware to ~31 flash writes
+            // NOTE: 32KB caused WiFi driver crash (SDIO buffer exhaustion)
+            static uint8_t buff[16384];  // 16KB buffer for stability
             int lastPercent = -1;
             uint32_t lastUIUpdate = millis();
 
