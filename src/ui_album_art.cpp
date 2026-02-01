@@ -731,6 +731,10 @@ void albumArtTask(void* param) {
             http.end();
             // Note: For external servers, mutex was released per-chunk
             // For Sonos device, no mutex was used (Sonos HTTP server handles serialization)
+
+            // CRITICAL: Wait for WiFi buffers to stabilize after any download
+            // Prevents cumulative buffer exhaustion from rapid consecutive downloads + SOAP polling
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
         vTaskDelay(pdMS_TO_TICKS(100));  // Check for new URLs
     }
