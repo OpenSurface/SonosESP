@@ -48,9 +48,38 @@ void createOTAScreen() {
     lv_obj_set_style_text_color(lbl_latest_version, COL_TEXT2, 0);
     lv_obj_align(lbl_latest_version, LV_ALIGN_TOP_LEFT, 0, 30);
 
+    // Release channel selector
+    lv_obj_t* lbl_channel = lv_label_create(content);
+    lv_label_set_text(lbl_channel, "Release Channel:");
+    lv_obj_set_style_text_font(lbl_channel, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(lbl_channel, COL_TEXT, 0);
+    lv_obj_set_pos(lbl_channel, 0, 155);
+
+    dd_ota_channel = lv_dropdown_create(content);
+    lv_dropdown_set_options(dd_ota_channel, "Stable\nNightly");
+    lv_obj_set_size(dd_ota_channel, 200, 40);
+    lv_obj_set_pos(dd_ota_channel, 170, 150);
+    lv_obj_set_style_bg_color(dd_ota_channel, COL_BTN, 0);
+    lv_obj_set_style_bg_color(dd_ota_channel, COL_BTN_PRESSED, LV_STATE_PRESSED);
+    lv_obj_set_style_text_color(dd_ota_channel, COL_TEXT, 0);
+    lv_obj_set_style_radius(dd_ota_channel, 8, 0);
+    lv_obj_set_style_border_width(dd_ota_channel, 1, 0);
+    lv_obj_set_style_border_color(dd_ota_channel, lv_color_hex(0x444444), 0);
+
+    // Load saved channel preference (default to Stable=0)
+    ota_channel = wifiPrefs.getInt("ota_channel", 0);
+    lv_dropdown_set_selected(dd_ota_channel, ota_channel);
+
+    // Channel change callback
+    lv_obj_add_event_cb(dd_ota_channel, [](lv_event_t* e) {
+        ota_channel = lv_dropdown_get_selected(dd_ota_channel);
+        wifiPrefs.putInt("ota_channel", ota_channel);
+        Serial.printf("[OTA] Channel changed to: %s\n", ota_channel == 0 ? "Stable" : "Nightly");
+    }, LV_EVENT_VALUE_CHANGED, NULL);
+
     // Status label
     lbl_ota_status = lv_label_create(content);
-    lv_obj_set_pos(lbl_ota_status, 0, 160);
+    lv_obj_set_pos(lbl_ota_status, 0, 210);
     lv_label_set_text(lbl_ota_status, "Tap 'Check for Updates' to begin");
     lv_obj_set_style_text_color(lbl_ota_status, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_ota_status, &lv_font_montserrat_14, 0);
@@ -59,7 +88,7 @@ void createOTAScreen() {
 
     // Progress label
     lbl_ota_progress = lv_label_create(content);
-    lv_obj_set_pos(lbl_ota_progress, 0, 190);
+    lv_obj_set_pos(lbl_ota_progress, 0, 240);
     lv_label_set_text(lbl_ota_progress, "");
     lv_obj_set_style_text_color(lbl_ota_progress, COL_ACCENT, 0);
     lv_obj_set_style_text_font(lbl_ota_progress, &lv_font_montserrat_16, 0);
@@ -67,7 +96,7 @@ void createOTAScreen() {
     // Visual progress bar (hidden by default)
     bar_ota_progress = lv_bar_create(content);
     lv_obj_set_size(bar_ota_progress, lv_pct(100), 16);
-    lv_obj_set_pos(bar_ota_progress, 0, 220);
+    lv_obj_set_pos(bar_ota_progress, 0, 270);
     lv_bar_set_range(bar_ota_progress, 0, 100);
     lv_bar_set_value(bar_ota_progress, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(bar_ota_progress, lv_color_hex(0x333333), LV_PART_MAIN);
@@ -81,7 +110,7 @@ void createOTAScreen() {
     // Check for Updates button
     btn_check_update = lv_btn_create(content);
     lv_obj_set_size(btn_check_update, 280, 50);
-    lv_obj_set_pos(btn_check_update, 0, 260);
+    lv_obj_set_pos(btn_check_update, 0, 310);
     lv_obj_set_style_bg_color(btn_check_update, COL_ACCENT, 0);
     lv_obj_set_style_radius(btn_check_update, 12, 0);
     lv_obj_add_event_cb(btn_check_update, ev_check_update, LV_EVENT_CLICKED, NULL);
@@ -94,7 +123,7 @@ void createOTAScreen() {
     // Install Update button (hidden by default)
     btn_install_update = lv_btn_create(content);
     lv_obj_set_size(btn_install_update, 280, 50);
-    lv_obj_set_pos(btn_install_update, 310, 260);
+    lv_obj_set_pos(btn_install_update, 310, 310);
     lv_obj_set_style_bg_color(btn_install_update, lv_color_hex(0x4ECB71), 0);
     lv_obj_set_style_radius(btn_install_update, 12, 0);
     lv_obj_add_event_cb(btn_install_update, ev_install_update, LV_EVENT_CLICKED, NULL);
@@ -109,10 +138,10 @@ void createOTAScreen() {
     lv_obj_t* lbl_info = lv_label_create(content);
     lv_label_set_text(lbl_info,
         LV_SYMBOL_WARNING "  Do not disconnect power during update!\n"
-        "Updates are fetched from GitHub releases automatically.");
+        "Stable: Auto-releases | Nightly: Latest test builds (may be unstable)");
     lv_obj_set_style_text_color(lbl_info, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_info, &lv_font_montserrat_12, 0);
     lv_obj_set_width(lbl_info, lv_pct(100));
     lv_label_set_long_mode(lbl_info, LV_LABEL_LONG_WRAP);
-    lv_obj_set_pos(lbl_info, 0, 330);
+    lv_obj_set_pos(lbl_info, 0, 380);
 }

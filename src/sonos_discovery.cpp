@@ -238,3 +238,93 @@ String SonosController::getCachedDeviceIP() {
 void SonosController::cacheDeviceIP(String ip) {
     prefs.putString("device_ip", ip);
 }
+
+void SonosController::cacheSelectedDevice() {
+    SonosDevice* dev = getCurrentDevice();
+    if (!dev) {
+        Serial.println("[SONOS] Cannot cache - no device selected");
+        return;
+    }
+
+    prefs.putString("cached_ip", dev->ip.toString());
+    prefs.putString("cached_room", dev->roomName);
+    prefs.putString("cached_rincon", dev->rinconID);
+
+    Serial.printf("[SONOS] Cached device: %s (%s) [%s]\n",
+                  dev->roomName.c_str(),
+                  dev->ip.toString().c_str(),
+                  dev->rinconID.c_str());
+}
+
+bool SonosController::tryLoadCachedDevice() {
+    String cachedIP = prefs.getString("cached_ip", "");
+    String cachedRoom = prefs.getString("cached_room", "");
+    String cachedRincon = prefs.getString("cached_rincon", "");
+
+    if (cachedIP.length() == 0 || cachedRoom.length() == 0) {
+        Serial.println("========================================");
+        Serial.println("[SONOS] No cached device in NVS");
+        Serial.println("[SONOS] Running full SSDP discovery (~15 seconds)...");
+        Serial.println("========================================");
+        return false;
+    }
+
+    Serial.printf("[SONOS] Found cached device: %s (%s)\n", cachedRoom.c_str(), cachedIP.c_str());
+
+    // Parse IP address
+    IPAddress ip;
+    if (!ip.fromString(cachedIP)) {
+        Serial.printf("[SONOS] Invalid cached IP: %s - will run discovery\n", cachedIP.c_str());
+        return false;
+    }
+
+    // Quick HTTP check to verify device is reachable (with short timeout)
+    HTTPClient http;
+    char url[128];
+    snprintf(url, sizeof(url), "http://%s:1400/xml/device_description.xml", cachedIP.c_str());
+
+    http.begin(url);
+    http.setTimeout(2000);  // 2s timeout - fast check
+
+    Serial.printf("[SONOS] Verifying cached device is reachable at %s...\n", cachedIP.c_str());
+    int code = http.GET();
+    http.end();
+
+    if (code != 200) {
+        Serial.println("========================================");
+        Serial.printf("[SONOS] Cached device '%s' unreachable (HTTP %d)\n", cachedRoom.c_str(), code);
+        Serial.println("[SONOS] Running full SSDP discovery (~15 seconds)...");
+        Serial.println("========================================");
+        return false;
+    }
+
+    // Device is reachable - add it to the device list
+    deviceCount = 1;
+    devices[0].ip = ip;
+    devices[0].roomName = cachedRoom;
+    devices[0].rinconID = cachedRincon;
+    devices[0].isPlaying = false;
+    devices[0].volume = 50;
+    devices[0].isMuted = false;
+    devices[0].shuffleMode = false;
+    devices[0].repeatMode = "NONE";
+    devices[0].connected = false;
+    devices[0].errorCount = 0;
+    devices[0].currentTrackNumber = 0;
+    devices[0].totalTracks = 0;
+    devices[0].queueSize = 0;
+    devices[0].groupCoordinatorUUID = "";
+    devices[0].isGroupCoordinator = true;
+    devices[0].groupMemberCount = 1;
+
+    Serial.println("========================================");
+    Serial.println("[SONOS] ✓ FAST BOOT: Device loaded from NVS cache");
+    Serial.printf("[SONOS]   Speaker: %s\n", cachedRoom.c_str());
+    Serial.printf("[SONOS]   IP: %s\n", cachedIP.c_str());
+    Serial.printf("[SONOS]   RINCON: %s\n", cachedRincon.c_str());
+    Serial.println("[SONOS]   Boot time saved: ~13 seconds");
+    Serial.println("[SONOS]   To scan for other devices: Settings → Speakers → Scan");
+    Serial.println("========================================");
+
+    return true;
+}

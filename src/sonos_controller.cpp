@@ -72,6 +72,9 @@ void SonosController::selectDevice(int index) {
         currentDeviceIndex = index;
         devices[index].connected = true;
         Serial.printf("[SONOS] Selected: %s\n", devices[index].ip.toString().c_str());
+
+        // Cache the selected device for fast boot next time
+        cacheSelectedDevice();
     }
 }
 

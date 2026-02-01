@@ -171,5 +171,7 @@ lv_obj_t* lbl_latest_version = nullptr;
 lv_obj_t* btn_check_update = nullptr;
 lv_obj_t* btn_install_update = nullptr;
 lv_obj_t* bar_ota_progress = nullptr;
+lv_obj_t* dd_ota_channel = nullptr;
 String latest_version = "";
 String download_url = "";
+int ota_channel = 0;  // 0=Stable, 1=Nightly

@@ -387,7 +387,20 @@ static void checkForUpdates() {
     client.setInsecure();  // Skip certificate validation
 
     HTTPClient http;
-    http.begin(client, "https://api.github.com/repos/" GITHUB_REPO "/releases/latest");
+
+    // Choose API endpoint based on channel
+    const char* apiUrl;
+    if (ota_channel == 0) {
+        // Stable: Get only latest non-prerelease
+        apiUrl = "https://api.github.com/repos/" GITHUB_REPO "/releases/latest";
+        Serial.println("[OTA] Checking Stable channel (latest stable release)");
+    } else {
+        // Nightly: Get most recent release (including prereleases)
+        apiUrl = "https://api.github.com/repos/" GITHUB_REPO "/releases?per_page=1";
+        Serial.println("[OTA] Checking Nightly channel (latest release including prereleases)");
+    }
+
+    http.begin(client, apiUrl);
     http.addHeader("Accept", "application/vnd.github.v3+json");
     http.setTimeout(15000);
 
@@ -398,15 +411,35 @@ static void checkForUpdates() {
     if (httpCode == 200) {
         String payload = http.getString();
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, payload);
+        DeserializationError error;
+
+        // For nightly, parse array response and get first element
+        if (ota_channel == 1) {
+            error = deserializeJson(doc, payload);
+            if (!error && doc.is<JsonArray>() && doc.size() > 0) {
+                doc = doc[0];  // Get first release from array
+            }
+        } else {
+            error = deserializeJson(doc, payload);
+        }
 
         if (!error) {
             latest_version = doc["tag_name"].as<String>();
             latest_version.replace("v", "");  // Remove 'v' prefix
 
+            bool isPrerelease = doc["prerelease"].as<bool>();
+            const char* channelName = ota_channel == 0 ? "Stable" : "Nightly";
+
             if (lbl_latest_version) {
-                lv_label_set_text_fmt(lbl_latest_version, "Latest: v%s", latest_version.c_str());
+                if (isPrerelease && ota_channel == 1) {
+                    lv_label_set_text_fmt(lbl_latest_version, "Latest (%s): v%s (prerelease)", channelName, latest_version.c_str());
+                } else {
+                    lv_label_set_text_fmt(lbl_latest_version, "Latest (%s): v%s", channelName, latest_version.c_str());
+                }
             }
+
+            Serial.printf("[OTA] Latest %s version: v%s (prerelease: %s)\n",
+                          channelName, latest_version.c_str(), isPrerelease ? "yes" : "no");
 
             // Find firmware.bin asset
             JsonArray assets = doc["assets"];

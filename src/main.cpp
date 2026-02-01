@@ -143,10 +143,18 @@ void setup() {
     sonos.begin();
     updateBootProgress(95);
 
-    int cnt = sonos.discoverDevices();
-    if (cnt > 0) {
+    // Try to load cached device first for fast boot (~2s vs ~15s)
+    bool loadedFromCache = sonos.tryLoadCachedDevice();
+    if (loadedFromCache) {
         sonos.selectDevice(0);
         sonos.startTasks();
+    } else {
+        // No cache or unreachable - run full SSDP discovery
+        int cnt = sonos.discoverDevices();
+        if (cnt > 0) {
+            sonos.selectDevice(0);
+            sonos.startTasks();
+        }
     }
 
     updateBootProgress(100);  // Complete!

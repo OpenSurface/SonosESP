@@ -135,8 +135,10 @@ extern lv_obj_t *lbl_latest_version;
 extern lv_obj_t *btn_check_update;
 extern lv_obj_t *btn_install_update;
 extern lv_obj_t *bar_ota_progress;
+extern lv_obj_t *dd_ota_channel;
 extern String latest_version;
 extern String download_url;
+extern int ota_channel;  // 0=Stable, 1=Nightly
 
 // ============================================================================
 // Function Declarations - Screen Creation
