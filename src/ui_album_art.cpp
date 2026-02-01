@@ -319,35 +319,16 @@ void albumArtTask(void* param) {
             }
             http.setTimeout(10000);
 
-            // CRITICAL INSIGHT: Sonos device art vs external art need different handling
-            // - External art (Spotify): Acquire mutex, release per-chunk (prevents SDIO overflow)
-            // - Sonos device art (YouTube Music): Quick check if SOAP is active, then proceed
-            //   without holding mutex (Sonos HTTP server serializes, only 1 response at a time)
-            if (isFromSonosDevice) {
-                // Quick check: is SOAP currently active? If so, skip this art download
-                if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(100))) {
-                    Serial.println("[ART] SOAP active - skipping Sonos device art download");
-                    http.end();
-                    continue;
-                }
-                // Mutex acquired - SOAP is idle, release immediately and proceed without mutex
-                xSemaphoreGive(network_mutex);
-            } else {
-                // External server: acquire mutex for SDIO protection
-                if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS))) {
-                    Serial.println("[ART] Failed to acquire network mutex - skipping download");
-                    http.end();
-                    continue;
-                }
+            // REVERT TO v1.1.1: Hold network_mutex for ENTIRE download (no per-chunk)
+            // This prevents SDIO crashes but blocks SOAP during art download
+            if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS))) {
+                Serial.println("[ART] Failed to acquire network mutex - skipping download");
+                http.end();
+                continue;
             }
 
             int code = http.GET();
-
-            // Release mutex after GET for external servers (will re-acquire per chunk)
-            // For Sonos device, mutex was already released before GET
-            if (!isFromSonosDevice) {
-                xSemaphoreGive(network_mutex);
-            }
+            // Keep mutex locked for entire download
 
             if (code == 200) {
                 int len = http.getSize();
@@ -389,22 +370,8 @@ void albumArtTask(void* param) {
                             size_t toRead = min(chunkSize, remaining);
                             toRead = min(toRead, available);
 
-                            // Per-chunk mutex ONLY for external servers
-                            // For Sonos device, we're holding mutex for entire download
-                            if (!isFromSonosDevice) {
-                                if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(1000))) {
-                                    Serial.println("[ART] Chunk read mutex timeout - aborting download");
-                                    readSuccess = false;
-                                    break;
-                                }
-                            }
-
+                            // Mutex held for entire download - no per-chunk locking
                             size_t actualRead = stream->readBytes(jpgBuf + bytesRead, toRead);
-
-                            // Release mutex after chunk (external servers only)
-                            if (!isFromSonosDevice) {
-                                xSemaphoreGive(network_mutex);
-                            }
 
                             if (actualRead == 0) {
                                 if (len_known) {
@@ -729,8 +696,9 @@ void albumArtTask(void* param) {
                 Serial.printf("[ART] HTTP error %d fetching album art\n", code);
             }
             http.end();
-            // Note: For external servers, mutex was released per-chunk
-            // For Sonos device, no mutex was used (Sonos HTTP server handles serialization)
+
+            // Release network_mutex after entire download completes
+            xSemaphoreGive(network_mutex);
 
             // CRITICAL: Wait for WiFi buffers to stabilize after any download
             // Prevents cumulative buffer exhaustion from rapid consecutive downloads + SOAP polling
