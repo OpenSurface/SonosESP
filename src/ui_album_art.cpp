@@ -415,8 +415,8 @@ void albumArtTask(void* param) {
                                     break;
                                 }
                             }
-                            Serial.printf("[ART] Drained %d bytes - waiting 500ms before retry\n", (int)drained);
-                            vTaskDelay(pdMS_TO_TICKS(500));  // Wait for WiFi buffers to clear
+                            Serial.printf("[ART] Drained %d bytes - waiting 2s for HTTPS cleanup\n", (int)drained);
+                            vTaskDelay(pdMS_TO_TICKS(2000));  // Wait for HTTPS/TLS resources to free
                         }
 
                         Serial.printf("[ART] Album art read: %d bytes (len_known=%d)\n", (int)bytesRead, len_known ? 1 : 0);
