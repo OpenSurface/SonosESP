@@ -560,12 +560,43 @@ static void performOTAUpdate() {
     }
 
     // ========================================================================
-    // CRITICAL: Take OTA mutex FIRST - ABSOLUTE PRIORITY for OTA
+    // KILL ALL NETWORK ACTIVITY - DEDICATE ESP32 TO OTA ONLY
     // ========================================================================
-    // This BLOCKS all new network operations (SOAP, album art, queue fetches)
-    // Any in-flight requests will complete, but no new ones can start
-    // This prevents SDIO buffer exhaustion (assert failed: sdio_push_data_to_queue)
-    Serial.println("[OTA] Taking OTA mutex - BLOCKING all network operations");
+    Serial.println("[OTA] ========================================");
+    Serial.println("[OTA] STOPPING ALL NETWORK ACTIVITY");
+    Serial.println("[OTA] ========================================");
+
+    // STEP 1: Stop album art task to free memory (~8KB stack)
+    Serial.println("[OTA] [1/4] Stopping album art task");
+    if (albumArtTaskHandle) {
+        art_shutdown_requested = true;
+        int wait_count = 0;
+        while (albumArtTaskHandle != NULL && wait_count < 30) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+            wait_count++;
+        }
+        if (albumArtTaskHandle == NULL) {
+            Serial.println("[OTA] ✓ Album art task stopped - freed ~8KB");
+        } else {
+            Serial.println("[OTA] ✗ Album art task did not stop - forcing delete");
+            vTaskDelete(albumArtTaskHandle);
+            albumArtTaskHandle = NULL;
+        }
+    }
+
+    // STEP 2: Suspend Sonos tasks (polling, network)
+    Serial.println("[OTA] [2/4] Suspending Sonos polling and network tasks");
+    sonos.suspendTasks();
+    Serial.println("[OTA] ✓ Sonos tasks suspended");
+
+    // STEP 3: Wait for ongoing HTTP requests to finish/timeout
+    // Suspended tasks might still have active HTTP connections
+    Serial.println("[OTA] [3/4] Waiting 2 seconds for ongoing HTTP requests to finish");
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    Serial.println("[OTA] ✓ HTTP requests should be closed");
+
+    // STEP 4: Take OTA mutex - BLOCKS any new network operations
+    Serial.println("[OTA] [4/4] Taking OTA mutex - BLOCKING all new network operations");
     if (xSemaphoreTake(ota_mutex, portMAX_DELAY) != pdTRUE) {
         Serial.println("[OTA] ERROR: Failed to take OTA mutex!");
         if (lbl_ota_status) {
@@ -574,43 +605,8 @@ static void performOTAUpdate() {
         }
         return;
     }
-    Serial.println("[OTA] OTA mutex acquired - ALL network operations now BLOCKED");
-
-    // ========================================================================
-    // CRITICAL: PAUSE PLAYBACK to stop external audio streams (Spotify, etc.)
-    // ========================================================================
-    // Spotify/external streams continue in background even after stopping tasks
-    // Must pause to kill the audio stream BEFORE starting OTA
-    Serial.println("[OTA] Pausing playback to stop external audio streams");
-    sonos.pause();
-    vTaskDelay(pdMS_TO_TICKS(500));  // Give Spotify time to close the stream
-
-    // CRITICAL: Stop album art task gracefully to prevent WiFi buffer overflow during OTA
-    // Album art downloads can compete with OTA firmware download for WiFi TX/RX buffers
-    if (albumArtTaskHandle) {
-        Serial.println("[OTA] Requesting album art shutdown");
-        art_shutdown_requested = true;
-
-        // Wait for task to finish current operation and exit (max 3 seconds)
-        int wait_count = 0;
-        while (albumArtTaskHandle != NULL && wait_count < 30) {
-            vTaskDelay(pdMS_TO_TICKS(100));
-            wait_count++;
-        }
-
-        if (albumArtTaskHandle == NULL) {
-            Serial.println("[OTA] Album art task stopped successfully");
-        } else {
-            Serial.println("[OTA] Album art task did not stop - forcing delete");
-            vTaskDelete(albumArtTaskHandle);
-            albumArtTaskHandle = NULL;
-        }
-    }
-
-    // CRITICAL: Suspend Sonos polling tasks to prevent WiFi buffer overflow during OTA
-    // Sonos SOAP requests can compete with OTA firmware download for WiFi TX/RX buffers
-    Serial.println("[OTA] Suspending Sonos tasks");
-    sonos.suspendTasks();
+    Serial.println("[OTA] ✓ OTA mutex acquired - ESP32 dedicated to OTA download");
+    Serial.println("[OTA] ========================================");
 
     // OPTIMIZATION: Set flag to skip non-essential loop functions during OTA
     // Skips processUpdates() and checkAutoDim() in main loop
