@@ -18,6 +18,10 @@ void setup() {
     // Create network mutex to serialize WiFi access (prevents SDIO buffer overflow)
     network_mutex = xSemaphoreCreateMutex();
 
+    // Create OTA mutex for ABSOLUTE PRIORITY during firmware updates
+    // When OTA holds this mutex, ALL network operations are blocked
+    ota_mutex = xSemaphoreCreateMutex();
+
     // Initialize preferences with debug logging
     wifiPrefs.begin("sonos_wifi", false);
     String ssid = wifiPrefs.getString("ssid", DEFAULT_WIFI_SSID);

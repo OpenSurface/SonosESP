@@ -139,6 +139,19 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
     snprintf(soapActionHeader, sizeof(soapActionHeader), "\"%s\"", soapAction);
     http.addHeader("SOAPAction", soapActionHeader);
 
+    // CRITICAL: Check OTA mutex FIRST - OTA has ABSOLUTE PRIORITY
+    // If OTA is in progress, ABORT all SOAP requests immediately
+    // This prevents SDIO buffer exhaustion during firmware downloads
+    if (xSemaphoreTake(ota_mutex, 0) == pdTRUE) {
+        // OTA is NOT running - release immediately and continue
+        xSemaphoreGive(ota_mutex);
+    } else {
+        // OTA IS RUNNING - ABORT this SOAP request
+        Serial.println("[SOAP] OTA in progress - ABORTING request");
+        http.end();
+        return "";
+    }
+
     // CRITICAL: Acquire network_mutex to serialize WiFi access
     // Prevents SDIO buffer overflow when album art downloads happen during SOAP requests
     if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {

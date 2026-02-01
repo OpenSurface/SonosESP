@@ -107,6 +107,7 @@ extern bool pending_is_station_logo;  // True when requesting radio station logo
 extern unsigned long last_source_change_time;
 extern volatile unsigned long last_queue_fetch_time;  // Track queue fetches for WiFi coordination
 extern SemaphoreHandle_t network_mutex;  // Serialize network access to prevent SDIO buffer overflow
+extern SemaphoreHandle_t ota_mutex;      // OTA has ABSOLUTE PRIORITY - blocks ALL network operations
 
 // UI state
 extern String ui_title, ui_artist, ui_repeat;

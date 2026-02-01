@@ -559,6 +559,32 @@ static void performOTAUpdate() {
         return;
     }
 
+    // ========================================================================
+    // CRITICAL: Take OTA mutex FIRST - ABSOLUTE PRIORITY for OTA
+    // ========================================================================
+    // This BLOCKS all new network operations (SOAP, album art, queue fetches)
+    // Any in-flight requests will complete, but no new ones can start
+    // This prevents SDIO buffer exhaustion (assert failed: sdio_push_data_to_queue)
+    Serial.println("[OTA] Taking OTA mutex - BLOCKING all network operations");
+    if (xSemaphoreTake(ota_mutex, portMAX_DELAY) != pdTRUE) {
+        Serial.println("[OTA] ERROR: Failed to take OTA mutex!");
+        if (lbl_ota_status) {
+            lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " OTA mutex error");
+            lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+        }
+        return;
+    }
+    Serial.println("[OTA] OTA mutex acquired - ALL network operations now BLOCKED");
+
+    // ========================================================================
+    // CRITICAL: PAUSE PLAYBACK to stop external audio streams (Spotify, etc.)
+    // ========================================================================
+    // Spotify/external streams continue in background even after stopping tasks
+    // Must pause to kill the audio stream BEFORE starting OTA
+    Serial.println("[OTA] Pausing playback to stop external audio streams");
+    sonos.pause();
+    vTaskDelay(pdMS_TO_TICKS(500));  // Give Spotify time to close the stream
+
     // CRITICAL: Stop album art task gracefully to prevent WiFi buffer overflow during OTA
     // Album art downloads can compete with OTA firmware download for WiFi TX/RX buffers
     if (albumArtTaskHandle) {
@@ -644,6 +670,8 @@ static void performOTAUpdate() {
             WiFi.setAutoReconnect(true);  // Re-enable auto-reconnect
             ota_in_progress = false;  // Re-enable loop functions
             sonos.resumeTasks();
+            xSemaphoreGive(ota_mutex);  // Release OTA mutex
+            Serial.println("[OTA] OTA mutex released (invalid firmware size)");
             return;
         }
 
@@ -819,6 +847,12 @@ static void performOTAUpdate() {
     // Resume Sonos tasks (if update failed - successful update will restart device)
     Serial.println("[OTA] Resuming Sonos tasks");
     sonos.resumeTasks();
+
+    // ========================================================================
+    // CRITICAL: Release OTA mutex - allow network operations to resume
+    // ========================================================================
+    xSemaphoreGive(ota_mutex);
+    Serial.println("[OTA] OTA mutex released - network operations can resume");
 }
 
 void ev_check_update(lv_event_t* e) {
