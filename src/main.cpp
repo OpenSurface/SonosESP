@@ -25,7 +25,7 @@ void setup() {
 
     // Debug: Log what was loaded from NVS
     if (ssid.length() > 0) {
-        Serial.printf("[WIFI] Loaded from NVS: SSID='%s' (pass length: %d)\n", ssid.c_str(), pass.length());
+        Serial.printf("[WIFI] Loaded from NVS: SSID='%s', Password='%s' (length: %d)\n", ssid.c_str(), pass.c_str(), pass.length());
     } else {
         Serial.println("[WIFI] No saved credentials found in NVS, using defaults");
     }
@@ -40,23 +40,9 @@ void setup() {
     // Brightness will be set after display_init() is called
     Serial.println("[DISPLAY] ESP32-P4 uses ST7701 backlight control (no PWM needed)");
 
+    //Initialise WiFi Connection
     WiFi.mode(WIFI_STA);
-    // ESP32-C6 WiFi initialization delay - fixes ESP-Hosted SDIO timing issues
-    // The ESP32-C6 co-processor needs time to initialize SDIO before accepting connections
-    // Without this delay, SDIO RX queue can overflow during association causing timeouts
-    vTaskDelay(pdMS_TO_TICKS(2000));
-    WiFi.begin(ssid.c_str(), pass.c_str());
-    Serial.printf("[WIFI] Connecting to '%s'", ssid.c_str());
-    int tries = 0;
-    while (WiFi.status() != WL_CONNECTED && tries++ < 40) {  // Increased to 40 tries (20 seconds)
-        vTaskDelay(pdMS_TO_TICKS(500));
-        Serial.print(".");
-    }
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.printf("\n[WIFI] Connected - IP: %s\n", WiFi.localIP().toString().c_str());
-    } else {
-        Serial.println("\n[WIFI] Connection failed - will retry from settings");
-    }
+    WiFi.setSleep(false);
 
     lv_init();
     if (!display_init()) { Serial.println("Display FAIL"); while(1) delay(1000); }
@@ -98,7 +84,7 @@ void setup() {
         lv_timer_handler();
     };
 
-    updateBootProgress(10);  // Initial display
+    updateBootProgress(5);  // Initial display
 
     // Add global touch callback for screen wake
     lv_display_add_event_cb(lv_display_get_default(), [](lv_event_t* e) {
@@ -107,41 +93,80 @@ void setup() {
         }
     }, LV_EVENT_PRESSED, NULL);
 
-    updateBootProgress(20);  // Callbacks ready
+    updateBootProgress(10);  // Callbacks ready
 
     createMainScreen();
-    updateBootProgress(35);
+    updateBootProgress(15);
 
     createDevicesScreen();
-    updateBootProgress(45);
+    updateBootProgress(20);
 
     createQueueScreen();
-    updateBootProgress(55);
+    updateBootProgress(22);
 
     createSettingsScreen();
-    updateBootProgress(65);
+    updateBootProgress(25);
 
     createDisplaySettingsScreen();
-    updateBootProgress(70);
+    updateBootProgress(30);
+   
+    // Connect to WiFi
+    int retryCount = 0;
+    int maxRetries = 6;
+    
+
+    while (retryCount < maxRetries && WiFi.status() != WL_CONNECTED) {
+        Serial.printf("[WIFI] Attempt %d/%d to connect to '%s'\n", retryCount+1, maxRetries, ssid.c_str());
+        WiFi.begin(ssid.c_str(), pass.c_str());
+        
+        unsigned long startAttemptTime = millis();
+        bool connected = false;
+        
+        // Wait for connection with a timeout (e.g., 10 seconds)
+        while (millis() - startAttemptTime < 10000) {
+            if (WiFi.status() == WL_CONNECTED) {
+                
+                break;
+            }
+            delay(500);
+            Serial.print(".");
+        }
+        
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.printf("\n[WIFI] Connected successfully! IP: %s\n", WiFi.localIP().toString().c_str());
+            
+        } else {
+            Serial.println("\n[WIFI] Attempt failed. Retrying...");
+            retryCount++;
+            delay(1000); // Wait a second before retrying
+            updateBootProgress(30+(retryCount * 5)); // Shows system still alive while retrying
+        }
+    }
+    
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[WIFI] All connection attempts failed.");
+        }
+    
+    updateBootProgress(60);
 
     createWiFiScreen();
-    updateBootProgress(75);
+    updateBootProgress(62);
 
     createOTAScreen();
-    updateBootProgress(80);
+    updateBootProgress(65);
 
     createSourcesScreen();
-    updateBootProgress(83);
+    updateBootProgress(68);
 
     createGroupsScreen();
-    updateBootProgress(85);
+    updateBootProgress(70);
 
     art_mutex = xSemaphoreCreateMutex();
     xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);  // Core 0, Priority 1 (low)
     updateBootProgress(90);
 
     sonos.begin();
-    updateBootProgress(95);
+    updateBootProgress(75);
 
     int cnt = sonos.discoverDevices();
     if (cnt > 0) {
