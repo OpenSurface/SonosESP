@@ -598,16 +598,25 @@ static void performOTAUpdate() {
     Serial.println("[OTA] [3/4] Suspending Sonos background tasks");
     sonos.suspendTasks();
 
-    // STEP 4: Disconnect WiFi to abort ANY remaining HTTP connections
-    Serial.println("[OTA] [4/4] Disconnecting WiFi to abort connections");
-    WiFi.disconnect(false, false);  // Don't erase credentials
-    Serial.println("[OTA] Waiting 3 seconds for all HTTP connections to close...");
-    vTaskDelay(pdMS_TO_TICKS(3000));  // 3 seconds - critical for Spotify/Radio streaming
-    Serial.println("[OTA] ✓ WiFi disconnected - all connections aborted");
+    // STEP 4: HARD RESET WiFi driver to clear all TCP/IP state
+    Serial.println("[OTA] [4/4] Performing WiFi driver hard reset...");
+    // Save credentials before reset
+    String ssid = WiFi.SSID();
+    String pass = WiFi.psk();
 
-    // Reconnect WiFi for OTA download
-    Serial.println("[OTA] Reconnecting WiFi for OTA download...");
-    WiFi.reconnect();
+    // Turn WiFi completely OFF (full driver reset)
+    WiFi.mode(WIFI_OFF);
+    Serial.println("[OTA] WiFi OFF - driver shutdown");
+    vTaskDelay(pdMS_TO_TICKS(2000));  // 2 seconds for full driver shutdown
+
+    // Turn WiFi back ON with fresh driver state
+    WiFi.mode(WIFI_STA);
+    Serial.println("[OTA] WiFi STA mode - driver reinitialized");
+    vTaskDelay(pdMS_TO_TICKS(1000));  // 1 second for driver init
+
+    // Reconnect to network
+    Serial.println("[OTA] Reconnecting to network...");
+    WiFi.begin(ssid.c_str(), pass.c_str());
     int reconnect_attempts = 0;
     while (WiFi.status() != WL_CONNECTED && reconnect_attempts < 20) {
         vTaskDelay(pdMS_TO_TICKS(500));
