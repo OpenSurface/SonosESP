@@ -710,11 +710,11 @@ static void performOTAUpdate() {
 
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
-            // OPTIMIZATION: Use 16KB buffer (tested and proven stable)
-            // Each flash write disables external memory cache, causing RGB LCD PSRAM access issues
-            // 16KB buffer reduces ~500KB firmware to ~31 flash writes
-            // NOTE: 32KB caused WiFi driver crash (SDIO buffer exhaustion)
-            static uint8_t buff[16384];  // 16KB buffer for stability
+            // CRITICAL: Use 4KB buffer to prevent SDIO buffer exhaustion
+            // Suspended tasks still have TCP state registered in WiFi driver
+            // Smaller chunks + throttling prevents SDIO queue overflow
+            // 4KB reduces incoming data rate and gives SDIO driver time to process
+            static uint8_t buff[4096];  // 4KB buffer for SDIO stability
             int lastPercent = -1;
             uint32_t lastUIUpdate = millis();
 
@@ -747,8 +747,9 @@ static void performOTAUpdate() {
                         lastUIUpdate = now;
                     }
                 }
-                // Small yield to prevent watchdog and allow display updates
-                vTaskDelay(pdMS_TO_TICKS(1));
+                // Throttle download rate to prevent SDIO buffer exhaustion
+                // 10ms delay gives WiFi driver time to process incoming data
+                vTaskDelay(pdMS_TO_TICKS(10));
             }
 
             if (written == contentLength) {
