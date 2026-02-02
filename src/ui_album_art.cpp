@@ -423,8 +423,8 @@ void albumArtTask(void* param) {
                                     break;
                                 }
                             }
-                            Serial.printf("[ART] Drained %d bytes - waiting 2s for HTTPS cleanup\n", (int)drained);
-                            vTaskDelay(pdMS_TO_TICKS(2000));  // Wait for HTTPS/TLS resources to free
+                            Serial.printf("[ART] Drained %d bytes - waiting for HTTPS cleanup\n", (int)drained);
+                            vTaskDelay(pdMS_TO_TICKS(500));  // Reduced from 2s - SSL cleanup is now explicit
                         }
 
                         Serial.printf("[ART] Album art read: %d bytes (len_known=%d)\n", (int)bytesRead, len_known ? 1 : 0);
@@ -708,9 +708,9 @@ void albumArtTask(void* param) {
             // Release network_mutex after entire download completes
             xSemaphoreGive(network_mutex);
 
-            // CRITICAL: Wait for WiFi buffers to stabilize after any download
-            // Prevents cumulative buffer exhaustion from rapid consecutive downloads + SOAP polling
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            // Wait for WiFi buffers to stabilize after download
+            // Reduced from 1000ms to 500ms - mutex + SSL cleanup handle most stability issues
+            vTaskDelay(pdMS_TO_TICKS(500));
         }
         vTaskDelay(pdMS_TO_TICKS(100));  // Check for new URLs
     }
