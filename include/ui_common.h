@@ -220,6 +220,9 @@ extern volatile bool art_shutdown_requested;
 extern volatile bool art_abort_download;
 void albumArtTask(void *param);
 
+// Sonos task shutdown (for OTA)
+extern volatile bool sonos_tasks_shutdown_requested;
+
 // Radio mode UI adaptation
 bool isCurrentlyRadio();
 void setRadioMode(bool enable);

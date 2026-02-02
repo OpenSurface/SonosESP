@@ -1244,10 +1244,18 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
 void SonosController::networkTaskFunction(void* param) {
     SonosController* ctrl = (SonosController*)param;
     CommandRequest_t cmd;
-    
+
     Serial.printf("[SONOS] Network task started\n");
-    
+
     while (1) {
+        // Check if shutdown requested (for OTA update)
+        if (sonos_tasks_shutdown_requested) {
+            Serial.println("[SONOS] Network task shutdown requested - exiting");
+            ctrl->networkTaskHandle = NULL;
+            vTaskDelete(NULL);
+            return;
+        }
+
         if (xQueueReceive(ctrl->commandQueue, &cmd, pdMS_TO_TICKS(20))) {
             ctrl->processCommand(&cmd);
         }
@@ -1270,6 +1278,14 @@ void SonosController::pollingTaskFunction(void* param) {
     static String previousURI = "";
 
     while (1) {
+        // Check if shutdown requested (for OTA update)
+        if (sonos_tasks_shutdown_requested) {
+            Serial.println("[SONOS] Polling task shutdown requested - exiting");
+            ctrl->pollingTaskHandle = NULL;
+            vTaskDelete(NULL);
+            return;
+        }
+
         SonosDevice* dev = ctrl->getCurrentDevice();
 
         // Auto-reconnect when disconnected
@@ -1345,30 +1361,39 @@ void SonosController::resetErrorCount() {
 }
 
 void SonosController::suspendTasks() {
-    // SUSPEND tasks for OTA (don't delete - avoids mutex issues)
-    // Suspended tasks stop executing but keep their state
-    if (pollingTaskHandle) {
-        Serial.println("[SONOS] Suspending polling task for OTA");
-        vTaskSuspend(pollingTaskHandle);
+    // Request clean shutdown and WAIT for tasks to exit
+    // This ensures HTTPClient destructors run and SDIO buffers are freed properly
+    Serial.println("[SONOS] Requesting background tasks to stop...");
+    sonos_tasks_shutdown_requested = true;
+
+    // Wait up to 5 seconds for tasks to exit cleanly
+    int wait_count = 0;
+    while ((pollingTaskHandle != NULL || networkTaskHandle != NULL) && wait_count < 50) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        wait_count++;
     }
-    if (networkTaskHandle) {
-        Serial.println("[SONOS] Suspending network task for OTA");
-        vTaskSuspend(networkTaskHandle);
+
+    // Force-delete any tasks that didn't exit in time
+    if (pollingTaskHandle != NULL) {
+        Serial.println("[SONOS] WARNING: Force-deleting polling task (didn't exit in time)");
+        vTaskDelete(pollingTaskHandle);
+        pollingTaskHandle = NULL;
     }
-    Serial.println("[SONOS] ✓ Background tasks suspended");
+    if (networkTaskHandle != NULL) {
+        Serial.println("[SONOS] WARNING: Force-deleting network task (didn't exit in time)");
+        vTaskDelete(networkTaskHandle);
+        networkTaskHandle = NULL;
+    }
+
+    Serial.println("[SONOS] ✓ Background tasks stopped, WiFi buffers freed");
 }
 
 void SonosController::resumeTasks() {
-    // Resume tasks after OTA
-    if (pollingTaskHandle) {
-        Serial.println("[SONOS] Resuming polling task");
-        vTaskResume(pollingTaskHandle);
-    }
-    if (networkTaskHandle) {
-        Serial.println("[SONOS] Resuming network task");
-        vTaskResume(networkTaskHandle);
-    }
-    Serial.println("[SONOS] ✓ Background tasks resumed");
+    // Recreate tasks after failed OTA (successful OTA reboots device)
+    Serial.println("[SONOS] Recreating background tasks");
+    sonos_tasks_shutdown_requested = false;  // Reset shutdown flag
+    startTasks();  // This will recreate polling and network tasks
+    Serial.println("[SONOS] ✓ Background tasks recreated");
 }
 
 // ============================================================================

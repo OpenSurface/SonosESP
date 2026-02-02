@@ -405,7 +405,22 @@ static void checkForUpdates() {
     http.addHeader("Accept", "application/vnd.github.v3+json");
     http.setTimeout(15000);
 
+    // CRITICAL: Acquire network_mutex to prevent conflict with album art HTTPS downloads
+    if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
+        Serial.println("[OTA] Failed to acquire network mutex - check aborted");
+        if (lbl_ota_status) {
+            lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " Network busy, try again");
+            lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+        }
+        if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
+        http.end();
+        return;
+    }
+
     int httpCode = http.GET();
+
+    // Release mutex after GET completes
+    xSemaphoreGive(network_mutex);
 
     if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
 
@@ -565,8 +580,9 @@ static void performOTAUpdate() {
 
     // Stop album art task and WAIT for it to finish
     if (albumArtTaskHandle) {
-        art_shutdown_requested = true;
-        Serial.println("[OTA] Waiting for album art task to stop...");
+        art_abort_download = true;     // Abort any active download immediately
+        art_shutdown_requested = true;  // Request clean shutdown
+        Serial.println("[OTA] Aborting album art downloads and waiting for task to stop...");
 
         // Wait up to 10 seconds for clean exit
         int wait_count = 0;
@@ -584,8 +600,17 @@ static void performOTAUpdate() {
         }
     }
 
+    // Suspend Sonos tasks during OTA (critical for Radio playback)
+    Serial.println("[OTA] Suspending Sonos tasks...");
+    sonos.suspendTasks();
+
     // Set flag to skip non-essential tasks during OTA
     ota_in_progress = true;
+
+    // Small delay to allow SSL cleanup in album art task to complete
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    Serial.printf("[OTA] Free DMA heap: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
 
     // Optimize WiFi for OTA download
     WiFi.setAutoReconnect(false);
@@ -618,11 +643,23 @@ static void performOTAUpdate() {
     client.setInsecure();  // Skip certificate validation
 
     HTTPClient http;
+    // Log memory before starting HTTPS connection
+    Serial.println("[OTA] ========================================");
+    Serial.println("[OTA] STARTING OTA DOWNLOAD");
+    Serial.printf("[OTA] Before connection - Free DMA heap: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
+    Serial.printf("[OTA] Before connection - Free heap: %d bytes\n", ESP.getFreeHeap());
+    Serial.println("[OTA] ========================================");
+
     http.begin(client, download_url);
     http.setTimeout(60000);  // 60 second timeout for large files
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
+    Serial.printf("[OTA] After begin() - Free DMA heap: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
+
     int httpCode = http.GET();
+
+    Serial.printf("[OTA] After GET() - Free DMA heap: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
+    Serial.printf("[OTA] HTTP code: %d\n", httpCode);
 
     if (httpCode == 200) {
         int contentLength = http.getSize();
@@ -662,10 +699,14 @@ static void performOTAUpdate() {
 
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
-            // 8KB buffer for reasonable speed
-            static uint8_t buff[8192];  // 8KB chunks
+            // 2KB buffer to reduce memory pressure during OTA (DMA heap is limited)
+            // Slower but prevents SDIO crashes on ESP32-P4
+            static uint8_t buff[2048];  // 2KB chunks
             int lastPercent = -1;
             uint32_t lastUIUpdate = millis();
+            int lastMemoryLog = -1;  // Log memory every 10%
+
+            Serial.printf("[OTA] Starting download - Free DMA heap: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
 
             while (http.connected() && (written < contentLength)) {
                 size_t available = stream->available();
@@ -676,6 +717,12 @@ static void performOTAUpdate() {
 
                     int percent = (written * 100) / contentLength;
                     uint32_t now = millis();
+
+                    // Log DMA heap every 10% to track memory usage during download
+                    if (percent / 10 != lastMemoryLog / 10) {
+                        Serial.printf("[OTA] %d%% - Free DMA heap: %d bytes\n", percent, heap_caps_get_free_size(MALLOC_CAP_DMA));
+                        lastMemoryLog = percent;
+                    }
 
                     // Update UI every 3000ms (3 seconds) to minimize PSRAM access during flash writes
                     if (now - lastUIUpdate >= 3000 && percent != lastPercent) {

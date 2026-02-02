@@ -277,7 +277,15 @@ void albumArtTask(void* param) {
     while (1) {
         // Check if shutdown requested (for OTA update)
         if (art_shutdown_requested) {
-            Serial.println("[ART] Shutdown requested - exiting task");
+            Serial.println("[ART] Shutdown requested - cleaning up SSL client");
+
+            // CRITICAL: Explicitly stop WiFiClientSecure to free ALL SSL session cache
+            // Just letting destructor run doesn't always free cached session tickets
+            secure_client.stop();  // Close connection and free SSL buffers
+            http.end();             // End HTTP client
+
+            Serial.printf("[ART] SSL cleanup complete - Free DMA: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
+
             albumArtTaskHandle = NULL;  // Clear handle before deleting
             vTaskDelete(NULL);  // Delete self
             return;
