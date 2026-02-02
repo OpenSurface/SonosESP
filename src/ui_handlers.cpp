@@ -559,8 +559,12 @@ static void performOTAUpdate() {
         return;
     }
 
-    // Stop album art task to free memory and prevent competing downloads
-    Serial.println("[OTA] Stopping album art task");
+    Serial.println("[OTA] ========================================");
+    Serial.println("[OTA] PREPARING FOR FIRMWARE UPDATE");
+    Serial.println("[OTA] ========================================");
+
+    // STEP 1: Stop album art task (exits cleanly)
+    Serial.println("[OTA] [1/3] Stopping album art task");
     if (albumArtTaskHandle) {
         art_shutdown_requested = true;
         int wait_count = 0;
@@ -569,13 +573,29 @@ static void performOTAUpdate() {
             wait_count++;
         }
         if (albumArtTaskHandle == NULL) {
-            Serial.println("[OTA] Album art task stopped");
+            Serial.println("[OTA] ✓ Album art task stopped cleanly");
         } else {
-            Serial.println("[OTA] Forcing album art task delete");
+            Serial.println("[OTA] ✗ Album art task timeout - forcing delete");
             vTaskDelete(albumArtTaskHandle);
             albumArtTaskHandle = NULL;
         }
     }
+
+    // STEP 2: Suspend Sonos tasks (may have open HTTP connections)
+    Serial.println("[OTA] [2/3] Suspending Sonos polling tasks");
+    sonos.suspendTasks();
+    Serial.println("[OTA] ✓ Sonos tasks suspended");
+
+    // STEP 3: CRITICAL - Wait for HTTP connections to timeout
+    // Suspended tasks may have open HTTP connections that are still using WiFi buffers
+    // We MUST wait for these to close before starting OTA download
+    Serial.println("[OTA] [3/3] Waiting 10 seconds for HTTP connections to timeout...");
+    for (int i = 10; i > 0; i--) {
+        Serial.printf("[OTA] %d...\n", i);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    Serial.println("[OTA] ✓ HTTP timeout complete - WiFi buffers should be clear");
+    Serial.println("[OTA] ========================================");
 
     // Set flag to skip non-essential tasks during OTA
     ota_in_progress = true;
@@ -630,6 +650,11 @@ static void performOTAUpdate() {
             http.end();
             WiFi.setAutoReconnect(true);
             ota_in_progress = false;
+            sonos.resumeTasks();
+            if (albumArtTaskHandle == NULL) {
+                art_shutdown_requested = false;
+                xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);
+            }
             return;
         }
 
@@ -795,8 +820,13 @@ static void performOTAUpdate() {
     ota_in_progress = false;
     Serial.println("[OTA] Non-essential tasks re-enabled (processUpdates, checkAutoDim)");
 
+    // Resume Sonos tasks (if update failed - successful update will restart device)
+    Serial.println("[OTA] Resuming Sonos tasks");
+    sonos.resumeTasks();
+
     // Restart album art task (if update failed - successful update will restart device)
     if (albumArtTaskHandle == NULL) {
+        Serial.println("[OTA] Restarting album art task");
         art_shutdown_requested = false;
         xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);
     }
