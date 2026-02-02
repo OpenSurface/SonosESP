@@ -498,12 +498,30 @@ static void checkForUpdates() {
             // Nightly channel should only show prerelease versions with "-nightly" in tag
             if (ota_channel == 1 && latest_version.indexOf("-nightly") < 0) {
                 Serial.printf("[OTA] Skipping stable version in Nightly channel: v%s\n", latest_version.c_str());
-                if (lbl_ota_status) {
-                    lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " No nightly releases found");
-                    lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
-                }
-                if (lbl_latest_version) {
-                    lv_label_set_text(lbl_latest_version, "Latest (Nightly): None");
+
+                // Check if user is already on a nightly version
+                String current_version = FIRMWARE_VERSION;
+                if (current_version.indexOf("-nightly") >= 0) {
+                    // User is on a nightly, and latest release is stable = user is on latest nightly
+                    if (lbl_ota_status) {
+                        lv_label_set_text(lbl_ota_status, LV_SYMBOL_OK " You're on the latest nightly version!");
+                        lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0x4ECB71), 0);
+                    }
+                    if (lbl_latest_version) {
+                        lv_label_set_text_fmt(lbl_latest_version, "Latest (Nightly): v%s", current_version.c_str());
+                    }
+                    if (btn_install_update) {
+                        lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+                    }
+                } else {
+                    // User is on stable, no nightlies available
+                    if (lbl_ota_status) {
+                        lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " No nightly releases found");
+                        lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+                    }
+                    if (lbl_latest_version) {
+                        lv_label_set_text(lbl_latest_version, "Latest (Nightly): None");
+                    }
                 }
                 http.end();
                 return;

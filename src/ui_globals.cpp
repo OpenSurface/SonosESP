@@ -123,7 +123,6 @@ bool pending_is_station_logo = false;
 unsigned long last_source_change_time = 0;
 volatile unsigned long last_queue_fetch_time = 0;
 SemaphoreHandle_t network_mutex = NULL;  // Created in main.cpp
-SemaphoreHandle_t ota_mutex = NULL;      // Created in main.cpp - OTA ABSOLUTE PRIORITY
 
 // Color sampling
 uint32_t color_r_sum = 0;
