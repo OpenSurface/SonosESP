@@ -101,9 +101,14 @@ def main():
     else:
         print(f"\n[INFO] Using specified version: {base_version}")
 
-    # Generate nightly tag
-    nightly_tag = generate_nightly_tag(base_version)
-    print(f"[INFO] Generated nightly tag: v{nightly_tag}")
+    # Use version from version.json directly (don't regenerate commit hash)
+    if '-nightly' in base_version:
+        nightly_tag = base_version
+        print(f"[INFO] Using nightly version as-is: v{nightly_tag}")
+    else:
+        # If stable version, generate nightly tag
+        nightly_tag = generate_nightly_tag(base_version)
+        print(f"[INFO] Generated nightly tag: v{nightly_tag}")
 
     # Check for GitHub CLI
     if not check_gh_cli():
