@@ -563,83 +563,15 @@ static void performOTAUpdate() {
     Serial.println("[OTA] PREPARING FOR FIRMWARE UPDATE");
     Serial.println("[OTA] ========================================");
 
-    // STEP 1: Pause playback to stop audio streaming (CRITICAL for Spotify/external sources)
-    Serial.println("[OTA] [1/4] Pausing playback");
-    SonosDevice* dev = sonos.getCurrentDevice();
-    if (dev && dev->isPlaying) {
-        sonos.pause();
-        Serial.println("[OTA] Pause command sent, waiting for execution...");
-        vTaskDelay(pdMS_TO_TICKS(500));  // Give network task time to execute pause command
-        Serial.println("[OTA] ✓ Playback paused");
-    } else {
-        Serial.println("[OTA] ✓ Already paused or no device");
-    }
-
-    // STEP 2: Stop album art task (exits cleanly)
-    Serial.println("[OTA] [2/4] Stopping album art task");
+    // Stop album art task
     if (albumArtTaskHandle) {
         art_shutdown_requested = true;
-        int wait_count = 0;
-        while (albumArtTaskHandle != NULL && wait_count < 30) {
-            vTaskDelay(pdMS_TO_TICKS(100));
-            wait_count++;
-        }
-        if (albumArtTaskHandle == NULL) {
-            Serial.println("[OTA] ✓ Album art task stopped cleanly");
-        } else {
-            Serial.println("[OTA] ✗ Album art task timeout - forcing delete");
+        vTaskDelay(pdMS_TO_TICKS(1000));  // Wait for clean exit
+        if (albumArtTaskHandle != NULL) {
             vTaskDelete(albumArtTaskHandle);
             albumArtTaskHandle = NULL;
         }
     }
-
-    // STEP 3: SUSPEND Sonos background tasks (CRITICAL!)
-    // This stops them from making network requests during OTA
-    Serial.println("[OTA] [3/4] Suspending Sonos background tasks");
-    sonos.suspendTasks();
-
-    // STEP 4: HARD RESET WiFi driver to clear all TCP/IP state
-    Serial.println("[OTA] [4/4] Performing WiFi driver hard reset...");
-    // Save credentials before reset
-    String ssid = WiFi.SSID();
-    String pass = WiFi.psk();
-
-    // Turn WiFi completely OFF (full driver reset)
-    WiFi.mode(WIFI_OFF);
-    Serial.println("[OTA] WiFi OFF - driver shutdown");
-    vTaskDelay(pdMS_TO_TICKS(2000));  // 2 seconds for full driver shutdown
-
-    // Turn WiFi back ON with fresh driver state
-    WiFi.mode(WIFI_STA);
-    Serial.println("[OTA] WiFi STA mode - driver reinitialized");
-    vTaskDelay(pdMS_TO_TICKS(1000));  // 1 second for driver init
-
-    // Reconnect to network
-    Serial.println("[OTA] Reconnecting to network...");
-    WiFi.begin(ssid.c_str(), pass.c_str());
-    int reconnect_attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && reconnect_attempts < 20) {
-        vTaskDelay(pdMS_TO_TICKS(500));
-        reconnect_attempts++;
-    }
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("[OTA] ✓ WiFi reconnected - ready for OTA download");
-    } else {
-        Serial.println("[OTA] ✗ WiFi reconnection failed!");
-        if (lbl_ota_status) {
-            lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " WiFi reconnection failed");
-            lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
-        }
-        // Resume suspended tasks
-        sonos.resumeTasks();
-        // Restart album art task
-        if (albumArtTaskHandle == NULL) {
-            art_shutdown_requested = false;
-            xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);
-        }
-        return;
-    }
-    Serial.println("[OTA] ========================================");
 
     // Set flag to skip non-essential tasks during OTA
     ota_in_progress = true;
@@ -719,11 +651,9 @@ static void performOTAUpdate() {
 
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
-            // CRITICAL: Use 4KB buffer to prevent SDIO buffer exhaustion
-            // Suspended tasks still have TCP state registered in WiFi driver
-            // Smaller chunks + throttling prevents SDIO queue overflow
-            // 4KB reduces incoming data rate and gives SDIO driver time to process
-            static uint8_t buff[4096];  // 4KB buffer for SDIO stability
+            // Ultra-conservative: 1KB buffer + 100ms delays
+            // Prevents SDIO buffer exhaustion by trickling data
+            static uint8_t buff[1024];  // 1KB chunks
             int lastPercent = -1;
             uint32_t lastUIUpdate = millis();
 
@@ -756,9 +686,9 @@ static void performOTAUpdate() {
                         lastUIUpdate = now;
                     }
                 }
-                // Throttle download rate to prevent SDIO buffer exhaustion
-                // 10ms delay gives WiFi driver time to process incoming data
-                vTaskDelay(pdMS_TO_TICKS(10));
+                // Heavy throttle: 100ms between 1KB chunks
+                // Slow but stable
+                vTaskDelay(pdMS_TO_TICKS(100));
             }
 
             if (written == contentLength) {

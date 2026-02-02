@@ -209,8 +209,8 @@ public:
     bool isDeviceInGroup(int deviceIndex, int coordinatorIndex);  // Check if device is in coordinator's group
 
     // Task management for OTA
-    void suspendTasks();  // Suspend polling/network tasks for OTA
-    void resumeTasks();   // Resume polling/network tasks after OTA
+    void suspendTasks();  // Delete polling/network tasks for OTA (frees WiFi buffers immediately)
+    void resumeTasks();   // Recreate polling/network tasks after OTA (only on failure)
 };
 
 #endif // SONOS_CONTROLLER_H

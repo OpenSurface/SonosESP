@@ -1345,7 +1345,8 @@ void SonosController::resetErrorCount() {
 }
 
 void SonosController::suspendTasks() {
-    // Suspend Sonos polling/network tasks for OTA to prevent WiFi buffer overflow
+    // SUSPEND tasks for OTA (don't delete - avoids mutex issues)
+    // Suspended tasks stop executing but keep their state
     if (pollingTaskHandle) {
         Serial.println("[SONOS] Suspending polling task for OTA");
         vTaskSuspend(pollingTaskHandle);
@@ -1354,10 +1355,11 @@ void SonosController::suspendTasks() {
         Serial.println("[SONOS] Suspending network task for OTA");
         vTaskSuspend(networkTaskHandle);
     }
+    Serial.println("[SONOS] ✓ Background tasks suspended");
 }
 
 void SonosController::resumeTasks() {
-    // Resume Sonos tasks after OTA
+    // Resume tasks after OTA
     if (pollingTaskHandle) {
         Serial.println("[SONOS] Resuming polling task");
         vTaskResume(pollingTaskHandle);
@@ -1366,6 +1368,7 @@ void SonosController::resumeTasks() {
         Serial.println("[SONOS] Resuming network task");
         vTaskResume(networkTaskHandle);
     }
+    Serial.println("[SONOS] ✓ Background tasks resumed");
 }
 
 // ============================================================================
