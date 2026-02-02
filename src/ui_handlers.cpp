@@ -563,8 +563,20 @@ static void performOTAUpdate() {
     Serial.println("[OTA] PREPARING FOR FIRMWARE UPDATE");
     Serial.println("[OTA] ========================================");
 
-    // STEP 1: Stop album art task (exits cleanly)
-    Serial.println("[OTA] [1/3] Stopping album art task");
+    // STEP 1: Pause playback to stop audio streaming (CRITICAL for Spotify/external sources)
+    Serial.println("[OTA] [1/4] Pausing playback");
+    SonosDevice* dev = sonos.getCurrentDevice();
+    if (dev && dev->isPlaying) {
+        sonos.pause();
+        Serial.println("[OTA] Pause command sent, waiting for execution...");
+        vTaskDelay(pdMS_TO_TICKS(500));  // Give network task time to execute pause command
+        Serial.println("[OTA] ✓ Playback paused");
+    } else {
+        Serial.println("[OTA] ✓ Already paused or no device");
+    }
+
+    // STEP 2: Stop album art task (exits cleanly)
+    Serial.println("[OTA] [2/4] Stopping album art task");
     if (albumArtTaskHandle) {
         art_shutdown_requested = true;
         int wait_count = 0;
@@ -581,20 +593,43 @@ static void performOTAUpdate() {
         }
     }
 
-    // STEP 2: Suspend Sonos tasks (may have open HTTP connections)
-    Serial.println("[OTA] [2/3] Suspending Sonos polling tasks");
+    // STEP 3: SUSPEND Sonos background tasks (CRITICAL!)
+    // This stops them from making network requests during OTA
+    Serial.println("[OTA] [3/4] Suspending Sonos background tasks");
     sonos.suspendTasks();
-    Serial.println("[OTA] ✓ Sonos tasks suspended");
 
-    // STEP 3: CRITICAL - Wait for HTTP connections to timeout
-    // Suspended tasks may have open HTTP connections that are still using WiFi buffers
-    // We MUST wait for these to close before starting OTA download
-    Serial.println("[OTA] [3/3] Waiting 10 seconds for HTTP connections to timeout...");
-    for (int i = 10; i > 0; i--) {
-        Serial.printf("[OTA] %d...\n", i);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+    // STEP 4: Disconnect WiFi to abort ANY remaining HTTP connections
+    Serial.println("[OTA] [4/4] Disconnecting WiFi to abort connections");
+    WiFi.disconnect(false, false);  // Don't erase credentials
+    Serial.println("[OTA] Waiting 3 seconds for all HTTP connections to close...");
+    vTaskDelay(pdMS_TO_TICKS(3000));  // 3 seconds - critical for Spotify/Radio streaming
+    Serial.println("[OTA] ✓ WiFi disconnected - all connections aborted");
+
+    // Reconnect WiFi for OTA download
+    Serial.println("[OTA] Reconnecting WiFi for OTA download...");
+    WiFi.reconnect();
+    int reconnect_attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && reconnect_attempts < 20) {
+        vTaskDelay(pdMS_TO_TICKS(500));
+        reconnect_attempts++;
     }
-    Serial.println("[OTA] ✓ HTTP timeout complete - WiFi buffers should be clear");
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("[OTA] ✓ WiFi reconnected - ready for OTA download");
+    } else {
+        Serial.println("[OTA] ✗ WiFi reconnection failed!");
+        if (lbl_ota_status) {
+            lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " WiFi reconnection failed");
+            lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+        }
+        // Resume suspended tasks
+        sonos.resumeTasks();
+        // Restart album art task
+        if (albumArtTaskHandle == NULL) {
+            art_shutdown_requested = false;
+            xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);
+        }
+        return;
+    }
     Serial.println("[OTA] ========================================");
 
     // Set flag to skip non-essential tasks during OTA
@@ -650,7 +685,7 @@ static void performOTAUpdate() {
             http.end();
             WiFi.setAutoReconnect(true);
             ota_in_progress = false;
-            sonos.resumeTasks();
+            sonos.resumeTasks();  // Resume suspended tasks
             if (albumArtTaskHandle == NULL) {
                 art_shutdown_requested = false;
                 xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);
@@ -668,7 +703,8 @@ static void performOTAUpdate() {
             lv_tick_inc(10);
             lv_refr_now(NULL);
 
-            // Dim backlight heavily during download to hide flash write flicker
+            // Dim backlight during download to reduce visible flicker
+            // ESP32-P4 RGB LCD uses PSRAM - flash writes disable cache causing flicker
             int original_brightness = brightness_level;
             display_set_brightness(5);  // 5% brightness during download
 
@@ -692,8 +728,8 @@ static void performOTAUpdate() {
                     int percent = (written * 100) / contentLength;
                     uint32_t now = millis();
 
-                    // Update UI every 1000ms (1 second) to reduce flicker
-                    if (now - lastUIUpdate >= 1000 && percent != lastPercent) {
+                    // Update UI every 3000ms (3 seconds) to minimize PSRAM access during flash writes
+                    if (now - lastUIUpdate >= 3000 && percent != lastPercent) {
                         if (lbl_ota_progress) {
                             lv_label_set_text_fmt(lbl_ota_progress, "%d%%", percent);
                         }
@@ -820,8 +856,8 @@ static void performOTAUpdate() {
     ota_in_progress = false;
     Serial.println("[OTA] Non-essential tasks re-enabled (processUpdates, checkAutoDim)");
 
-    // Resume Sonos tasks (if update failed - successful update will restart device)
-    Serial.println("[OTA] Resuming Sonos tasks");
+    // Resume Sonos background tasks (if update failed - successful update will restart device)
+    Serial.println("[OTA] Resuming Sonos background tasks");
     sonos.resumeTasks();
 
     // Restart album art task (if update failed - successful update will restart device)
