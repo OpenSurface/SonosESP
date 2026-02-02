@@ -563,11 +563,22 @@ static void performOTAUpdate() {
     Serial.println("[OTA] PREPARING FOR FIRMWARE UPDATE");
     Serial.println("[OTA] ========================================");
 
-    // Stop album art task
+    // Stop album art task and WAIT for it to finish
     if (albumArtTaskHandle) {
         art_shutdown_requested = true;
-        vTaskDelay(pdMS_TO_TICKS(1000));  // Wait for clean exit
-        if (albumArtTaskHandle != NULL) {
+        Serial.println("[OTA] Waiting for album art task to stop...");
+
+        // Wait up to 10 seconds for clean exit
+        int wait_count = 0;
+        while (albumArtTaskHandle != NULL && wait_count < 100) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+            wait_count++;
+        }
+
+        if (albumArtTaskHandle == NULL) {
+            Serial.println("[OTA] ✓ Album art stopped");
+        } else {
+            Serial.println("[OTA] Force killing album art task");
             vTaskDelete(albumArtTaskHandle);
             albumArtTaskHandle = NULL;
         }
@@ -651,9 +662,8 @@ static void performOTAUpdate() {
 
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
-            // Ultra-conservative: 1KB buffer + 100ms delays
-            // Prevents SDIO buffer exhaustion by trickling data
-            static uint8_t buff[1024];  // 1KB chunks
+            // 8KB buffer for reasonable speed
+            static uint8_t buff[8192];  // 8KB chunks
             int lastPercent = -1;
             uint32_t lastUIUpdate = millis();
 
@@ -686,9 +696,8 @@ static void performOTAUpdate() {
                         lastUIUpdate = now;
                     }
                 }
-                // Heavy throttle: 100ms between 1KB chunks
-                // Slow but stable
-                vTaskDelay(pdMS_TO_TICKS(100));
+                // Small yield
+                vTaskDelay(pdMS_TO_TICKS(1));
             }
 
             if (written == contentLength) {
