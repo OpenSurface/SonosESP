@@ -170,10 +170,11 @@ void setup() {
 
 void loop() {
     lv_tick_inc(3);
-    lv_timer_handler();
 
-    // Skip non-essential functions during OTA update for better WiFi stability
+    // Skip LVGL timer during OTA to prevent PSRAM access during flash writes
+    // OTA progress updates use explicit lv_refr_now() calls instead
     if (!ota_in_progress) {
+        lv_timer_handler();
         processUpdates();
         checkAutoDim();
     }
