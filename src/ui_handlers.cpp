@@ -433,17 +433,25 @@ static void checkForUpdates() {
             // For nightly channel, search array for first nightly release
             JsonVariant releaseObj;
             if (ota_channel == 1) {
-                // Nightly: response is an array, find first nightly release
+                // Nightly: response is an array, find LATEST nightly release by published_at
                 if (doc.is<JsonArray>() && doc.size() > 0) {
                     bool found = false;
+                    String latest_published = "";
+
                     for (JsonVariant release : doc.as<JsonArray>()) {
                         String tag = release["tag_name"].as<String>();
                         // Check if this is a nightly release
                         if (tag.indexOf("-nightly") >= 0) {
-                            releaseObj = release;
-                            found = true;
-                            Serial.printf("[OTA] Found nightly release: %s\n", tag.c_str());
-                            break;
+                            String published = release["published_at"].as<String>();
+
+                            // Compare published timestamps to find the latest
+                            if (!found || published > latest_published) {
+                                releaseObj = release;
+                                latest_published = published;
+                                found = true;
+                                Serial.printf("[OTA] Found nightly release: %s (published: %s)\n",
+                                            tag.c_str(), published.c_str());
+                            }
                         }
                     }
                     if (!found) {
