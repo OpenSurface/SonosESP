@@ -742,6 +742,12 @@ static void performOTAUpdate() {
                     int c = stream->readBytes(buff, toRead);
                     written += Update.write(buff, c);
 
+                    // CRITICAL: Yield immediately after flash write to allow MIPI DSI DMA to access PSRAM
+                    // Flash chip (Boya BY25Q 0x684018) does NOT support auto-suspend
+                    // Cache is disabled during write, blocking ALL PSRAM access = display freeze (blue screen)
+                    // This 1ms yield allows display refresh between writes (slows OTA but prevents flicker)
+                    vTaskDelay(pdMS_TO_TICKS(1));
+
                     int percent = (written * 100) / contentLength;
                     uint32_t now = millis();
 
