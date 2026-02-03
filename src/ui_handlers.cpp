@@ -630,8 +630,11 @@ static void performOTAUpdate() {
     Serial.println("[OTA] Suspending Sonos tasks...");
     sonos.suspendTasks();
 
-    // Set flag to skip non-essential tasks during OTA
-    ota_in_progress = true;
+    // Set flag to skip non-essential tasks during OTA (protected by mutex)
+    if (xSemaphoreTake(ota_progress_mutex, pdMS_TO_TICKS(1000))) {
+        ota_in_progress = true;
+        xSemaphoreGive(ota_progress_mutex);
+    }
 
     // Small delay to allow SSL cleanup in album art task to complete
     vTaskDelay(pdMS_TO_TICKS(500));
@@ -699,7 +702,10 @@ static void performOTAUpdate() {
             }
             http.end();
             WiFi.setAutoReconnect(true);
-            ota_in_progress = false;
+            if (xSemaphoreTake(ota_progress_mutex, pdMS_TO_TICKS(1000))) {
+                ota_in_progress = false;
+                xSemaphoreGive(ota_progress_mutex);
+            }
             sonos.resumeTasks();  // Resume suspended tasks
             if (albumArtTaskHandle == NULL) {
                 art_shutdown_requested = false;
@@ -718,19 +724,14 @@ static void performOTAUpdate() {
             lv_tick_inc(10);
             lv_refr_now(NULL);
 
-            // Dim backlight during download to reduce visible flicker
-            // ESP32-P4 RGB LCD uses PSRAM - flash writes disable cache causing flicker
-            int original_brightness = brightness_level;
-            display_set_brightness(5);  // 5% brightness during download
-
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
-            // 2KB buffer to reduce memory pressure during OTA (DMA heap is limited)
-            // Slower but prevents SDIO crashes on ESP32-P4
-            static uint8_t buff[2048];  // 2KB chunks
+            // 512 byte buffer for faster flash writes (reduces blue screen duration)
+            // Smaller writes = less time with cache disabled = less flicker
+            static uint8_t buff[512];
             int lastPercent = -1;
             uint32_t lastUIUpdate = millis();
-            int lastMemoryLog = -1;  // Log memory every 10%
+            int lastMemoryLog = -1;
 
             Serial.printf("[OTA] Starting download - Free DMA heap: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
 
@@ -744,39 +745,35 @@ static void performOTAUpdate() {
                     int percent = (written * 100) / contentLength;
                     uint32_t now = millis();
 
-                    // Log DMA heap every 10% to track memory usage during download
+                    // Update UI progress continuously
+                    if (percent != lastPercent) {
+                        if (xSemaphoreTake(ota_progress_mutex, pdMS_TO_TICKS(10))) {
+                            if (lbl_ota_progress) {
+                                lv_label_set_text_fmt(lbl_ota_progress, "%d%%", percent);
+                            }
+                            if (bar_ota_progress) {
+                                lv_bar_set_value(bar_ota_progress, percent, LV_ANIM_OFF);
+                            }
+                            xSemaphoreGive(ota_progress_mutex);
+                        }
+                        lastPercent = percent;
+                    }
+
+                    // Refresh display every 10%
                     if (percent / 10 != lastMemoryLog / 10) {
                         Serial.printf("[OTA] %d%% - Free DMA heap: %d bytes\n", percent, heap_caps_get_free_size(MALLOC_CAP_DMA));
                         lastMemoryLog = percent;
-                    }
 
-                    // Update UI every 3000ms (3 seconds) to minimize PSRAM access during flash writes
-                    if (now - lastUIUpdate >= 3000 && percent != lastPercent) {
-                        if (lbl_ota_progress) {
-                            lv_label_set_text_fmt(lbl_ota_progress, "%d%%", percent);
-                        }
-                        if (bar_ota_progress) {
-                            lv_bar_set_value(bar_ota_progress, percent, LV_ANIM_OFF);
-                        }
-                        if (lbl_ota_status) {
-                            lv_label_set_text(lbl_ota_status, LV_SYMBOL_DOWNLOAD " Downloading firmware...");
-                        }
-                        lastPercent = percent;
-
-                        // Force display refresh
+                        vTaskDelay(pdMS_TO_TICKS(20));
                         lv_tick_inc(now - lastUIUpdate);
                         lv_refr_now(NULL);
                         lastUIUpdate = now;
                     }
                 }
-                // Small yield
-                vTaskDelay(pdMS_TO_TICKS(1));
+                vTaskDelay(pdMS_TO_TICKS(5));
             }
 
             if (written == contentLength) {
-                // Restore brightness after download
-                display_set_brightness(original_brightness);
-
                 // DOWNLOAD COMPLETE - Show 100%
                 if (bar_ota_progress) {
                     lv_bar_set_value(bar_ota_progress, 100, LV_ANIM_OFF);
@@ -875,7 +872,10 @@ static void performOTAUpdate() {
     Serial.println("[OTA] WiFi auto-reconnect re-enabled");
 
     // Re-enable loop functions (if update failed - successful update will restart device)
-    ota_in_progress = false;
+    if (xSemaphoreTake(ota_progress_mutex, pdMS_TO_TICKS(1000))) {
+        ota_in_progress = false;
+        xSemaphoreGive(ota_progress_mutex);
+    }
     Serial.println("[OTA] Non-essential tasks re-enabled (processUpdates, checkAutoDim)");
 
     // Resume Sonos background tasks (if update failed - successful update will restart device)

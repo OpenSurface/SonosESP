@@ -140,6 +140,7 @@ extern String latest_version;
 extern String download_url;
 extern int ota_channel;  // 0=Stable, 1=Nightly
 extern volatile bool ota_in_progress;  // Flag to skip non-essential tasks during OTA
+extern SemaphoreHandle_t ota_progress_mutex;  // Protects OTA progress updates and state
 
 // ============================================================================
 // Function Declarations - Screen Creation

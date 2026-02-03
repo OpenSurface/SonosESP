@@ -5,6 +5,7 @@
  */
 
 #include "ui_common.h"
+#include <esp_flash.h>
 
 // Sonos logo
 LV_IMG_DECLARE(Sonos_idnu60bqes_1);
@@ -14,9 +15,65 @@ void setup() {
     delay(500);
     Serial.println("\n=== SONOS CONTROLLER ===");
     Serial.printf("Free heap: %d, PSRAM: %d\n", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    Serial.flush();
+
+    // Detect flash chip to verify if auto-suspend is supported
+    Serial.println("========================================");
+    Serial.println("[FLASH] Detecting flash chip...");
+    Serial.flush();
+
+    uint32_t flash_id = 0;
+    esp_err_t ret = esp_flash_read_id(esp_flash_default_chip, &flash_id);
+
+    if (ret != ESP_OK) {
+        Serial.printf("[FLASH] ERROR: Failed to read flash ID! esp_err=%d\n", ret);
+        Serial.flush();
+    } else {
+        uint8_t mfg_id = (flash_id >> 16) & 0xFF;
+        uint8_t type_id = (flash_id >> 8) & 0xFF;
+        uint8_t capacity_id = flash_id & 0xFF;
+
+        Serial.printf("[FLASH] Chip ID: 0x%06X\n", flash_id);
+        Serial.flush();
+        Serial.printf("[FLASH] Manufacturer: 0x%02X ", mfg_id);
+        switch(mfg_id) {
+            case 0xC8: Serial.println("(GigaDevice GD25)"); break;
+            case 0x20: Serial.println("(XMC XM25)"); break;
+            case 0xEF: Serial.println("(Winbond W25)"); break;
+            case 0x1C: Serial.println("(EON EN25)"); break;
+            case 0xA1: Serial.println("(Fudan Micro FM25)"); break;
+            default: Serial.printf("(Unknown)\n"); break;
+        }
+        Serial.flush();
+        Serial.printf("[FLASH] Type: 0x%02X, Capacity: 0x%02X\n", type_id, capacity_id);
+        Serial.flush();
+
+        // Check if flash supports auto-suspend (based on ESP-IDF docs)
+        bool suspend_supported = false;
+        if (mfg_id == 0xC8 && (type_id & 0xF0) == 0x40 && (capacity_id >= 0x15)) {
+            Serial.println("[FLASH] ✓ GD25QxxE series - AUTO-SUSPEND SUPPORTED");
+            suspend_supported = true;
+        } else if (mfg_id == 0x20 && (type_id & 0xF0) == 0x40 && (capacity_id >= 0x15)) {
+            Serial.println("[FLASH] ✓ XM25QxxC series - AUTO-SUSPEND SUPPORTED");
+            suspend_supported = true;
+        } else if (mfg_id == 0xA1 && type_id == 0x40 && capacity_id == 0x16) {
+            Serial.println("[FLASH] ✓ FM25Q32 - AUTO-SUSPEND SUPPORTED");
+            suspend_supported = true;
+        } else {
+            Serial.println("[FLASH] ✗ AUTO-SUSPEND NOT SUPPORTED BY THIS CHIP!");
+            Serial.println("[FLASH] CONFIG_SPI_FLASH_AUTO_SUSPEND will NOT work!");
+            Serial.println("[FLASH] Display WILL flicker during OTA writes!");
+        }
+        Serial.flush();
+    }
+    Serial.println("========================================\n");
+    Serial.flush();
 
     // Create network mutex to serialize WiFi access (prevents SDIO buffer overflow)
     network_mutex = xSemaphoreCreateMutex();
+
+    // Create OTA progress mutex to protect OTA state and UI updates
+    ota_progress_mutex = xSemaphoreCreateMutex();
 
     // Initialize preferences with debug logging
     wifiPrefs.begin("sonos_wifi", false);
@@ -169,7 +226,13 @@ void loop() {
 
     // Skip LVGL timer during OTA to prevent PSRAM access during flash writes
     // OTA progress updates use explicit lv_refr_now() calls instead
-    if (!ota_in_progress) {
+    bool skip_updates = false;
+    if (xSemaphoreTake(ota_progress_mutex, pdMS_TO_TICKS(10))) {
+        skip_updates = ota_in_progress;
+        xSemaphoreGive(ota_progress_mutex);
+    }
+
+    if (!skip_updates) {
         lv_timer_handler();
         processUpdates();
         checkAutoDim();

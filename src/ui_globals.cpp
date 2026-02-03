@@ -177,3 +177,4 @@ String latest_version = "";
 String download_url = "";
 int ota_channel = 0;  // 0=Stable, 1=Nightly
 volatile bool ota_in_progress = false;  // Flag to skip non-essential tasks during OTA
+SemaphoreHandle_t ota_progress_mutex = NULL;  // Created in main.cpp
