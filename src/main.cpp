@@ -232,6 +232,13 @@ void logHeapStatus() {
     Serial.printf("[HEAP] Free: %dKB | Min: %dKB | PSRAM: %dKB\n",
                   free_heap / 1024, min_heap / 1024, free_psram / 1024);
 
+    // Log task stack high water marks (unused stack space in words)
+    // Lower number = more stack used, closer to overflow
+    // Multiply by 4 to get bytes (ESP32 uses 4-byte words)
+    Serial.printf("[STACK] Art:%d ", albumArtTaskHandle ? uxTaskGetStackHighWaterMark(albumArtTaskHandle) * 4 : 0);
+    Serial.printf("Net:%d ", sonos.getNetworkTaskHandle() ? uxTaskGetStackHighWaterMark(sonos.getNetworkTaskHandle()) * 4 : 0);
+    Serial.printf("Poll:%d bytes free\n", sonos.getPollingTaskHandle() ? uxTaskGetStackHighWaterMark(sonos.getPollingTaskHandle()) * 4 : 0);
+
     // Warn if heap is getting low
     if (free_heap < 50000) {
         Serial.println("[HEAP] WARNING: Low memory!");

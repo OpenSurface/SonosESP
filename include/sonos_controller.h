@@ -197,6 +197,10 @@ public:
     // Queue access
     QueueHandle_t getCommandQueue() { return commandQueue; }
     QueueHandle_t getUIUpdateQueue() { return uiUpdateQueue; }
+
+    // Task handles for stack monitoring
+    TaskHandle_t getNetworkTaskHandle() { return networkTaskHandle; }
+    TaskHandle_t getPollingTaskHandle() { return pollingTaskHandle; }
     
     // Error handling
     void handleNetworkError(const char* message);

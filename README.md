@@ -31,9 +31,15 @@ If you find this project helpful, consider supporting me on Ko-fi!
 - **Thread-Safe** - FreeRTOS tasks with proper synchronization
 - **Performance Optimized** - PSRAM allocation, efficient string handling, robust networking, fast fixed-point math
 
+
+![SonosESP Demo](assets/image1.gif)
+
 ##  Hardware
 
 This project requires the **GUITION JC4880P433C** development board:
+
+![GUITION JC4880P433C](assets/image.png)
+
 
 | Component | Specification |
 |-----------|--------------|
