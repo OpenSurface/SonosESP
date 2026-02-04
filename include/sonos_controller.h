@@ -129,7 +129,7 @@ private:
     // Internal methods
     String sendSOAP(const char* service, const char* action, const char* args);
     void getRoomName(SonosDevice* dev);
-    int timeToSeconds(String time);
+    int timeToSeconds(const String& time);
     void notifyUI(UIUpdateType_e type);
     
     // Task functions
@@ -175,6 +175,7 @@ public:
 
     // Helper methods (public for UI)
     String extractXML(const String& xml, const char* tag);
+    String extractXMLRange(const String& xml, const char* tag, int rangeStart, int rangeEnd);
     String decodeHTML(String text);
 
     // Volume control (non-blocking, queued)

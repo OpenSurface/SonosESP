@@ -1,73 +1,48 @@
 /**
- * ESP32-S3 Sonos Controller
- * 800x480 RGB Display with Touch
+ * ESP32-P4 Sonos Controller
+ * 480x800 MIPI DSI Display with Touch
  * Modern UI matching reference design
  */
 
 #include "ui_common.h"
+#include "config.h"
 #include <esp_flash.h>
+#include <esp_task_wdt.h>
 
 // Sonos logo
 LV_IMG_DECLARE(Sonos_idnu60bqes_1);
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(SERIAL_BAUD_RATE);
     delay(500);
     Serial.println("\n=== SONOS CONTROLLER ===");
     Serial.printf("Free heap: %d, PSRAM: %d\n", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-    Serial.flush();
 
-    // Detect flash chip to verify if auto-suspend is supported
-    Serial.println("========================================");
-    Serial.println("[FLASH] Detecting flash chip...");
-    Serial.flush();
-
+    // Detect flash chip - auto-suspend only works with specific chips
     uint32_t flash_id = 0;
     esp_err_t ret = esp_flash_read_id(esp_flash_default_chip, &flash_id);
 
-    if (ret != ESP_OK) {
-        Serial.printf("[FLASH] ERROR: Failed to read flash ID! esp_err=%d\n", ret);
-        Serial.flush();
-    } else {
+    if (ret == ESP_OK) {
         uint8_t mfg_id = (flash_id >> 16) & 0xFF;
-        uint8_t type_id = (flash_id >> 8) & 0xFF;
         uint8_t capacity_id = flash_id & 0xFF;
+        int flash_size_mb = (1 << capacity_id) / (1024 * 1024);
 
-        Serial.printf("[FLASH] Chip ID: 0x%06X\n", flash_id);
-        Serial.flush();
-        Serial.printf("[FLASH] Manufacturer: 0x%02X ", mfg_id);
+        const char* mfg_name;
         switch(mfg_id) {
-            case 0xC8: Serial.println("(GigaDevice GD25)"); break;
-            case 0x20: Serial.println("(XMC XM25)"); break;
-            case 0xEF: Serial.println("(Winbond W25)"); break;
-            case 0x1C: Serial.println("(EON EN25)"); break;
-            case 0xA1: Serial.println("(Fudan Micro FM25)"); break;
-            default: Serial.printf("(Unknown)\n"); break;
+            case 0x68: mfg_name = "Boya BY25Q"; break;
+            case 0xC8: mfg_name = "GigaDevice GD25"; break;
+            case 0x20: mfg_name = "XMC XM25"; break;
+            case 0xEF: mfg_name = "Winbond W25"; break;
+            case 0x1C: mfg_name = "EON EN25"; break;
+            case 0xA1: mfg_name = "Fudan FM25"; break;
+            default:   mfg_name = "Unknown"; break;
         }
-        Serial.flush();
-        Serial.printf("[FLASH] Type: 0x%02X, Capacity: 0x%02X\n", type_id, capacity_id);
-        Serial.flush();
 
-        // Check if flash supports auto-suspend (based on ESP-IDF docs)
-        bool suspend_supported = false;
-        if (mfg_id == 0xC8 && (type_id & 0xF0) == 0x40 && (capacity_id >= 0x15)) {
-            Serial.println("[FLASH] ✓ GD25QxxE series - AUTO-SUSPEND SUPPORTED");
-            suspend_supported = true;
-        } else if (mfg_id == 0x20 && (type_id & 0xF0) == 0x40 && (capacity_id >= 0x15)) {
-            Serial.println("[FLASH] ✓ XM25QxxC series - AUTO-SUSPEND SUPPORTED");
-            suspend_supported = true;
-        } else if (mfg_id == 0xA1 && type_id == 0x40 && capacity_id == 0x16) {
-            Serial.println("[FLASH] ✓ FM25Q32 - AUTO-SUSPEND SUPPORTED");
-            suspend_supported = true;
-        } else {
-            Serial.println("[FLASH] ✗ AUTO-SUSPEND NOT SUPPORTED BY THIS CHIP!");
-            Serial.println("[FLASH] CONFIG_SPI_FLASH_AUTO_SUSPEND will NOT work!");
-            Serial.println("[FLASH] Display WILL flicker during OTA writes!");
-        }
-        Serial.flush();
+        // Check if flash supports auto-suspend (ESP-IDF: GD25QxxE, XM25QxxC, FM25Q32)
+        bool suspend_ok = (mfg_id == 0xC8 || mfg_id == 0x20 || mfg_id == 0xA1);
+        Serial.printf("[FLASH] %s %dMB (0x%06X) - Auto-suspend: %s\n",
+                      mfg_name, flash_size_mb, flash_id, suspend_ok ? "YES" : "NO");
     }
-    Serial.println("========================================\n");
-    Serial.flush();
 
     // Create network mutex to serialize WiFi access (prevents SDIO buffer overflow)
     network_mutex = xSemaphoreCreateMutex();
@@ -76,9 +51,9 @@ void setup() {
     ota_progress_mutex = xSemaphoreCreateMutex();
 
     // Initialize preferences with debug logging
-    wifiPrefs.begin("sonos_wifi", false);
-    String ssid = wifiPrefs.getString("ssid", DEFAULT_WIFI_SSID);
-    String pass = wifiPrefs.getString("pass", DEFAULT_WIFI_PASSWORD);
+    wifiPrefs.begin(NVS_NAMESPACE, false);
+    String ssid = wifiPrefs.getString(NVS_KEY_SSID, DEFAULT_WIFI_SSID);
+    String pass = wifiPrefs.getString(NVS_KEY_PASSWORD, DEFAULT_WIFI_PASSWORD);
 
     // Debug: Log what was loaded from NVS
     if (ssid.length() > 0) {
@@ -87,10 +62,10 @@ void setup() {
         Serial.println("[WIFI] No saved credentials found in NVS, using defaults");
     }
 
-    // Load display settings from NVS (defaults: brightness=100%, dimmed=20%, autodim=30sec)
-    brightness_level = wifiPrefs.getInt("brightness", 100);
-    brightness_dimmed = wifiPrefs.getInt("brightness_dimmed", 20);
-    autodim_timeout = wifiPrefs.getInt("autodim_sec", 30);
+    // Load display settings from NVS
+    brightness_level = wifiPrefs.getInt(NVS_KEY_BRIGHTNESS, DEFAULT_BRIGHTNESS);
+    brightness_dimmed = wifiPrefs.getInt(NVS_KEY_BRIGHTNESS_DIM, DEFAULT_BRIGHTNESS_DIM);
+    autodim_timeout = wifiPrefs.getInt(NVS_KEY_AUTODIM, DEFAULT_AUTODIM_SEC);
     Serial.printf("[DISPLAY] Loaded settings from NVS: brightness=%d%%, dimmed=%d%%, autodim=%dsec\n",
                   brightness_level, brightness_dimmed, autodim_timeout);
 
@@ -99,14 +74,12 @@ void setup() {
 
     WiFi.mode(WIFI_STA);
     // ESP32-C6 WiFi initialization delay - fixes ESP-Hosted SDIO timing issues
-    // The ESP32-C6 co-processor needs time to initialize SDIO before accepting connections
-    // Without this delay, SDIO RX queue can overflow during association causing timeouts
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    vTaskDelay(pdMS_TO_TICKS(WIFI_INIT_DELAY_MS));
     WiFi.begin(ssid.c_str(), pass.c_str());
     Serial.printf("[WIFI] Connecting to '%s'", ssid.c_str());
     int tries = 0;
-    while (WiFi.status() != WL_CONNECTED && tries++ < 40) {  // Increased to 40 tries (20 seconds)
-        vTaskDelay(pdMS_TO_TICKS(500));
+    while (WiFi.status() != WL_CONNECTED && tries++ < WIFI_CONNECT_RETRIES) {
+        vTaskDelay(pdMS_TO_TICKS(WIFI_CONNECT_TIMEOUT_MS));
         Serial.print(".");
     }
     if (WiFi.status() == WL_CONNECTED) {
@@ -118,6 +91,16 @@ void setup() {
     lv_init();
     if (!display_init()) { Serial.println("Display FAIL"); while(1) delay(1000); }
     if (!touch_init()) { Serial.println("Touch FAIL"); while(1) delay(1000); }
+
+    // Initialize hardware watchdog timer - auto-reboot if system hangs
+    esp_task_wdt_config_t wdt_config = {
+        .timeout_ms = WATCHDOG_TIMEOUT_SEC * 1000,
+        .idle_core_mask = 0,  // Don't watch idle tasks
+        .trigger_panic = true // Reboot on timeout
+    };
+    esp_task_wdt_reconfigure(&wdt_config);
+    esp_task_wdt_add(NULL);  // Add main task to watchdog
+    Serial.printf("[WDT] Watchdog enabled: %d sec timeout\n", WATCHDOG_TIMEOUT_SEC);
 
     // Set initial brightness
     setBrightness(brightness_level);
@@ -194,7 +177,7 @@ void setup() {
     updateBootProgress(85);
 
     art_mutex = xSemaphoreCreateMutex();
-    xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);  // Core 0, Priority 1 (low)
+    xTaskCreatePinnedToCore(albumArtTask, "Art", ART_TASK_STACK_SIZE, NULL, ART_TASK_PRIORITY, &albumArtTaskHandle, 0);
     updateBootProgress(90);
 
     sonos.begin();
@@ -221,11 +204,47 @@ void setup() {
     Serial.println("Ready!");
 }
 
+// WiFi auto-reconnection check (runs every 10 seconds when disconnected)
+static unsigned long lastWifiCheck = 0;
+static const unsigned long WIFI_CHECK_INTERVAL = 10000;  // 10 seconds
+
+void checkWiFiReconnect() {
+    if (millis() - lastWifiCheck < WIFI_CHECK_INTERVAL) return;
+    lastWifiCheck = millis();
+
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[WIFI] Connection lost, attempting reconnect...");
+        WiFi.reconnect();
+    }
+}
+
+// Periodic heap monitoring for debugging memory issues
+static unsigned long lastHeapLog = 0;
+
+void logHeapStatus() {
+    if (millis() - lastHeapLog < HEAP_LOG_INTERVAL_MS) return;
+    lastHeapLog = millis();
+
+    size_t free_heap = esp_get_free_heap_size();
+    size_t min_heap = esp_get_minimum_free_heap_size();
+    size_t free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+
+    Serial.printf("[HEAP] Free: %dKB | Min: %dKB | PSRAM: %dKB\n",
+                  free_heap / 1024, min_heap / 1024, free_psram / 1024);
+
+    // Warn if heap is getting low
+    if (free_heap < 50000) {
+        Serial.println("[HEAP] WARNING: Low memory!");
+    }
+}
+
 void loop() {
+    // Feed watchdog to prevent reboot (must call regularly)
+    esp_task_wdt_reset();
+
     lv_tick_inc(3);
 
     // Skip LVGL timer during OTA to prevent PSRAM access during flash writes
-    // OTA progress updates use explicit lv_refr_now() calls instead
     bool skip_updates = false;
     if (xSemaphoreTake(ota_progress_mutex, pdMS_TO_TICKS(10))) {
         skip_updates = ota_in_progress;
@@ -236,7 +255,9 @@ void loop() {
         lv_timer_handler();
         processUpdates();
         checkAutoDim();
+        checkWiFiReconnect();
+        logHeapStatus();  // Periodic memory monitoring
     }
 
-    vTaskDelay(pdMS_TO_TICKS(3));  // More efficient than delay() - allows other tasks to run
+    vTaskDelay(pdMS_TO_TICKS(3));
 }

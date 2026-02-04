@@ -1,14 +1,12 @@
 #include "display_driver.h"
+#include "config.h"
 #include "../lib/st7701_lcd/st7701_lcd.h"
 #include <esp_heap_caps.h>
 #include <esp_lcd_panel_ops.h>
 #include <esp_private/esp_cache_private.h>
 #include <driver/ppa.h>
 
-#define ROTATION_DEGREE 90  // 90 degrees for landscape
 #define USE_PPA_ACCELERATION 0  // Disable hardware acceleration (causes glitches)
-#define BLOCK_SIZE_SMALL 32  // Original block size
-#define BLOCK_SIZE_LARGE 256  // Original block size
 
 static st7701_lcd* lcd = NULL;
 static lv_color_t *buf1 = NULL;
@@ -60,12 +58,10 @@ static void rotate_image_90_ppa(const uint16_t *src, uint16_t *dst, int width, i
 #endif
 
 // Software rotation function - rotate landscape 800x480 to portrait 480x800
-// This is 90° clockwise rotation for the panel
 static void rotate_image_90(const uint16_t *src, uint16_t *dst, int width, int height) {
-    // src is 800x480 (landscape), dst is 480x800 (portrait)
-    // For 90° rotation: width and height swap
-    int block_w = BLOCK_SIZE_LARGE;  // Optimized block size
-    int block_h = BLOCK_SIZE_SMALL;  // Optimized block size
+    // Block sizes for cache-efficient rotation
+    constexpr int block_w = 256;
+    constexpr int block_h = 32;
 
     for (int i = 0; i < height; i += block_h) {
         int max_height = (i + block_h > height) ? height : (i + block_h);
@@ -131,8 +127,10 @@ bool display_init(void) {
         return false;
     }
 
-    Serial.printf("[Display] LVGL buffers: %d bytes each (landscape 800x480)\n", DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(lv_color_t));
-    Serial.printf("[Display] Rotate buffer: %d bytes (portrait 480x800)\n", DISPLAY_HEIGHT * DISPLAY_WIDTH * sizeof(lv_color_t));
+    Serial.printf("[Display] LVGL buffers: %d bytes each (landscape %dx%d)\n",
+                  DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(lv_color_t), DISPLAY_WIDTH, DISPLAY_HEIGHT);
+    Serial.printf("[Display] Rotate buffer: %d bytes (portrait %dx%d)\n",
+                  PANEL_WIDTH * PANEL_HEIGHT * sizeof(lv_color_t), PANEL_WIDTH, PANEL_HEIGHT);
     Serial.printf("[Display] Free PSRAM: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
     // LVGL v9 display initialization - Create as LANDSCAPE (800x480)
@@ -181,8 +179,8 @@ void display_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *px_ma
     rotate_image_90((uint16_t *)px_map, (uint16_t *)rotate_buf, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 #endif
 
-    // Send rotated buffer to panel in portrait orientation (480×800)
-    lcd->lcd_draw_bitmap(0, 0, 480, 800, (uint16_t *)rotate_buf);
+    // Send rotated buffer to panel in portrait orientation
+    lcd->lcd_draw_bitmap(0, 0, PANEL_WIDTH, PANEL_HEIGHT, (uint16_t *)rotate_buf);
 
     lv_display_flush_ready(disp_drv);
 }

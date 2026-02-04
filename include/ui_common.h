@@ -104,7 +104,6 @@ extern volatile bool color_ready;
 extern int art_offset_x, art_offset_y;
 extern bool is_sonos_radio_art;
 extern bool pending_is_station_logo;  // True when requesting radio station logo (PNG allowed)
-extern unsigned long last_source_change_time;
 extern volatile unsigned long last_queue_fetch_time;  // Track queue fetches for WiFi coordination
 extern SemaphoreHandle_t network_mutex;  // Serializes all WiFi/HTTPS operations (SOAP, album art, OTA)
 

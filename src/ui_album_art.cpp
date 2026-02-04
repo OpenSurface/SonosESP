@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "config.h"
 #include <PNGdec.h>
 
 // ESP32-P4 Hardware JPEG Decoder
@@ -399,32 +400,15 @@ void albumArtTask(void* param) {
                             readSuccess = false;
                         }
 
-                        // CRITICAL: Drain connection if aborted to prevent WiFi SDIO buffer overflow
-                        if (!readSuccess && len_known && bytesRead < len) {
-                            Serial.printf("[ART] Draining aborted connection: %d/%d bytes remaining\n", len - bytesRead, len);
-                            uint8_t drainBuf[512];
-                            size_t remaining = len - bytesRead;
-                            size_t drained = 0;
-                            unsigned long startDrain = millis();
-
-                            while (stream->connected() && drained < remaining) {
-                                size_t available = stream->available();
-                                if (available > 0) {
-                                    size_t toRead = min((size_t)512, available);
-                                    toRead = min(toRead, remaining - drained);
-                                    size_t read = stream->readBytes(drainBuf, toRead);
-                                    drained += read;
-                                } else {
-                                    vTaskDelay(pdMS_TO_TICKS(10));
-                                }
-                                // Abort drain if taking too long (max 2 seconds)
-                                if (millis() - startDrain > 2000) {
-                                    Serial.println("[ART] Drain timeout - closing connection");
-                                    break;
-                                }
-                            }
-                            Serial.printf("[ART] Drained %d bytes - waiting for HTTPS cleanup\n", (int)drained);
-                            vTaskDelay(pdMS_TO_TICKS(500));  // Reduced from 2s - SSL cleanup is now explicit
+                        // CRITICAL: If aborted, just close connection immediately
+                        // Don't try to drain - it overwhelms ESP32-C6 SDIO WiFi buffer
+                        // The HTTP client will handle cleanup when we call http.end()
+                        if (!readSuccess) {
+                            Serial.println("[ART] Download aborted - closing connection (no drain)");
+                            // Force close the stream to stop incoming data
+                            stream->stop();
+                            // Give SDIO driver time to flush any pending RX data
+                            vTaskDelay(pdMS_TO_TICKS(100));
                         }
 
                         Serial.printf("[ART] Album art read: %d bytes (len_known=%d)\n", (int)bytesRead, len_known ? 1 : 0);
@@ -669,29 +653,12 @@ void albumArtTask(void* param) {
                     }
                 } else if (len >= (int)max_art_size) {
                     Serial.printf("[ART] Album art too large: %d bytes (max %dKB)\n", len, (int)(max_art_size/1000));
-                    // Must drain the connection to prevent WiFi RX buffer overflow
-                    // Server is already sending data even though we're rejecting it
+                    // Don't drain - just close the connection immediately
+                    // Draining overwhelms ESP32-C6 SDIO WiFi buffer and causes crashes
                     WiFiClient* stream = http.getStreamPtr();
-                    uint8_t drainBuf[512];
-                    int drained = 0;
-                    unsigned long startDrain = millis();
-                    while (stream->connected() && drained < len) {
-                        size_t available = stream->available();
-                        if (available > 0) {
-                            size_t toRead = min((size_t)512, available);
-                            toRead = min(toRead, (size_t)(len - drained));
-                            size_t read = stream->readBytes(drainBuf, toRead);
-                            drained += read;
-                        } else {
-                            vTaskDelay(pdMS_TO_TICKS(10));
-                        }
-                        // Abort drain if taking too long (max 3 seconds)
-                        if (millis() - startDrain > 3000) {
-                            Serial.println("[ART] Drain timeout - closing connection");
-                            break;
-                        }
-                    }
-                    Serial.printf("[ART] Drained %d/%d bytes from connection\n", drained, len);
+                    stream->stop();  // Force close to stop incoming data
+                    vTaskDelay(pdMS_TO_TICKS(100));  // Let SDIO driver flush
+                    Serial.println("[ART] Connection closed (oversized image)");
                     // Mark as done to prevent retry loop
                     if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
                         last_art_url = url;

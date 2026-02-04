@@ -4,14 +4,15 @@
  */
 
 #include "ui_common.h"
+#include "config.h"
 
 // ============================================================================
 // Brightness Control
 // ============================================================================
 void setBrightness(int level) {
-    brightness_level = constrain(level, 10, 100);  // 10-100% range
+    brightness_level = constrain(level, MIN_BRIGHTNESS, MAX_BRIGHTNESS);
     display_set_brightness(brightness_level);
-    wifiPrefs.putInt("brightness", brightness_level);
+    wifiPrefs.putInt(NVS_KEY_BRIGHTNESS, brightness_level);
 }
 
 void resetScreenTimeout() {
@@ -709,7 +710,7 @@ static void performOTAUpdate() {
             sonos.resumeTasks();  // Resume suspended tasks
             if (albumArtTaskHandle == NULL) {
                 art_shutdown_requested = false;
-                xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);
+                xTaskCreatePinnedToCore(albumArtTask, "Art", ART_TASK_STACK_SIZE, NULL, ART_TASK_PRIORITY, &albumArtTaskHandle, 0);
             }
             return;
         }
@@ -726,57 +727,55 @@ static void performOTAUpdate() {
 
             WiFiClient* stream = http.getStreamPtr();
             size_t written = 0;
-            // 512 byte buffer for faster flash writes (reduces blue screen duration)
-            // Smaller writes = less time with cache disabled = less flicker
-            static uint8_t buff[512];
             int lastPercent = -1;
             uint32_t lastUIUpdate = millis();
-            int lastMemoryLog = -1;
+
+            // Buffer size and yield interval defined in config.h
+            static uint8_t buff[OTA_BUFFER_SIZE];
+            int writeCount = 0;
 
             Serial.printf("[OTA] Starting download - Free DMA heap: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
 
             while (http.connected() && (written < contentLength)) {
                 size_t available = stream->available();
                 if (available) {
-                    size_t toRead = available < sizeof(buff) ? available : sizeof(buff);
-                    int c = stream->readBytes(buff, toRead);
-                    written += Update.write(buff, c);
+                    size_t toRead = (available < sizeof(buff)) ? available : sizeof(buff);
+                    int bytesRead = stream->readBytes(buff, toRead);
+                    written += Update.write(buff, bytesRead);
+                    writeCount++;
 
-                    // CRITICAL: Yield immediately after flash write to allow MIPI DSI DMA to access PSRAM
-                    // Flash chip (Boya BY25Q 0x684018) does NOT support auto-suspend
-                    // Cache is disabled during write, blocking ALL PSRAM access = display freeze (blue screen)
-                    // This 1ms yield allows display refresh between writes (slows OTA but prevents flicker)
-                    vTaskDelay(pdMS_TO_TICKS(1));
+                    // Yield periodically to allow MIPI DSI DMA to access PSRAM framebuffers
+                    if (writeCount >= OTA_YIELD_EVERY_WRITES) {
+                        taskYIELD();
+                        writeCount = 0;
+                    }
 
                     int percent = (written * 100) / contentLength;
-                    uint32_t now = millis();
 
-                    // Update UI progress continuously
+                    // Update UI when percentage changes
                     if (percent != lastPercent) {
-                        if (xSemaphoreTake(ota_progress_mutex, pdMS_TO_TICKS(10))) {
-                            if (lbl_ota_progress) {
-                                lv_label_set_text_fmt(lbl_ota_progress, "%d%%", percent);
-                            }
-                            if (bar_ota_progress) {
-                                lv_bar_set_value(bar_ota_progress, percent, LV_ANIM_OFF);
-                            }
-                            xSemaphoreGive(ota_progress_mutex);
+                        // Update progress text and bar
+                        if (lbl_ota_progress) {
+                            lv_label_set_text_fmt(lbl_ota_progress, "%d%%", percent);
+                        }
+                        if (bar_ota_progress) {
+                            lv_bar_set_value(bar_ota_progress, percent, LV_ANIM_OFF);
                         }
                         lastPercent = percent;
-                    }
 
-                    // Refresh display every 10%
-                    if (percent / 10 != lastMemoryLog / 10) {
-                        Serial.printf("[OTA] %d%% - Free DMA heap: %d bytes\n", percent, heap_caps_get_free_size(MALLOC_CAP_DMA));
-                        lastMemoryLog = percent;
-
-                        vTaskDelay(pdMS_TO_TICKS(20));
-                        lv_tick_inc(now - lastUIUpdate);
-                        lv_refr_now(NULL);
-                        lastUIUpdate = now;
+                        // Log and force display refresh every 10%
+                        if (percent % 10 == 0 && percent > 0) {
+                            Serial.printf("[OTA] %d%% - Free DMA heap: %d bytes\n", percent, heap_caps_get_free_size(MALLOC_CAP_DMA));
+                            uint32_t now = millis();
+                            lv_tick_inc(now - lastUIUpdate);
+                            lv_refr_now(NULL);
+                            lastUIUpdate = now;
+                        }
                     }
+                } else {
+                    // No data available - short yield to wait for network
+                    vTaskDelay(pdMS_TO_TICKS(1));
                 }
-                vTaskDelay(pdMS_TO_TICKS(5));
             }
 
             if (written == contentLength) {
@@ -892,7 +891,7 @@ static void performOTAUpdate() {
     if (albumArtTaskHandle == NULL) {
         Serial.println("[OTA] Restarting album art task");
         art_shutdown_requested = false;
-        xTaskCreatePinnedToCore(albumArtTask, "Art", 8192, NULL, 1, &albumArtTaskHandle, 0);
+        xTaskCreatePinnedToCore(albumArtTask, "Art", ART_TASK_STACK_SIZE, NULL, ART_TASK_PRIORITY, &albumArtTaskHandle, 0);
     }
 }
 
@@ -1154,7 +1153,6 @@ void updateUI() {
     if (uri_changed && d->currentURI.length() > 0) {
         if (actual_source_change) {
             Serial.printf("[ART] SOURCE CHANGE: %s -> %s\n", last_source_prefix.c_str(), current_source_prefix.c_str());
-            last_source_change_time = millis();  // Track when SOURCE changed for WiFi buffer management
             last_source_prefix = current_source_prefix;
             // CRITICAL: Abort any in-progress album art download immediately
             // This prevents Spotify download from blocking YouTube Music download
