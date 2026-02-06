@@ -287,11 +287,9 @@ void albumArtTask(void* param) {
         Serial.println("[ART] Hardware JPEG decoder initialized!");
     }
 
-    // HTTPClient for album art
-    HTTPClient http;
-    WiFiClientSecure secure_client;
-    secure_client.setInsecure();  // Skip certificate validation for album art hosts
     static char url[512];
+    static char last_failed_url[512] = "";  // Track failed URLs to prevent infinite retry
+    static int consecutive_failures = 0;
 
     // Temporary buffer for decoded full-size image
     uint16_t* decoded_buffer = nullptr;
@@ -299,15 +297,8 @@ void albumArtTask(void* param) {
     while (1) {
         // Check if shutdown requested (for OTA update)
         if (art_shutdown_requested) {
-            Serial.println("[ART] Shutdown requested - cleaning up SSL client");
-
-            // CRITICAL: Explicitly stop WiFiClientSecure to free ALL SSL session cache
-            // Just letting destructor run doesn't always free cached session tickets
-            secure_client.stop();  // Close connection and free SSL buffers
-            http.end();             // End HTTP client
-
-            Serial.printf("[ART] SSL cleanup complete - Free DMA: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
-
+            Serial.println("[ART] Shutdown requested");
+            Serial.printf("[ART] Shutdown complete - Free DMA: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
             albumArtTaskHandle = NULL;  // Clear handle before deleting
             vTaskDelete(NULL);  // Delete self
             return;
@@ -333,34 +324,53 @@ void albumArtTask(void* param) {
             // Simple WiFi check - don't try to download if not connected
             if (WiFi.status() != WL_CONNECTED) {
                 Serial.println("[ART] WiFi not connected, skipping");
-                vTaskDelay(pdMS_TO_TICKS(1000));
+                // Mark as done to prevent retry loop when WiFi is down
+                if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                    last_art_url = url;
+                    xSemaphoreGive(art_mutex);
+                }
+                vTaskDelay(pdMS_TO_TICKS(2000));  // Wait longer for WiFi recovery
                 continue;
             }
 
             // Detect if URL is from Sonos device itself (e.g., /getaa for YouTube Music)
             // These don't need per-chunk mutex since Sonos HTTP server serializes requests anyway
             bool isFromSonosDevice = (strstr(url, ":1400/") != nullptr);
-
             bool use_https = (strncmp(url, "https://", 8) == 0);
-            if (use_https) {
-                http.begin(secure_client, url);
-            } else {
-                http.begin(url);
-            }
-            http.setTimeout(10000);
 
-            // REVERT TO v1.1.1: Hold network_mutex for ENTIRE download (no per-chunk)
-            // This prevents SDIO crashes but blocks SOAP during art download
-            if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS))) {
-                Serial.println("[ART] Failed to acquire network mutex - skipping download");
-                http.end();
-                continue;
-            }
+            // Scoped HTTP/HTTPS download - ensures TLS session is freed after each download
+            {
+                HTTPClient http;
+                WiFiClientSecure secure_client;  // Only used if HTTPS, destroyed at end of scope
+                bool mutex_acquired = false;
 
-            int code = http.GET();
-            // Keep mutex locked for entire download
+                if (use_https) {
+                    secure_client.setInsecure();  // Skip certificate validation
+                    http.begin(secure_client, url);
+                } else {
+                    http.begin(url);
+                }
+                http.setTimeout(10000);
 
-            if (code == 200) {
+                // REVERT TO v1.1.1: Hold network_mutex for ENTIRE download (no per-chunk)
+                // This prevents SDIO crashes but blocks SOAP during art download
+                mutex_acquired = xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS));
+                if (!mutex_acquired) {
+                    Serial.println("[ART] Failed to acquire network mutex - skipping download");
+                }
+
+                if (mutex_acquired) {
+                    // CRITICAL: Wait for SDIO cooldown (200ms since last network operation)
+                    unsigned long now = millis();
+                    unsigned long elapsed = now - last_network_end_ms;
+                    if (last_network_end_ms > 0 && elapsed < 200) {
+                        vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
+                    }
+
+                    int code = http.GET();
+                    // Keep mutex locked for entire download
+
+                    if (code == 200) {
                 int len = http.getSize();
                 const size_t max_art_size = MAX_ART_SIZE;
                 const bool len_known = (len > 0);
@@ -557,6 +567,9 @@ void albumArtTask(void* param) {
                                                 color_ready = true;
                                                 xSemaphoreGive(art_mutex);
                                             }
+                                            // Reset failure counter on success
+                                            consecutive_failures = 0;
+                                            last_failed_url[0] = '\0';
                                         }
                                     } else {
                                         Serial.printf("[ART] Failed to allocate %d bytes for decoded image\n", (int)decoded_size);
@@ -651,6 +664,9 @@ void albumArtTask(void* param) {
                                                 color_ready = true;
                                                 xSemaphoreGive(art_mutex);
                                             }
+                                            // Reset failure counter on success
+                                            consecutive_failures = 0;
+                                            last_failed_url[0] = '\0';
                                         } else {
                                             Serial.printf("[ART] HW JPEG decode failed: %d\n", ret);
                                             heap_caps_free(hw_out_buf);
@@ -685,19 +701,61 @@ void albumArtTask(void* param) {
                         last_art_url = url;
                         xSemaphoreGive(art_mutex);
                     }
-                } else {
-                    Serial.printf("[ART] Invalid album art size: %d bytes\n", len);
-                }
-            } else {
-                Serial.printf("[ART] HTTP error %d fetching album art\n", code);
-            }
-            http.end();
+                    } else {
+                        Serial.printf("[ART] Invalid album art size: %d bytes\n", len);
+                    }
+                    } else {
+                        // Translate HTTP error codes to human-readable messages
+                        const char* error_msg = "Unknown error";
+                        switch (code) {
+                            case -1: error_msg = "Connection failed"; break;
+                            case -2: error_msg = "Send header failed"; break;
+                            case -3: error_msg = "Send payload failed"; break;
+                            case -4: error_msg = "Not connected"; break;
+                            case -5: error_msg = "Connection lost/timeout"; break;
+                            case -6: error_msg = "No stream"; break;
+                            case -8: error_msg = "Too less RAM"; break;
+                            case -11: error_msg = "Read timeout"; break;
+                            default: break;
+                        }
+                        Serial.printf("[ART] HTTP %d: %s\n", code, error_msg);
 
-            // Release network_mutex after entire download completes
-            xSemaphoreGive(network_mutex);
+                        // Track consecutive failures to prevent infinite retry loop
+                        if (strcmp(url, last_failed_url) == 0) {
+                            consecutive_failures++;
+                        } else {
+                            strncpy(last_failed_url, url, sizeof(last_failed_url) - 1);
+                            last_failed_url[sizeof(last_failed_url) - 1] = '\0';
+                            consecutive_failures = 1;
+                        }
+
+                        // After 5 consecutive failures for same URL, mark as done to stop retrying
+                        if (consecutive_failures >= 5) {
+                            Serial.printf("[ART] Failed %d times, giving up on this URL\n", consecutive_failures);
+                            if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                                last_art_url = url;  // Mark as done
+                                xSemaphoreGive(art_mutex);
+                            }
+                            consecutive_failures = 0;  // Reset for next URL
+                            last_failed_url[0] = '\0';
+                        }
+                    }
+
+                    // Update timestamp before releasing mutex (for SDIO cooldown tracking)
+                    last_network_end_ms = millis();
+
+                    // Release network_mutex after entire download completes
+                    xSemaphoreGive(network_mutex);
+                }
+
+                http.end();
+
+            } // http and secure_client destroyed here - TLS session freed
+
+            // CRITICAL: Wait for TLS cleanup to complete (mbedTLS resources, SSL session cache)
+            vTaskDelay(pdMS_TO_TICKS(100));
 
             // Wait for WiFi buffers to stabilize after download
-            // Reduced from 1000ms to 500ms - mutex + SSL cleanup handle most stability issues
             vTaskDelay(pdMS_TO_TICKS(500));
         }
         vTaskDelay(pdMS_TO_TICKS(100));  // Check for new URLs

@@ -6,6 +6,7 @@
 
 #include "ui_common.h"
 #include "config.h"
+#include "lyrics.h"
 #include <esp_flash.h>
 #include <esp_task_wdt.h>
 
@@ -66,8 +67,9 @@ void setup() {
     brightness_level = wifiPrefs.getInt(NVS_KEY_BRIGHTNESS, DEFAULT_BRIGHTNESS);
     brightness_dimmed = wifiPrefs.getInt(NVS_KEY_BRIGHTNESS_DIM, DEFAULT_BRIGHTNESS_DIM);
     autodim_timeout = wifiPrefs.getInt(NVS_KEY_AUTODIM, DEFAULT_AUTODIM_SEC);
-    Serial.printf("[DISPLAY] Loaded settings from NVS: brightness=%d%%, dimmed=%d%%, autodim=%dsec\n",
-                  brightness_level, brightness_dimmed, autodim_timeout);
+    lyrics_enabled = wifiPrefs.getBool(NVS_KEY_LYRICS, true);
+    Serial.printf("[DISPLAY] Loaded settings from NVS: brightness=%d%%, dimmed=%d%%, autodim=%dsec, lyrics=%s\n",
+                  brightness_level, brightness_dimmed, autodim_timeout, lyrics_enabled ? "on" : "off");
 
     // Brightness will be set after display_init() is called
     Serial.println("[DISPLAY] ESP32-P4 uses ST7701 backlight control (no PWM needed)");
@@ -149,6 +151,9 @@ void setup() {
 
     updateBootProgress(20);  // Callbacks ready
 
+    // Initialize lyrics PSRAM buffer before creating screens
+    initLyrics();
+
     createMainScreen();
     updateBootProgress(35);
 
@@ -174,6 +179,7 @@ void setup() {
     updateBootProgress(83);
 
     createGroupsScreen();
+    createGeneralScreen();
     updateBootProgress(85);
 
     art_mutex = xSemaphoreCreateMutex();

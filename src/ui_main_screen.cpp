@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "lyrics.h"
 
 // ==================== MAIN SCREEN - CLEAN SIMPLE DESIGN ====================
 void createMainScreen() {
@@ -42,6 +43,9 @@ void createMainScreen() {
     lv_obj_set_style_text_font(lbl_album, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_align(lbl_album, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(lbl_album, LV_ALIGN_BOTTOM_MID, 0, -5);  // Moved closer to bottom (-5 instead of -20)
+
+    // Synced lyrics overlay (on top of album art)
+    createLyricsOverlay(panel_art);
 
     // RIGHT: Control Panel (380px) - use global for ambient color changes
     panel_right = lv_obj_create(scr_main);

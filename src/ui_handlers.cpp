@@ -5,6 +5,7 @@
 
 #include "ui_common.h"
 #include "config.h"
+#include "lyrics.h"
 
 // ============================================================================
 // Brightness Control
@@ -418,7 +419,17 @@ static void checkForUpdates() {
         return;
     }
 
+    // CRITICAL: Wait for SDIO cooldown (200ms since last network operation)
+    unsigned long now = millis();
+    unsigned long elapsed = now - last_network_end_ms;
+    if (last_network_end_ms > 0 && elapsed < 200) {
+        vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
+    }
+
     int httpCode = http.GET();
+
+    // Update timestamp before releasing mutex (for SDIO cooldown tracking)
+    last_network_end_ms = millis();
 
     // Release mutex after GET completes
     xSemaphoreGive(network_mutex);
@@ -983,6 +994,18 @@ void updateUI() {
         ui_artist = d->currentArtist;
     }
 
+    // Fetch synced lyrics when track changes
+    static String lyrics_last_track = "";
+    String lyrics_key = d->currentArtist + "|" + d->currentTrack;
+    if (lyrics_key != lyrics_last_track && d->currentTrack.length() > 0) {
+        lyrics_last_track = lyrics_key;
+        if (lyrics_enabled && !d->isRadioStation && d->durationSeconds > 0) {
+            requestLyrics(d->currentArtist, d->currentTrack, d->durationSeconds);
+        } else {
+            clearLyrics();
+        }
+    }
+
     // Album name (below album art)
     static String ui_album_name = "";
     if (d->currentAlbum != ui_album_name) {
@@ -1015,6 +1038,9 @@ void updateUI() {
     // Progress slider
     if (!dragging_prog && d->durationSeconds > 0)
         lv_slider_set_value(slider_progress, (d->relTimeSeconds * 100) / d->durationSeconds, LV_ANIM_OFF);
+
+    // Update synced lyrics display
+    updateLyricsDisplay(d->relTimeSeconds);
 
     // Play/Pause button
     if (d->isPlaying != ui_playing) {

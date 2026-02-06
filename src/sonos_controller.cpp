@@ -157,6 +157,13 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
         return "";
     }
 
+    // CRITICAL: Wait for SDIO cooldown (200ms since last network operation)
+    unsigned long now = millis();
+    unsigned long elapsed = now - last_network_end_ms;
+    if (last_network_end_ms > 0 && elapsed < 200) {
+        vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
+    }
+
     int code = http.POST(body);
     String response = "";  // Keep String for return value (used by callers)
 
@@ -193,6 +200,9 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
     }
 
     http.end();
+
+    // Update timestamp before releasing mutex (for SDIO cooldown tracking)
+    last_network_end_ms = millis();
 
     // Release network mutex after HTTP operation completes
     xSemaphoreGive(network_mutex);

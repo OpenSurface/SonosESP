@@ -67,12 +67,13 @@ extern Preferences wifiPrefs;
 extern int brightness_level;
 extern int brightness_dimmed;
 extern int autodim_timeout;
+extern bool lyrics_enabled;
 extern uint32_t last_touch_time;
 extern bool screen_dimmed;
 
 // Screen objects
 extern lv_obj_t *scr_main, *scr_devices, *scr_queue, *scr_settings;
-extern lv_obj_t *scr_wifi, *scr_sources, *scr_browse, *scr_display, *scr_ota, *scr_groups;
+extern lv_obj_t *scr_wifi, *scr_sources, *scr_browse, *scr_display, *scr_ota, *scr_groups, *scr_general;
 
 // Main screen UI elements
 extern lv_obj_t *img_album, *lbl_title, *lbl_artist, *lbl_album, *lbl_time, *lbl_time_remaining;
@@ -106,6 +107,7 @@ extern bool is_sonos_radio_art;
 extern bool pending_is_station_logo;  // True when requesting radio station logo (PNG allowed)
 extern volatile unsigned long last_queue_fetch_time;  // Track queue fetches for WiFi coordination
 extern SemaphoreHandle_t network_mutex;  // Serializes all WiFi/HTTPS operations (SOAP, album art, OTA)
+extern volatile unsigned long last_network_end_ms;  // Last network operation end time (for SDIO cooldown)
 
 // UI state
 extern String ui_title, ui_artist, ui_repeat;
@@ -154,6 +156,7 @@ void createOTAScreen();
 void createSourcesScreen();
 void createBrowseScreen();
 void createGroupsScreen();
+void createGeneralScreen();
 
 // ============================================================================
 // Function Declarations - UI Refresh

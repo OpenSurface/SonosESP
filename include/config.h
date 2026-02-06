@@ -67,7 +67,7 @@
 // =============================================================================
 #define ART_DISPLAY_SIZE        420     // Album art display size (pixels)
 #define ART_MAX_DOWNLOAD_SIZE   (280 * 1024)  // Max JPEG download buffer (280KB)
-#define ART_TASK_STACK_SIZE     5000    // Album art task stack size (profiled: uses ~15KB)
+#define ART_TASK_STACK_SIZE     7000    // Album art task stack (increased for HW JPEG + HTTPS/TLS)
 #define ART_TASK_PRIORITY       0       // Album art task priority
 #define ART_DOWNLOAD_TIMEOUT_MS 8000    // Download timeout
 #define ART_CHECK_INTERVAL_MS   100     // How often to check for new art requests
@@ -124,6 +124,7 @@
 #define NVS_KEY_AUTODIM         "autodim_sec"
 #define NVS_KEY_OTA_CHANNEL     "ota_channel"
 #define NVS_KEY_CACHED_DEVICE   "cached_dev"
+#define NVS_KEY_LYRICS          "lyrics"
 
 // =============================================================================
 // UI COLORS (hex values)

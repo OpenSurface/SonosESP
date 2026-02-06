@@ -51,11 +51,11 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     lv_obj_center(ico_x);
 
     // Menu items
-    const char* icons[] = {LV_SYMBOL_AUDIO, LV_SYMBOL_SHUFFLE, LV_SYMBOL_LIST, LV_SYMBOL_EYE_OPEN, LV_SYMBOL_WIFI, LV_SYMBOL_DOWNLOAD};
-    const char* labels[] = {"Speakers", "Groups", "Sources", "Display", "WiFi", "Update"};
+    const char* icons[] = {LV_SYMBOL_AUDIO, LV_SYMBOL_SHUFFLE, LV_SYMBOL_LIST, LV_SYMBOL_EYE_OPEN, LV_SYMBOL_WIFI, LV_SYMBOL_DOWNLOAD, LV_SYMBOL_SETTINGS};
+    const char* labels[] = {"Speakers", "Groups", "Sources", "Display", "WiFi", "Update", "General"};
 
     int y = 55;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 7; i++) {
         lv_obj_t* btn = lv_button_create(sidebar);
         lv_obj_set_size(btn, 164, 42);
         lv_obj_set_pos(btn, 8, y);
@@ -89,6 +89,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
                 case 3: lv_screen_load(scr_display); break;
                 case 4: lv_screen_load(scr_wifi); break;
                 case 5: lv_screen_load(scr_ota); break;
+                case 6: lv_screen_load(scr_general); break;
             }
         }, LV_EVENT_CLICKED, (void*)(intptr_t)i);
 

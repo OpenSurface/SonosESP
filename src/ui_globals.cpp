@@ -30,6 +30,7 @@ Preferences wifiPrefs;
 int brightness_level = 100;
 int brightness_dimmed = 20;
 int autodim_timeout = 30;
+bool lyrics_enabled = true;
 uint32_t last_touch_time = 0;
 bool screen_dimmed = false;
 
@@ -46,6 +47,7 @@ lv_obj_t *scr_browse = nullptr;
 lv_obj_t *scr_display = nullptr;
 lv_obj_t *scr_ota = nullptr;
 lv_obj_t *scr_groups = nullptr;
+lv_obj_t *scr_general = nullptr;
 
 // ============================================================================
 // Main Screen UI Elements
@@ -122,6 +124,7 @@ bool is_sonos_radio_art = false;
 bool pending_is_station_logo = false;
 volatile unsigned long last_queue_fetch_time = 0;
 SemaphoreHandle_t network_mutex = NULL;  // Created in main.cpp
+volatile unsigned long last_network_end_ms = 0;  // Last network operation end time (for SDIO cooldown)
 
 // ============================================================================
 // UI State
