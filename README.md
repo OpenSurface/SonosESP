@@ -24,6 +24,7 @@ If you find this project helpful, consider supporting me on Ko-fi!
 - **Full Playback Control** - Play, pause, skip, volume, shuffle, and repeat
 - **Queue Management** - Browse and manage your playback queue
 - **Album Art Display** - Hardware JPEG decoder + PNG support with bilinear scaling and automatic dominant color extraction
+- **Synced Lyrics Display** - Time-synced lyrics from LRCLIB overlaid on album art with smart auto-hide, scroll effects, and color matching
 - **Music Browsing** - Navigate your Sonos library, playlists, and favorites
 - **Multi-Room** - Switch between multiple Sonos devices
 - **WiFi Configuration** - Easy on-screen WiFi setup with built-in keyboard
@@ -86,12 +87,13 @@ The device supports automatic Over-The-Air (OTA) firmware updates from GitHub re
 
 ### Key Components
 
-- **FreeRTOS Tasks** - Separate tasks for UI, album art, and Sonos polling
+- **FreeRTOS Tasks** - Separate tasks for UI, album art, lyrics, and Sonos polling
 - **Thread Safety** - Mutex protection for shared resources
-- **Memory Management** - PSRAM for album art, heap monitoring
-- **Network Layer** - HTTPClient for SOAP requests, UDP for discovery
+- **Memory Management** - PSRAM for album art and lyrics, heap monitoring
+- **Network Layer** - HTTPClient for SOAP requests, HTTPS for lyrics/art, UDP for discovery
 - **UI Framework** - LVGL 9.4.0 with custom theme
 - **Image Processing** - ESP32-P4 hardware JPEG decoder + software PNG decoder, custom bilinear scaling with fixed-point math
+- **Lyrics System** - Time-synced LRC parsing with HTTPS fetching, auto-hide, and retry logic
 - **OTA Updates** - Automatic firmware updates from GitHub releases
 
 ## Configuration
@@ -127,6 +129,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 
 - Built with [LVGL](https://lvgl.io/) - Amazing embedded graphics library
 - [PlatformIO](https://platformio.org/) - Best embedded development platform
+- [LRCLIB](https://lrclib.net/) - Free synced lyrics API
 - Sonos UPnP/SOAP API documentation and community
 
 
