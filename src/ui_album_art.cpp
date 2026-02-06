@@ -33,15 +33,15 @@ void setBackgroundColor(uint32_t hex_color) {
         lv_obj_set_style_bg_color(panel_right, color, LV_PART_MAIN);
     }
 
-    // Make progress bar indicator AND knob match dominant color (but brighter - 2x)
+    // Make progress bar indicator AND knob match dominant color (but brighter)
     uint8_t r = ((hex_color >> 16) & 0xFF);
     uint8_t g = ((hex_color >> 8) & 0xFF);
     uint8_t b = (hex_color & 0xFF);
 
-    // Brighten by 2x (capped at 255)
-    r = min(r * 2, 255);
-    g = min(g * 2, 255);
-    b = min(b * 2, 255);
+    // Brighten by 3x (capped at 255) with minimum floor of 80
+    r = max(min(r * 3, 255), 80);
+    g = max(min(g * 3, 255), 80);
+    b = max(min(b * 3, 255), 80);
 
     lv_color_t bright_color = lv_color_make(r, g, b);
 
