@@ -262,11 +262,11 @@ void ev_wifi_scan(lv_event_t* e) {
         }, LV_EVENT_CLICKED, NULL);
 
         lv_obj_t* icon = lv_label_create(btn);
-        // Signal strength icon
-        if (rssi > -50) lv_label_set_text(icon, LV_SYMBOL_WIFI);
-        else if (rssi > -70) lv_label_set_text(icon, LV_SYMBOL_WIFI);
-        else lv_label_set_text(icon, LV_SYMBOL_WIFI);
-        lv_obj_set_style_text_color(icon, COL_ACCENT, 0);
+        lv_label_set_text(icon, LV_SYMBOL_WIFI);
+        // Signal strength by color: green=strong, gold=medium, red=weak
+        if (rssi > -50) lv_obj_set_style_text_color(icon, lv_color_hex(0x4ECB71), 0);
+        else if (rssi > -70) lv_obj_set_style_text_color(icon, COL_ACCENT, 0);
+        else lv_obj_set_style_text_color(icon, lv_color_hex(0xFF6B6B), 0);
         lv_obj_align(icon, LV_ALIGN_LEFT_MID, 10, 0);
 
         lv_obj_t* ssid = lv_label_create(btn);
@@ -744,7 +744,7 @@ static void performOTAUpdate() {
                     written += Update.write(buff, bytesRead);
                     writeCount++;
 
-                    // Yield periodically to allow MIPI DSI DMA to access PSRAM framebuffers
+                    // Yield periodically
                     if (writeCount >= OTA_YIELD_EVERY_WRITES) {
                         taskYIELD();
                         writeCount = 0;
@@ -752,9 +752,8 @@ static void performOTAUpdate() {
 
                     int percent = (written * 100) / contentLength;
 
-                    // Update UI when percentage changes
+                    // Update UI every 1%
                     if (percent != lastPercent) {
-                        // Update progress text and bar
                         if (lbl_ota_progress) {
                             lv_label_set_text_fmt(lbl_ota_progress, "%d%%", percent);
                         }
@@ -763,17 +762,16 @@ static void performOTAUpdate() {
                         }
                         lastPercent = percent;
 
-                        // Log and force display refresh every 10%
-                        if (percent % 10 == 0 && percent > 0) {
-                            Serial.printf("[OTA] %d%% - Free DMA heap: %d bytes\n", percent, heap_caps_get_free_size(MALLOC_CAP_DMA));
+                        // Refresh display every 10%
+                        if (percent % 10 == 0) {
                             uint32_t now = millis();
                             lv_tick_inc(now - lastUIUpdate);
                             lv_refr_now(NULL);
                             lastUIUpdate = now;
+                            Serial.printf("[OTA] %d%% - Free DMA heap: %d bytes\n", percent, heap_caps_get_free_size(MALLOC_CAP_DMA));
                         }
                     }
                 } else {
-                    // No data available - short yield to wait for network
                     vTaskDelay(pdMS_TO_TICKS(1));
                 }
             }

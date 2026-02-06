@@ -14,13 +14,6 @@
 // Track if we're currently in radio mode
 static bool is_radio_mode = false;
 
-// Check if current track is a radio station
-bool isCurrentlyRadio() {
-    SonosDevice* dev = sonos.getCurrentDevice();
-    if (!dev) return false;
-    return dev->isRadioStation;
-}
-
 // Adapt UI for radio mode - hide/show appropriate controls
 void setRadioMode(bool enable) {
     if (is_radio_mode == enable) return; // Already in correct mode

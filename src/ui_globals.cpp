@@ -123,12 +123,6 @@ bool pending_is_station_logo = false;
 volatile unsigned long last_queue_fetch_time = 0;
 SemaphoreHandle_t network_mutex = NULL;  // Created in main.cpp
 
-// Color sampling
-uint32_t color_r_sum = 0;
-uint32_t color_g_sum = 0;
-uint32_t color_b_sum = 0;
-int color_sample_count = 0;
-
 // ============================================================================
 // UI State
 // ============================================================================

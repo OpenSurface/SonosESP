@@ -12,6 +12,14 @@
 // Command debounce tracking
 static uint32_t lastCommandTime = 0;
 
+// Encode string for XML/SOAP transport
+static void encodeXML(String& s) {
+    s.replace("&", "&amp;");
+    s.replace("<", "&lt;");
+    s.replace(">", "&gt;");
+    s.replace("\"", "&quot;");
+}
+
 SonosController::SonosController() {
     deviceCount = 0;
     currentDeviceIndex = -1;
@@ -428,22 +436,18 @@ bool SonosController::saveCurrentTrack(const char* playlistName) {
             int endPos = queueDIDL.indexOf("</item>", pos) + 7;
             String itemXML = queueDIDL.substring(pos, endPos);
 
+            // Extract URI before encoding
+            int resStart = itemXML.indexOf("<res");
+            if (resStart >= 0) {
+                int resEnd = itemXML.indexOf("</res>", resStart);
+                int resContentStart = itemXML.indexOf(">", resStart) + 1;
+                trackURI = itemXML.substring(resContentStart, resEnd);
+            }
+
             // Re-encode for SOAP
-            itemXML.replace("&", "&amp;");
-            itemXML.replace("<", "&lt;");
-            itemXML.replace(">", "&gt;");
-            itemXML.replace("\"", "&quot;");
+            encodeXML(itemXML);
 
             trackMetadata = itemXML;
-
-            // Also extract URI
-            String decodedItem = queueDIDL.substring(pos, endPos);
-            int resStart = decodedItem.indexOf("<res");
-            if (resStart >= 0) {
-                int resEnd = decodedItem.indexOf("</res>", resStart);
-                int resContentStart = decodedItem.indexOf(">", resStart) + 1;
-                trackURI = decodedItem.substring(resContentStart, resEnd);
-            }
 
             Serial.printf("[FAV] Found track metadata, length: %d\n", trackMetadata.length());
             Serial.printf("[FAV] Track URI: %s\n", trackURI.c_str());
@@ -574,10 +578,7 @@ bool SonosController::playURI(const char* uri, const char* metadata) {
     }
 
     String metaEncoded = String(metadata);
-    metaEncoded.replace("&", "&amp;");
-    metaEncoded.replace("<", "&lt;");
-    metaEncoded.replace(">", "&gt;");
-    metaEncoded.replace("\"", "&quot;");
+    encodeXML(metaEncoded);
 
     // Use static buffer to avoid String concatenation
     static char args[1024];
@@ -668,10 +669,7 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
     String metaDecoded = decodeHTMLEntities(String(metadata));
 
     String metaEncoded = metaDecoded;
-    metaEncoded.replace("&", "&amp;");
-    metaEncoded.replace("<", "&lt;");
-    metaEncoded.replace(">", "&gt;");
-    metaEncoded.replace("\"", "&quot;");
+    encodeXML(metaEncoded);
 
     Serial.printf("[CONTAINER] Metadata: %s\n", metaDecoded.c_str());
 

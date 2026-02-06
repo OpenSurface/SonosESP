@@ -223,7 +223,6 @@ void albumArtTask(void *param);
 extern volatile bool sonos_tasks_shutdown_requested;
 
 // Radio mode UI adaptation
-bool isCurrentlyRadio();
 void setRadioMode(bool enable);
 void updateRadioModeUI();
 

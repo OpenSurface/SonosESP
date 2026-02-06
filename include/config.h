@@ -81,9 +81,9 @@
 #define SONOS_CMD_QUEUE_SIZE    10      // Command queue depth
 #define SONOS_UI_QUEUE_SIZE     20      // UI update queue depth
 
-// Task configuration
-#define SONOS_NET_TASK_STACK    6144    // Network task stack size
-#define SONOS_POLL_TASK_STACK   4096    // Polling task stack size
+// Task configuration (profiled: Net uses ~16KB, Poll uses ~7.5KB of allocated)
+#define SONOS_NET_TASK_STACK    3500    // Network task stack size (was 6144, ~10KB saved)
+#define SONOS_POLL_TASK_STACK   3000    // Polling task stack size (was 4096, ~4KB saved)
 #define SONOS_NET_TASK_PRIORITY 2       // Network task priority
 #define SONOS_POLL_TASK_PRIORITY 3      // Polling task priority
 

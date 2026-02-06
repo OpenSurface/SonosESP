@@ -5,9 +5,6 @@
 
 #pragma once
 
-// Check if currently playing radio
-bool isCurrentlyRadio();
-
 // Set UI to radio or music mode
 void setRadioMode(bool enable);
 
