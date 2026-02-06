@@ -23,49 +23,70 @@ static uint16_t* jpeg_decode_buffer = nullptr;  // Destination for JPEG/PNG deco
 // PNG decoder instance
 static PNG png;
 
-// Apply dominant color instantly to both panels and update button feedback colors
-void setBackgroundColor(uint32_t hex_color) {
-    lv_color_t color = lv_color_hex(hex_color);
-    if (panel_art) {
-        lv_obj_set_style_bg_color(panel_art, color, LV_PART_MAIN);
-    }
-    if (panel_right) {
-        lv_obj_set_style_bg_color(panel_right, color, LV_PART_MAIN);
-    }
+// Smooth background color transition state
+static uint32_t current_bg_color = 0x1a1a1a;
+static uint32_t target_bg_color = 0x1a1a1a;
 
-    // Make progress bar indicator AND knob match dominant color (but brighter)
-    uint8_t r = ((hex_color >> 16) & 0xFF);
-    uint8_t g = ((hex_color >> 8) & 0xFF);
-    uint8_t b = (hex_color & 0xFF);
+// Interpolate a single 8-bit channel
+static inline uint8_t lerp8(uint8_t a, uint8_t b, int t) {
+    return (uint8_t)(a + ((int)(b - a) * t) / 255);
+}
+
+// Apply interpolated color to all UI elements (called by LVGL animation engine)
+static void color_anim_cb(void* var, int32_t t) {
+    uint8_t r = lerp8((current_bg_color >> 16) & 0xFF, (target_bg_color >> 16) & 0xFF, t);
+    uint8_t g = lerp8((current_bg_color >> 8) & 0xFF, (target_bg_color >> 8) & 0xFF, t);
+    uint8_t b = lerp8(current_bg_color & 0xFF, target_bg_color & 0xFF, t);
+
+    lv_color_t color = lv_color_make(r, g, b);
+    if (panel_art) lv_obj_set_style_bg_color(panel_art, color, LV_PART_MAIN);
+    if (panel_right) lv_obj_set_style_bg_color(panel_right, color, LV_PART_MAIN);
 
     // Brighten by 3x (capped at 255) with minimum floor of 80
-    r = max(min(r * 3, 255), 80);
-    g = max(min(g * 3, 255), 80);
-    b = max(min(b * 3, 255), 80);
-
-    lv_color_t bright_color = lv_color_make(r, g, b);
+    uint8_t br = (uint8_t)max(min((int)r * 3, 255), 80);
+    uint8_t bg = (uint8_t)max(min((int)g * 3, 255), 80);
+    uint8_t bb = (uint8_t)max(min((int)b * 3, 255), 80);
+    lv_color_t bright = lv_color_make(br, bg, bb);
 
     if (slider_progress) {
-        lv_obj_set_style_bg_color(slider_progress, bright_color, LV_PART_INDICATOR);  // Bar
-        lv_obj_set_style_bg_color(slider_progress, bright_color, LV_PART_KNOB);  // Circle/dot
+        lv_obj_set_style_bg_color(slider_progress, bright, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(slider_progress, bright, LV_PART_KNOB);
     }
-
-    // Update all button pressed states to use dominant color (same brightness as progress bar)
-    if (btn_play) lv_obj_set_style_bg_color(btn_play, bright_color, LV_STATE_PRESSED);
+    if (btn_play) lv_obj_set_style_bg_color(btn_play, bright, LV_STATE_PRESSED);
     if (btn_prev) {
-        lv_obj_set_style_bg_color(btn_prev, bright_color, LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(btn_prev, bright, LV_STATE_PRESSED);
         lv_obj_t* ico = lv_obj_get_child(btn_prev, 0);
-        if (ico) lv_obj_set_style_text_color(ico, bright_color, LV_STATE_PRESSED);
+        if (ico) lv_obj_set_style_text_color(ico, bright, LV_STATE_PRESSED);
     }
     if (btn_next) {
-        lv_obj_set_style_bg_color(btn_next, bright_color, LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(btn_next, bright, LV_STATE_PRESSED);
         lv_obj_t* ico = lv_obj_get_child(btn_next, 0);
-        if (ico) lv_obj_set_style_text_color(ico, bright_color, LV_STATE_PRESSED);
+        if (ico) lv_obj_set_style_text_color(ico, bright, LV_STATE_PRESSED);
     }
-    if (btn_mute) lv_obj_set_style_bg_color(btn_mute, bright_color, LV_STATE_PRESSED);
-    if (btn_shuffle) lv_obj_set_style_bg_color(btn_shuffle, bright_color, LV_STATE_PRESSED);
-    if (btn_repeat) lv_obj_set_style_bg_color(btn_repeat, bright_color, LV_STATE_PRESSED);
-    if (btn_queue) lv_obj_set_style_bg_color(btn_queue, bright_color, LV_STATE_PRESSED);
+    if (btn_mute) lv_obj_set_style_bg_color(btn_mute, bright, LV_STATE_PRESSED);
+    if (btn_shuffle) lv_obj_set_style_bg_color(btn_shuffle, bright, LV_STATE_PRESSED);
+    if (btn_repeat) lv_obj_set_style_bg_color(btn_repeat, bright, LV_STATE_PRESSED);
+    if (btn_queue) lv_obj_set_style_bg_color(btn_queue, bright, LV_STATE_PRESSED);
+}
+
+// Save final color as new baseline when animation completes
+static void color_anim_done_cb(lv_anim_t* a) {
+    current_bg_color = target_bg_color;
+}
+
+// Smoothly transition background color over 500ms
+void setBackgroundColor(uint32_t hex_color) {
+    target_bg_color = hex_color;
+
+    lv_anim_t anim;
+    lv_anim_init(&anim);
+    lv_anim_set_var(&anim, &target_bg_color);
+    lv_anim_set_values(&anim, 0, 255);
+    lv_anim_set_duration(&anim, 300);
+    lv_anim_set_exec_cb(&anim, color_anim_cb);
+    lv_anim_set_path_cb(&anim, lv_anim_path_ease_out);
+    lv_anim_set_completed_cb(&anim, color_anim_done_cb);
+    lv_anim_start(&anim);
 }
 
 // Sample pixels for dominant color extraction
