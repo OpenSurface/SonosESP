@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true  # Cancel old runs to prevent duplicate artifacts
 
 jobs:
   build-and-deploy:
@@ -98,6 +98,7 @@ jobs:
       uses: actions/upload-pages-artifact@v3
       with:
         path: './web-installer'
+        retention-days: 1  # Auto-cleanup after 1 day
 
     - name: Deploy to GitHub Pages
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
