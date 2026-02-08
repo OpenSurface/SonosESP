@@ -630,6 +630,16 @@ static void performOTAUpdate() {
     Serial.println("[OTA] PREPARING FOR FIRMWARE UPDATE");
     Serial.println("[OTA] ========================================");
 
+    // CRITICAL: Ensure HTTPS cooldown from "Check Update" has elapsed
+    // If user clicked "Install" immediately after "Check", TLS cleanup may still be in progress
+    unsigned long now = millis();
+    unsigned long elapsed = now - last_https_end_ms;
+    if (last_https_end_ms > 0 && elapsed < 1500) {
+        unsigned long wait_ms = 1500 - elapsed;
+        Serial.printf("[OTA] Waiting for previous HTTPS cleanup: %lums\n", wait_ms);
+        vTaskDelay(pdMS_TO_TICKS(wait_ms));
+    }
+
     // Stop album art task and WAIT for it to finish
     if (albumArtTaskHandle) {
         art_abort_download = true;     // Abort any active download immediately
@@ -645,6 +655,11 @@ static void performOTAUpdate() {
 
         if (albumArtTaskHandle == NULL) {
             Serial.println("[OTA] ✓ Album art stopped");
+            // CRITICAL: Give extra time for http.end()/secure_client.stop() cleanup to complete
+            // These calls are made inside the task before it exits, but DMA freeing is asynchronous
+            vTaskDelay(pdMS_TO_TICKS(500));
+            Serial.printf("[OTA] After art cleanup delay - Free DMA: %d bytes\n",
+                heap_caps_get_free_size(MALLOC_CAP_DMA));
         } else {
             Serial.println("[OTA] Force killing album art task");
             vTaskDelete(albumArtTaskHandle);
@@ -663,6 +678,11 @@ static void performOTAUpdate() {
 
         if (lyricsTaskHandle == NULL) {
             Serial.println("[OTA] ✓ Lyrics task stopped");
+            // CRITICAL: Give extra time for http.end()/client.stop() cleanup to complete
+            // These calls are made inside the task before it exits, but DMA freeing is asynchronous
+            vTaskDelay(pdMS_TO_TICKS(500));
+            Serial.printf("[OTA] After lyrics cleanup delay - Free DMA: %d bytes\n",
+                heap_caps_get_free_size(MALLOC_CAP_DMA));
         } else {
             Serial.println("[OTA] Force killing lyrics task");
             vTaskDelete(lyricsTaskHandle);
@@ -680,35 +700,40 @@ static void performOTAUpdate() {
         xSemaphoreGive(ota_progress_mutex);
     }
 
-    // CRITICAL: Force close ALL WiFi connections and wait for TLS cleanup
-    // TLS sessions from lyrics/art can linger and consume DMA memory
-    Serial.println("[OTA] Force closing all WiFi connections...");
-    WiFi.disconnect(false, false);  // Disconnect without disabling WiFi
-    vTaskDelay(pdMS_TO_TICKS(1000));  // Wait for disconnect
+    // CRITICAL: Force WiFi to flush any pending operations
+    // This helps release DMA buffers from completed network operations
+    Serial.println("[OTA] Flushing WiFi buffers...");
+    WiFi.setSleep(true);   // Enable sleep to flush buffers
+    vTaskDelay(pdMS_TO_TICKS(200));  // Let WiFi flush
+    WiFi.setSleep(false);  // Disable sleep for OTA
 
-    // Reconnect WiFi for OTA
-    WiFi.reconnect();
-    int wifi_wait = 0;
-    while (WiFi.status() != WL_CONNECTED && wifi_wait < 50) {  // 5 second timeout
+    // CRITICAL: Wait for DMA memory to actually be freed (not just arbitrary delay)
+    // TLS sessions from lyrics/art/sonos need time to fully release DMA buffers
+    // We VERIFY cleanup is complete by monitoring free DMA memory
+    Serial.println("[OTA] Waiting for DMA memory cleanup...");
+    const uint32_t TARGET_FREE_DMA = 110 * 1024;  // Need 110KB free (TLS will use ~104KB)
+    const uint32_t MAX_WAIT_MS = 10000;  // 10 second timeout
+    uint32_t wait_start = millis();
+    uint32_t free_dma = heap_caps_get_free_size(MALLOC_CAP_DMA);
+
+    while (free_dma < TARGET_FREE_DMA && (millis() - wait_start) < MAX_WAIT_MS) {
         vTaskDelay(pdMS_TO_TICKS(100));
-        wifi_wait++;
-    }
-
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("[OTA] ERROR: WiFi reconnection failed!");
-        if (lbl_ota_status) {
-            lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " WiFi reconnection failed!");
-            lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+        free_dma = heap_caps_get_free_size(MALLOC_CAP_DMA);
+        // Log progress every second
+        if ((millis() - wait_start) % 1000 < 150) {
+            Serial.printf("[OTA] Waiting for cleanup... Free DMA: %d bytes (target: %d bytes)\n",
+                free_dma, TARGET_FREE_DMA);
         }
-        return;
     }
 
-    Serial.println("[OTA] ✓ WiFi reconnected, all TLS sessions cleared");
+    Serial.printf("[OTA] Cleanup complete - Free DMA: %d bytes (waited %lums)\n",
+        free_dma, millis() - wait_start);
 
-    // Extended delay to ensure all DMA buffers are fully released
-    vTaskDelay(pdMS_TO_TICKS(2000));  // Increased from 500ms → 2000ms
-
-    Serial.printf("[OTA] Free DMA heap: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
+    // If we didn't reach target, warn but continue (user initiated OTA)
+    if (free_dma < TARGET_FREE_DMA) {
+        Serial.printf("[OTA] WARNING: Only %d bytes free (target %d) - OTA may fail\n",
+            free_dma, TARGET_FREE_DMA);
+    }
 
     // Optimize WiFi for OTA download
     WiFi.setAutoReconnect(false);
