@@ -10,7 +10,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/OpenSurface/SonosESP?style=flat-square&logo=github&label=Latest%20Release)](https://github.com/OpenSurface/SonosESP/releases/latest)
 [![GitHub Stars](https://img.shields.io/github/stars/OpenSurface/SonosESP?style=flat-square&logo=github&label=Stars)](https://github.com/OpenSurface/SonosESP/stargazers)
 
-[Features](#features) • [Hardware](#hardware) • [Installation](#installation) • [Building](#building) • [Contributing](#contributing)
+[Features](#features) • [Hardware](#hardware) • [Installation](#installation) •  [Contributing](#contributing)
 
 ## ☕ Support
 
