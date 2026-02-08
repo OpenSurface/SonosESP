@@ -77,6 +77,7 @@ extern lv_obj_t *scr_wifi, *scr_sources, *scr_browse, *scr_display, *scr_ota, *s
 
 // Main screen UI elements
 extern lv_obj_t *img_album, *lbl_title, *lbl_artist, *lbl_album, *lbl_time, *lbl_time_remaining;
+extern lv_obj_t *lbl_lyrics_status;  // Lyrics status indicator (top of album art)
 extern lv_obj_t *btn_play, *btn_prev, *btn_next, *btn_mute, *btn_shuffle, *btn_repeat, *btn_queue;
 extern lv_obj_t *slider_progress, *slider_vol;
 extern lv_obj_t *panel_right, *panel_art;
@@ -108,6 +109,7 @@ extern bool pending_is_station_logo;  // True when requesting radio station logo
 extern volatile unsigned long last_queue_fetch_time;  // Track queue fetches for WiFi coordination
 extern SemaphoreHandle_t network_mutex;  // Serializes all WiFi/HTTPS operations (SOAP, album art, OTA)
 extern volatile unsigned long last_network_end_ms;  // Last network operation end time (for SDIO cooldown)
+extern volatile unsigned long last_https_end_ms;   // Last HTTPS operation end time (TLS needs longer cooldown)
 
 // UI state
 extern String ui_title, ui_artist, ui_repeat;
@@ -221,6 +223,9 @@ extern TaskHandle_t albumArtTaskHandle;
 extern volatile bool art_shutdown_requested;
 extern volatile bool art_abort_download;
 void albumArtTask(void *param);
+
+// Lyrics task
+extern TaskHandle_t lyricsTaskHandle;
 
 // Sonos task shutdown (for OTA)
 extern volatile bool sonos_tasks_shutdown_requested;

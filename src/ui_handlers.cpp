@@ -6,6 +6,7 @@
 #include "ui_common.h"
 #include "config.h"
 #include "lyrics.h"
+#include <esp_task_wdt.h>
 
 // ============================================================================
 // Brightness Control
@@ -419,25 +420,44 @@ static void checkForUpdates() {
         return;
     }
 
-    // CRITICAL: Wait for SDIO cooldown (200ms since last network operation)
+    // CRITICAL: Wait for general SDIO cooldown (200ms since last network op)
     unsigned long now = millis();
     unsigned long elapsed = now - last_network_end_ms;
     if (last_network_end_ms > 0 && elapsed < 200) {
         vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
     }
 
+    // CRITICAL: Wait for HTTPS-specific cooldown (1500ms since last HTTPS)
+    // Increased from 500ms → 1000ms → 1500ms to prevent transport_drv_sta_tx crashes
+    now = millis();
+    elapsed = now - last_https_end_ms;
+    if (last_https_end_ms > 0 && elapsed < 1500) {
+        vTaskDelay(pdMS_TO_TICKS(1500 - elapsed));
+    }
+
     int httpCode = http.GET();
 
-    // Update timestamp before releasing mutex (for SDIO cooldown tracking)
-    last_network_end_ms = millis();
+    // Read response WHILE holding mutex to prevent TLS traffic overlap
+    String payload = "";
+    if (httpCode == 200) {
+        payload = http.getString();
+    }
 
-    // Release mutex after GET completes
+    // CRITICAL: End HTTP and close TLS BEFORE releasing mutex
+    http.end();
+    client.stop();
+    vTaskDelay(pdMS_TO_TICKS(200));
+
+    // Update timestamps before releasing mutex
+    last_network_end_ms = millis();
+    last_https_end_ms = millis();
+
+    // Release mutex after ALL network activity including TLS cleanup
     xSemaphoreGive(network_mutex);
 
     if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
 
     if (httpCode == 200) {
-        String payload = http.getString();
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, payload);
 
@@ -475,7 +495,6 @@ static void checkForUpdates() {
                         if (lbl_latest_version) {
                             lv_label_set_text(lbl_latest_version, "Latest (Nightly): None");
                         }
-                        http.end();
                         return;
                     }
                 } else {
@@ -484,7 +503,6 @@ static void checkForUpdates() {
                         lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " No nightly releases found");
                         lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
                     }
-                    http.end();
                     return;
                 }
             } else {
@@ -510,7 +528,6 @@ static void checkForUpdates() {
                 if (lbl_latest_version) {
                     lv_label_set_text(lbl_latest_version, "Latest (Stable): None");
                 }
-                http.end();
                 return;
             }
 
@@ -543,7 +560,6 @@ static void checkForUpdates() {
                         lv_label_set_text(lbl_latest_version, "Latest (Nightly): None");
                     }
                 }
-                http.end();
                 return;
             }
 
@@ -599,8 +615,6 @@ static void checkForUpdates() {
             lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
         }
     }
-
-    http.end();
 }
 
 static void performOTAUpdate() {
@@ -635,6 +649,24 @@ static void performOTAUpdate() {
             Serial.println("[OTA] Force killing album art task");
             vTaskDelete(albumArtTaskHandle);
             albumArtTaskHandle = NULL;
+        }
+    }
+
+    // Wait for lyrics task to stop (it checks art_shutdown_requested flag)
+    if (lyricsTaskHandle != NULL) {
+        Serial.println("[OTA] Waiting for lyrics task to stop...");
+        int wait_count = 0;
+        while (lyricsTaskHandle != NULL && wait_count < 50) {  // 5 seconds max
+            vTaskDelay(pdMS_TO_TICKS(100));
+            wait_count++;
+        }
+
+        if (lyricsTaskHandle == NULL) {
+            Serial.println("[OTA] ✓ Lyrics task stopped");
+        } else {
+            Serial.println("[OTA] Force killing lyrics task");
+            vTaskDelete(lyricsTaskHandle);
+            lyricsTaskHandle = NULL;
         }
     }
 
@@ -741,9 +773,12 @@ static void performOTAUpdate() {
             int lastPercent = -1;
             uint32_t lastUIUpdate = millis();
 
-            // Buffer size and yield interval defined in config.h
+            // Buffer size defined in config.h
             static uint8_t buff[OTA_BUFFER_SIZE];
-            int writeCount = 0;
+
+            // CRITICAL: Let SDIO buffers settle after TLS handshake before streaming
+            // With only ~7KB free DMA during OTA HTTPS, SDIO needs recovery time
+            vTaskDelay(pdMS_TO_TICKS(100));
 
             Serial.printf("[OTA] Starting download - Free DMA heap: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
 
@@ -753,13 +788,15 @@ static void performOTAUpdate() {
                     size_t toRead = (available < sizeof(buff)) ? available : sizeof(buff);
                     int bytesRead = stream->readBytes(buff, toRead);
                     written += Update.write(buff, bytesRead);
-                    writeCount++;
 
-                    // Yield periodically
-                    if (writeCount >= OTA_YIELD_EVERY_WRITES) {
-                        taskYIELD();
-                        writeCount = 0;
-                    }
+                    // CRITICAL: Yield to SDIO task between reads (10ms per 1KB chunk)
+                    // OTA TLS session uses ~106KB DMA, leaving only 7KB for SDIO
+                    // Without delays, SDIO receive buffers overflow → crash
+                    vTaskDelay(pdMS_TO_TICKS(10));
+
+                    // CRITICAL: Feed watchdog EVERY chunk (download can take 40+ seconds)
+                    // esp_task_wdt_reset() is cheap, and ensures watchdog never times out
+                    esp_task_wdt_reset();
 
                     int percent = (written * 100) / contentLength;
 
@@ -1039,8 +1076,9 @@ void updateUI() {
     if (!dragging_prog && d->durationSeconds > 0)
         lv_slider_set_value(slider_progress, (d->relTimeSeconds * 100) / d->durationSeconds, LV_ANIM_OFF);
 
-    // Update synced lyrics display
+    // Update synced lyrics display and status indicator
     updateLyricsDisplay(d->relTimeSeconds);
+    updateLyricsStatus();  // Update status indicator from main thread
 
     // Play/Pause button
     if (d->isPlaying != ui_playing) {
@@ -1146,7 +1184,7 @@ void updateUI() {
     }
 
     // Album art - only request if URL changed to prevent download loops
-    static String last_art_url = "";
+    // NOTE: last_art_url is GLOBAL (extern in ui_common.h), don't shadow it!
     static String last_track_uri = "";
     static String last_source_prefix = "";
 
@@ -1188,8 +1226,19 @@ void updateUI() {
         last_track_uri = d->currentURI;
     }
 
-    // Request album art if URL changed or URI changed
-    if (d->albumArtURL != last_art_url || uri_changed) {
+    // Request album art if URL provided and (URL changed or track changed)
+    // Note: Don't compare against last_art_url (HTTP) since d->albumArtURL is HTTPS
+    // Let art task handle deduplication after HTTP conversion
+    // For radio: also check radioStationArtURL if albumArtURL is empty
+    bool hasArt = (d->albumArtURL.length() > 0) || (d->isRadioStation && d->radioStationArtURL.length() > 0);
+    bool artChanged = (d->albumArtURL != pending_art_url) || uri_changed;
+
+    // For radio stations: also check if radioStationArtURL changed (even if albumArtURL is empty)
+    if (d->isRadioStation && d->radioStationArtURL.length() > 0 && d->radioStationArtURL != pending_art_url) {
+        artChanged = true;
+    }
+
+    if (hasArt && artChanged) {
         String artURL = "";
         bool usingStationLogo = false;  // Track if we're using station logo (PNG allowed)
 
@@ -1203,6 +1252,8 @@ void updateUI() {
         if (d->isRadioStation) {
             bool hasSongArt = (artURL.length() > 0);
             bool hasStationLogo = (d->radioStationArtURL.length() > 0);
+            Serial.printf("[ART] Radio check - hasSongArt=%d, hasStationLogo=%d, artURL='%s', stationURL='%s'\n",
+                         hasSongArt, hasStationLogo, artURL.c_str(), d->radioStationArtURL.c_str());
 
             // If no song art but have station logo, use the logo
             if (!hasSongArt && hasStationLogo) {
@@ -1241,15 +1292,13 @@ void updateUI() {
             }
 
             requestAlbumArt(artURL);
-            last_art_url = artURL;  // Track the actual URL we requested
+            // Don't set last_art_url here - let art task manage it (HTTP vs HTTPS conversion)
         } else {
-            // No art available - clear display and tracking
-            if (last_art_url.length() > 0) {
-                Serial.println("[ART] No art URL - clearing display");
-                if (img_album) lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-                if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
-                last_art_url = "";
-            }
+            // No art available - clear display
+            Serial.println("[ART] No art URL - clearing display");
+            if (img_album) lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
+            if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+            last_art_url = "";  // Clear to allow next art request
         }
     }
     if (xSemaphoreTake(art_mutex, 0)) {

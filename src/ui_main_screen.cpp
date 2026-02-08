@@ -44,6 +44,13 @@ void createMainScreen() {
     lv_obj_set_style_text_align(lbl_album, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(lbl_album, LV_ALIGN_BOTTOM_MID, 0, -5);  // Moved closer to bottom (-5 instead of -20)
 
+    // Lyrics status indicator (top left of album art, small and subtle)
+    lbl_lyrics_status = lv_label_create(panel_art);
+    lv_label_set_text(lbl_lyrics_status, "");
+    lv_obj_set_style_text_color(lbl_lyrics_status, lv_color_hex(0x888888), 0);  // Dim gray
+    lv_obj_set_style_text_font(lbl_lyrics_status, &lv_font_montserrat_14, 0);  // Small font
+    lv_obj_align(lbl_lyrics_status, LV_ALIGN_TOP_LEFT, 5, 5);  // Top left corner
+
     // Synced lyrics overlay (on top of album art)
     createLyricsOverlay(panel_art);
 

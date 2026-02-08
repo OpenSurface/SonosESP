@@ -38,3 +38,6 @@ void updateLyricsDisplay(int position_seconds);
 
 // Show/hide lyrics overlay
 void setLyricsVisible(bool show);
+
+// Update lyrics status indicator (top left of album art)
+void updateLyricsStatus();

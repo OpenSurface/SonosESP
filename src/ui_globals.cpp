@@ -56,6 +56,7 @@ lv_obj_t *img_album = nullptr;
 lv_obj_t *lbl_title = nullptr;
 lv_obj_t *lbl_artist = nullptr;
 lv_obj_t *lbl_album = nullptr;
+lv_obj_t *lbl_lyrics_status = nullptr;
 lv_obj_t *lbl_time = nullptr;
 lv_obj_t *lbl_time_remaining = nullptr;
 lv_obj_t *btn_play = nullptr;
@@ -113,6 +114,7 @@ String pending_art_url = "";
 volatile bool art_ready = false;
 SemaphoreHandle_t art_mutex = nullptr;
 TaskHandle_t albumArtTaskHandle = nullptr;
+TaskHandle_t lyricsTaskHandle = nullptr;
 volatile bool art_shutdown_requested = false;  // Signal album art to stop gracefully
 volatile bool art_abort_download = false;      // Signal to abort current download (source changed)
 volatile bool sonos_tasks_shutdown_requested = false;  // Signal Sonos tasks to stop for OTA
@@ -125,6 +127,7 @@ bool pending_is_station_logo = false;
 volatile unsigned long last_queue_fetch_time = 0;
 SemaphoreHandle_t network_mutex = NULL;  // Created in main.cpp
 volatile unsigned long last_network_end_ms = 0;  // Last network operation end time (for SDIO cooldown)
+volatile unsigned long last_https_end_ms = 0;   // Last HTTPS operation end time (TLS needs longer cooldown)
 
 // ============================================================================
 // UI State

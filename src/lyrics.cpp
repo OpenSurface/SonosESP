@@ -118,8 +118,17 @@ void initLyrics() {
 
 // Background task: fetch lyrics from LRCLIB
 static void lyricsTaskFunc(void* param) {
-    // Small delay to let album art start first (not required, just polite)
-    vTaskDelay(pdMS_TO_TICKS(500));
+    // Delay to let album art finish first - reduces SDIO contention
+    vTaskDelay(pdMS_TO_TICKS(1500));
+
+    // Early exit if OTA is preparing
+    if (art_shutdown_requested) {
+        Serial.println("[LYRICS] System shutdown detected, aborting");
+        lyrics_fetching = false;
+        lyricsTaskHandle = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
 
     Serial.printf("[LYRICS] Fetching: %s - %s\n", pending_artist, pending_title);
 
@@ -135,19 +144,32 @@ static void lyricsTaskFunc(void* param) {
             artist_enc.c_str(), title_enc.c_str());
     }
 
-    // Acquire network mutex
-    if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
-        Serial.println("[LYRICS] Failed to acquire network mutex");
+    // Acquire network mutex (shorter timeout to not block SOAP requests)
+    if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(3000))) {
+        Serial.println("[LYRICS] Network busy, skipping fetch");
         lyrics_fetching = false;
+        updateLyricsStatus();
+        lyricsTaskHandle = NULL;
         vTaskDelete(NULL);
         return;
     }
 
-    // CRITICAL: Wait for SDIO cooldown (200ms since last network operation)
+    // CRITICAL: Wait for general SDIO cooldown (200ms since last network op)
     unsigned long now = millis();
     unsigned long elapsed = now - last_network_end_ms;
     if (last_network_end_ms > 0 && elapsed < 200) {
         vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
+    }
+
+    // CRITICAL: Wait for HTTPS-specific cooldown (1500ms since last HTTPS)
+    // TLS handshake/teardown stresses ESP32-C6 SDIO buffers heavily
+    // Increased from 500ms → 1000ms → 1500ms to prevent transport_drv_sta_tx crashes
+    now = millis();
+    elapsed = now - last_https_end_ms;
+    if (last_https_end_ms > 0 && elapsed < 1500) {
+        unsigned long wait_ms = 1500 - elapsed;
+        Serial.printf("[LYRICS] HTTPS cooldown: waiting %lums (elapsed: %lums)\n", wait_ms, elapsed);
+        vTaskDelay(pdMS_TO_TICKS(wait_ms));
     }
 
     // HTTPS fetch - use scoped block to ensure WiFiClientSecure is destroyed immediately
@@ -157,7 +179,7 @@ static void lyricsTaskFunc(void* param) {
         client.setInsecure();  // Skip certificate validation to save memory
         HTTPClient http;
         http.begin(client, url);
-        http.setTimeout(5000);
+        http.setTimeout(6000);  // 6s timeout (faster response, still good for lrclib.net)
         http.addHeader("User-Agent", "SonosESP/1.0");
 
         int code = http.GET();
@@ -183,10 +205,12 @@ static void lyricsTaskFunc(void* param) {
             }
             Serial.printf("[LYRICS] HTTP %d (%s)\n", code, error_msg);
 
-            // Retry logic: allow up to 5 attempts for network failures
+            // Retry logic: 3 retries with increasing delays (total 4 attempts)
             lyrics_retry_count++;
-            if (lyrics_retry_count < 5) {
-                Serial.printf("[LYRICS] Retry %d/5 in 2 seconds...\n", lyrics_retry_count);
+            if (lyrics_retry_count < 3) {
+                // Progressive backoff: 3s, 5s, 7s
+                int delay = 2000 + (lyrics_retry_count * 2000);
+                Serial.printf("[LYRICS] Retry %d/3 in %ds...\n", lyrics_retry_count, delay/1000);
             } else {
                 Serial.println("[LYRICS] Max retries reached, giving up");
                 lyrics_retry_count = 0;  // Reset for next track
@@ -198,26 +222,29 @@ static void lyricsTaskFunc(void* param) {
         // client and http destroyed here when leaving scope - frees TLS session
     }
 
-    // CRITICAL: Wait for TLS cleanup to complete before releasing mutex
-    vTaskDelay(pdMS_TO_TICKS(100));
+    // Wait for TLS cleanup and SDIO buffer stabilization
+    vTaskDelay(pdMS_TO_TICKS(200));
 
-    // Update timestamp before releasing mutex (for SDIO cooldown tracking)
+    // Update timestamps before releasing mutex
     last_network_end_ms = millis();
+    last_https_end_ms = millis();
 
     xSemaphoreGive(network_mutex);
 
-    // If failed and retries remaining, spawn retry task after delay
-    if (payload.length() == 0 && lyrics_retry_count > 0 && lyrics_retry_count < 5) {
-        vTaskDelay(pdMS_TO_TICKS(2000));  // Wait 2 seconds before retry
+    // If failed and retries remaining, spawn retry task after progressive delay
+    if (payload.length() == 0 && lyrics_retry_count > 0 && lyrics_retry_count < 3) {
+        // Progressive backoff: 3s, 5s, 7s
+        int delay = 2000 + (lyrics_retry_count * 2000);
+        vTaskDelay(pdMS_TO_TICKS(delay));
         // Spawn new retry task BEFORE deleting self (keep lyrics_fetching = true)
-        xTaskCreatePinnedToCore(lyricsTaskFunc, "lyrics", 4096, NULL, 1, NULL, 0);
+        xTaskCreatePinnedToCore(lyricsTaskFunc, "lyrics", 4096, NULL, 1, &lyricsTaskHandle, 0);
         vTaskDelete(NULL);  // Delete self, new task continues with retry
         return;
     }
 
     // Parse JSON response (use fixed 4KB buffer to save DRAM)
     if (payload.length() > 0) {
-        StaticJsonDocument<4096> doc;  // 4KB fixed buffer instead of dynamic allocation
+        DynamicJsonDocument doc(2048);  // Heap-allocated: StaticJsonDocument<4096> would overflow 4096-byte task stack
         DeserializationError err = deserializeJson(doc, payload);
         if (!err) {
             const char* synced = doc["syncedLyrics"];
@@ -227,6 +254,7 @@ static void lyricsTaskFunc(void* param) {
                     current_lyric_index = -1;
                     lyrics_ready = true;
                     Serial.printf("[LYRICS] Ready: %d lines\n", lyric_count);
+                    // Status will be updated by main UI loop
                 }
             } else {
                 Serial.println("[LYRICS] No synced lyrics available");
@@ -237,6 +265,8 @@ static void lyricsTaskFunc(void* param) {
     }
 
     lyrics_fetching = false;
+    // Status will be updated by main UI loop
+    lyricsTaskHandle = NULL;  // Clear handle before self-deletion
     vTaskDelete(NULL);
 }
 
@@ -258,9 +288,10 @@ void requestLyrics(const String& artist, const String& title, int durationSec) {
     pending_title[sizeof(pending_title) - 1] = '\0';
     pending_duration = durationSec;
     lyrics_fetching = true;
+    updateLyricsStatus();  // Show "fetching" status
 
     // Spawn one-shot background task (reduced stack: lyrics task is lightweight)
-    xTaskCreatePinnedToCore(lyricsTaskFunc, "lyrics", 4096, NULL, 1, NULL, 0);
+    xTaskCreatePinnedToCore(lyricsTaskFunc, "lyrics", 4096, NULL, 1, &lyricsTaskHandle, 0);
 }
 
 void clearLyrics() {
@@ -268,6 +299,7 @@ void clearLyrics() {
     lyric_count = 0;
     current_lyric_index = -1;
     setLyricsVisible(false);
+    updateLyricsStatus();  // Clear status indicator
 }
 
 void createLyricsOverlay(lv_obj_t* parent) {
@@ -278,9 +310,10 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lv_obj_set_style_bg_color(lyrics_container, lv_color_hex(0x000000), 0);
     lv_obj_set_style_bg_opa(lyrics_container, 180, 0);
     lv_obj_set_style_border_width(lyrics_container, 0, 0);
+    lv_obj_set_style_outline_width(lyrics_container, 0, 0);  // No outline
     lv_obj_set_style_radius(lyrics_container, 0, 0);
     lv_obj_set_style_pad_top(lyrics_container, 8, 0);
-    lv_obj_set_style_pad_bottom(lyrics_container, 0, 0);  // No bottom padding to prevent black line
+    lv_obj_set_style_pad_bottom(lyrics_container, 0, 0);
     lv_obj_set_style_pad_left(lyrics_container, 8, 0);
     lv_obj_set_style_pad_right(lyrics_container, 8, 0);
     lv_obj_clear_flag(lyrics_container, LV_OBJ_FLAG_SCROLLABLE);
@@ -396,13 +429,13 @@ void updateLyricsDisplay(int position_seconds) {
         lv_anim_start(&anim);
     }
 
-    // Color current line with brightened dominant color (same formula as progress bar)
+    // Color current line with brightened dominant color (brighter than progress bar)
     uint8_t r = (dominant_color >> 16) & 0xFF;
     uint8_t g = (dominant_color >> 8) & 0xFF;
     uint8_t b = dominant_color & 0xFF;
-    r = (uint8_t)max(min((int)r * 3, 255), 80);  // Same as progress bar
-    g = (uint8_t)max(min((int)g * 3, 255), 80);  // Same as progress bar
-    b = (uint8_t)max(min((int)b * 3, 255), 80);  // Same as progress bar
+    r = (uint8_t)max(min((int)r * 4, 255), 120);  // Brighter: 4x multiplier, floor 120
+    g = (uint8_t)max(min((int)g * 4, 255), 120);
+    b = (uint8_t)max(min((int)b * 4, 255), 120);
     lv_obj_set_style_text_color(lbl_lyric_current, lv_color_make(r, g, b), 0);
 }
 
@@ -412,5 +445,24 @@ void setLyricsVisible(bool show) {
         lv_obj_remove_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+void updateLyricsStatus() {
+    extern lv_obj_t *lbl_lyrics_status;
+    extern bool lyrics_enabled;
+
+    if (!lbl_lyrics_status) return;
+    if (!lyrics_enabled) {
+        lv_label_set_text(lbl_lyrics_status, "");  // Hide when disabled
+        return;
+    }
+
+    // Only show status when fetching, hide otherwise
+    if (lyrics_fetching) {
+        lv_label_set_text(lbl_lyrics_status, "Lyrics...");
+        lv_obj_set_style_text_color(lbl_lyrics_status, lv_color_hex(0x666666), 0);  // Dark gray, subtle
+    } else {
+        lv_label_set_text(lbl_lyrics_status, "");  // Hide when ready or no lyrics
     }
 }

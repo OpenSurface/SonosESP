@@ -999,6 +999,7 @@ bool SonosController::updateMediaInfo() {
         // Extract station logo from upnp:albumArtURI
         String stationArt = extractXML(meta, "upnp:albumArtURI");
         stationArt = decodeHTML(stationArt);
+        Serial.printf("[RADIO] Extracted albumArtURI: '%s'\n", stationArt.c_str());
 
         // Store station name if valid (not URL junk)
         if (stationName.length() > 0) {
@@ -1021,6 +1022,9 @@ bool SonosController::updateMediaInfo() {
             } else {
                 dev->radioStationArtURL = stationArt;
             }
+            Serial.printf("[RADIO] Set radioStationArtURL: '%s'\n", dev->radioStationArtURL.c_str());
+        } else {
+            Serial.println("[RADIO] No station art found in metadata");
         }
 
         xSemaphoreGive(deviceMutex);
