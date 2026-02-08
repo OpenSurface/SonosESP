@@ -179,7 +179,7 @@ static void lyricsTaskFunc(void* param) {
         client.setInsecure();  // Skip certificate validation to save memory
         HTTPClient http;
         http.begin(client, url);
-        http.setTimeout(6000);  // 6s timeout (faster response, still good for lrclib.net)
+        http.setTimeout(10000);  // 10s timeout (lrclib.net can be slow)
         http.addHeader("User-Agent", "SonosESP/1.0");
 
         int code = http.GET();
@@ -205,12 +205,12 @@ static void lyricsTaskFunc(void* param) {
             }
             Serial.printf("[LYRICS] HTTP %d (%s)\n", code, error_msg);
 
-            // Retry logic: 3 retries with increasing delays (total 4 attempts)
+            // Retry logic: 5 retries with increasing delays (total 6 attempts)
             lyrics_retry_count++;
-            if (lyrics_retry_count < 3) {
-                // Progressive backoff: 3s, 5s, 7s
-                int delay = 2000 + (lyrics_retry_count * 2000);
-                Serial.printf("[LYRICS] Retry %d/3 in %ds...\n", lyrics_retry_count, delay/1000);
+            if (lyrics_retry_count < 5) {
+                // Progressive backoff: 2s, 3s, 4s, 5s, 6s
+                int delay = 1000 + (lyrics_retry_count * 1000);
+                Serial.printf("[LYRICS] Retry %d/5 in %ds...\n", lyrics_retry_count, delay/1000);
             } else {
                 Serial.println("[LYRICS] Max retries reached, giving up");
                 lyrics_retry_count = 0;  // Reset for next track
@@ -232,9 +232,9 @@ static void lyricsTaskFunc(void* param) {
     xSemaphoreGive(network_mutex);
 
     // If failed and retries remaining, spawn retry task after progressive delay
-    if (payload.length() == 0 && lyrics_retry_count > 0 && lyrics_retry_count < 3) {
-        // Progressive backoff: 3s, 5s, 7s
-        int delay = 2000 + (lyrics_retry_count * 2000);
+    if (payload.length() == 0 && lyrics_retry_count > 0 && lyrics_retry_count < 5) {
+        // Progressive backoff: 2s, 3s, 4s, 5s, 6s
+        int delay = 1000 + (lyrics_retry_count * 1000);
         vTaskDelay(pdMS_TO_TICKS(delay));
         // Spawn new retry task BEFORE deleting self (keep lyrics_fetching = true)
         xTaskCreatePinnedToCore(lyricsTaskFunc, "lyrics", 4096, NULL, 1, &lyricsTaskHandle, 0);
@@ -310,13 +310,18 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lv_obj_set_style_bg_color(lyrics_container, lv_color_hex(0x000000), 0);
     lv_obj_set_style_bg_opa(lyrics_container, 180, 0);
     lv_obj_set_style_border_width(lyrics_container, 0, 0);
-    lv_obj_set_style_outline_width(lyrics_container, 0, 0);  // No outline
+    lv_obj_set_style_border_opa(lyrics_container, 0, 0);      // Force no border
+    lv_obj_set_style_outline_width(lyrics_container, 0, 0);
+    lv_obj_set_style_outline_opa(lyrics_container, 0, 0);     // Force no outline
+    lv_obj_set_style_shadow_width(lyrics_container, 0, 0);    // No shadow
+    lv_obj_set_style_shadow_opa(lyrics_container, 0, 0);      // Force no shadow
     lv_obj_set_style_radius(lyrics_container, 0, 0);
     lv_obj_set_style_pad_top(lyrics_container, 8, 0);
-    lv_obj_set_style_pad_bottom(lyrics_container, 0, 0);
+    lv_obj_set_style_pad_bottom(lyrics_container, 4, 0);      // Small padding to avoid edge artifact
     lv_obj_set_style_pad_left(lyrics_container, 8, 0);
     lv_obj_set_style_pad_right(lyrics_container, 8, 0);
     lv_obj_clear_flag(lyrics_container, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollbar_mode(lyrics_container, LV_SCROLLBAR_MODE_OFF);
 
     // Flex column layout, centered
     lv_obj_set_flex_flow(lyrics_container, LV_FLEX_FLOW_COLUMN);

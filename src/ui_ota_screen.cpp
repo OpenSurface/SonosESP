@@ -15,8 +15,8 @@ void createOTAScreen() {
     scr_ota = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_ota, lv_color_hex(0x121212), 0);
 
-    // Create sidebar and get content area (Update is index 5)
-    lv_obj_t* content = createSettingsSidebar(scr_ota, 5);
+    // Create sidebar and get content area (Update is index 6)
+    lv_obj_t* content = createSettingsSidebar(scr_ota, 6);
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title

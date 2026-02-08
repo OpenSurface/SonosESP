@@ -15,8 +15,8 @@ void createWiFiScreen() {
     scr_wifi = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_wifi, lv_color_hex(0x121212), 0);
 
-    // Create sidebar and get content area (WiFi is index 4)
-    lv_obj_t* content = createSettingsSidebar(scr_wifi, 4);
+    // Create sidebar and get content area (WiFi is index 5)
+    lv_obj_t* content = createSettingsSidebar(scr_wifi, 5);
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title + Scan button row

@@ -204,8 +204,8 @@ void createDevicesScreen() {
     scr_devices = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_devices, lv_color_hex(0x121212), 0);
 
-    // Create sidebar and get content area (Speakers is index 0)
-    lv_obj_t* content = createSettingsSidebar(scr_devices, 0);
+    // Create sidebar and get content area (Speakers is index 1)
+    lv_obj_t* content = createSettingsSidebar(scr_devices, 1);
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title + Scan button row

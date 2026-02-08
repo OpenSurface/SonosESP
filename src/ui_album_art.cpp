@@ -640,19 +640,44 @@ void albumArtTask(void* param) {
                                 // ESP32-P4 Hardware JPEG Decoder - fast and stable!
                                 Serial.printf("[ART] HW JPEG decode: %d bytes\n", read);
 
+                                // CRITICAL: ESP32-P4 HW decoder fails on COM markers (error 258)
+                                // Strip COM markers (0xFFFE) to prevent "COM marker data underflow" errors
+                                size_t cleaned_size = read;
+                                for (size_t i = 0; i < read - 1; ) {
+                                    if (jpgBuf[i] == 0xFF && jpgBuf[i+1] == 0xFE) {
+                                        // Found COM marker - get length
+                                        if (i + 3 < read) {
+                                            uint16_t len = (jpgBuf[i+2] << 8) | jpgBuf[i+3];
+                                            // Remove marker + length + data
+                                            size_t marker_total = 2 + len;
+                                            if (i + marker_total <= read) {
+                                                memmove(&jpgBuf[i], &jpgBuf[i + marker_total], read - i - marker_total);
+                                                cleaned_size -= marker_total;
+                                                Serial.printf("[ART] Stripped COM marker (%d bytes)\n", marker_total);
+                                                continue;  // Don't increment i, check same position again
+                                            }
+                                        }
+                                    }
+                                    i++;
+                                }
+
                                 // Get image dimensions from header (no hardware needed)
                                 jpeg_decode_picture_info_t pic_info;
-                                esp_err_t ret = jpeg_decoder_get_info(jpgBuf, read, &pic_info);
+                                esp_err_t ret = jpeg_decoder_get_info(jpgBuf, cleaned_size, &pic_info);
                                 if (ret == ESP_OK) {
                                     int w = pic_info.width;
                                     int h = pic_info.height;
                                     // Hardware outputs dimensions rounded to 16-pixel boundary
                                     int out_w = ((w + 15) / 16) * 16;
                                     int out_h = ((h + 15) / 16) * 16;
-                                    Serial.printf("[ART] JPEG: %dx%d (output: %dx%d)\n", w, h, out_w, out_h);
+                                    bool is_grayscale = (pic_info.sample_method == JPEG_DOWN_SAMPLING_GRAY);
+                                    Serial.printf("[ART] JPEG: %dx%d (output: %dx%d)%s\n", w, h, out_w, out_h,
+                                                  is_grayscale ? " [GRAYSCALE]" : "");
 
-                                    // Allocate output buffer for RGB565 - needs to be DMA capable
-                                    size_t decoded_size = out_w * out_h * 2;
+                                    // Allocate DMA output buffer
+                                    // Grayscale: 1 byte/pixel, Color: 2 bytes/pixel (RGB565)
+                                    size_t bytes_per_pixel = is_grayscale ? 1 : 2;
+                                    size_t decoded_size = out_w * out_h * bytes_per_pixel;
                                     jpeg_decode_memory_alloc_cfg_t rx_mem_cfg = {
                                         .buffer_direction = JPEG_DEC_ALLOC_OUTPUT_BUFFER,
                                     };
@@ -660,17 +685,37 @@ void albumArtTask(void* param) {
                                     uint8_t* hw_out_buf = (uint8_t*)jpeg_alloc_decoder_mem(decoded_size, &rx_mem_cfg, &rx_buffer_size);
 
                                     if (hw_out_buf) {
-                                        // Configure hardware decoder for RGB565 output
+                                        // Configure hardware decoder output format
                                         jpeg_decode_cfg_t decode_cfg = {
-                                            .output_format = JPEG_DECODE_OUT_FORMAT_RGB565,
+                                            .output_format = is_grayscale ? JPEG_DECODE_OUT_FORMAT_GRAY : JPEG_DECODE_OUT_FORMAT_RGB565,
                                             .rgb_order = JPEG_DEC_RGB_ELEMENT_ORDER_BGR,  // Little endian
                                             .conv_std = JPEG_YUV_RGB_CONV_STD_BT601,
                                         };
 
                                         uint32_t out_size = 0;
-                                        ret = jpeg_decoder_process(hw_jpeg_decoder, &decode_cfg, jpgBuf, read, hw_out_buf, rx_buffer_size, &out_size);
+                                        ret = jpeg_decoder_process(hw_jpeg_decoder, &decode_cfg, jpgBuf, cleaned_size, hw_out_buf, rx_buffer_size, &out_size);
 
-                                        if (ret == ESP_OK) {
+                                        // For grayscale: convert GRAY8 to RGB565
+                                        if (ret == ESP_OK && is_grayscale) {
+                                            Serial.println("[ART] Converting grayscale to RGB565");
+                                            uint16_t* rgb_buf = (uint16_t*)heap_caps_malloc(out_w * out_h * 2, MALLOC_CAP_SPIRAM);
+                                            if (rgb_buf) {
+                                                int total_pixels = out_w * out_h;
+                                                for (int i = 0; i < total_pixels; i++) {
+                                                    uint8_t g = hw_out_buf[i];
+                                                    rgb_buf[i] = ((g >> 3) << 11) | ((g >> 2) << 5) | (g >> 3);
+                                                }
+                                                heap_caps_free(hw_out_buf);  // Free DMA gray buffer
+                                                hw_out_buf = (uint8_t*)rgb_buf;  // Now points to RGB565
+                                            } else {
+                                                Serial.println("[ART] Grayscale conversion alloc failed");
+                                                heap_caps_free(hw_out_buf);
+                                                hw_out_buf = nullptr;
+                                                ret = ESP_FAIL;
+                                            }
+                                        }
+
+                                        if (ret == ESP_OK && hw_out_buf) {
                                             Serial.printf("[ART] HW decoded: %d bytes\n", out_size);
 
                                             // Scale to 420x420 using bilinear interpolation
@@ -725,7 +770,24 @@ void albumArtTask(void* param) {
                                             last_failed_url[0] = '\0';
                                         } else {
                                             Serial.printf("[ART] HW JPEG decode failed: %d\n", ret);
-                                            heap_caps_free(hw_out_buf);
+                                            if (hw_out_buf) heap_caps_free(hw_out_buf);
+                                            // Track decode failures to prevent infinite retry
+                                            if (strcmp(url, last_failed_url) == 0) {
+                                                consecutive_failures++;
+                                            } else {
+                                                strncpy(last_failed_url, url, sizeof(last_failed_url) - 1);
+                                                last_failed_url[sizeof(last_failed_url) - 1] = '\0';
+                                                consecutive_failures = 1;
+                                            }
+                                            if (consecutive_failures >= 3) {
+                                                Serial.printf("[ART] Decode failed %d times, skipping URL\n", consecutive_failures);
+                                                if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                                                    last_art_url = url;
+                                                    xSemaphoreGive(art_mutex);
+                                                }
+                                                consecutive_failures = 0;
+                                                last_failed_url[0] = '\0';
+                                            }
                                         }
                                     } else {
                                         Serial.printf("[ART] Failed to allocate %d bytes for HW decode\n", (int)decoded_size);

@@ -253,8 +253,8 @@ void createGroupsScreen() {
     scr_groups = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_groups, lv_color_hex(0x121212), 0);
 
-    // Create sidebar and get content area (Groups is index 1)
-    lv_obj_t* content = createSettingsSidebar(scr_groups, 1);
+    // Create sidebar and get content area (Groups is index 2)
+    lv_obj_t* content = createSettingsSidebar(scr_groups, 2);
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title + Refresh button row

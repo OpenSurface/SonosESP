@@ -169,8 +169,8 @@ void createSourcesScreen() {
     scr_sources = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_sources, lv_color_hex(0x121212), 0);
 
-    // Create sidebar and get content area (Sources is index 2)
-    lv_obj_t* content = createSettingsSidebar(scr_sources, 2);
+    // Create sidebar and get content area (Sources is index 3)
+    lv_obj_t* content = createSettingsSidebar(scr_sources, 3);
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title
@@ -268,8 +268,8 @@ void createBrowseScreen() {
     scr_browse = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_browse, lv_color_hex(0x121212), 0);
 
-    // Create sidebar and get content area (Sources is index 2)
-    lv_obj_t* content = createSettingsSidebar(scr_browse, 2);
+    // Create sidebar and get content area (Sources is index 3)
+    lv_obj_t* content = createSettingsSidebar(scr_browse, 3);
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title
