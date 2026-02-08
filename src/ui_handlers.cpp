@@ -680,8 +680,33 @@ static void performOTAUpdate() {
         xSemaphoreGive(ota_progress_mutex);
     }
 
-    // Small delay to allow SSL cleanup in album art task to complete
-    vTaskDelay(pdMS_TO_TICKS(500));
+    // CRITICAL: Force close ALL WiFi connections and wait for TLS cleanup
+    // TLS sessions from lyrics/art can linger and consume DMA memory
+    Serial.println("[OTA] Force closing all WiFi connections...");
+    WiFi.disconnect(false, false);  // Disconnect without disabling WiFi
+    vTaskDelay(pdMS_TO_TICKS(1000));  // Wait for disconnect
+
+    // Reconnect WiFi for OTA
+    WiFi.reconnect();
+    int wifi_wait = 0;
+    while (WiFi.status() != WL_CONNECTED && wifi_wait < 50) {  // 5 second timeout
+        vTaskDelay(pdMS_TO_TICKS(100));
+        wifi_wait++;
+    }
+
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[OTA] ERROR: WiFi reconnection failed!");
+        if (lbl_ota_status) {
+            lv_label_set_text(lbl_ota_status, LV_SYMBOL_WARNING " WiFi reconnection failed!");
+            lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+        }
+        return;
+    }
+
+    Serial.println("[OTA] ✓ WiFi reconnected, all TLS sessions cleared");
+
+    // Extended delay to ensure all DMA buffers are fully released
+    vTaskDelay(pdMS_TO_TICKS(2000));  // Increased from 500ms → 2000ms
 
     Serial.printf("[OTA] Free DMA heap: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
 
