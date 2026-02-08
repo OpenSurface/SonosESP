@@ -74,6 +74,10 @@ static void parseLRC(const String& lrc) {
         // Skip empty lyric lines (instrumental breaks)
         if (text.length() == 0) continue;
 
+        // Sanitize Unicode characters (reuses decodeHTML from SonosController)
+        // Replaces curly quotes, accents, smart punctuation with ASCII equivalents
+        text = sonos.decodeHTML(text);
+
         lyric_lines[lyric_count].time_ms = time_ms;
         strncpy(lyric_lines[lyric_count].text, text.c_str(), MAX_LYRIC_TEXT - 1);
         lyric_lines[lyric_count].text[MAX_LYRIC_TEXT - 1] = '\0';

@@ -71,7 +71,7 @@ void createOTAScreen() {
 
     // Style the dropdown button (closed state)
     lv_obj_set_style_bg_color(dd_ota_channel, COL_BTN, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(dd_ota_channel, COL_BTN_PRESSED, LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_bg_color(dd_ota_channel, COL_BTN_PRESSED, (lv_style_selector_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
     lv_obj_set_style_text_color(dd_ota_channel, COL_TEXT, LV_PART_MAIN);
     lv_obj_set_style_radius(dd_ota_channel, 8, LV_PART_MAIN);
     lv_obj_set_style_border_width(dd_ota_channel, 1, LV_PART_MAIN);
@@ -81,7 +81,7 @@ void createOTAScreen() {
 
     // Style the dropdown list (opened state) - this is the key for dark theme!
     lv_obj_set_style_bg_color(dd_ota_channel, lv_color_hex(0x2A2A2A), LV_PART_SELECTED);
-    lv_obj_set_style_bg_color(dd_ota_channel, COL_ACCENT, LV_PART_SELECTED | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_color(dd_ota_channel, COL_ACCENT, (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
     lv_obj_set_style_text_color(dd_ota_channel, COL_TEXT, LV_PART_SELECTED);
 
     // Get the list object and style it for dark theme
