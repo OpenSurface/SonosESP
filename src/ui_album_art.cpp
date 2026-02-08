@@ -99,8 +99,8 @@ void sampleDominantColor(uint16_t* buffer, int width, int height) {
     // Sample edge pixels (top, bottom, left, right margins)
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            // Sample only edges (50px margin) and every 15th pixel
-            if (((x | y) % 15 == 0) && (y < 50 || y > height - 50 || x < 50 || x > width - 50)) {
+            // Sample only edges (50px margin) and every 20th pixel (optimized: was 15, saves ~25% sampling time)
+            if (((x | y) % 20 == 0) && (y < 50 || y > height - 50 || x < 50 || x > width - 50)) {
                 uint16_t pixel = buffer[y * width + x];
 
                 // Convert RGB565 to RGB888
@@ -493,7 +493,10 @@ void albumArtTask(void* param) {
                         }
 
                         int read = bytesRead;
-                        if ((len_known ? (read == len) : (read > 0)) && readSuccess) {
+                        // Allow small tolerance for partial downloads (1KB or 99% of expected size)
+                        // Prevents infinite retry when connection drops a few bytes at the end
+                        bool sizeOk = len_known ? (read >= len - 1024 && read >= (len * 99 / 100)) : (read > 0);
+                        if (sizeOk && readSuccess) {
                             // Detect image format by magic bytes
                             bool isJPEG = (read >= 3 && jpgBuf[0] == 0xFF && jpgBuf[1] == 0xD8 && jpgBuf[2] == 0xFF);
                             bool isPNG = (read >= 4 && jpgBuf[0] == 0x89 && jpgBuf[1] == 0x50 && jpgBuf[2] == 0x4E && jpgBuf[3] == 0x47);
@@ -636,6 +639,11 @@ void albumArtTask(void* param) {
                             } else if (isPNG && !isStationLogo) {
                                 // PNG detected but not a station logo - skip (only JPEG for normal album art)
                                 Serial.println("[ART] PNG detected but not station logo - skipping");
+                                // Mark as done to prevent infinite retry loop
+                                if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                                    last_art_url = url;
+                                    xSemaphoreGive(art_mutex);
+                                }
                             } else if (isJPEG && hw_jpeg_decoder) {
                                 // ESP32-P4 Hardware JPEG Decoder - fast and stable!
                                 Serial.printf("[ART] HW JPEG decode: %d bytes\n", read);
@@ -779,6 +787,10 @@ void albumArtTask(void* param) {
                                                 last_failed_url[sizeof(last_failed_url) - 1] = '\0';
                                                 consecutive_failures = 1;
                                             }
+                                            // Exponential backoff: 200ms, 400ms, 600ms... (prevents rapid retry hammering)
+                                            if (consecutive_failures > 1) {
+                                                vTaskDelay(pdMS_TO_TICKS(consecutive_failures * 200));
+                                            }
                                             if (consecutive_failures >= 3) {
                                                 Serial.printf("[ART] Decode failed %d times, skipping URL\n", consecutive_failures);
                                                 if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
@@ -798,13 +810,28 @@ void albumArtTask(void* param) {
                             } else if (isJPEG) {
                                 // Fallback: Software JPEG decode (if hardware not available)
                                 Serial.println("[ART] HW JPEG unavailable, skipping");
+                                // Mark as done to prevent retry
+                                if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                                    last_art_url = url;
+                                    xSemaphoreGive(art_mutex);
+                                }
                             } else {
                                 Serial.println("[ART] Unknown image format (not JPEG or PNG)");
+                                // Mark as done to prevent retry loop
+                                if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                                    last_art_url = url;
+                                    xSemaphoreGive(art_mutex);
+                                }
                             }
                         }
                         heap_caps_free(jpgBuf);
                     } else {
                         Serial.printf("[ART] Failed to allocate %d bytes for album art\n", len);
+                        // Mark as done - memory issue, retry won't help
+                        if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                            last_art_url = url;
+                            xSemaphoreGive(art_mutex);
+                        }
                     }
                 } else if (len >= (int)max_art_size) {
                     Serial.printf("[ART] Album art too large: %d bytes (max %dKB)\n", len, (int)(max_art_size/1000));
@@ -852,6 +879,11 @@ void albumArtTask(void* param) {
                             strncpy(last_failed_url, url, sizeof(last_failed_url) - 1);
                             last_failed_url[sizeof(last_failed_url) - 1] = '\0';
                             consecutive_failures = 1;
+                        }
+
+                        // Exponential backoff: 200ms, 400ms, 600ms, 800ms, 1000ms (prevents rapid retry hammering)
+                        if (consecutive_failures > 1) {
+                            vTaskDelay(pdMS_TO_TICKS(consecutive_failures * 200));
                         }
 
                         // After 5 consecutive failures for same URL, mark as done to stop retrying

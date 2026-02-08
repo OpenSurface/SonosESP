@@ -19,6 +19,7 @@ struct LyricLine {
 extern int lyric_count;
 extern volatile bool lyrics_ready;
 extern volatile bool lyrics_fetching;
+extern volatile bool lyrics_abort_requested;  // Abort flag for rapid track changes
 extern int current_lyric_index;
 
 // Initialize lyrics system (allocates PSRAM buffer)

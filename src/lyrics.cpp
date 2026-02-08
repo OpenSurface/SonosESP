@@ -17,6 +17,7 @@ static LyricLine* lyric_lines = nullptr;  // Dynamically allocated in PSRAM
 int lyric_count = 0;
 volatile bool lyrics_ready = false;
 volatile bool lyrics_fetching = false;
+volatile bool lyrics_abort_requested = false;  // Abort flag for rapid track changes
 int current_lyric_index = -1;
 
 // Pending fetch parameters (use fixed buffers to avoid String allocation overhead)
@@ -118,8 +119,18 @@ void initLyrics() {
 
 // Background task: fetch lyrics from LRCLIB
 static void lyricsTaskFunc(void* param) {
-    // Delay to let album art finish first - reduces SDIO contention
-    vTaskDelay(pdMS_TO_TICKS(1500));
+    // Delay to let album art finish first - reduces SDIO contention (optimized: was 1500ms, now 1000ms since HTTP is faster)
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    // Check abort flag (track changed during initial delay)
+    if (lyrics_abort_requested) {
+        Serial.println("[LYRICS] Abort requested (track changed), stopping fetch");
+        lyrics_fetching = false;
+        lyrics_abort_requested = false;
+        lyricsTaskHandle = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
 
     // Early exit if OTA is preparing
     if (art_shutdown_requested) {
@@ -204,6 +215,7 @@ static void lyricsTaskFunc(void* param) {
                 default: error_msg = "Unknown error"; break;
             }
             Serial.printf("[LYRICS] HTTP %d (%s)\n", code, error_msg);
+            Serial.flush();  // CRITICAL: Flush serial buffer to prevent output corruption
 
             // Retry logic: 5 retries with increasing delays (total 6 attempts)
             lyrics_retry_count++;
@@ -231,11 +243,34 @@ static void lyricsTaskFunc(void* param) {
 
     xSemaphoreGive(network_mutex);
 
+    // Check abort flag before retrying (track changed)
+    if (lyrics_abort_requested) {
+        Serial.println("[LYRICS] Abort requested (track changed), stopping retries");
+        lyrics_fetching = false;
+        lyrics_abort_requested = false;
+        lyrics_retry_count = 0;  // Reset retry counter
+        lyricsTaskHandle = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+
     // If failed and retries remaining, spawn retry task after progressive delay
     if (payload.length() == 0 && lyrics_retry_count > 0 && lyrics_retry_count < 5) {
         // Progressive backoff: 2s, 3s, 4s, 5s, 6s
         int delay = 1000 + (lyrics_retry_count * 1000);
         vTaskDelay(pdMS_TO_TICKS(delay));
+
+        // Check abort flag again after delay
+        if (lyrics_abort_requested) {
+            Serial.println("[LYRICS] Abort requested during retry delay, stopping");
+            lyrics_fetching = false;
+            lyrics_abort_requested = false;
+            lyrics_retry_count = 0;
+            lyricsTaskHandle = NULL;
+            vTaskDelete(NULL);
+            return;
+        }
+
         // Spawn new retry task BEFORE deleting self (keep lyrics_fetching = true)
         xTaskCreatePinnedToCore(lyricsTaskFunc, "lyrics", 4096, NULL, 1, &lyricsTaskHandle, 0);
         vTaskDelete(NULL);  // Delete self, new task continues with retry
@@ -276,10 +311,21 @@ void requestLyrics(const String& artist, const String& title, int durationSec) {
         Serial.println("[LYRICS] Buffer not initialized - call initLyrics() first");
         return;
     }
-    if (lyrics_fetching) return;  // Already fetching, don't spawn duplicate task
+
+    // If already fetching, abort the previous task (track changed)
+    if (lyrics_fetching) {
+        Serial.println("[LYRICS] Track changed, aborting previous fetch");
+        lyrics_abort_requested = true;
+        // Wait a bit for previous task to abort (it checks the flag every delay/loop)
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
 
     // Clear previous lyrics
     clearLyrics();
+
+    // Reset abort flag and retry counter for new fetch
+    lyrics_abort_requested = false;
+    lyrics_retry_count = 0;
 
     // Store parameters for the task (copy to fixed buffers)
     strncpy(pending_artist, artist.c_str(), sizeof(pending_artist) - 1);
@@ -394,10 +440,23 @@ void updateLyricsDisplay(int position_seconds) {
         return;
     }
 
+    // Auto-hide logic: Hide lyrics 10 seconds after current line if there's a gap before next line
+    int time_since_current = pos_ms - lyric_lines[idx].time_ms;
+
     // Check if we're past the last lyric (more than 3 seconds after) - hide container
     if (idx == lyric_count - 1) {  // On last lyric
-        int time_since_last = pos_ms - lyric_lines[idx].time_ms;
-        if (time_since_last > 3000) {  // 3 seconds after last lyric
+        if (time_since_current > 3000) {  // 3 seconds after last lyric
+            if (!lv_obj_has_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN)) {
+                lv_obj_add_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN);
+            }
+            return;
+        }
+    } else {
+        // Check if next lyric is more than 10 seconds away
+        int time_to_next = lyric_lines[idx + 1].time_ms - pos_ms;
+
+        // If we've shown current lyric for 10+ seconds AND next lyric is still far away, hide
+        if (time_since_current >= 10000 && time_to_next > 0) {
             if (!lv_obj_has_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN)) {
                 lv_obj_add_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN);
             }

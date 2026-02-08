@@ -132,6 +132,13 @@ void setup() {
     lv_bar_set_range(boot_bar, 0, 100);
     lv_bar_set_value(boot_bar, 0, LV_ANIM_OFF);
 
+    // Version number in bottom right corner
+    lv_obj_t* lbl_boot_version = lv_label_create(boot_scr);
+    lv_label_set_text(lbl_boot_version, "v" FIRMWARE_VERSION);
+    lv_obj_set_style_text_color(lbl_boot_version, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_font(lbl_boot_version, &lv_font_montserrat_12, 0);
+    lv_obj_align(lbl_boot_version, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
+
     // Helper to update boot progress
     auto updateBootProgress = [&](int percent) {
         lv_bar_set_value(boot_bar, percent, LV_ANIM_ON);
