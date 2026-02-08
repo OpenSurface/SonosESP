@@ -777,8 +777,10 @@ static void performOTAUpdate() {
             static uint8_t buff[OTA_BUFFER_SIZE];
 
             // CRITICAL: Let SDIO buffers settle after TLS handshake before streaming
-            // With only ~7KB free DMA during OTA HTTPS, SDIO needs recovery time
-            vTaskDelay(pdMS_TO_TICKS(100));
+            // TLS session consumes ~94KB DMA (102KB → 8KB after GET())
+            // SDIO needs significant recovery time before streaming large data
+            Serial.println("[OTA] Waiting for SDIO DMA buffers to stabilize...");
+            vTaskDelay(pdMS_TO_TICKS(500));  // Increased from 100ms → 500ms
 
             Serial.printf("[OTA] Starting download - Free DMA heap: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
 
@@ -789,10 +791,11 @@ static void performOTAUpdate() {
                     int bytesRead = stream->readBytes(buff, toRead);
                     written += Update.write(buff, bytesRead);
 
-                    // CRITICAL: Yield to SDIO task between reads (10ms per 1KB chunk)
-                    // OTA TLS session uses ~106KB DMA, leaving only 7KB for SDIO
-                    // Without delays, SDIO receive buffers overflow → crash
-                    vTaskDelay(pdMS_TO_TICKS(10));
+                    // CRITICAL: Yield to SDIO task between reads (25ms per 1KB chunk)
+                    // OTA TLS session uses ~94KB DMA, leaving only ~8KB for SDIO
+                    // Without sufficient delays, SDIO RX buffers overflow → crash: "sdio_push_data_to_queue: pkt_rxbuff"
+                    // Increased from 10ms → 25ms to prevent buffer exhaustion during 2MB download
+                    vTaskDelay(pdMS_TO_TICKS(25));
 
                     // CRITICAL: Feed watchdog EVERY chunk (download can take 40+ seconds)
                     // esp_task_wdt_reset() is cheap, and ensures watchdog never times out
