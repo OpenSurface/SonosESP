@@ -94,7 +94,7 @@ jobs:
           .pio/build/esp32-p4/bootloader.bin
           .pio/build/esp32-p4/partitions.bin
           .pio/build/esp32-p4/firmware.bin
-        retention-days: 90
+        retention-days: 30
 
     - name: Upload web-installer artifacts
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
@@ -102,7 +102,7 @@ jobs:
       with:
         name: web-installer
         path: web-installer/
-        retention-days: 90
+        retention-days: 30
 
     - name: Create Release Assets
       if: github.event_name == 'release'

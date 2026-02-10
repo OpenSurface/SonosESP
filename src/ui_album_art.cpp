@@ -115,9 +115,17 @@ void sampleDominantColor(uint16_t* buffer, int width, int height) {
 
 // Fast bilinear scaling using fixed-point math - solves JPEGDEC's 1/2/4/8 limitation!
 void scaleImageBilinear(uint16_t* src, int src_w, int src_h, uint16_t* dst, int dst_w, int dst_h) {
+    // Validate dimensions to prevent overflow (should never happen with 2048x2048 limit, but be safe)
+    if (src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0 ||
+        src_w > 4096 || src_h > 4096 || dst_w > 4096 || dst_h > 4096) {
+        Serial.printf("[ART] Invalid scaling dimensions: %dx%d -> %dx%d\n", src_w, src_h, dst_w, dst_h);
+        return;
+    }
+
     // Use 16.16 fixed-point for integer math (faster than float)
-    int x_ratio = ((src_w - 1) << 16) / dst_w;
-    int y_ratio = ((src_h - 1) << 16) / dst_h;
+    // Cast to int64_t to prevent overflow during shift, then cast back to int
+    int x_ratio = (int)(((int64_t)(src_w - 1) << 16) / dst_w);
+    int y_ratio = (int)(((int64_t)(src_h - 1) << 16) / dst_h);
 
     for (int dst_y = 0; dst_y < dst_h; dst_y++) {
         int src_y_fp = dst_y * y_ratio;
@@ -327,6 +335,11 @@ void albumArtTask(void* param) {
             return;
         }
 
+        // Clear abort flag at top of loop (will be acted on if set during download)
+        if (art_abort_download) {
+            art_abort_download = false;
+        }
+
         url[0] = '\0';  // Clear URL
         bool isStationLogo = false;  // Track if this is a station logo (PNG allowed)
         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(10))) {
@@ -337,6 +350,9 @@ void albumArtTask(void* param) {
                 if (fetchUrl != last_art_url) {
                     strncpy(url, fetchUrl.c_str(), sizeof(url) - 1);
                     url[sizeof(url) - 1] = '\0';
+                    // New URL detected - reset failure tracking for clean start
+                    consecutive_failures = 0;
+                    last_failed_url[0] = '\0';
                 }
             }
             xSemaphoreGive(art_mutex);
@@ -367,30 +383,65 @@ void albumArtTask(void* param) {
                 WiFiClientSecure secure_client;
                 bool mutex_acquired = false;
 
-                // Acquire network mutex FIRST, then set up HTTP (all network activity under mutex)
-                mutex_acquired = xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS));
-                if (!mutex_acquired) {
-                    Serial.println("[ART] Failed to acquire network mutex - skipping download");
-                }
-
-                if (mutex_acquired) {
-                    // CRITICAL: Wait for general SDIO cooldown (200ms since last network op)
+                // PRE-WAIT: Wait for cooldowns BEFORE acquiring mutex
+                // This prevents blocking SOAP commands (Next/Prev/Play) during cooldown waits
+                // Local Sonos HTTP (port 1400) skips cooldowns - local network, no TLS
+                if (!isFromSonosDevice) {
+                    // General SDIO cooldown (200ms since last network op)
                     unsigned long now = millis();
                     unsigned long elapsed = now - last_network_end_ms;
                     if (last_network_end_ms > 0 && elapsed < 200) {
                         vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
                     }
 
-                    // CRITICAL: Wait for HTTPS-specific cooldown (1500ms since last HTTPS)
-                    // TLS handshake/teardown stresses ESP32-C6 SDIO buffers heavily
-                    // Increased from 500ms → 1000ms → 1500ms to prevent transport_drv_sta_tx crashes
+                    // HTTPS-specific cooldown (2000ms since last HTTPS)
                     if (use_https) {
                         now = millis();
                         elapsed = now - last_https_end_ms;
-                        if (last_https_end_ms > 0 && elapsed < 1500) {
-                            unsigned long wait_ms = 1500 - elapsed;
+                        if (last_https_end_ms > 0 && elapsed < 2000) {
+                            unsigned long wait_ms = 2000 - elapsed;
                             Serial.printf("[ART] HTTPS cooldown: waiting %lums (elapsed: %lums)\n", wait_ms, elapsed);
                             vTaskDelay(pdMS_TO_TICKS(wait_ms));
+                        }
+                    }
+                }
+
+                // ABORT CHECK: If track changed during cooldown, bail out before acquiring mutex
+                if (art_abort_download) {
+                    art_abort_download = false;
+                    continue;
+                }
+
+                // Acquire network mutex (all network activity serialized)
+                mutex_acquired = xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS));
+                if (!mutex_acquired) {
+                    Serial.println("[ART] Failed to acquire network mutex - skipping download");
+                }
+
+                if (mutex_acquired) {
+                    // ABORT CHECK: If track changed while waiting for mutex, bail out immediately
+                    if (art_abort_download) {
+                        Serial.println("[ART] Track changed while waiting for mutex - skipping");
+                        art_abort_download = false;
+                        xSemaphoreGive(network_mutex);
+                        mutex_acquired = false;
+                        continue;
+                    }
+
+                    // Re-check cooldowns under mutex (another task may have used network while we waited)
+                    // Only for non-local URLs; local Sonos HTTP doesn't need cooldowns
+                    if (!isFromSonosDevice) {
+                        unsigned long now = millis();
+                        unsigned long elapsed = now - last_network_end_ms;
+                        if (last_network_end_ms > 0 && elapsed < 200) {
+                            vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
+                        }
+                        if (use_https) {
+                            now = millis();
+                            elapsed = now - last_https_end_ms;
+                            if (last_https_end_ms > 0 && elapsed < 2000) {
+                                vTaskDelay(pdMS_TO_TICKS(2000 - elapsed));
+                            }
                         }
                     }
 
@@ -401,7 +452,9 @@ void albumArtTask(void* param) {
                     } else {
                         http.begin(url);
                     }
-                    http.setTimeout(10000);
+                    // Local Sonos: 3s timeout (LAN responds in <1s, 3s catches slow devices)
+                    // Internet: 10s timeout (CDN/remote servers can be slow)
+                    http.setTimeout(isFromSonosDevice ? 3000 : 10000);
 
                     int code = http.GET();
                     // Keep mutex locked for entire download
@@ -421,12 +474,22 @@ void albumArtTask(void* param) {
                     if (jpgBuf) {
                         WiFiClient* stream = http.getStreamPtr();
 
+                        // For local Sonos HTTP: release mutex during download
+                        // SOAP commands (Next/Prev/Play) can run while art downloads
+                        // Local HTTP has no TLS, safe without mutex
+                        if (isFromSonosDevice && mutex_acquired) {
+                            xSemaphoreGive(network_mutex);
+                            mutex_acquired = false;
+                        }
+
                         // Chunked reading to avoid WiFi buffer issues
                         const size_t chunkSize = ART_CHUNK_SIZE;
                         size_t bytesRead = 0;
                         bool readSuccess = true;
 
-                        while (stream->connected() && bytesRead < alloc_len) {
+                        // Read loop: keep going while connected OR data still buffered
+                        // Server may close connection before we read all buffered bytes
+                        while ((stream->connected() || stream->available()) && bytesRead < alloc_len) {
                             // Check if source changed - abort download immediately
                             if (art_abort_download) {
                                 Serial.println("[ART] Source changed - aborting current download");
@@ -438,7 +501,8 @@ void albumArtTask(void* param) {
                             size_t available = stream->available();
                             if (available == 0) {
                                 vTaskDelay(pdMS_TO_TICKS(1));
-                                if (!stream->connected()) break;
+                                // Only break if connection closed AND no buffered data
+                                if (!stream->connected() && stream->available() == 0) break;
                                 continue;
                             }
 
@@ -446,7 +510,6 @@ void albumArtTask(void* param) {
                             size_t toRead = min(chunkSize, remaining);
                             toRead = min(toRead, available);
 
-                            // Mutex held for entire download - no per-chunk locking
                             size_t actualRead = stream->readBytes(jpgBuf + bytesRead, toRead);
 
                             if (actualRead == 0) {
@@ -459,9 +522,22 @@ void albumArtTask(void* param) {
 
                             bytesRead += actualRead;
                             // Yield to WiFi/SDIO task
-                            // HTTP: 5ms (no TLS overhead, much faster)
-                            // HTTPS: 15ms (TLS encryption overhead)
-                            vTaskDelay(pdMS_TO_TICKS(use_https ? 15 : 5));
+                            // Local Sonos: minimal yield (no TLS, fast local network)
+                            // Internet HTTP: 5ms (no TLS overhead)
+                            // Internet HTTPS: 15ms (TLS encryption overhead)
+                            if (isFromSonosDevice) {
+                                taskYIELD();
+                            } else {
+                                vTaskDelay(pdMS_TO_TICKS(use_https ? 15 : 5));
+                            }
+                        }
+
+                        // Re-acquire mutex for cleanup (http.end, timestamp update)
+                        if (!mutex_acquired) {
+                            mutex_acquired = xSemaphoreTake(network_mutex, pdMS_TO_TICKS(5000));
+                            if (!mutex_acquired) {
+                                Serial.println("[ART] Warning: couldn't re-acquire mutex for cleanup");
+                            }
                         }
 
                         if (!len_known && bytesRead >= max_art_size) {
@@ -482,20 +558,47 @@ void albumArtTask(void* param) {
                             http.end();
                             if (use_https) secure_client.stop();
                             // Wait for in-flight packets to flush
-                            // HTTP: 300ms (simple TCP cleanup)
-                            // HTTPS: 1000ms (TLS session + TCP cleanup)
-                            vTaskDelay(pdMS_TO_TICKS(use_https ? 1000 : 300));
+                            // Local Sonos: 50ms (minimal, no TLS)
+                            // Internet HTTP: 300ms (simple TCP cleanup)
+                            // Internet HTTPS: 1000ms (TLS session + TCP cleanup)
+                            vTaskDelay(pdMS_TO_TICKS(isFromSonosDevice ? 50 : (use_https ? 1000 : 300)));
                             last_network_end_ms = millis();
                             if (use_https) last_https_end_ms = millis();
-                            xSemaphoreGive(network_mutex);
-                            mutex_acquired = false;
+                            if (mutex_acquired) {
+                                xSemaphoreGive(network_mutex);
+                                mutex_acquired = false;
+                            }
+                            // Clear abort flag if set during download
+                            if (art_abort_download) {
+                                art_abort_download = false;
+                            }
                             continue;
                         }
 
                         int read = bytesRead;
-                        // Allow small tolerance for partial downloads (1KB or 99% of expected size)
-                        // Prevents infinite retry when connection drops a few bytes at the end
-                        bool sizeOk = len_known ? (read >= len - 1024 && read >= (len * 99 / 100)) : (read > 0);
+                        // STRICT size check: JPEG needs ALL bytes (missing EOI marker → HW decoder timeout)
+                        // Only allow exact match for known-length downloads
+                        bool sizeOk = len_known ? (read == len) : (read > 0);
+                        if (len_known && read != len) {
+                            Serial.printf("[ART] Incomplete download: %d/%d bytes (%d missing)\n", read, len, len - read);
+                            // Track incomplete downloads as failures to prevent infinite retry
+                            if (strcmp(url, last_failed_url) == 0) {
+                                consecutive_failures++;
+                            } else {
+                                strncpy(last_failed_url, url, sizeof(last_failed_url) - 1);
+                                last_failed_url[sizeof(last_failed_url) - 1] = '\0';
+                                consecutive_failures = 1;
+                            }
+                            if (consecutive_failures >= 5) {
+                                Serial.printf("[ART] Incomplete %d times, giving up on this URL\n", consecutive_failures);
+                                if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                                    last_art_url = url;
+                                    xSemaphoreGive(art_mutex);
+                                }
+                                consecutive_failures = 0;
+                                last_failed_url[0] = '\0';
+                            }
+                        }
                         if (sizeOk && readSuccess) {
                             // Detect image format by magic bytes
                             bool isJPEG = (read >= 3 && jpgBuf[0] == 0xFF && jpgBuf[1] == 0xD8 && jpgBuf[2] == 0xFF);
@@ -511,8 +614,10 @@ void albumArtTask(void* param) {
                                     int h = png.getHeight();
 
                                     // Validate PNG dimensions to prevent crashes from malformed files
-                                    if (w == 0 || h == 0 || w > 1000 || h > 1000) {
-                                        Serial.printf("[ART] Invalid PNG dimensions: %dx%d (must be 1-1000)\n", w, h);
+                                    // Also check for integer overflow: w*h*2 must fit in size_t and be reasonable (< 10MB)
+                                    if (w == 0 || h == 0 || w > 2048 || h > 2048 ||
+                                        (size_t)w * (size_t)h * 2 > 10*1024*1024) {
+                                        Serial.printf("[ART] Invalid PNG dimensions: %dx%d (max 2048x2048, 10MB)\n", w, h);
                                         png.close();
                                         heap_caps_free(jpgBuf);
                                         jpgBuf = nullptr;
@@ -675,6 +780,22 @@ void albumArtTask(void* param) {
                                 if (ret == ESP_OK) {
                                     int w = pic_info.width;
                                     int h = pic_info.height;
+
+                                    // Validate JPEG dimensions to prevent crashes/overflow from malformed files
+                                    if (w == 0 || h == 0 || w > 2048 || h > 2048) {
+                                        Serial.printf("[ART] Invalid JPEG dimensions: %dx%d (max 2048x2048)\n", w, h);
+                                        heap_caps_free(jpgBuf);
+                                        jpgBuf = nullptr;
+                                        http.end();
+                                        if (use_https) secure_client.stop();
+                                        vTaskDelay(pdMS_TO_TICKS(200));
+                                        last_network_end_ms = millis();
+                                        if (use_https) last_https_end_ms = millis();
+                                        xSemaphoreGive(network_mutex);
+                                        mutex_acquired = false;
+                                        continue;
+                                    }
+
                                     // Hardware outputs dimensions rounded to 16-pixel boundary
                                     int out_w = ((w + 15) / 16) * 16;
                                     int out_h = ((h + 15) / 16) * 16;
@@ -898,21 +1019,24 @@ void albumArtTask(void* param) {
                         }
                     }
 
-                    // CRITICAL: End HTTP and close TLS BEFORE releasing mutex
-                    // Prevents TLS close_notify from overlapping with the next network operation
+                    // End HTTP and close TLS BEFORE releasing mutex
                     http.end();
                     if (use_https) secure_client.stop();
 
                     // Wait for cleanup and SDIO buffer stabilization
-                    // HTTP: 50ms (fast cleanup), HTTPS: 200ms (TLS cleanup)
-                    vTaskDelay(pdMS_TO_TICKS(use_https ? 200 : 50));
+                    // Local Sonos: 10ms (minimal, no TLS)
+                    // Internet HTTP: 50ms (fast cleanup)
+                    // Internet HTTPS: 200ms (TLS cleanup)
+                    vTaskDelay(pdMS_TO_TICKS(isFromSonosDevice ? 10 : (use_https ? 200 : 50)));
 
                     // Update timestamps before releasing mutex
                     last_network_end_ms = millis();
                     if (use_https) last_https_end_ms = millis();
 
                     // Release network_mutex after ALL network activity including TLS cleanup
-                    xSemaphoreGive(network_mutex);
+                    if (mutex_acquired) {
+                        xSemaphoreGive(network_mutex);
+                    }
                 } else {
                     // Mutex not acquired - clean up HTTP setup (no active connection)
                     http.end();
@@ -925,20 +1049,23 @@ void albumArtTask(void* param) {
 }
 
 // URL encode helper for proxying HTTPS URLs through Sonos
+// Optimized: Uses fixed buffer to avoid String reallocation fragmentation
 String urlEncode(const char* url) {
-    String encoded = "";
-    char c;
-    char code[4];
-    for (int i = 0; url[i]; i++) {
-        c = url[i];
+    static char encoded[1024];  // Static buffer, URLs rarely exceed 512 chars
+    int out_idx = 0;
+
+    for (int i = 0; url[i] && out_idx < sizeof(encoded) - 4; i++) {
+        char c = url[i];
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == ':' || c == '/') {
-            encoded += c;
+            encoded[out_idx++] = c;
         } else {
-            snprintf(code, sizeof(code), "%%%02X", (unsigned char)c);
-            encoded += code;
+            // Encode as %XX (3 chars + null terminator)
+            int written = snprintf(&encoded[out_idx], 4, "%%%02X", (unsigned char)c);
+            if (written > 0) out_idx += written;
         }
     }
-    return encoded;
+    encoded[out_idx] = '\0';
+    return String(encoded);
 }
 
 void requestAlbumArt(const String& url) {

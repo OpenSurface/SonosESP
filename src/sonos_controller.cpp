@@ -149,19 +149,22 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
     snprintf(soapActionHeader, sizeof(soapActionHeader), "\"%s\"", soapAction);
     http.addHeader("SOAPAction", soapActionHeader);
 
-    // CRITICAL: Acquire network_mutex to serialize WiFi access
-    // Prevents SDIO buffer overflow when album art downloads happen during SOAP requests
+    // PRE-WAIT: Wait for SDIO cooldown BEFORE acquiring mutex
+    // This prevents blocking other SOAP requests during cooldown waits
+    // SOAP goes to local Sonos device (plain HTTP, no TLS) so only needs general cooldown
+    {
+        unsigned long now = millis();
+        unsigned long elapsed = now - last_network_end_ms;
+        if (last_network_end_ms > 0 && elapsed < 200) {
+            vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
+        }
+    }
+
+    // Acquire network_mutex to serialize WiFi access
     if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
         Serial.println("[SOAP] Failed to acquire network mutex - request failed");
         http.end();
         return "";
-    }
-
-    // CRITICAL: Wait for SDIO cooldown (200ms since last network operation)
-    unsigned long now = millis();
-    unsigned long elapsed = now - last_network_end_ms;
-    if (last_network_end_ms > 0 && elapsed < 200) {
-        vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
     }
 
     int code = http.POST(body);

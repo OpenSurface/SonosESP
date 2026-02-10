@@ -88,21 +88,24 @@ static void parseLRC(const String& lrc) {
 }
 
 // URL-encode a string for query parameters
+// Optimized: Uses fixed buffer to avoid String reallocation fragmentation
 static String lyricsUrlEncode(const String& input) {
-    String encoded = "";
-    for (int i = 0; i < (int)input.length(); i++) {
+    static char encoded[512];  // Static buffer, artist/title rarely exceed 128 chars
+    int out_idx = 0;
+
+    for (int i = 0; i < (int)input.length() && out_idx < (int)sizeof(encoded) - 4; i++) {
         char c = input[i];
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
-            encoded += c;
+            encoded[out_idx++] = c;
         } else if (c == ' ') {
-            encoded += '+';
+            encoded[out_idx++] = '+';
         } else {
-            char buf[4];
-            snprintf(buf, sizeof(buf), "%%%02X", (unsigned char)c);
-            encoded += buf;
+            int written = snprintf(&encoded[out_idx], 4, "%%%02X", (unsigned char)c);
+            if (written > 0) out_idx += written;
         }
     }
-    return encoded;
+    encoded[out_idx] = '\0';
+    return String(encoded);
 }
 
 void initLyrics() {
@@ -136,9 +139,9 @@ static void lyricsTaskFunc(void* param) {
         return;
     }
 
-    // Early exit if OTA is preparing
-    if (art_shutdown_requested) {
-        Serial.println("[LYRICS] System shutdown detected, aborting");
+    // Early exit if OTA is preparing (check own flag, not art's flag)
+    if (lyrics_shutdown_requested) {
+        Serial.println("[LYRICS] Shutdown requested (OTA), aborting");
         lyrics_fetching = false;
         lyricsTaskHandle = NULL;
         vTaskDelete(NULL);
@@ -159,32 +162,64 @@ static void lyricsTaskFunc(void* param) {
             artist_enc.c_str(), title_enc.c_str());
     }
 
-    // Acquire network mutex (shorter timeout to not block SOAP requests)
-    if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(3000))) {
-        Serial.println("[LYRICS] Network busy, skipping fetch");
+    // PRE-WAIT: Wait for cooldowns BEFORE acquiring mutex
+    // This prevents blocking SOAP commands (Next/Prev/Play) during cooldown waits
+    {
+        unsigned long now = millis();
+        unsigned long elapsed = now - last_network_end_ms;
+        if (last_network_end_ms > 0 && elapsed < 200) {
+            vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
+        }
+        now = millis();
+        elapsed = now - last_https_end_ms;
+        if (last_https_end_ms > 0 && elapsed < 2000) {
+            unsigned long wait_ms = 2000 - elapsed;
+            Serial.printf("[LYRICS] HTTPS cooldown: waiting %lums (elapsed: %lums)\n", wait_ms, elapsed);
+            vTaskDelay(pdMS_TO_TICKS(wait_ms));
+        }
+    }
+
+    // Check abort/shutdown after cooldown (track may have changed or OTA starting)
+    if (lyrics_shutdown_requested) {
+        Serial.println("[LYRICS] Shutdown requested after cooldown, stopping");
         lyrics_fetching = false;
-        updateLyricsStatus();
+        lyricsTaskHandle = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+    if (lyrics_abort_requested) {
+        Serial.println("[LYRICS] Abort requested after cooldown, stopping");
+        lyrics_fetching = false;
+        lyrics_abort_requested = false;
         lyricsTaskHandle = NULL;
         vTaskDelete(NULL);
         return;
     }
 
-    // CRITICAL: Wait for general SDIO cooldown (200ms since last network op)
-    unsigned long now = millis();
-    unsigned long elapsed = now - last_network_end_ms;
-    if (last_network_end_ms > 0 && elapsed < 200) {
-        vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
+    // Acquire network mutex (shorter timeout to not block SOAP requests)
+    if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(3000))) {
+        Serial.println("[LYRICS] Network busy, skipping fetch");
+        lyrics_fetching = false;
+        // Don't call updateLyricsStatus() here - we're in a background task,
+        // LVGL functions are NOT thread-safe (causes lv_inv_area assertion)
+        // The main UI loop will pick up lyrics_fetching=false and update status
+        lyricsTaskHandle = NULL;
+        vTaskDelete(NULL);
+        return;
     }
 
-    // CRITICAL: Wait for HTTPS-specific cooldown (1500ms since last HTTPS)
-    // TLS handshake/teardown stresses ESP32-C6 SDIO buffers heavily
-    // Increased from 500ms → 1000ms → 1500ms to prevent transport_drv_sta_tx crashes
-    now = millis();
-    elapsed = now - last_https_end_ms;
-    if (last_https_end_ms > 0 && elapsed < 1500) {
-        unsigned long wait_ms = 1500 - elapsed;
-        Serial.printf("[LYRICS] HTTPS cooldown: waiting %lums (elapsed: %lums)\n", wait_ms, elapsed);
-        vTaskDelay(pdMS_TO_TICKS(wait_ms));
+    // Re-check cooldowns under mutex (another task may have used network while we waited)
+    {
+        unsigned long now = millis();
+        unsigned long elapsed = now - last_network_end_ms;
+        if (last_network_end_ms > 0 && elapsed < 200) {
+            vTaskDelay(pdMS_TO_TICKS(200 - elapsed));
+        }
+        now = millis();
+        elapsed = now - last_https_end_ms;
+        if (last_https_end_ms > 0 && elapsed < 2000) {
+            vTaskDelay(pdMS_TO_TICKS(2000 - elapsed));
+        }
     }
 
     // HTTPS fetch - use scoped block to ensure WiFiClientSecure is destroyed immediately
@@ -221,12 +256,11 @@ static void lyricsTaskFunc(void* param) {
             Serial.printf("[LYRICS] HTTP %d (%s)\n", code, error_msg);
             Serial.flush();  // CRITICAL: Flush serial buffer to prevent output corruption
 
-            // Retry logic: 5 retries with increasing delays (total 6 attempts)
+            // Retry logic: 2 retries with short delays (total 3 attempts)
+            // Each HTTPS retry stresses SDIO and blocks art downloads via network_mutex
             lyrics_retry_count++;
-            if (lyrics_retry_count < 5) {
-                // Progressive backoff: 2s, 3s, 4s, 5s, 6s
-                int delay = 1000 + (lyrics_retry_count * 1000);
-                Serial.printf("[LYRICS] Retry %d/5 in %ds...\n", lyrics_retry_count, delay/1000);
+            if (lyrics_retry_count < 2) {
+                Serial.printf("[LYRICS] Retry %d/2 in 2s...\n", lyrics_retry_count);
             } else {
                 Serial.println("[LYRICS] Max retries reached, giving up");
                 lyrics_retry_count = 0;  // Reset for next track
@@ -258,11 +292,10 @@ static void lyricsTaskFunc(void* param) {
         return;
     }
 
-    // If failed and retries remaining, spawn retry task after progressive delay
-    if (payload.length() == 0 && lyrics_retry_count > 0 && lyrics_retry_count < 5) {
-        // Progressive backoff: 2s, 3s, 4s, 5s, 6s
-        int delay = 1000 + (lyrics_retry_count * 1000);
-        vTaskDelay(pdMS_TO_TICKS(delay));
+    // If failed and retries remaining, spawn retry task after short delay
+    if (payload.length() == 0 && lyrics_retry_count > 0 && lyrics_retry_count < 2) {
+        // Fixed 2s delay (short to minimize art blocking)
+        vTaskDelay(pdMS_TO_TICKS(2000));
 
         // Check abort flag again after delay
         if (lyrics_abort_requested) {

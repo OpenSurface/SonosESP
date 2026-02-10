@@ -226,6 +226,7 @@ void albumArtTask(void *param);
 
 // Lyrics task
 extern TaskHandle_t lyricsTaskHandle;
+extern volatile bool lyrics_shutdown_requested;
 
 // Sonos task shutdown (for OTA)
 extern volatile bool sonos_tasks_shutdown_requested;

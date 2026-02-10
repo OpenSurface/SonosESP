@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: nightly-release
+  cancel-in-progress: false  # Don't cancel release in progress
+
 jobs:
   nightly-release:
     runs-on: ubuntu-latest
@@ -23,9 +27,9 @@ jobs:
 
     - name: Validate version tag format
       run: |
-        if ! echo "${{ inputs.version_tag }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-nightly\.[a-f0-9]{7}$'; then
+        if ! echo "${{ inputs.version_tag }}" | grep -qiE '^[0-9]+\.[0-9]+\.[0-9]+-nightly\.[a-f0-9]{7}$'; then
           echo "Error: Version tag must match format: X.Y.Z-nightly.COMMITHASH"
-          echo "Example: 1.2.0-nightly.abc1234"
+          echo "Example: 1.2.0-nightly.abc1234 or 1.2.0-nightly.ABC1234"
           echo "Provided: ${{ inputs.version_tag }}"
           exit 1
         fi

@@ -115,6 +115,7 @@ volatile bool art_ready = false;
 SemaphoreHandle_t art_mutex = nullptr;
 TaskHandle_t albumArtTaskHandle = nullptr;
 TaskHandle_t lyricsTaskHandle = nullptr;
+volatile bool lyrics_shutdown_requested = false;  // Signal lyrics task to stop for OTA
 volatile bool art_shutdown_requested = false;  // Signal album art to stop gracefully
 volatile bool art_abort_download = false;      // Signal to abort current download (source changed)
 volatile bool sonos_tasks_shutdown_requested = false;  // Signal Sonos tasks to stop for OTA
