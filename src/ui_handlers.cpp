@@ -381,8 +381,8 @@ static void checkForUpdates() {
     // Rapid HTTPS checks exhaust SDIO buffer pool even with cooldowns
     static unsigned long last_check_time = 0;
     unsigned long now = millis();
-    if (last_check_time > 0 && (now - last_check_time) < 5000) {
-        unsigned long wait_sec = (5000 - (now - last_check_time)) / 1000 + 1;
+    if (last_check_time > 0 && (now - last_check_time) < OTA_CHECK_DEBOUNCE_MS) {
+        unsigned long wait_sec = (OTA_CHECK_DEBOUNCE_MS - (now - last_check_time)) / 1000 + 1;
         if (lbl_ota_status) {
             lv_label_set_text_fmt(lbl_ota_status, LV_SYMBOL_WARNING " Please wait %lu seconds", wait_sec);
             lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFFA500), 0);
@@ -420,7 +420,7 @@ static void checkForUpdates() {
 
     http.begin(client, apiUrl);
     http.addHeader("Accept", "application/vnd.github.v3+json");
-    http.setTimeout(15000);
+    http.setTimeout(OTA_CHECK_TIMEOUT_MS);
 
     // CRITICAL: Acquire network_mutex to prevent conflict with album art HTTPS downloads
     if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
@@ -460,8 +460,8 @@ static void checkForUpdates() {
     // CRITICAL: End HTTP and close TLS BEFORE releasing mutex
     http.end();
     client.stop();
-    // CRITICAL: Wait 500ms for TLS cleanup to complete (same as OTA download)
-    vTaskDelay(pdMS_TO_TICKS(500));
+    // Wait for TLS cleanup to complete before releasing mutex
+    vTaskDelay(pdMS_TO_TICKS(OTA_CHECK_CLEANUP_MS));
 
     // Update timestamps before releasing mutex
     last_network_end_ms = millis();
@@ -955,14 +955,14 @@ static void performOTAUpdate() {
             int bytesRead = stream->readBytes(buff, toRead);
             written += Update.write(buff, bytesRead);
 
-            // Adaptive throttling based on free DMA (config-driven thresholds)
+            // Adaptive throttling: fast base delay, slows only when DMA is under pressure
             chunk_count++;
             if (chunk_count % OTA_DMA_CHECK_INTERVAL == 0) {
                 size_t cur_free_dma = heap_caps_get_free_size(MALLOC_CAP_DMA);
                 if (cur_free_dma < OTA_DMA_CRITICAL) {
-                    vTaskDelay(pdMS_TO_TICKS(100));  // DMA nearly exhausted
+                    vTaskDelay(pdMS_TO_TICKS(80));   // DMA nearly exhausted - back off
                 } else if (cur_free_dma < OTA_DMA_LOW) {
-                    vTaskDelay(pdMS_TO_TICKS(50));
+                    vTaskDelay(pdMS_TO_TICKS(30));   // DMA low - moderate throttle
                 } else {
                     vTaskDelay(pdMS_TO_TICKS(OTA_BASE_DELAY_MS));
                 }

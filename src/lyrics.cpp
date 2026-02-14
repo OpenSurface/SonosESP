@@ -561,7 +561,7 @@ void updateLyricsStatus() {
 
     // Only show status when fetching, hide otherwise
     if (lyrics_fetching) {
-        lv_label_set_text(lbl_lyrics_status, "Lyrics...");
+        lv_label_set_text(lbl_lyrics_status, "Fetching lyrics...");
         lv_obj_set_style_text_color(lbl_lyrics_status, lv_color_hex(0x666666), 0);  // Dark gray, subtle
     } else {
         lv_label_set_text(lbl_lyrics_status, "");  // Hide when ready or no lyrics

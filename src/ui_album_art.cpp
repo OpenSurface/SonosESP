@@ -490,10 +490,11 @@ void albumArtTask(void* param) {
                         // Read loop: keep going while connected OR data still buffered
                         // Server may close connection before we read all buffered bytes
                         while ((stream->connected() || stream->available()) && bytesRead < alloc_len) {
-                            // Check if source changed - abort download immediately
-                            if (art_abort_download) {
-                                Serial.println("[ART] Source changed - aborting current download");
-                                art_abort_download = false;  // Clear flag
+                            // Check if source changed or OTA starting - abort download immediately
+                            if (art_abort_download || art_shutdown_requested) {
+                                Serial.printf("[ART] %s - aborting current download\n",
+                                    art_shutdown_requested ? "OTA shutdown" : "Source changed");
+                                if (art_abort_download) art_abort_download = false;
                                 readSuccess = false;
                                 break;
                             }
@@ -619,6 +620,7 @@ void albumArtTask(void* param) {
                                         (size_t)w * (size_t)h * 2 > 10*1024*1024) {
                                         Serial.printf("[ART] Invalid PNG dimensions: %dx%d (max 2048x2048, 10MB)\n", w, h);
                                         png.close();
+                                        if (decoded_buffer) { heap_caps_free(decoded_buffer); decoded_buffer = nullptr; }
                                         heap_caps_free(jpgBuf);
                                         jpgBuf = nullptr;
                                         // Cleanup HTTP and release mutex before continue

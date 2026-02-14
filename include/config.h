@@ -103,19 +103,22 @@
 // OTA UPDATES
 // =============================================================================
 #define OTA_BUFFER_SIZE         1024    // Download buffer size
-#define OTA_READ_SIZE           512     // Max bytes per read (limits SDIO burst pressure)
+#define OTA_READ_SIZE           1024    // Max bytes per read (1KB - safe with adaptive throttling)
 #define OTA_MAX_FIRMWARE_SIZE   (10 * 1024 * 1024)  // 10MB max firmware
 #define OTA_DOWNLOAD_TIMEOUT_MS 300000  // 5 minutes max for entire download
 #define OTA_STALL_TIMEOUT_MS    30000   // 30 seconds max with no data received
 #define OTA_PROGRESS_LOG_INTERVAL 10    // Log every N percent
-#define OTA_DMA_CHECK_INTERVAL  8       // Check DMA pressure every N chunks
-#define OTA_DMA_CRITICAL        4096    // DMA critical threshold (100ms delay)
-#define OTA_DMA_LOW             8192    // DMA low threshold (50ms delay)
-#define OTA_BASE_DELAY_MS       30      // Base per-chunk delay
+#define OTA_DMA_CHECK_INTERVAL  4       // Check DMA pressure every N chunks (~4KB)
+#define OTA_DMA_CRITICAL        4096    // DMA critical threshold (80ms delay)
+#define OTA_DMA_LOW             8192    // DMA low threshold (30ms delay)
+#define OTA_BASE_DELAY_MS       15      // Base per-chunk delay (~65KB/s, ~25s for 1.5MB)
 #define OTA_SETTLE_AFTER_TLS_MS 1000    // Settle time after TLS handshake
 #define OTA_TARGET_FREE_DMA     (110 * 1024)  // Need 110KB free before OTA TLS
 #define OTA_DMA_WAIT_TIMEOUT_MS 10000   // Max wait for DMA cleanup
 #define OTA_HTTPS_COOLDOWN_MS   2000    // Wait for previous HTTPS cleanup
+#define OTA_CHECK_DEBOUNCE_MS   5000    // Min delay between update checks
+#define OTA_CHECK_TIMEOUT_MS    15000   // HTTP timeout for version check
+#define OTA_CHECK_CLEANUP_MS    500     // Delay after version check TLS cleanup
 
 // =============================================================================
 // MBEDTLS / SSL
