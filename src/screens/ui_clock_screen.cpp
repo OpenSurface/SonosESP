@@ -936,6 +936,29 @@ void exitClockScreen() {
 // Drives the clock state machine without blocking the main thread.
 // ============================================================================
 void checkClockTrigger() {
+
+      static bool clock_was_active = false;
+  static bool clock_saw_not_playing = false;
+
+  bool clock_active_now = (clock_state == CLOCK_ACTIVE);
+
+  if (clock_active_now && !clock_was_active) {
+    clock_saw_not_playing = !ui_playing;
+  }
+
+  if (clock_active_now) {
+    if (!ui_playing) {
+      clock_saw_not_playing = true;
+    } else if (clock_saw_not_playing) {
+      Serial.println("[CLOCK] Music started while clock active, exiting");
+      exitClockScreen();
+      clock_was_active = clock_active_now;
+      return;
+    }
+  }
+
+  clock_was_active = clock_active_now;
+
     switch (clock_state) {
 
         // ------------------------------------------------------------------
