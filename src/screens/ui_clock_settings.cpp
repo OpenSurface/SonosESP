@@ -197,24 +197,23 @@ static void custom_ta_event_cb(lv_event_t* e) {
     if (!custom_kb) return;
     if (code == LV_EVENT_FOCUSED) {
         bool is_name = (ta == custom_name_ta);
+        // Both keyboards dock to the same bottom-center position and share the same
+        // dark style; they only differ in size + mode (numeric pad vs alpha layout).
         if (is_name) {
-            // Alpha keyboard — wider, full-width, docked bottom-center
             lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_TEXT_LOWER);
             lv_obj_set_size(custom_kb, 760, 230);
-            lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, -10);
         } else {
-            // Numeric keypad — compact, bottom-right
             lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_USER_1);
             lv_obj_set_size(custom_kb, 340, 200);
-            lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_RIGHT, -12, -12);
         }
+        lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, -10);
 
         // Grow the bottom spacer so the scrollable has enough range to actually
         // move the focused field above the keyboard. Without this, lv_obj_scroll_to_y
         // is clamped to max_scroll (which is too small when the focused field is
         // already near the bottom of content) and the field stays behind the kb.
         if (bottom_spacer) {
-            lv_obj_set_height(bottom_spacer, is_name ? 260 : 220);
+            lv_obj_set_height(bottom_spacer, 260);
             if (settings_scrollable) lv_obj_update_layout(settings_scrollable);
         }
 
@@ -222,12 +221,12 @@ static void custom_ta_event_cb(lv_event_t* e) {
         lv_obj_clear_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(custom_kb);
 
-        // Scroll the focused textarea up into the safe zone above the keyboard.
-        // Numeric (200 tall, bottom-right): only the right half is covered, so a modest scroll is enough.
-        // Alpha (230 tall, full width): covers the whole bottom, so scroll the field higher.
+        // Scroll the focused textarea above the keyboard. Both keyboards now sit
+        // bottom-center with their top edge around y=250, so the same scroll target
+        // works for both (lands the field ~110px from the top of the visible area).
         if (settings_scrollable) {
             int ta_y  = relative_y_to(ta, settings_scrollable);
-            int target = ta_y - (is_name ? 110 : 80);
+            int target = ta_y - 110;
             if (target < 0) target = 0;
             lv_obj_scroll_to_y(settings_scrollable, target, LV_ANIM_ON);
         }
@@ -597,7 +596,7 @@ void createClockSettingsScreen() {
     lv_keyboard_set_map(custom_kb, LV_KEYBOARD_MODE_USER_1, num_kb_map, num_kb_ctrl);
     lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_USER_1);
     lv_obj_set_size(custom_kb, 340, 200);
-    lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_RIGHT, -12, -12);
+    lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, -10);
     lv_obj_add_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_event_cb(custom_kb, kb_close_event_cb, LV_EVENT_CANCEL, NULL);
     lv_obj_add_event_cb(custom_kb, kb_close_event_cb, LV_EVENT_READY,  NULL);
