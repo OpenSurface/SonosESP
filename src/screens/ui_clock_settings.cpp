@@ -112,6 +112,7 @@ static lv_obj_t* custom_lon_ta       = nullptr;
 static lv_obj_t* custom_name_ta      = nullptr;
 static lv_obj_t* custom_kb           = nullptr;
 static lv_obj_t* settings_scrollable = nullptr;  // content area returned by sidebar — used for scroll-into-view
+static lv_obj_t* bottom_spacer       = nullptr;  // grows when kb appears so the focused field can scroll above it
 
 // Show/hide the sub-controls based on the selected method.
 static void update_location_method_visibility(int method) {
@@ -207,6 +208,16 @@ static void custom_ta_event_cb(lv_event_t* e) {
             lv_obj_set_size(custom_kb, 340, 200);
             lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_RIGHT, -12, -12);
         }
+
+        // Grow the bottom spacer so the scrollable has enough range to actually
+        // move the focused field above the keyboard. Without this, lv_obj_scroll_to_y
+        // is clamped to max_scroll (which is too small when the focused field is
+        // already near the bottom of content) and the field stays behind the kb.
+        if (bottom_spacer) {
+            lv_obj_set_height(bottom_spacer, is_name ? 260 : 220);
+            if (settings_scrollable) lv_obj_update_layout(settings_scrollable);
+        }
+
         lv_keyboard_set_textarea(custom_kb, ta);
         lv_obj_clear_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(custom_kb);
@@ -223,6 +234,8 @@ static void custom_ta_event_cb(lv_event_t* e) {
     } else if (code == LV_EVENT_DEFOCUSED) {
         persist_custom_loc_from_textareas();
         lv_obj_add_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
+        // Collapse the spacer so the screen doesn't show empty space at the bottom.
+        if (bottom_spacer) lv_obj_set_height(bottom_spacer, 0);
     }
 }
 
@@ -506,7 +519,7 @@ void createClockSettingsScreen() {
             snprintf(lat_init, sizeof(lat_init), "%.4f", (double)clock_custom_lat);
         }
         custom_lat_ta = makeTextarea(custom_loc_card,
-            lat_init, "0123456789.-", 12, "e.g. 45.5017");
+            lat_init, "0123456789.-", 12, "e.g. 40.7128");
         lv_obj_add_event_cb(custom_lat_ta, custom_ta_event_cb, LV_EVENT_FOCUSED,   NULL);
         lv_obj_add_event_cb(custom_lat_ta, custom_ta_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
@@ -516,13 +529,13 @@ void createClockSettingsScreen() {
             snprintf(lon_init, sizeof(lon_init), "%.4f", (double)clock_custom_lon);
         }
         custom_lon_ta = makeTextarea(custom_loc_card,
-            lon_init, "0123456789.-", 12, "e.g. -73.5673");
+            lon_init, "0123456789.-", 12, "e.g. -74.0060");
         lv_obj_add_event_cb(custom_lon_ta, custom_ta_event_cb, LV_EVENT_FOCUSED,   NULL);
         lv_obj_add_event_cb(custom_lon_ta, custom_ta_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
         addSettingLabel(custom_loc_card, "Location name (optional)");
         custom_name_ta = makeTextarea(custom_loc_card,
-            clock_custom_name, nullptr, 60, "e.g. Montreal");
+            clock_custom_name, nullptr, 60, "e.g. New York");
         lv_obj_add_event_cb(custom_name_ta, custom_ta_event_cb, LV_EVENT_FOCUSED,   NULL);
         lv_obj_add_event_cb(custom_name_ta, custom_ta_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
@@ -564,6 +577,17 @@ void createClockSettingsScreen() {
             clock_weather_needs_refetch = true;
         }, LV_EVENT_VALUE_CHANGED, NULL);
     }
+
+    // ─── Bottom spacer (zero height by default) ─────────────────────────────
+    // Grows when a textarea is focused so lv_obj_scroll_to_y has enough range
+    // to push the focused field above the keyboard. Collapses on defocus.
+    bottom_spacer = lv_obj_create(content);
+    lv_obj_set_size(bottom_spacer, lv_pct(100), 0);
+    lv_obj_set_style_bg_opa(bottom_spacer, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(bottom_spacer, 0, 0);
+    lv_obj_set_style_pad_all(bottom_spacer, 0, 0);
+    lv_obj_clear_flag(bottom_spacer, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_clear_flag(bottom_spacer, LV_OBJ_FLAG_SCROLLABLE);
 
     // ─── Floating compact numeric pad (dark-styled, 4×4) ────────────────────
     // Custom map: digits + minus + decimal + backspace + close. No OK/validate.
