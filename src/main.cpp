@@ -96,10 +96,12 @@ void setup() {
     // Custom location override (#74) — load as String from NVS (text form, full precision),
     // then parse into the atomic float globals the bg task reads. 0.0f = unset.
     {
-        String lat_s = wifiPrefs.getString(NVS_KEY_CLOCK_WX_CUSTOM_LAT, "");
-        String lon_s = wifiPrefs.getString(NVS_KEY_CLOCK_WX_CUSTOM_LON, "");
+        String lat_s  = wifiPrefs.getString(NVS_KEY_CLOCK_WX_CUSTOM_LAT,  "");
+        String lon_s  = wifiPrefs.getString(NVS_KEY_CLOCK_WX_CUSTOM_LON,  "");
+        String name_s = wifiPrefs.getString(NVS_KEY_CLOCK_WX_CUSTOM_NAME, "");
         clock_custom_lat = (lat_s.length() > 0) ? lat_s.toFloat() : 0.0f;
         clock_custom_lon = (lon_s.length() > 0) ? lon_s.toFloat() : 0.0f;
+        strlcpy(clock_custom_name, name_s.c_str(), sizeof(clock_custom_name));
     }
     Serial.printf("[CLOCK] mode=%d timeout=%dmin tz=%s picsum=%s refresh=%dmin kw=%s 12h=%s weather=%s city=%s\n",
                   clock_mode, clock_timeout_min,

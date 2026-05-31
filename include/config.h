@@ -230,6 +230,7 @@
 // Custom location override (issue #74) — used when city_idx == CLOCK_LOC_CUSTOM_IDX
 #define NVS_KEY_CLOCK_WX_CUSTOM_LAT  "clk_wx_clat"
 #define NVS_KEY_CLOCK_WX_CUSTOM_LON  "clk_wx_clon"
+#define NVS_KEY_CLOCK_WX_CUSTOM_NAME "clk_wx_cnam"  // optional display name for the clock saver screen
 
 // =============================================================================
 // QUEUE / PLAYLIST

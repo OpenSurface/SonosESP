@@ -225,6 +225,7 @@ bool clock_wx_fahrenheit    = (bool)CLOCK_DEFAULT_WEATHER_FAHR;
 // Custom location override (issue #74) — atomic-safe globals (read by bg task, written by UI)
 volatile float clock_custom_lat = 0.0f;
 volatile float clock_custom_lon = 0.0f;
+char clock_custom_name[64] = "";  // optional display-only label for the saver screen
 int           clock_wx_temp     = 0;
 int           clock_wx_humidity = 0;
 int           clock_wx_wind     = 0;

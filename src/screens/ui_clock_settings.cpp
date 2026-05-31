@@ -109,8 +109,10 @@ static lv_obj_t* dd_city             = nullptr;
 static lv_obj_t* custom_loc_card     = nullptr;
 static lv_obj_t* custom_lat_ta       = nullptr;
 static lv_obj_t* custom_lon_ta       = nullptr;
+static lv_obj_t* custom_name_ta      = nullptr;
 static lv_obj_t* custom_kb           = nullptr;
 static lv_obj_t* settings_scrollable = nullptr;  // content area returned by sidebar — used for scroll-into-view
+static lv_obj_t* bottom_spacer       = nullptr;  // grows when kb appears so the focused field can scroll above it
 
 // Show/hide the sub-controls based on the selected method.
 static void update_location_method_visibility(int method) {
@@ -130,18 +132,26 @@ static void update_location_method_visibility(int method) {
 // Persist current textarea contents (called on DEFOCUS).
 static void persist_custom_loc_from_textareas() {
     if (!custom_lat_ta || !custom_lon_ta) return;
-    const char* lat_s = lv_textarea_get_text(custom_lat_ta);
-    const char* lon_s = lv_textarea_get_text(custom_lon_ta);
+    const char* lat_s  = lv_textarea_get_text(custom_lat_ta);
+    const char* lon_s  = lv_textarea_get_text(custom_lon_ta);
     // Update atomic floats first (read lock-free by bg task)
     clock_custom_lat = (float)atof(lat_s);
     clock_custom_lon = (float)atof(lon_s);
     // Persist text form to NVS (mainAppTask = internal SRAM stack, NVS-safe)
     wifiPrefs.putString(NVS_KEY_CLOCK_WX_CUSTOM_LAT, lat_s);
     wifiPrefs.putString(NVS_KEY_CLOCK_WX_CUSTOM_LON, lon_s);
+    // Optional display name — copy to fixed buffer (byte-level torn read by bg task = display
+    // cosmetic only) and persist. Empty string is fine; fetchClockWeather falls back to "lat, lon".
+    if (custom_name_ta) {
+        const char* name_s = lv_textarea_get_text(custom_name_ta);
+        strlcpy(clock_custom_name, name_s, sizeof(clock_custom_name));
+        wifiPrefs.putString(NVS_KEY_CLOCK_WX_CUSTOM_NAME, name_s);
+    }
     clock_wx_valid = false;
     clock_weather_needs_refetch = true;
-    Serial.printf("[CLOCK] Custom location saved: %.4f, %.4f\n",
-                  (double)clock_custom_lat, (double)clock_custom_lon);
+    Serial.printf("[CLOCK] Custom location saved: %.4f, %.4f (%s)\n",
+                  (double)clock_custom_lat, (double)clock_custom_lon,
+                  clock_custom_name[0] ? clock_custom_name : "no name");
 }
 
 // Sum the Y coords from `obj` up the parent chain until (but not including) `ancestor`.
@@ -179,28 +189,52 @@ static const lv_buttonmatrix_ctrl_t num_kb_ctrl[] = {
 #undef W
 
 // Focus / defocus handler for the custom-coords textareas.
+// Numeric textareas (lat/lon) use the compact 4x4 keypad docked bottom-right.
+// The name textarea uses the built-in alpha keyboard (full-width, docked bottom-center).
 static void custom_ta_event_cb(lv_event_t* e) {
     lv_event_code_t code = lv_event_get_code(e);
     lv_obj_t* ta = (lv_obj_t*)lv_event_get_target(e);
     if (!custom_kb) return;
     if (code == LV_EVENT_FOCUSED) {
-        lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_USER_1);
+        bool is_name = (ta == custom_name_ta);
+        // Both keyboards dock to the same bottom-center position and share the same
+        // dark style; they only differ in size + mode (numeric pad vs alpha layout).
+        if (is_name) {
+            lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_TEXT_LOWER);
+            lv_obj_set_size(custom_kb, 760, 230);
+        } else {
+            lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_USER_1);
+            lv_obj_set_size(custom_kb, 340, 200);
+        }
+        lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, -10);
+
+        // Grow the bottom spacer so the scrollable has enough range to actually
+        // move the focused field above the keyboard. Without this, lv_obj_scroll_to_y
+        // is clamped to max_scroll (which is too small when the focused field is
+        // already near the bottom of content) and the field stays behind the kb.
+        if (bottom_spacer) {
+            lv_obj_set_height(bottom_spacer, 260);
+            if (settings_scrollable) lv_obj_update_layout(settings_scrollable);
+        }
+
         lv_keyboard_set_textarea(custom_kb, ta);
         lv_obj_clear_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(custom_kb);
 
-        // Scroll the focused textarea up into the safe zone above the keyboard.
-        // Keyboard sits bottom-right, 340x200, so its top edge is around y=268.
-        // Land the textarea ~80px from the top so it (and its label) sit above the kb.
+        // Scroll the focused textarea above the keyboard. Both keyboards now sit
+        // bottom-center with their top edge around y=250, so the same scroll target
+        // works for both (lands the field ~110px from the top of the visible area).
         if (settings_scrollable) {
-            int ta_y = relative_y_to(ta, settings_scrollable);
-            int target = ta_y - 80;
+            int ta_y  = relative_y_to(ta, settings_scrollable);
+            int target = ta_y - 110;
             if (target < 0) target = 0;
             lv_obj_scroll_to_y(settings_scrollable, target, LV_ANIM_ON);
         }
     } else if (code == LV_EVENT_DEFOCUSED) {
         persist_custom_loc_from_textareas();
         lv_obj_add_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
+        // Collapse the spacer so the screen doesn't show empty space at the bottom.
+        if (bottom_spacer) lv_obj_set_height(bottom_spacer, 0);
     }
 }
 
@@ -484,7 +518,7 @@ void createClockSettingsScreen() {
             snprintf(lat_init, sizeof(lat_init), "%.4f", (double)clock_custom_lat);
         }
         custom_lat_ta = makeTextarea(custom_loc_card,
-            lat_init, "0123456789.-", 12, "e.g. 45.5017");
+            lat_init, "0123456789.-", 12, "e.g. 40.7128");
         lv_obj_add_event_cb(custom_lat_ta, custom_ta_event_cb, LV_EVENT_FOCUSED,   NULL);
         lv_obj_add_event_cb(custom_lat_ta, custom_ta_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
@@ -494,12 +528,18 @@ void createClockSettingsScreen() {
             snprintf(lon_init, sizeof(lon_init), "%.4f", (double)clock_custom_lon);
         }
         custom_lon_ta = makeTextarea(custom_loc_card,
-            lon_init, "0123456789.-", 12, "e.g. -73.5673");
+            lon_init, "0123456789.-", 12, "e.g. -74.0060");
         lv_obj_add_event_cb(custom_lon_ta, custom_ta_event_cb, LV_EVENT_FOCUSED,   NULL);
         lv_obj_add_event_cb(custom_lon_ta, custom_ta_event_cb, LV_EVENT_DEFOCUSED, NULL);
 
+        addSettingLabel(custom_loc_card, "Location name (optional)");
+        custom_name_ta = makeTextarea(custom_loc_card,
+            clock_custom_name, nullptr, 60, "e.g. New York");
+        lv_obj_add_event_cb(custom_name_ta, custom_ta_event_cb, LV_EVENT_FOCUSED,   NULL);
+        lv_obj_add_event_cb(custom_name_ta, custom_ta_event_cb, LV_EVENT_DEFOCUSED, NULL);
+
         addDescLabel(custom_loc_card,
-            "Saved automatically when you tap outside the field. Get coordinates from any map app.");
+            "Shown on the saver screen instead of \"lat, lon\". Saved automatically on tap outside.");
 
         // ── Method dropdown handler (after city/custom panels exist) ────────
         lv_obj_add_event_cb(dd_method, [](lv_event_t* e) {
@@ -537,6 +577,17 @@ void createClockSettingsScreen() {
         }, LV_EVENT_VALUE_CHANGED, NULL);
     }
 
+    // ─── Bottom spacer (zero height by default) ─────────────────────────────
+    // Grows when a textarea is focused so lv_obj_scroll_to_y has enough range
+    // to push the focused field above the keyboard. Collapses on defocus.
+    bottom_spacer = lv_obj_create(content);
+    lv_obj_set_size(bottom_spacer, lv_pct(100), 0);
+    lv_obj_set_style_bg_opa(bottom_spacer, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(bottom_spacer, 0, 0);
+    lv_obj_set_style_pad_all(bottom_spacer, 0, 0);
+    lv_obj_clear_flag(bottom_spacer, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_clear_flag(bottom_spacer, LV_OBJ_FLAG_SCROLLABLE);
+
     // ─── Floating compact numeric pad (dark-styled, 4×4) ────────────────────
     // Custom map: digits + minus + decimal + backspace + close. No OK/validate.
     // Smaller than the default LV_KEYBOARD_MODE_NUMBER (which has +/-, layout
@@ -545,7 +596,7 @@ void createClockSettingsScreen() {
     lv_keyboard_set_map(custom_kb, LV_KEYBOARD_MODE_USER_1, num_kb_map, num_kb_ctrl);
     lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_USER_1);
     lv_obj_set_size(custom_kb, 340, 200);
-    lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_RIGHT, -12, -12);
+    lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, -10);
     lv_obj_add_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_event_cb(custom_kb, kb_close_event_cb, LV_EVENT_CANCEL, NULL);
     lv_obj_add_event_cb(custom_kb, kb_close_event_cb, LV_EVENT_READY,  NULL);

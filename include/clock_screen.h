@@ -265,6 +265,9 @@ extern bool clock_wx_fahrenheit;     // true = display temps in °F
 // Sentinel value 0.0f = unset (lat/lon = exactly 0.0 is off the coast of Ghana — acceptable).
 extern volatile float clock_custom_lat;
 extern volatile float clock_custom_lon;
+// Optional display-only label for the saver screen. Fixed char buffer (no String) so the bg task
+// can read it without a flash op. Per-byte torn reads are display-cosmetic, not crash-relevant.
+extern char clock_custom_name[64];
 // Sentinel index that means "use custom_lat/lon" instead of CLOCK_CITIES[idx]
 #define CLOCK_LOC_CUSTOM_IDX  CLOCK_CITY_COUNT
 
