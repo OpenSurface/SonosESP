@@ -3,7 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32-P4 Sonos Controller</title>
+
+    <!-- ── SEO / discovery metadata ─────────────────────────────────────────── -->
+    <title>SonosESP — DIY ESP32-P4 Touchscreen Sonos Controller | Web Installer</title>
+    <meta name="description" content="Open-source touchscreen controller for Sonos speakers built on ESP32-P4. Album art, time-synced lyrics, queue control, multi-room, weather clock, and OTA firmware updates. Flash directly from your browser — no IDE required.">
+    <meta name="keywords" content="Sonos, ESP32, ESP32-P4, Arduino, PlatformIO, LVGL, touchscreen, music player, Sonos controller, smart home, home automation, DIY, IoT, MIPI DSI, UPnP, SOAP, OTA, web installer, esp-web-tools, GUITION JC4880P433C">
+    <meta name="author" content="OpenSurface">
+    <meta name="theme-color" content="#000000">
+    <link rel="canonical" href="https://opensurface.github.io/SonosESP/">
+
+    <!-- OpenGraph (Facebook, Discord, LinkedIn, iMessage, Mastodon, Bluesky, …) -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="SonosESP">
+    <meta property="og:url" content="https://opensurface.github.io/SonosESP/">
+    <meta property="og:title" content="SonosESP — DIY ESP32-P4 Touchscreen Sonos Controller">
+    <meta property="og:description" content="Open-source touchscreen controller for Sonos speakers built on ESP32-P4. Album art, lyrics, queue, multi-room, OTA. Flash from your browser.">
+    <meta property="og:image" content="https://raw.githubusercontent.com/OpenSurface/SonosESP/main/assets/image1.gif">
+    <meta property="og:image:alt" content="SonosESP touchscreen showing now-playing album art with live lyrics">
+
+    <!-- Twitter / X card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="SonosESP — DIY ESP32-P4 Touchscreen Sonos Controller">
+    <meta name="twitter:description" content="Open-source touchscreen Sonos controller on ESP32-P4. Album art, lyrics, queue, OTA. Flash from your browser.">
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/OpenSurface/SonosESP/main/assets/image1.gif">
+
+    <!-- Schema.org structured data — helps Google show app-style results -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "SonosESP",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "ESP32-P4",
+      "description": "Open-source touchscreen controller for Sonos speakers built on ESP32-P4 with LVGL UI, time-synced lyrics, queue browsing, multi-room support, and OTA updates.",
+      "url": "https://opensurface.github.io/SonosESP/",
+      "downloadUrl": "https://github.com/OpenSurface/SonosESP/releases/latest",
+      "license": "https://opensource.org/licenses/MIT",
+      "codeRepository": "https://github.com/OpenSurface/SonosESP",
+      "programmingLanguage": "C++",
+      "author": {
+        "@type": "Organization",
+        "name": "OpenSurface",
+        "url": "https://github.com/OpenSurface"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+    <!-- ────────────────────────────────────────────────────────────────────── -->
+
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
