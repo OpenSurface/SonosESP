@@ -371,8 +371,14 @@ static void fetchClockWeather() {
         }
         lat = lat_val;
         lon = lon_val;
-        snprintf(clock_wx_city_name, sizeof(clock_wx_city_name), "%.2f, %.2f", lat, lon);
-        Serial.printf("[CLKWX] Using custom location: %.4f, %.4f\n", lat, lon);
+        // Prefer the user-supplied display name if set; otherwise fall back to "lat, lon".
+        // Reading the char buffer is byte-level torn-read-safe (display-only, no crash).
+        if (clock_custom_name[0] != '\0') {
+            strlcpy(clock_wx_city_name, clock_custom_name, sizeof(clock_wx_city_name));
+        } else {
+            snprintf(clock_wx_city_name, sizeof(clock_wx_city_name), "%.2f, %.2f", lat, lon);
+        }
+        Serial.printf("[CLKWX] Using custom location: %.4f, %.4f (%s)\n", lat, lon, clock_wx_city_name);
     } else {
         lat = CLOCK_CITIES[clock_weather_city_idx].lat;
         lon = CLOCK_CITIES[clock_weather_city_idx].lon;
