@@ -567,8 +567,13 @@ static DecodeResult decodeToRGB565(uint8_t* buf, size_t len, bool isJPEG, bool i
     if (isJPEG) {
 
         if (hw_jpeg_decoder) {
-            // Step 0: strip COM markers (0xFFFE) — HW decoder returns error 258 on them
+            // Step 0: strip COM markers (0xFFFE) — HW decoder returns error 258 on them.
+            // While stripping, also detect a "Lavc" signature inside any COM segment.
+            // FFmpeg/libavcodec-encoded JPEGs (e.g. some Spotify CDN images) ship with
+            // optimized Huffman tables that trip the ESP32-P4 HW Huffman decoder and
+            // render as horizontal stripes. When detected, we route to the SW decoder.
             size_t cleaned_size = len;
+            bool has_lavc_marker = false;
             {
                 uint8_t* p   = buf;
                 uint8_t* end = buf + len;
@@ -577,6 +582,17 @@ static DecodeResult decodeToRGB565(uint8_t* buf, size_t len, bool isJPEG, bool i
                     if (p[0] == 0xFF && p[1] == 0xFE) {
                         uint16_t marker_len = ((uint16_t)p[2] << 8) | p[3];
                         if (marker_len < 2) break;
+                        // Payload runs from p+4 for (marker_len - 2) bytes. Scan for "Lavc".
+                        if (!has_lavc_marker && marker_len >= 6 && p + 2 + marker_len <= end) {
+                            uint8_t* pl     = p + 4;
+                            uint8_t* pl_end = p + 2 + marker_len;
+                            for (uint8_t* sc = pl; sc + 4 <= pl_end; sc++) {
+                                if (sc[0] == 'L' && sc[1] == 'a' && sc[2] == 'v' && sc[3] == 'c') {
+                                    has_lavc_marker = true;
+                                    break;
+                                }
+                            }
+                        }
                         p += 2 + marker_len;
                         continue;
                     }
@@ -594,6 +610,10 @@ static DecodeResult decodeToRGB565(uint8_t* buf, size_t len, bool isJPEG, bool i
                 if (buf[pi] == 0xFF && buf[pi+1] == 0xC2) { is_progressive = true; break; }
             }
             if (is_progressive) use_sw_fallback = true;
+            if (has_lavc_marker) {
+                Serial.println("[ART] FFmpeg/Lavc-encoded JPEG detected — routing to SW decoder");
+                use_sw_fallback = true;
+            }
 
             // Step 1: HW header parse
             jpeg_decode_picture_info_t pic_info = {};
@@ -616,9 +636,13 @@ static DecodeResult decodeToRGB565(uint8_t* buf, size_t len, bool isJPEG, bool i
                     Serial.printf("[ART] JPEG dimensions out of range: %dx%d\n", w, h);
                     return kDecodeFail;
                 } else {
-                    bool hw_compatible = (w % 8 == 0) && (h % 8 == 0);
+                    // ESP32-P4 HW JPEG decoder produces 16-byte-aligned output regardless
+                    // of subsampling (per ESP-IDF docs for YUV420/422 — and empirically the
+                    // same applies to YUV444). Dimensions not divisible by 16 trip a stride
+                    // mismatch that renders as horizontal banding. Force SW for those.
+                    bool hw_compatible = (w % 16 == 0) && (h % 16 == 0);
                     if (!hw_compatible) {
-                        Serial.printf("[ART] JPEG %dx%d not HW-compatible (non-div-8), using SW fallback\n", w, h);
+                        Serial.printf("[ART] JPEG %dx%d not HW-compatible (non-div-16), using SW fallback\n", w, h);
                         use_sw_fallback = true;
                     } else {
                         // HW FAST PATH
