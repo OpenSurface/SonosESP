@@ -116,15 +116,9 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for gu
 
 Real SonosESP installs in the wild — kitchens, offices, studios, dorm rooms.
 
-<!--
-HOW TO ADD A BUILD:
-Open an issue with the "🖼 Show off your build" template. Photos shared there get curated here.
-Each build below uses the structure:
-  <td align="center" width="33%">
-    <a href="ISSUE_URL"><img src="UPLOADED_IMAGE_URL" width="280"/></a><br>
-    <sub><b>@username</b><br>Short caption / location</sub>
-  </td>
--->
+**How to share yours:** open a [🖼 Show off your build](https://github.com/OpenSurface/SonosESP/issues/new?template=showcase.yml) issue with a photo. Once the maintainer adds the `featured` label, your build is **auto-published** to the mosaic below by the [community-showcase.yml](.github/workflows/community-showcase.yml) GitHub Action — no manual editing.
+
+<!-- showcase-start -->
 
 <table>
   <tr>
@@ -139,7 +133,9 @@ Each build below uses the structure:
   </tr>
 </table>
 
-More builds and discussion in [**Show & Tell**](https://github.com/OpenSurface/SonosESP/discussions/categories/show-and-tell) (once you've enabled the category — see Discussions tab).
+<!-- showcase-end -->
+
+More builds and casual sharing in [**Show & Tell**](https://github.com/OpenSurface/SonosESP/discussions/categories/show-and-tell) (Discussions tab).
 
 ## Contributors
 
