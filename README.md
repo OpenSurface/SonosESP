@@ -124,9 +124,7 @@ Real SonosESP installs in the wild — kitchens, offices, studios, dorm rooms.
   <tr>
     <td align="center" width="33%">
       <em>Your build here?</em><br>
-      <a href="https://github.com/OpenSurface/SonosESP/issues/new?template=showcase.yml">
-        Share a photo →
-      </a>
+      <a href="https://github.com/OpenSurface/SonosESP/issues/new?template=showcase.yml">Share a photo →</a>
     </td>
     <td align="center" width="33%"></td>
     <td align="center" width="33%"></td>
