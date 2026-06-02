@@ -116,7 +116,7 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for gu
 
 Real SonosESP installs in the wild — kitchens, offices, studios, dorm rooms.
 
-**How to share yours:** open a [🖼 Show off your build](https://github.com/OpenSurface/SonosESP/issues/new?template=showcase.yml) issue with a photo. Once the maintainer adds the `featured` label, your build is **auto-published** to the mosaic below by the [community-showcase.yml](.github/workflows/community-showcase.yml) GitHub Action — no manual editing.
+**How to share yours:** open a [🖼 Show off your build](https://github.com/OpenSurface/SonosESP/issues/new?template=showcase.yml) issue with a photo. Selected builds get featured in the mosaic below.
 
 <!-- showcase-start -->
 

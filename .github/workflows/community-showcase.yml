@@ -1,19 +1,8 @@
 name: Community Showcase
 
-# Auto-rebuilds the README "Community Builds" mosaic from issues labeled
-# `showcase` + `featured`. The maintainer just adds the `featured` label
-# to any submission they like — this workflow does the rest.
-#
-# Trigger:
-#   - Any time a `showcase` issue gets labeled/unlabeled/edited/closed/reopened
-#   - Manual run via the Actions tab (workflow_dispatch)
-#
-# Behavior:
-#   - Queries all issues with both `showcase` AND `featured` labels (state=open)
-#   - Extracts the first image URL from each issue body
-#   - Rebuilds the HTML <table> between <!-- showcase-start --> and
-#     <!-- showcase-end --> markers in README.md
-#   - Commits the change with [skip ci] so it doesn't loop
+# Rebuilds the README "Community Builds" mosaic from issues labeled
+# `showcase` + `featured`. Maintainer adds the `featured` label on any
+# submission they like; the rest is automatic.
 
 on:
   issues:
@@ -30,10 +19,8 @@ concurrency:
 
 jobs:
   rebuild-mosaic:
-    # Only run on issue events that involve a `showcase` label; always run on manual dispatch
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.issue.labels.*.name, 'showcase') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.issue != null && contains(github.event.issue.labels.*.name, 'showcase')) }}
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,141 +32,111 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-
-            // 1. Fetch every open issue with both `showcase` and `featured` labels
             const issues = await github.paginate(
               github.rest.issues.listForRepo,
               {
                 owner: context.repo.owner,
-                repo:  context.repo.repo,
+                repo: context.repo.repo,
                 labels: 'showcase,featured',
                 state: 'open',
                 per_page: 100,
               }
             );
-            core.info(`Found ${issues.length} featured showcase issues`);
-
-            // 2. Pull the first image URL out of each issue body.
-            //    Matches Markdown ![alt](url) AND <img src="url">. Accepts only
-            //    the host patterns GitHub uses for user-uploaded assets, so a
-            //    malicious external URL can't sneak into the README.
+            core.info('Found ' + issues.length + ' featured showcase issues');
             const allowedHosts = [
               'user-images.githubusercontent.com',
               'github.com',
               'raw.githubusercontent.com',
               'private-user-images.githubusercontent.com',
             ];
-
             const isAllowed = (u) => {
               try {
                 const h = new URL(u).hostname.toLowerCase();
-                return allowedHosts.some(a => h === a || h.endsWith('.' + a));
-              } catch { return false; }
+                return allowedHosts.some((a) => h === a || h.endsWith('.' + a));
+              } catch (e) { return false; }
             };
-
             const extractImage = (body) => {
               if (!body) return null;
-              // Markdown image
               const md = body.match(/!\[[^\]]*\]\((https:\/\/[^)\s]+)\)/i);
               if (md && isAllowed(md[1])) return md[1];
-              // HTML <img src="...">
               const html = body.match(/<img[^>]+src=["'](https:\/\/[^"']+)["']/i);
               if (html && isAllowed(html[1])) return html[1];
               return null;
             };
-
             const rows = [];
             for (const issue of issues) {
               const imgUrl = extractImage(issue.body);
               if (!imgUrl) {
-                core.warning(`Issue #${issue.number} has no allowed image; skipping`);
+                core.warning('Issue #' + issue.number + ' has no allowed image; skipping');
                 continue;
               }
               const caption = (issue.title || '')
                 .replace(/^\s*\[SHOWCASE\]\s*/i, '')
-                .trim() || `Build by @${issue.user.login}`;
+                .trim() || ('Build by @' + issue.user.login);
               rows.push({
-                imgUrl,
-                author:  issue.user.login,
-                caption,
+                imgUrl: imgUrl,
+                author: issue.user.login,
+                caption: caption,
                 issueUrl: issue.html_url,
               });
             }
-            core.info(`Built ${rows.length} valid mosaic cells`);
-
-            // 3. Render the HTML table — 3 columns per row
             const escape = (s) => String(s)
-              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-              .replace(/"/g, '&quot;');
-
-            const repoSlug = `${context.repo.owner}/${context.repo.repo}`;
-            const placeholder = `<table>
-  <tr>
-    <td align="center" width="33%">
-      <em>Your build here?</em><br>
-      <a href="https://github.com/${repoSlug}/issues/new?template=showcase.yml">
-        Share a photo →
-      </a>
-    </td>
-    <td align="center" width="33%"></td>
-    <td align="center" width="33%"></td>
-  </tr>
-</table>`;
-
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            const repoSlug = context.repo.owner + '/' + context.repo.repo;
+            const newIssueUrl = 'https://github.com/' + repoSlug + '/issues/new?template=showcase.yml';
+            const emptyCell = '    <td align="center" width="33%"></td>';
+            const buildCell = (r) => [
+              '    <td align="center" width="33%">',
+              '      <a href="' + r.issueUrl + '"><img src="' + r.imgUrl + '" width="280" alt="' + escape(r.caption) + '"/></a><br>',
+              '      <sub><b>@' + r.author + '</b><br>' + escape(r.caption) + '</sub>',
+              '    </td>',
+            ].join('\n');
+            const placeholderRow = [
+              '  <tr>',
+              '    <td align="center" width="33%">',
+              '      <em>Your build here?</em><br>',
+              '      <a href="' + newIssueUrl + '">Share a photo →</a>',
+              '    </td>',
+              emptyCell,
+              emptyCell,
+              '  </tr>',
+            ].join('\n');
             let html;
             if (rows.length === 0) {
-              html = placeholder;
+              html = '<table>\n' + placeholderRow + '\n</table>';
             } else {
-              const cell = (r) =>
-            `    <td align="center" width="33%">
-      <a href="${r.issueUrl}"><img src="${r.imgUrl}" width="280" alt="${escape(r.caption)}"/></a><br>
-      <sub><b>@${r.author}</b><br>${escape(r.caption)}</sub>
-    </td>`;
               const trs = [];
               for (let i = 0; i < rows.length; i += 3) {
                 const trio = rows.slice(i, i + 3);
-                while (trio.length < 3) trio.push(null);
-                trs.push(
-                  '  <tr>\n' +
-                  trio.map(r => r ? cell(r) : '    <td align="center" width="33%"></td>').join('\n') +
-                  '\n  </tr>'
-                );
+                const cells = [];
+                for (let j = 0; j < 3; j++) {
+                  cells.push(trio[j] ? buildCell(trio[j]) : emptyCell);
+                }
+                trs.push('  <tr>\n' + cells.join('\n') + '\n  </tr>');
               }
-              // Append the "Share a photo" CTA as one extra row at the end
-              trs.push(
-            `  <tr>
-    <td align="center" width="33%" colspan="3">
-      <em>Want yours featured?</em>
-      <a href="https://github.com/${repoSlug}/issues/new?template=showcase.yml">
-        Share a photo →
-      </a>
-    </td>
-  </tr>`
-              );
+              trs.push([
+                '  <tr>',
+                '    <td align="center" colspan="3"><em>Want yours featured?</em> <a href="' + newIssueUrl + '">Share a photo →</a></td>',
+                '  </tr>',
+              ].join('\n'));
               html = '<table>\n' + trs.join('\n') + '\n</table>';
             }
-
-            // 4. Splice into README between the markers
             const readmePath = 'README.md';
             const readme = fs.readFileSync(readmePath, 'utf8');
             const startMarker = '<!-- showcase-start -->';
-            const endMarker   = '<!-- showcase-end -->';
-            const re = new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`);
+            const endMarker = '<!-- showcase-end -->';
+            const re = new RegExp(startMarker + '[\\s\\S]*?' + endMarker);
             if (!re.test(readme)) {
-              core.setFailed(`README markers ${startMarker} / ${endMarker} not found`);
+              core.setFailed('README markers not found: ' + startMarker + ' / ' + endMarker);
               return;
             }
-            const newReadme = readme.replace(
-              re,
-              `${startMarker}\n\n${html}\n\n${endMarker}`
-            );
-
+            const newReadme = readme.replace(re, startMarker + '\n\n' + html + '\n\n' + endMarker);
             if (newReadme === readme) {
               core.info('README already up to date');
               return;
             }
             fs.writeFileSync(readmePath, newReadme);
-            core.setOutput('changed', 'true');
+            core.info('README updated with ' + rows.length + ' showcase tiles');
 
       - name: Commit changes
         run: |
