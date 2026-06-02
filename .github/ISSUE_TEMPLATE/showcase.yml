@@ -1,0 +1,54 @@
+name: "🖼 Show off your build"
+description: Share a photo of your SonosESP setup! Featured builds get added to the README mosaic.
+title: "[SHOWCASE] "
+labels: ["showcase"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Built it? Show it! Photos from real installs get pinned in the README so others can see what's possible.
+
+  - type: textarea
+    id: photo
+    attributes:
+      label: Photo of your build
+      description: |
+        Drag and drop one or more photos directly into this field. Good lighting + a track playing on the screen looks great. Landscape orientation works best for the README mosaic.
+      placeholder: "Drop image here…"
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Where is it? (optional)
+      description: Room, project, mounting style — anything that gives context.
+      placeholder: "Kitchen, wall-mounted next to the espresso machine"
+    validations:
+      required: false
+
+  - type: input
+    id: speakers
+    attributes:
+      label: Sonos setup (optional)
+      description: What speakers is it paired with?
+      placeholder: "Two Sonos Ones + a Sub Mini"
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else? (optional)
+      description: Custom case? 3D-printed mount? Modded firmware? Tell us about it.
+      placeholder: "Printed an angled stand from the 3D_Files folder…"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Permissions
+      options:
+        - label: I'm OK with this photo being featured in the project README.
+          required: true

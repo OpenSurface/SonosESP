@@ -112,6 +112,35 @@ WiFi credentials are stored persistently in NVS (Non-Volatile Storage). Once con
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+## Community Builds
+
+Real SonosESP installs in the wild — kitchens, offices, studios, dorm rooms.
+
+<!--
+HOW TO ADD A BUILD:
+Open an issue with the "🖼 Show off your build" template. Photos shared there get curated here.
+Each build below uses the structure:
+  <td align="center" width="33%">
+    <a href="ISSUE_URL"><img src="UPLOADED_IMAGE_URL" width="280"/></a><br>
+    <sub><b>@username</b><br>Short caption / location</sub>
+  </td>
+-->
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <em>Your build here?</em><br>
+      <a href="https://github.com/OpenSurface/SonosESP/issues/new?template=showcase.yml">
+        Share a photo →
+      </a>
+    </td>
+    <td align="center" width="33%"></td>
+    <td align="center" width="33%"></td>
+  </tr>
+</table>
+
+More builds and discussion in [**Show & Tell**](https://github.com/OpenSurface/SonosESP/discussions/categories/show-and-tell) (once you've enabled the category — see Discussions tab).
+
 ## Contributors
 
 Thanks to these wonderful people who have contributed to this project:
