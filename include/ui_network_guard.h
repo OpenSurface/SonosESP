@@ -13,8 +13,6 @@
  *   1. SDIO_GENERAL_COOLDOWN_MS  — min gap since last network op (any protocol)
  *
  * Optional checks (select via flags):
- *   SDIO_WAIT_TRACK_CHANGE   — track-change settle (SDIO_TRACK_CHANGE_SETTLE_MS, currently 0)
- *   SDIO_WAIT_STORM_GATE     — HTTP-500 storm while-loop (SDIO_STORM_COOLDOWN_MS)
  *   SDIO_WAIT_QUEUE_POLL     — updateQueue() residue (SDIO_QUEUE_POLL_COOLDOWN_MS)
  *   SDIO_WAIT_HTTPS_COOLDOWN — TLS teardown residue after last HTTPS session
  *                              (SDIO_HTTPS_COOLDOWN_MS = 3s).
@@ -32,8 +30,9 @@
 #include <stdint.h>
 
 // Flags for optional check groups
-#define SDIO_WAIT_TRACK_CHANGE   0x01u   // Gate on last_track_change_ms
-#define SDIO_WAIT_STORM_GATE     0x02u   // Gate on last_transient_500_ms (while-loop)
+// Note: 0x01 and 0x02 are intentionally vacant — they used to host
+// SDIO_WAIT_TRACK_CHANGE / SDIO_WAIT_STORM_GATE which both caused C6 idle
+// → DMA clock-gate crashes and were removed (no callers left).
 #define SDIO_WAIT_QUEUE_POLL     0x04u   // Gate on last_queue_fetch_time
 #define SDIO_WAIT_HTTPS_COOLDOWN 0x08u   // Gate on last_https_end_ms (3s TLS teardown wait)
 

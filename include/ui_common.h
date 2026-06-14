@@ -20,7 +20,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.8.2"
+#define FIRMWARE_VERSION "1.8.4"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -60,6 +60,9 @@ extern int brightness_level;
 extern int brightness_dimmed;
 extern int autodim_timeout;
 extern bool lyrics_enabled;
+extern String pending_wifi_ssid;        // issue #85: creds awaiting persistence
+extern String pending_wifi_pass;
+extern volatile bool wifi_creds_need_save;
 extern uint32_t last_touch_time;
 extern bool screen_dimmed;
 
@@ -221,6 +224,7 @@ void setBrightness(int level);
 void resetScreenTimeout();
 void checkAutoDim();
 void requestAlbumArt(const String &url);
+bool isAlbumArtPending();   // H-4: thread-safe `pending_art_url != last_art_url` (takes art_mutex)
 void clearAlbumArtCache();  // Invalidate LRU cache on track change
 void updateUI();
 void processUpdates();
