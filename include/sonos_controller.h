@@ -137,6 +137,9 @@ private:
     
     // Internal methods
     String sendSOAP(const char* service, const char* action, const char* args);
+    // H-7: explicit-target overload — addresses a specific device without mutating the
+    // shared currentDeviceIndex that the polling task reads concurrently.
+    String sendSOAP(SonosDevice* dev, const char* service, const char* action, const char* args);
     void getRoomName(SonosDevice* dev);
     int fetchTopologyCoordinators(IPAddress ip, String* coordinatorRINCONs, int maxCount);
     bool fetchDevicePlayingState(SonosDevice* dev);

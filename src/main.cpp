@@ -395,7 +395,22 @@ void checkWiFiReconnect() {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("[WIFI] Connection lost, attempting reconnect...");
         WiFi.reconnect();
-    } else if (!sonos_started && !deferred_discovery_running) {
+        return;
+    }
+
+    // Issue #85: a flaky radio can associate AFTER the WiFi-setup dialog's connect loop
+    // has timed out, so the dialog's "save on WL_CONNECTED" never fired and the creds were
+    // lost on reboot. Now that the link is genuinely up, persist any pending creds. We only
+    // ever reach here when truly connected, so a wrong password is never persisted.
+    // Runs on mainAppTask (SRAM stack) → NVS-write-safe.
+    if (wifi_creds_need_save && pending_wifi_ssid.length() > 0) {
+        wifiPrefs.putString(NVS_KEY_SSID, pending_wifi_ssid);
+        wifiPrefs.putString(NVS_KEY_PASSWORD, pending_wifi_pass);
+        wifi_creds_need_save = false;
+        Serial.println("[WIFI] Pending credentials persisted after async connect (issue #85)");
+    }
+
+    if (!sonos_started && !deferred_discovery_running) {
         // WiFi connected but Sonos not yet started (WiFi was down at boot).
         // tryLoadCachedDevice() does a blocking HTTP reachability GET (up to 5s). Running it
         // here — on mainAppTask, the same thread as lv_timer_handler() — froze LVGL and blocked

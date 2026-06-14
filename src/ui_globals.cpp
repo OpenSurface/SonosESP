@@ -31,6 +31,12 @@ int brightness_level = 100;
 int brightness_dimmed = 20;
 int autodim_timeout = 30;
 bool lyrics_enabled = true;
+// Issue #85: WiFi creds entered in the setup dialog, awaiting persistence. On a flaky
+// radio the dialog's connect loop can time out before WL_CONNECTED, so its immediate save
+// never runs. checkWiFiReconnect() persists these to NVS once the link is actually up.
+String pending_wifi_ssid;
+String pending_wifi_pass;
+volatile bool wifi_creds_need_save = false;
 uint32_t last_touch_time = 0;
 bool screen_dimmed = false;
 

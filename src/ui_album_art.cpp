@@ -1861,6 +1861,23 @@ String urlEncode(const char* url) {
     return String(encoded);
 }
 
+// H-4: thread-safe replacement for the cross-task `pending_art_url != last_art_url`
+// String compare in the polling task. Those globals are reassigned under art_mutex by
+// the UI and art tasks; the polling task (Core 1, prio 3) read them lock-free → torn /
+// dangling String pointer (same race class as CR-1). art_mutex is only ever held for
+// microsecond-long String writes (never during a download), so this brief take is cheap.
+// Returns true when a requested art URL has not yet been displayed. On the (near-
+// impossible) mutex miss we default to "pending" — biases toward skipping a SOAP cycle,
+// the SDIO-safe choice; the next cycle re-evaluates.
+bool isAlbumArtPending() {
+    bool pending = true;
+    if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(10))) {
+        pending = (pending_art_url != last_art_url);
+        xSemaphoreGive(art_mutex);
+    }
+    return pending;
+}
+
 void requestAlbumArt(const String& url) {
     if (url.length() == 0) return;
     if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(10))) {

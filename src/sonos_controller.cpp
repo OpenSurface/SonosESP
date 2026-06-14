@@ -156,7 +156,15 @@ void SonosController::selectDevice(int index) {
 // SOAP Request - Faster timeout
 // ============================================================================
 String SonosController::sendSOAP(const char* service, const char* action, const char* args) {
-    SonosDevice* dev = getCurrentDevice();
+    return sendSOAP(getCurrentDevice(), service, action, args);
+}
+
+// H-7: explicit-target overload. Group ops (joinGroup/leaveGroup/updateGroupInfo) call
+// this to address a specific speaker WITHOUT mutating the shared currentDeviceIndex —
+// the polling task reads that index concurrently, so a transient swap made it fire SOAPs
+// at the wrong speaker. dev->ip and the dev->errorCount/connected bookkeeping below all
+// correctly apply to whichever device is targeted.
+String SonosController::sendSOAP(SonosDevice* dev, const char* service, const char* action, const char* args) {
     if (!dev) return "";
 
     // Use static buffers to eliminate String allocation/fragmentation
@@ -1695,7 +1703,7 @@ void SonosController::pollingTaskFunction(void* param) {
             {
                 bool in_500_now = last_transient_500_ms > 0 &&
                                   millis() - last_transient_500_ms < SDIO_STORM_COOLDOWN_MS;
-                bool art_still_pending = pending_art_url != last_art_url &&
+                bool art_still_pending = isAlbumArtPending() &&
                                          last_track_change_ms > 0 &&
                                          millis() - last_track_change_ms < 10000;
                 if (art_still_pending || in_500_now) {
@@ -1748,7 +1756,7 @@ void SonosController::pollingTaskFunction(void* param) {
             // Guard clears once the art task downloads and syncs pending_art_url=last_art_url.
             // Uses != last_art_url (NOT !isEmpty()): isEmpty() is true for any stream with
             // art → would block volume/transport/queue polling forever during stable playback.
-            if (art_download_in_progress || pending_art_url != last_art_url) {
+            if (art_download_in_progress || isAlbumArtPending()) {
                 tick++;
                 continue;
             }
@@ -1832,15 +1840,29 @@ void SonosController::suspendTasks() {
     }
 
     // Force-delete any tasks that didn't exit in time
+    bool forced = false;
     if (pollingTaskHandle != NULL) {
         Serial.println("[SONOS] WARNING: Force-deleting polling task (didn't exit in time)");
         vTaskDelete(pollingTaskHandle);
         pollingTaskHandle = NULL;
+        forced = true;
     }
     if (networkTaskHandle != NULL) {
         Serial.println("[SONOS] WARNING: Force-deleting network task (didn't exit in time)");
         vTaskDelete(networkTaskHandle);
         networkTaskHandle = NULL;
+        forced = true;
+    }
+
+    // H-5: a force-deleted task may have died mid-sendSOAP/updateTrackInfo holding
+    // deviceMutex, poisoning it (all SonosDevice access would deadlock after resumeTasks).
+    // Both background tasks are now gone and no other task takes deviceMutex during the
+    // OTA shutdown window, so recreate it from a clean state. (network_mutex is recreated
+    // unconditionally by the OTA caller, which also covers the force-killed clock-bg task.)
+    if (forced && deviceMutex != NULL) {
+        vSemaphoreDelete(deviceMutex);
+        deviceMutex = xSemaphoreCreateMutex();
+        Serial.println("[SONOS] deviceMutex recreated after force-delete (clean state)");
     }
 
     Serial.println("[SONOS] ✓ Background tasks stopped, WiFi buffers freed");
@@ -1884,14 +1906,8 @@ bool SonosController::joinGroup(int deviceIndex, int coordinatorIndex) {
         "<CurrentURIMetaData></CurrentURIMetaData>",
         uri);
 
-    // We need to send this to the device being joined, not the current device
-    // Save and restore current device
-    int savedIndex = currentDeviceIndex;
-    currentDeviceIndex = deviceIndex;
-
-    String resp = sendSOAP("AVTransport", "SetAVTransportURI", args);
-
-    currentDeviceIndex = savedIndex;
+    // Send to the device being joined, addressed explicitly (H-7 — no index swap).
+    String resp = sendSOAP(device, "AVTransport", "SetAVTransportURI", args);
 
     bool success = (resp.length() > 0 && resp.indexOf("Fault") < 0);
 
@@ -1920,16 +1936,10 @@ bool SonosController::leaveGroup(int deviceIndex) {
 
     SonosDevice* device = &devices[deviceIndex];
 
-    // Save and restore current device
-    int savedIndex = currentDeviceIndex;
-    currentDeviceIndex = deviceIndex;
-
     // BecomeCoordinatorOfStandaloneGroup makes the device leave its group
-    // and become a standalone player
-    String resp = sendSOAP("AVTransport", "BecomeCoordinatorOfStandaloneGroup",
+    // and become a standalone player. Addressed explicitly (H-7 — no index swap).
+    String resp = sendSOAP(device, "AVTransport", "BecomeCoordinatorOfStandaloneGroup",
         "<InstanceID>0</InstanceID>");
-
-    currentDeviceIndex = savedIndex;
 
     bool success = (resp.length() > 0 && resp.indexOf("Fault") < 0);
 
@@ -1953,14 +1963,12 @@ bool SonosController::leaveGroup(int deviceIndex) {
 
 void SonosController::updateGroupInfo() {
     // Query each device for its group coordinator
-    int savedIndex = currentDeviceIndex;
-
     for (int i = 0; i < deviceCount; i++) {
-        currentDeviceIndex = i;
         SonosDevice* dev = &devices[i];
 
-        // GetMediaInfo contains the current transport URI which tells us about grouping
-        String resp = sendSOAP("AVTransport", "GetMediaInfo", "<InstanceID>0</InstanceID>");
+        // GetMediaInfo contains the current transport URI which tells us about grouping.
+        // Addressed explicitly (H-7 — no currentDeviceIndex swap that polling could read).
+        String resp = sendSOAP(dev, "AVTransport", "GetMediaInfo", "<InstanceID>0</InstanceID>");
 
         if (resp.length() > 0) {
             String currentURI = extractXML(resp, "CurrentURI");
@@ -1998,7 +2006,6 @@ void SonosController::updateGroupInfo() {
         }
     }
 
-    currentDeviceIndex = savedIndex;
     notifyUI(UPDATE_GROUPS);
 }
 

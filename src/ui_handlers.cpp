@@ -355,6 +355,14 @@ void ev_wifi_connect(lv_event_t* e) {
     vTaskDelay(pdMS_TO_TICKS(100));
     WiFi.begin(selectedSSID.c_str(), pwd);
 
+    // Issue #85: stash the entered creds so they still get persisted if this dialog's
+    // connect loop times out before WL_CONNECTED (a flaky radio can associate slightly
+    // later). checkWiFiReconnect() writes them to NVS once the link is actually up.
+    // Cleared below if the immediate save succeeds.
+    pending_wifi_ssid = selectedSSID;
+    pending_wifi_pass = pwd;
+    wifi_creds_need_save = true;
+
     // Non-blocking connection with visual feedback (max 30 seconds — mesh/Orbi can be slow).
     // MUST reset the hardware WDT each iteration: this function runs on mainAppTask which is
     // registered with the 30s WDT. The loop itself takes up to 30s → WDT fires at loop end.
@@ -379,6 +387,7 @@ void ev_wifi_connect(lv_event_t* e) {
         Serial.printf("[WIFI] Saving credentials to NVS: SSID='%s'\n", selectedSSID.c_str());
         wifiPrefs.putString("ssid", selectedSSID);
         wifiPrefs.putString("pass", pwd);
+        wifi_creds_need_save = false;  // issue #85: immediate save done; no deferred persist needed
 
         // Verify write succeeded
         String verifySSID = wifiPrefs.getString("ssid", "");
@@ -1525,47 +1534,64 @@ static void displayCompletedArt() {
 static void updateNextTrackUI(SonosDevice* d) {
     static String last_next_title = "";
 
+    // CR-1 follow-up: queue[].title/artist and repeatMode are Strings the polling task
+    // rewrites under deviceMutex (updateQueue/updateTrackInfo). Walk the queue and extract
+    // the next title/artist INTO locals while holding the lock, then do all LVGL work below
+    // outside it (never call LVGL while holding the mutex). Scalars/bools (queueSize,
+    // currentTrackNumber, isRadioStation…) are atomic single-word reads and stay direct.
+    bool show = false;       // found a valid next track → update labels
+    bool hideAll = false;    // next track truly unavailable → hide labels
+    String nextTitle, nextArtist;
+
     if (!d->isRadioStation && !d->isLineIn && !d->isTvAudio && d->queueSize > 0 && d->currentTrackNumber > 0) {
-        int nextIdx = -1;
+        if (xSemaphoreTake(sonos.getDeviceMutex(), pdMS_TO_TICKS(30))) {
+            int nextIdx = -1;
 
-        // Find next track after current
-        for (int i = 0; i < d->queueSize; i++) {
-            if (d->queue[i].trackNumber == d->currentTrackNumber + 1) {
-                nextIdx = i;
-                break;
-            }
-        }
-
-        // If we're on last track and repeat is on, show first track
-        if (nextIdx < 0 && (d->repeatMode == "ALL" || d->repeatMode == "ONE")) {
+            // Find next track after current
             for (int i = 0; i < d->queueSize; i++) {
-                if (d->queue[i].trackNumber == 1) {
+                if (d->queue[i].trackNumber == d->currentTrackNumber + 1) {
                     nextIdx = i;
                     break;
                 }
             }
-        }
 
-        if (nextIdx >= 0 && d->queue[nextIdx].title.length() > 0) {
-            String nextTitle = d->queue[nextIdx].title;
-            if (nextTitle != last_next_title) {
-                lv_label_set_text(lbl_next_title, d->queue[nextIdx].title.c_str());
-                lv_label_set_text(lbl_next_artist, d->queue[nextIdx].artist.c_str());
-                lv_obj_clear_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_clear_flag(lbl_next_title, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_clear_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
-                last_next_title = nextTitle;
+            // If we're on last track and repeat is on, show first track
+            if (nextIdx < 0 && (d->repeatMode == "ALL" || d->repeatMode == "ONE")) {
+                for (int i = 0; i < d->queueSize; i++) {
+                    if (d->queue[i].trackNumber == 1) {
+                        nextIdx = i;
+                        break;
+                    }
+                }
             }
-        } else if (nextIdx < 0) {
-            // Only hide if next track is truly unavailable (not just temporarily)
-            if (last_next_title != "") {
-                lv_obj_add_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_add_flag(lbl_next_title, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_add_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
-                last_next_title = "";
+
+            if (nextIdx >= 0 && d->queue[nextIdx].title.length() > 0) {
+                nextTitle  = d->queue[nextIdx].title;
+                nextArtist = d->queue[nextIdx].artist;
+                show = true;
+            } else if (nextIdx < 0) {
+                hideAll = true;  // next track truly unavailable (not just temporarily)
             }
+            // nextIdx>=0 with empty title → leave display as-is (matches prior behavior)
+            xSemaphoreGive(sonos.getDeviceMutex());
+        } else {
+            return;  // polling is mid-write; skip this UI tick (retries in ~200ms)
         }
     } else {
+        hideAll = true;
+    }
+
+    // ── LVGL work happens outside the lock ──
+    if (show) {
+        if (nextTitle != last_next_title) {
+            lv_label_set_text(lbl_next_title, nextTitle.c_str());
+            lv_label_set_text(lbl_next_artist, nextArtist.c_str());
+            lv_obj_clear_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(lbl_next_title, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
+            last_next_title = nextTitle;
+        }
+    } else if (hideAll) {
         if (last_next_title != "") {
             lv_obj_add_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(lbl_next_title, LV_OBJ_FLAG_HIDDEN);
@@ -1582,21 +1608,36 @@ static void updateAlbumArtRequest(SonosDevice* d) {
     static String last_source_prefix = "";
     static bool had_track = false;
 
+    // CR-1 follow-up: currentURI / currentTrack / albumArtURL / radioStationArtURL are
+    // Strings the polling task rewrites under deviceMutex (updateTrackInfo/updateMediaInfo).
+    // Snapshot them into locals once under the lock, then use the locals throughout —
+    // lock-free reads risked a torn/dangling pointer. No LVGL call is made under the lock.
+    String s_uri, s_track, s_albumArtURL, s_stationURL;
+    if (xSemaphoreTake(sonos.getDeviceMutex(), pdMS_TO_TICKS(30))) {
+        s_uri         = d->currentURI;
+        s_track       = d->currentTrack;
+        s_albumArtURL = d->albumArtURL;
+        s_stationURL  = d->radioStationArtURL;
+        xSemaphoreGive(sonos.getDeviceMutex());
+    } else {
+        return;  // polling is mid-write; skip this UI tick (retries in ~200ms)
+    }
+
     // Extract source prefix to detect actual source changes (not just track changes)
     String current_source_prefix = "";
-    if (d->currentURI.startsWith("x-sonos-vli:")) {
+    if (s_uri.startsWith("x-sonos-vli:")) {
         current_source_prefix = "x-sonos-vli";  // Spotify, Apple Music, etc
-    } else if (d->currentURI.startsWith("hls-radio://")) {
+    } else if (s_uri.startsWith("hls-radio://")) {
         current_source_prefix = "hls-radio";  // Radio
-    } else if (d->currentURI.startsWith("x-sonos-http:")) {
+    } else if (s_uri.startsWith("x-sonos-http:")) {
         current_source_prefix = "x-sonos-http";  // Radio
-    } else if (d->currentURI.startsWith("x-rincon-mp3radio:")) {
+    } else if (s_uri.startsWith("x-rincon-mp3radio:")) {
         current_source_prefix = "x-rincon-mp3radio";  // Radio
     } else {
         // Extract first part before colon for unknown sources
-        int colonPos = d->currentURI.indexOf(':');
+        int colonPos = s_uri.indexOf(':');
         if (colonPos > 0) {
-            current_source_prefix = d->currentURI.substring(0, colonPos);
+            current_source_prefix = s_uri.substring(0, colonPos);
         }
     }
 
@@ -1604,14 +1645,14 @@ static void updateAlbumArtRequest(SonosDevice* d) {
     bool actual_source_change = (current_source_prefix != last_source_prefix && current_source_prefix.length() > 0);
 
     // Detect any URI change (track or source)
-    bool uri_changed = (d->currentURI != last_track_uri);
+    bool uri_changed = (s_uri != last_track_uri);
 
     if (uri_changed) {
         // Always update last_track_uri (even when empty) to prevent repeated firing
         // when Sonos reports empty URI in stopped state
-        last_track_uri = d->currentURI;
+        last_track_uri = s_uri;
 
-        if (d->currentURI.length() > 0) {
+        if (s_uri.length() > 0) {
             if (actual_source_change) {
                 Serial.printf("[ART] SOURCE CHANGE: %s -> %s\n", last_source_prefix.c_str(), current_source_prefix.c_str());
                 last_source_prefix = current_source_prefix;
@@ -1649,7 +1690,7 @@ static void updateAlbumArtRequest(SonosDevice* d) {
 
     // Show placeholder when device transitions to "Not Playing" (no active track)
     // Without this, the last track's art stays frozen when playback stops
-    bool has_track = (d->currentTrack.length() > 0);
+    bool has_track = (s_track.length() > 0);
     if (had_track && !has_track) {
         Serial.println("[ART] Not playing - clearing art display");
         art_abort_download = true;  // Stop any in-progress download immediately
@@ -1672,11 +1713,11 @@ static void updateAlbumArtRequest(SonosDevice* d) {
     // permanently (blocking the clock screensaver and spamming last_track_change_ms).
     static String last_requested_art_url = "";
     bool hasArt = !d->isLineIn && !d->isTvAudio &&
-                  ((d->albumArtURL.length() > 0) || (d->isRadioStation && d->radioStationArtURL.length() > 0));
-    bool artChanged = uri_changed || (d->albumArtURL.length() > 0 && d->albumArtURL != last_requested_art_url);
+                  ((s_albumArtURL.length() > 0) || (d->isRadioStation && s_stationURL.length() > 0));
+    bool artChanged = uri_changed || (s_albumArtURL.length() > 0 && s_albumArtURL != last_requested_art_url);
 
     // For radio stations: also check if radioStationArtURL changed (even if albumArtURL is empty)
-    if (d->isRadioStation && d->radioStationArtURL.length() > 0 && d->radioStationArtURL != last_requested_art_url) {
+    if (d->isRadioStation && s_stationURL.length() > 0 && s_stationURL != last_requested_art_url) {
         artChanged = true;
     }
 
@@ -1697,21 +1738,21 @@ static void updateAlbumArtRequest(SonosDevice* d) {
         bool usingStationLogo = false;  // Track if we're using station logo (PNG allowed)
 
         // Determine which art to use
-        if (d->albumArtURL.length() > 0) {
-            artURL = d->albumArtURL;
+        if (s_albumArtURL.length() > 0) {
+            artURL = s_albumArtURL;
         }
 
         // RADIO STATION LOGO FALLBACK:
         // If playing radio and no song art available, use station logo instead
         if (d->isRadioStation) {
             bool hasSongArt = (artURL.length() > 0);
-            bool hasStationLogo = (d->radioStationArtURL.length() > 0);
+            bool hasStationLogo = (s_stationURL.length() > 0);
             Serial.printf("[ART] Radio check - hasSongArt=%d, hasStationLogo=%d, artURL='%s', stationURL='%s'\n",
-                         hasSongArt, hasStationLogo, artURL.c_str(), d->radioStationArtURL.c_str());
+                         hasSongArt, hasStationLogo, artURL.c_str(), s_stationURL.c_str());
 
             // If no song art but have station logo, use the logo
             if (!hasSongArt && hasStationLogo) {
-                artURL = d->radioStationArtURL;
+                artURL = s_stationURL;
                 usingStationLogo = true;
                 Serial.println("[ART] Radio: Using station logo (no song art)");
             }
@@ -1722,7 +1763,7 @@ static void updateAlbumArtRequest(SonosDevice* d) {
                     artURL.indexOf("x-rincon-mp3radio") > 0 ||
                     artURL.indexOf("x-sonosapi-radio") > 0 ||
                     artURL.indexOf("x-sonosapi-hls") > 0) {
-                    artURL = d->radioStationArtURL;
+                    artURL = s_stationURL;
                     usingStationLogo = true;
                     Serial.println("[ART] Radio: Using station logo (replacing generic icon)");
                 }

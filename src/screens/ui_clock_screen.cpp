@@ -405,7 +405,9 @@ static void fetchClockWeather() {
 
     for (int attempt = 1; attempt <= 2 && !clock_bg_shutdown_requested; attempt++) {
         // SDIO crash-defence: general + HTTPS cooldowns before Open-Meteo HTTPS.
-        if (!sdioPreWait("CLKWX", 0, &clock_bg_shutdown_requested)) return;
+        // M-3: this IS an HTTPS call (WiFiClientSecure below) — pass the HTTPS-cooldown
+        // flag so mbedTLS DMA teardown residue drains, matching the lyrics HTTPS path.
+        if (!sdioPreWait("CLKWX", SDIO_WAIT_HTTPS_COOLDOWN, &clock_bg_shutdown_requested)) return;
 
         if (xSemaphoreTake(network_mutex, pdMS_TO_TICKS(5000)) != pdTRUE) {
             Serial.println("[CLKWX] No mutex for Open-Meteo");
