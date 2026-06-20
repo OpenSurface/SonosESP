@@ -84,9 +84,9 @@ jobs:
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       run: |
         mkdir -p web-installer
-        cp .pio/build/esp32-p4/bootloader.bin web-installer/
-        cp .pio/build/esp32-p4/partitions.bin web-installer/
-        cp .pio/build/esp32-p4/firmware.bin web-installer/
+        cp .pio/build/esp32_4inch/bootloader.bin web-installer/
+        cp .pio/build/esp32_4inch/partitions.bin web-installer/
+        cp .pio/build/esp32_4inch/firmware.bin web-installer/
         ls -la web-installer/
 
     - name: Setup Pages

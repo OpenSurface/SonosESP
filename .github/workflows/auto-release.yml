@@ -95,14 +95,14 @@ jobs:
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       run: |
         pip install esptool
-        cd .pio/build/esp32-p4
+        cd .pio/build/esp32_4inch
         python -m esptool --chip esp32p4 merge_bin -o ../../../firmware-merged.bin --flash_mode qio --flash_size 16MB 0x0 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin
         echo "Merged firmware binary created successfully"
 
     - name: Create release ZIP
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       run: |
-        cd .pio/build/esp32-p4
+        cd .pio/build/esp32_4inch
         zip -r ../../../sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip bootloader.bin partitions.bin firmware.bin
         echo "Created release ZIP with individual binaries"
 
@@ -115,9 +115,9 @@ jobs:
         files: |
           firmware-merged.bin
           sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip
-          .pio/build/esp32-p4/firmware.bin
-          .pio/build/esp32-p4/bootloader.bin
-          .pio/build/esp32-p4/partitions.bin
+          .pio/build/esp32_4inch/firmware.bin
+          .pio/build/esp32_4inch/bootloader.bin
+          .pio/build/esp32_4inch/partitions.bin
         draft: false
         prerelease: false
         generate_release_notes: true
