@@ -52,7 +52,7 @@ Nothing is variant-aware — this is greenfield.
 | Touch | GT911 | GT911 (different pins) |
 | Extra HW | — | **Ethernet** (future) |
 | `SCREEN_SIZE` flag | `4` | `7` |
-| Firmware asset | `firmware.bin` | `firmware-7inch.bin` |
+| Firmware asset | `firmware-4inch.bin` (+ legacy `firmware.bin` during transition) | `firmware-7inch.bin` |
 | Manifest | `manifest.json` | `manifest-7inch.json` |
 
 > The resolutions **differ** → the UI must adapt (see §6). This is the only substantial work; everything else is small plumbing.
@@ -76,7 +76,8 @@ src/
   screens/*.cpp           # use SX()/SY() instead of literal pixels
 web-installer/
   index.html              # screen-selector dropdown → per-variant manifest
-  manifest.json           # 4″ (keep name for backward-compat)
+  manifest-4inch.json     # 4″ → firmware-4inch.bin
+  manifest.json           # legacy 4″ alias during transition (see §7)
   manifest-7inch.json     # 7″
 assets/7inchScreensavers/ # optional, 7″ screensaver photos
 scripts/embed_photos.py   # optional, build-time photo embed
@@ -193,22 +194,44 @@ nudge after scaling; pixel-perfect mockups need spot-checking on hardware.
 
 ---
 
-## 7. OTA — variant-aware asset selection (trivial)
+## 7. OTA — variant-aware asset selection (trivial logic, careful rollout)
 
-OTA already works. The **only** change: each firmware fetches **its own** asset (otherwise a
-7″ would grab the 4″ `firmware.bin` → wrong panel → black screen).
+OTA already works. The **only** firmware change: each build fetches **its own** asset
+(otherwise a 7″ would grab the 4″ binary → wrong panel → black screen). Canonical names are
+**symmetric**: `firmware-4inch.bin` and `firmware-7inch.bin`.
 
 ```c
 #if SCREEN_SIZE == 7
   const char* WANT_ASSET = "firmware-7inch.bin";
 #else
-  const char* WANT_ASSET = "firmware.bin";   // 4″ keeps its name → deployed fleet unaffected
+  const char* WANT_ASSET = "firmware-4inch.bin";   // canonical 4" name going forward
 #endif
 // in checkForUpdates(): if (name.indexOf(WANT_ASSET) >= 0) download_url = ...
 ```
 
-That's it — ~3 lines. Keeping the 4″ asset named `firmware.bin` means the **already-deployed
-4″ units keep updating** with no transition needed.
+### ⚠️ Backward-compatibility — the deployed fleet (must not skip this)
+The **already-shipped v1.8.4 units search the substring `firmware.bin`**, and
+`"firmware-4inch.bin"` does **NOT** contain `"firmware.bin"`. So renaming the 4″ asset to
+`firmware-4inch.bin` without care would **silently cut OTA for the entire deployed 4″ fleet.**
+
+**Transition plan (publish BOTH names for the 4″ during migration):**
+
+| Release asset | Found by | Keep until |
+|---|---|---|
+| `firmware.bin` (legacy alias = the 4″ binary) | **old** units (≤ v1.8.4, search `firmware.bin`) | the fleet has moved to a build that searches `firmware-4inch.bin` |
+| `firmware-4inch.bin` (canonical) | **new** 4″ builds (search `firmware-4inch.bin`) | forever |
+| `firmware-7inch.bin` (canonical) | 7″ builds | forever |
+
+Rollout order:
+1. Ship a 4″ release that **publishes both** `firmware.bin` + `firmware-4inch.bin` (identical
+   binary) **and** switches the *firmware's* search string to `firmware-4inch.bin`.
+2. After a few cycles (fleet migrated) → **drop `firmware.bin`**; keep only the `-4inch`/`-7inch`
+   canonical pair.
+
+So: ~3 lines in firmware, plus CI publishing the legacy `firmware.bin` duplicate during the
+transition window. *(Note: the local PlatformIO build output is always
+`.pio/build/<env>/firmware.bin` — CI renames it to the release-asset name; "byte-identical"
+checks elsewhere in this doc refer to that build output, not the release asset.)*
 
 ---
 
@@ -219,7 +242,8 @@ auto-distinguish. So:
 
 - One **screen-selector dropdown** on `index.html` (4″ / 7″) that swaps the manifest the
   `<esp-web-install-button>` points at (the fork does exactly this — "Move screen selector to top").
-- `manifest.json` → `firmware.bin` (4″); `manifest-7inch.json` → `firmware-7inch.bin` (7″).
+- `manifest-4inch.json` → `firmware-4inch.bin`; `manifest-7inch.json` → `firmware-7inch.bin`.
+  (Keep `manifest.json` as a legacy alias of the 4″ during the transition — see §7.)
 - Show the selected board's specs (resolution/model) for confidence.
 
 ---
@@ -237,21 +261,25 @@ jobs:
       matrix:
         include:
           - env: esp32_4inch
-            asset: firmware.bin
+            asset: firmware-4inch.bin
           - env: esp32_7inch
             asset: firmware-7inch.bin
     steps:
       - run: pio run -e ${{ matrix.env }}
       - run: cp .pio/build/${{ matrix.env }}/firmware.bin ${{ matrix.asset }}
+      # transition: also publish the 4" under the legacy name so ≤v1.8.4 units keep updating
+      - if: matrix.env == 'esp32_4inch'
+        run: cp .pio/build/esp32_4inch/firmware.bin firmware.bin
       - uses: actions/upload-artifact@v7
-        with: { name: ${{ matrix.env }}, path: ${{ matrix.asset }} }
+        with: { name: ${{ matrix.env }}, path: "*.bin" }
 
   release:
     needs: build
     if: github.event_name == 'release'
     steps:
       - uses: actions/download-artifact@v7      # pulls every variant
-      - uses: softprops/action-gh-release@v2     # firmware.bin + firmware-7inch.bin + bootloader/partitions
+      - uses: softprops/action-gh-release@v2     # firmware-4inch.bin + firmware-7inch.bin
+        #                                          + legacy firmware.bin + bootloader/partitions
 ```
 
 - **Matrix** keeps the workflow DRY and builds variants in parallel.
@@ -267,7 +295,8 @@ jobs:
 ## 10. Versioning & release strategy
 
 - One version across all variants (`version.json` stays the single source of truth).
-- **4″ artifact name unchanged** (`firmware.bin`) → deployed units unaffected.
+- **4″ canonical asset is `firmware-4inch.bin`**, but a **legacy `firmware.bin` (same binary)
+  is published during the transition** so deployed ≤v1.8.4 units keep updating (see §7).
 - Cut the first 7″ build as a **nightly** so John / fork users validate before stable.
 - After 7″ is confirmed on hardware → promote to a stable release containing **both** assets.
 
