@@ -3,11 +3,11 @@
 
 #include <Arduino.h>
 #include "lvgl.h"
+#include "config.h"   // DISPLAY_WIDTH / DISPLAY_HEIGHT come from the SCREEN_SIZE block
 
-// Display specifications for ESP32-P4 JC4880P443C (MIPI DSI)
-// App sees LANDSCAPE 800x480, driver rotates to panel's portrait orientation
-#define DISPLAY_WIDTH  800  // Landscape width (app sees this)
-#define DISPLAY_HEIGHT 480  // Landscape height (app sees this)
+// Display specifications (MIPI DSI). App sees LANDSCAPE dimensions; the driver
+// rotates to the panel's portrait orientation. DISPLAY_WIDTH/HEIGHT are defined
+// per variant in config.h (SCREEN_SIZE) — do not redefine them here.
 #define DISPLAY_BUF_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT)  // Full frame buffer
 
 // ST7701 LCD Controller pins

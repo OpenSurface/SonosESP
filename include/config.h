@@ -57,11 +57,37 @@
 #define MIN_BRIGHTNESS          5       // Minimum brightness allowed
 #define MAX_BRIGHTNESS          100     // Maximum brightness
 
-// Display dimensions (LVGL renders in landscape, driver rotates to portrait panel)
-#define DISPLAY_WIDTH           800     // LVGL width (landscape)
-#define DISPLAY_HEIGHT          480     // LVGL height (landscape)
-#define PANEL_WIDTH             480     // Physical panel width (portrait)
-#define PANEL_HEIGHT            800     // Physical panel height (portrait)
+// =============================================================================
+// SCREEN VARIANT  (build-time: -DSCREEN_SIZE=4 | 7 ; defaults to 4")
+// -----------------------------------------------------------------------------
+// To add a screen variant: add an env in platformio.ini with -DSCREEN_SIZE=N,
+// add a matching branch below, and port its panel driver under lib/. Keep the
+// UI resolution-relative via include/ui_scale.h so no per-size layout is needed.
+// See docs/MULTI_SCREEN_SUPPORT.md.
+// =============================================================================
+#ifndef SCREEN_SIZE
+#define SCREEN_SIZE 4                   // default to 4" if no build flag is set
+#endif
+
+#if SCREEN_SIZE == 4
+    // GUITION JC4880P433C — ST7701 MIPI DSI
+    #define DISPLAY_WIDTH       800     // LVGL width (landscape)
+    #define DISPLAY_HEIGHT      480     // LVGL height (landscape)
+    #define PANEL_WIDTH         480     // Physical panel width (portrait)
+    #define PANEL_HEIGHT        800     // Physical panel height (portrait)
+    #define DISPLAY_MODEL       "ST7701 4\" (800x480)"
+#elif SCREEN_SIZE == 7
+    // GUITION JC1060P470C — JD9165 MIPI DSI. PLACEHOLDER: panel driver not yet
+    // ported (see docs/MULTI_SCREEN_SUPPORT.md, Phase 2). Dims kept for build-time
+    // wiring only; not yet validated on hardware.
+    #define DISPLAY_WIDTH       1024    // LVGL width (landscape)
+    #define DISPLAY_HEIGHT      600     // LVGL height (landscape)
+    #define PANEL_WIDTH         600     // Physical panel width (portrait)
+    #define PANEL_HEIGHT        1024    // Physical panel height (portrait)
+    #define DISPLAY_MODEL       "JD9165 7\" (1024x600)"
+#else
+    #error "Unsupported SCREEN_SIZE (use 4 or 7)"
+#endif
 
 // =============================================================================
 // ALBUM ART
