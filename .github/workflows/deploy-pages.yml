@@ -3,6 +3,16 @@ name: Deploy Web Installer
 on:
   push:
     branches: [ main ]
+    # Only redeploy when the firmware or the installer page actually changes —
+    # not on doc/workflow-only pushes (which would otherwise trigger a full
+    # firmware rebuild for nothing). Manual runs are always available below.
+    paths:
+      - 'version.json'
+      - 'web-installer/**'
+      - 'src/**'
+      - 'include/**'
+      - 'lib/**'
+      - 'platformio.ini'
   workflow_dispatch:
 
 permissions:
@@ -17,6 +27,7 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -26,6 +37,7 @@ jobs:
       uses: actions/checkout@v6
       with:
         submodules: recursive
+        fetch-depth: 1
 
     - name: Read version from version.json
       id: get_version
@@ -53,6 +65,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
 
     - name: Cache PlatformIO
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
@@ -63,6 +76,12 @@ jobs:
         key: ${{ runner.os }}-pio-v3-${{ hashFiles('**/platformio.ini') }}
         restore-keys: |
           ${{ runner.os }}-pio-v3-
+
+    - name: Set up ccache
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
+      uses: hendrikmuhs/ccache-action@v1
+      with:
+        key: ${{ runner.os }}-ccache-${{ hashFiles('**/platformio.ini') }}
 
     - name: Install PlatformIO
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
@@ -78,6 +97,8 @@ jobs:
 
     - name: Build firmware
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
+      env:
+        USE_CCACHE: "1"
       run: pio run
 
     - name: Copy binaries to web-installer

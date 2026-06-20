@@ -18,12 +18,14 @@ concurrency:
 jobs:
   nightly-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
       with:
         submodules: recursive
+        fetch-depth: 1
 
     - name: Validate version tag format
       run: |
@@ -53,6 +55,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
 
     - name: Cache PlatformIO
       if: steps.check_release.outputs.EXISTS == 'false'
@@ -63,6 +66,12 @@ jobs:
         key: ${{ runner.os }}-pio-v3-${{ hashFiles('**/platformio.ini') }}
         restore-keys: |
           ${{ runner.os }}-pio-v3-
+
+    - name: Set up ccache
+      if: steps.check_release.outputs.EXISTS == 'false'
+      uses: hendrikmuhs/ccache-action@v1
+      with:
+        key: ${{ runner.os }}-ccache-${{ hashFiles('**/platformio.ini') }}
 
     - name: Install PlatformIO
       if: steps.check_release.outputs.EXISTS == 'false'
@@ -78,6 +87,8 @@ jobs:
 
     - name: Build firmware
       if: steps.check_release.outputs.EXISTS == 'false'
+      env:
+        USE_CCACHE: "1"
       run: pio run
 
     - name: Create merged firmware binary

@@ -18,12 +18,14 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
       with:
         submodules: recursive
+        fetch-depth: 1
 
     - name: Read version from version.json
       id: get_version
@@ -50,6 +52,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
 
     - name: Cache PlatformIO
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
@@ -61,20 +64,22 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pio-v3-
 
+    - name: Set up ccache
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
+      uses: hendrikmuhs/ccache-action@v1
+      with:
+        key: ${{ runner.os }}-ccache-${{ hashFiles('**/platformio.ini') }}
+
     - name: Install PlatformIO
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       run: |
         python -m pip install --upgrade pip
         pip install platformio
 
-    - name: Clean build directory
-      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
-      run: |
-        rm -rf .pio
-        echo "Build directory cleaned"
-
     - name: Build firmware
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
+      env:
+        USE_CCACHE: "1"
       run: pio run
 
     - name: Copy binaries to web-installer
