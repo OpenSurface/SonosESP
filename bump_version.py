@@ -23,7 +23,15 @@ VERSION_FILES = {
         'type': 'json',
         'key': 'version'
     },
-    'web-installer/manifest.json': {
+    'web-installer/manifest.json': {           # legacy 4" alias (remove after transition)
+        'type': 'json',
+        'key': 'version'
+    },
+    'web-installer/manifest-4inch.json': {     # canonical 4"
+        'type': 'json',
+        'key': 'version'
+    },
+    'web-installer/manifest-7inch.json': {     # canonical 7" (placeholder until firmware exists)
         'type': 'json',
         'key': 'version'
     },

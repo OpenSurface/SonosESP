@@ -107,7 +107,10 @@ jobs:
         mkdir -p web-installer
         cp .pio/build/esp32_4inch/bootloader.bin web-installer/
         cp .pio/build/esp32_4inch/partitions.bin web-installer/
-        cp .pio/build/esp32_4inch/firmware.bin web-installer/
+        # canonical 4" binary (used by manifest-4inch.json)
+        cp .pio/build/esp32_4inch/firmware.bin web-installer/firmware-4inch.bin
+        # legacy alias (manifest.json) — kept during the ~1-month transition, then remove
+        cp .pio/build/esp32_4inch/firmware.bin web-installer/firmware.bin
         ls -la web-installer/
 
     - name: Setup Pages

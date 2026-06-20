@@ -504,7 +504,7 @@
                     ['Flash', '16 MB'],
                     ['PSRAM', '32 MB OPI'],
                 ],
-                manifest: './manifest.json',
+                manifest: './manifest-4inch.json',
                 available: true,
             },
             '7inch': {
@@ -598,7 +598,7 @@
             el.addEventListener('click', () => selectBoard(el.dataset.screen)));
 
         // version label from the canonical (4") manifest
-        fetch('./manifest.json').then(r => r.json())
+        fetch('./manifest-4inch.json').then(r => r.json())
             .then(d => { document.getElementById('project-version').textContent = `v${d.version}`; })
             .catch(() => {});
 
