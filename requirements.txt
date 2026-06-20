@@ -1,0 +1,5 @@
+# Build / CI Python dependencies.
+# Declaring them here lets GitHub Actions' setup-python `cache: pip` key off this
+# file, so PlatformIO's pip downloads are cached between runs.
+platformio
+esptool
