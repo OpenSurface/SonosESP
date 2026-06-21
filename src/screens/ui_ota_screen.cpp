@@ -28,8 +28,8 @@ void createOTAScreen() {
 
     // Version info card
     lv_obj_t* card_version = lv_obj_create(content);
-    lv_obj_set_size(card_version, lv_pct(100), 100);
-    lv_obj_set_pos(card_version, 0, 40);
+    lv_obj_set_size(card_version, lv_pct(100), SY(100));
+    lv_obj_set_pos(card_version, 0, SY(40));
     lv_obj_set_style_bg_color(card_version, lv_color_hex(0x2A2A2A), 0);
     lv_obj_set_style_radius(card_version, 12, 0);
     lv_obj_set_style_border_width(card_version, 0, 0);
@@ -50,8 +50,8 @@ void createOTAScreen() {
 
     // Release channel selector card
     lv_obj_t* card_channel = lv_obj_create(content);
-    lv_obj_set_size(card_channel, lv_pct(100), 60);
-    lv_obj_set_pos(card_channel, 0, 155);
+    lv_obj_set_size(card_channel, lv_pct(100), SY(60));
+    lv_obj_set_pos(card_channel, 0, SY(155));
     lv_obj_set_style_bg_color(card_channel, lv_color_hex(0x2A2A2A), 0);
     lv_obj_set_style_radius(card_channel, 12, 0);
     lv_obj_set_style_border_width(card_channel, 0, 0);
@@ -106,7 +106,7 @@ void createOTAScreen() {
 
     // Status label
     lbl_ota_status = lv_label_create(content);
-    lv_obj_set_pos(lbl_ota_status, 0, 230);
+    lv_obj_set_pos(lbl_ota_status, 0, SY(230));
     lv_label_set_text(lbl_ota_status, "Tap 'Check for Updates' to begin");
     lv_obj_set_style_text_color(lbl_ota_status, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_ota_status, &lv_font_mdi_16, 0);
@@ -115,15 +115,15 @@ void createOTAScreen() {
 
     // Progress label
     lbl_ota_progress = lv_label_create(content);
-    lv_obj_set_pos(lbl_ota_progress, 0, 260);
+    lv_obj_set_pos(lbl_ota_progress, 0, SY(260));
     lv_label_set_text(lbl_ota_progress, "");
     lv_obj_set_style_text_color(lbl_ota_progress, COL_ACCENT, 0);
     lv_obj_set_style_text_font(lbl_ota_progress, &lv_font_montserrat_16, 0);
 
     // Visual progress bar (hidden by default)
     bar_ota_progress = lv_bar_create(content);
-    lv_obj_set_size(bar_ota_progress, lv_pct(100), 16);
-    lv_obj_set_pos(bar_ota_progress, 0, 290);
+    lv_obj_set_size(bar_ota_progress, lv_pct(100), SY(16));
+    lv_obj_set_pos(bar_ota_progress, 0, SY(290));
     lv_bar_set_range(bar_ota_progress, 0, 100);
     lv_bar_set_value(bar_ota_progress, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(bar_ota_progress, lv_color_hex(0x333333), LV_PART_MAIN);
@@ -136,8 +136,8 @@ void createOTAScreen() {
 
     // Check for Updates button
     btn_check_update = lv_btn_create(content);
-    lv_obj_set_size(btn_check_update, 280, 50);
-    lv_obj_set_pos(btn_check_update, 0, 330);
+    lv_obj_set_size(btn_check_update, SX(280), SY(50));
+    lv_obj_set_pos(btn_check_update, 0, SY(330));
     lv_obj_set_style_bg_color(btn_check_update, COL_ACCENT, 0);
     lv_obj_set_style_radius(btn_check_update, 12, 0);
     lv_obj_add_event_cb(btn_check_update, ev_check_update, LV_EVENT_CLICKED, NULL);
@@ -149,8 +149,8 @@ void createOTAScreen() {
 
     // Install Update button (hidden by default)
     btn_install_update = lv_btn_create(content);
-    lv_obj_set_size(btn_install_update, 280, 50);
-    lv_obj_set_pos(btn_install_update, 310, 330);
+    lv_obj_set_size(btn_install_update, SX(280), SY(50));
+    lv_obj_set_pos(btn_install_update, SX(310), SY(330));
     lv_obj_set_style_bg_color(btn_install_update, lv_color_hex(0x4ECB71), 0);
     lv_obj_set_style_radius(btn_install_update, 12, 0);
     lv_obj_add_event_cb(btn_install_update, ev_install_update, LV_EVENT_CLICKED, NULL);
@@ -170,5 +170,5 @@ void createOTAScreen() {
     lv_obj_set_style_text_font(lbl_info, &lv_font_mdi_16, 0);
     lv_obj_set_width(lbl_info, lv_pct(100));
     lv_label_set_long_mode(lbl_info, LV_LABEL_LONG_WRAP);
-    lv_obj_set_pos(lbl_info, 0, 400);
+    lv_obj_set_pos(lbl_info, 0, SY(400));
 }

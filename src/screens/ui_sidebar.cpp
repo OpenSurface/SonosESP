@@ -1,6 +1,11 @@
 /**
  * Settings Sidebar - Shared Navigation Component
  * Creates sidebar with menu items and returns content area
+ *
+ * Coordinates are authored in 800x480 design space and wrapped in SX/SY/SMIN
+ * (ui_scale.h) → identity on 4", auto-scaling on larger panels. Because this
+ * frame is shared by every settings screen, scaling it here makes them all
+ * resolution-aware in one place.
  */
 
 #include "ui_common.h"
@@ -12,7 +17,7 @@
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     // ========== LEFT SIDEBAR ==========
     lv_obj_t* sidebar = lv_obj_create(screen);
-    lv_obj_set_size(sidebar, 180, 480);
+    lv_obj_set_size(sidebar, SX(180), SY(480));
     lv_obj_set_pos(sidebar, 0, 0);
     lv_obj_set_style_bg_color(sidebar, lv_color_hex(0x1A1A1A), 0);
     lv_obj_set_style_border_width(sidebar, 1, 0);
@@ -24,7 +29,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
 
     // Title + close button row
     lv_obj_t* title_row = lv_obj_create(sidebar);
-    lv_obj_set_size(title_row, 180, 50);
+    lv_obj_set_size(title_row, SX(180), SY(50));
     lv_obj_set_pos(title_row, 0, 0);
     lv_obj_set_style_bg_opa(title_row, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(title_row, 0, 0);
@@ -35,14 +40,14 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     lv_label_set_text(lbl_title, "Settings");
     lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_pos(lbl_title, 12, 14);
+    lv_obj_set_pos(lbl_title, SX(12), SY(14));
 
     lv_obj_t* btn_close = lv_button_create(title_row);
-    lv_obj_set_size(btn_close, 32, 32);
-    lv_obj_set_pos(btn_close, 140, 10);
+    lv_obj_set_size(btn_close, SMIN(32), SMIN(32));
+    lv_obj_set_pos(btn_close, SX(140), SY(10));
     lv_obj_set_style_bg_color(btn_close, lv_color_hex(0x333333), 0);
     lv_obj_set_style_bg_color(btn_close, lv_color_hex(0x444444), LV_STATE_PRESSED);
-    lv_obj_set_style_radius(btn_close, 16, 0);
+    lv_obj_set_style_radius(btn_close, SMIN(16), 0);
     lv_obj_set_style_shadow_width(btn_close, 0, 0);
     lv_obj_add_event_cb(btn_close, ev_back_main, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_x = lv_label_create(btn_close);
@@ -55,11 +60,11 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     const char* icons[] = {MDI_COG, MDI_SPEAKER, MDI_SPEAKER_MULTIPLE, MDI_PLAYLIST, MDI_MONITOR, MDI_WIFI, MDI_CLOCK_OUTLINE, MDI_DOWNLOAD};
     const char* labels[] = {"General", "Speakers", "Groups", "Sources", "Display", "WiFi", "Clock", "Update"};
 
-    int y = 55;
+    int y = 55;  // design-space; wrapped in SY() at use
     for (int i = 0; i < 8; i++) {
         lv_obj_t* btn = lv_button_create(sidebar);
-        lv_obj_set_size(btn, 164, 42);
-        lv_obj_set_pos(btn, 8, y);
+        lv_obj_set_size(btn, SX(164), SY(42));
+        lv_obj_set_pos(btn, SX(8), SY(y));
 
         bool active = (i == activeIdx);
         lv_obj_set_style_bg_color(btn, active ? COL_ACCENT : lv_color_hex(0x1A1A1A), 0);
@@ -78,7 +83,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
         lv_label_set_text(lbl, labels[i]);
         lv_obj_set_style_text_color(lbl, active ? lv_color_hex(0x000000) : COL_TEXT, 0);
         lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
-        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 26, 0);
+        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, SX(26), 0);
 
         // Navigation callbacks
         lv_obj_add_event_cb(btn, [](lv_event_t* e) {
@@ -103,12 +108,12 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     lv_label_set_text_fmt(ver, "v%s", FIRMWARE_VERSION);
     lv_obj_set_style_text_font(ver, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(ver, COL_TEXT2, 0);
-    lv_obj_set_pos(ver, 12, 455);
+    lv_obj_set_pos(ver, SX(12), SY(455));
 
     // ========== RIGHT CONTENT AREA ==========
     lv_obj_t* content = lv_obj_create(screen);
-    lv_obj_set_size(content, 620, 480);
-    lv_obj_set_pos(content, 180, 0);
+    lv_obj_set_size(content, SX(620), SY(480));
+    lv_obj_set_pos(content, SX(180), 0);
     lv_obj_set_style_bg_color(content, lv_color_hex(0x121212), 0);
     lv_obj_set_style_border_width(content, 0, 0);
     lv_obj_set_style_radius(content, 0, 0);

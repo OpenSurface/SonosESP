@@ -36,7 +36,7 @@ void refreshQueueList() {
         bool isPlaying = (trackNum == d->currentTrackNumber);
 
         lv_obj_t* btn = lv_btn_create(list_queue);
-        lv_obj_set_size(btn, 727, 60);  // Full width, uniform height
+        lv_obj_set_size(btn, SX(727), SY(60));  // Full width, uniform height
         lv_obj_set_style_bg_color(btn, isPlaying ? lv_color_hex(0x252525) : lv_color_hex(0x1A1A1A), 0);
         lv_obj_set_style_bg_color(btn, lv_color_hex(0x2A2A2A), LV_STATE_PRESSED);
         lv_obj_set_style_radius(btn, 0, 0);  // No rounded corners - clean list
@@ -72,7 +72,7 @@ void refreshQueueList() {
         lv_label_set_text(title, item->title.c_str());
         lv_obj_set_style_text_color(title, isPlaying ? COL_ACCENT : COL_TEXT, 0);
         lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
-        lv_obj_set_width(title, 610);
+        lv_obj_set_width(title, SX(610));
         lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
         lv_obj_align(title, LV_ALIGN_LEFT_MID, 45, -11);
 
@@ -81,7 +81,7 @@ void refreshQueueList() {
         lv_label_set_text(artist, item->artist.c_str());
         lv_obj_set_style_text_color(artist, COL_TEXT2, 0);
         lv_obj_set_style_text_font(artist, &lv_font_montserrat_12, 0);
-        lv_obj_set_width(artist, 610);
+        lv_obj_set_width(artist, SX(610));
         lv_label_set_long_mode(artist, LV_LABEL_LONG_DOT);
         lv_obj_align(artist, LV_ALIGN_LEFT_MID, 45, 11);
     }
@@ -93,7 +93,7 @@ void createQueueScreen() {
 
     // Professional header
     lv_obj_t* header = lv_obj_create(scr_queue);
-    lv_obj_set_size(header, 800, 70);
+    lv_obj_set_size(header, SX(800), SY(70));
     lv_obj_set_pos(header, 0, 0);
     lv_obj_set_style_bg_color(header, lv_color_hex(0x252525), 0);
     lv_obj_set_style_border_width(header, 0, 0);
@@ -151,15 +151,15 @@ void createQueueScreen() {
 
     // Status label below header
     lbl_queue_status = lv_label_create(scr_queue);
-    lv_obj_align(lbl_queue_status, LV_ALIGN_TOP_LEFT, 40, 85);
+    lv_obj_align(lbl_queue_status, LV_ALIGN_TOP_LEFT, SX(40), SY(85));
     lv_label_set_text(lbl_queue_status, "Loading...");
     lv_obj_set_style_text_color(lbl_queue_status, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_queue_status, &lv_font_montserrat_14, 0);
 
     // Queue list - modern clean design
     list_queue = lv_list_create(scr_queue);
-    lv_obj_set_size(list_queue, 730, 360);
-    lv_obj_set_pos(list_queue, 35, 115);
+    lv_obj_set_size(list_queue, SX(730), SY(360));
+    lv_obj_set_pos(list_queue, SX(35), SY(115));
     lv_obj_set_style_bg_color(list_queue, lv_color_hex(0x1A1A1A), 0);
     lv_obj_set_style_border_width(list_queue, 0, 0);
     lv_obj_set_style_radius(list_queue, 0, 0);
@@ -206,8 +206,8 @@ void createSourcesScreen() {
 
     // Scrollable list
     lv_obj_t* list = lv_obj_create(content);
-    lv_obj_set_pos(list, 0, 50);
-    lv_obj_set_size(list, lv_pct(100), 405);
+    lv_obj_set_pos(list, 0, SY(50));
+    lv_obj_set_size(list, lv_pct(100), SY(405));
     lv_obj_set_style_bg_color(list, COL_BG, 0);
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_set_style_pad_all(list, 0, 0);
@@ -228,7 +228,7 @@ void createSourcesScreen() {
 
     for (int i = 0; i < 1; i++) {
         lv_obj_t* btn = lv_btn_create(list);
-        lv_obj_set_size(btn, lv_pct(100), 50);
+        lv_obj_set_size(btn, lv_pct(100), SY(50));
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_bg_color(btn, COL_CARD, 0);
@@ -304,8 +304,8 @@ void createBrowseScreen() {
 
     // Content list
     lv_obj_t* list = lv_obj_create(content);
-    lv_obj_set_pos(list, 0, 50);
-    lv_obj_set_size(list, lv_pct(100), 405);
+    lv_obj_set_pos(list, 0, SY(50));
+    lv_obj_set_size(list, lv_pct(100), SY(405));
     lv_obj_set_style_bg_color(list, COL_BG, 0);
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_set_style_pad_all(list, 0, 0);
@@ -358,7 +358,7 @@ void createBrowseScreen() {
                       itemCount, title.c_str(), isContainer, id.c_str());
 
         lv_obj_t* btn = lv_btn_create(list);
-        lv_obj_set_size(btn, lv_pct(100), 60);
+        lv_obj_set_size(btn, lv_pct(100), SY(60));
         lv_obj_set_style_radius(btn, 10, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_bg_color(btn, COL_CARD, 0);

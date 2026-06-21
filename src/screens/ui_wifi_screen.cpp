@@ -32,7 +32,7 @@ void createWiFiScreen() {
 
     // ── Title row ──────────────────────────────────────────────────────────────
     lv_obj_t* title_row = lv_obj_create(content);
-    lv_obj_set_size(title_row, lv_pct(100), 44);
+    lv_obj_set_size(title_row, lv_pct(100), SY(44));
     lv_obj_set_pos(title_row, 0, 0);
     lv_obj_set_style_bg_opa(title_row, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(title_row, 0, 0);
@@ -46,7 +46,7 @@ void createWiFiScreen() {
     lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, 0, 0);
 
     btn_wifi_scan = lv_button_create(title_row);
-    lv_obj_set_size(btn_wifi_scan, 100, 34);
+    lv_obj_set_size(btn_wifi_scan, SX(100), SY(34));
     lv_obj_align(btn_wifi_scan, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_set_style_bg_color(btn_wifi_scan, COL_ACCENT, 0);
     lv_obj_set_style_radius(btn_wifi_scan, 17, 0);
@@ -60,7 +60,7 @@ void createWiFiScreen() {
 
     // ── Status label (y=50) ────────────────────────────────────────────────────
     lbl_wifi_status = lv_label_create(content);
-    lv_obj_set_pos(lbl_wifi_status, 0, 50);
+    lv_obj_set_pos(lbl_wifi_status, 0, SY(50));
     lv_label_set_text(lbl_wifi_status, "Tap Scan to find networks");
     lv_obj_set_style_text_color(lbl_wifi_status, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_wifi_status, &lv_font_mdi_16, 0);
@@ -70,8 +70,8 @@ void createWiFiScreen() {
     // ── Password strip (y=76, h=56) — ABOVE the list, hidden until tap ─────────
     // Layout: [×](30) [SSID](140) gap [password field](255) gap [Connect](120)
     pw_strip = lv_obj_create(content);
-    lv_obj_set_size(pw_strip, lv_pct(100), 56);
-    lv_obj_set_pos(pw_strip, 0, 76);
+    lv_obj_set_size(pw_strip, lv_pct(100), SY(56));
+    lv_obj_set_pos(pw_strip, 0, SY(76));
     lv_obj_set_style_bg_color(pw_strip, COL_CARD, 0);
     lv_obj_set_style_border_width(pw_strip, 0, 0);
     lv_obj_set_style_radius(pw_strip, 10, 0);
@@ -109,8 +109,8 @@ void createWiFiScreen() {
 
     // Password textarea
     ta_password = lv_textarea_create(pw_strip);
-    lv_obj_set_size(ta_password, 255, 38);
-    lv_obj_align(ta_password, LV_ALIGN_LEFT_MID, 190, 0);
+    lv_obj_set_size(ta_password, SX(255), SY(38));
+    lv_obj_align(ta_password, LV_ALIGN_LEFT_MID, SX(190), 0);
     lv_textarea_set_password_mode(ta_password, true);
     lv_textarea_set_one_line(ta_password, true);
     lv_textarea_set_placeholder_text(ta_password, "Password");
@@ -124,7 +124,7 @@ void createWiFiScreen() {
 
     // Connect button — far right
     btn_wifi_connect = lv_btn_create(pw_strip);
-    lv_obj_set_size(btn_wifi_connect, 120, 38);
+    lv_obj_set_size(btn_wifi_connect, SX(120), SY(38));
     lv_obj_align(btn_wifi_connect, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_set_style_bg_color(btn_wifi_connect, COL_ACCENT, 0);
     lv_obj_set_style_radius(btn_wifi_connect, 10, 0);
@@ -140,8 +140,8 @@ void createWiFiScreen() {
     // With keyboard (175px from bottom) list shows y=140..300 = 160px ≈ 3 items
     // pw_strip at y=76..132 stays fully visible above keyboard
     list_wifi = lv_list_create(content);
-    lv_obj_set_size(list_wifi, lv_pct(100), 340);
-    lv_obj_set_pos(list_wifi, 0, 140);
+    lv_obj_set_size(list_wifi, lv_pct(100), SY(340));
+    lv_obj_set_pos(list_wifi, 0, SY(140));
     lv_obj_set_style_bg_color(list_wifi, lv_color_hex(0x121212), 0);
     lv_obj_set_style_border_width(list_wifi, 0, 0);
     lv_obj_set_style_radius(list_wifi, 0, 0);
@@ -150,8 +150,8 @@ void createWiFiScreen() {
 
     // ── Scan spinner (centered in list area, hidden by default) ───────────────
     spinner_wifi_scan = lv_spinner_create(content);
-    lv_obj_set_size(spinner_wifi_scan, 80, 80);
-    lv_obj_align(spinner_wifi_scan, LV_ALIGN_CENTER, 0, 60);  // centre of list area
+    lv_obj_set_size(spinner_wifi_scan, SMIN(80), SMIN(80));
+    lv_obj_align(spinner_wifi_scan, LV_ALIGN_CENTER, 0, SY(60));  // centre of list area
     lv_obj_set_style_arc_color(spinner_wifi_scan, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_arc_color(spinner_wifi_scan, lv_color_hex(0x555555), LV_PART_MAIN);
     lv_obj_set_style_arc_width(spinner_wifi_scan, 8, LV_PART_INDICATOR);
@@ -164,8 +164,8 @@ void createWiFiScreen() {
     kb = lv_keyboard_create(scr_wifi);
     lv_keyboard_set_textarea(kb, ta_password);
     lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_TEXT_LOWER);
-    lv_obj_set_size(kb, 615, 175);
-    lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 90, -5);
+    lv_obj_set_size(kb, SX(615), SY(175));
+    lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, SX(90), SY(-5));
     lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_style_bg_color(kb, COL_CARD, 0);
     lv_obj_set_style_pad_all(kb, 5, 0);
