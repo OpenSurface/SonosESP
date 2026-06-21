@@ -1,0 +1,25 @@
+# Dependabot — keep CI actions and Python build deps current automatically.
+# (Adopted from the reference project's automated-maintenance approach; the
+#  GitHub-native equivalent of their Renovate setup.)
+version: 2
+updates:
+  # GitHub Actions used by the workflows (checkout, setup-python, cache,
+  # ccache-action, upload-artifact, gh-release, …). Grouped into one PR/week so
+  # action bumps (and Node-runtime deprecations) are handled in a single review.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Python build dependencies (requirements.txt — platformio, esptool).
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
