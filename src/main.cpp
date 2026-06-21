@@ -206,14 +206,14 @@ void setup() {
     // Sonos logo (scale down significantly)
     lv_obj_t* img_logo = lv_image_create(boot_scr);
     lv_image_set_src(img_logo, &Sonos_idnu60bqes_1);
-    lv_obj_align(img_logo, LV_ALIGN_CENTER, 0, -30);
+    lv_obj_align(img_logo, LV_ALIGN_CENTER, 0, SY(-30));
     // Scale down significantly (256 = 100%, so 80 = ~31% size, 100 = ~39% size)
     lv_image_set_scale(img_logo, 130);  // Smaller - about 25% of original size
 
     // Create animated progress bar below logo
     lv_obj_t* boot_bar = lv_bar_create(boot_scr);
-    lv_obj_set_size(boot_bar, 300, 8);
-    lv_obj_align(boot_bar, LV_ALIGN_CENTER, 0, 80);
+    lv_obj_set_size(boot_bar, SX(300), SY(8));
+    lv_obj_align(boot_bar, LV_ALIGN_CENTER, 0, SY(80));
     lv_obj_set_style_bg_color(boot_bar, lv_color_hex(0x333333), LV_PART_MAIN);
     lv_obj_set_style_bg_color(boot_bar, lv_color_hex(0xD4A84B), LV_PART_INDICATOR);
     lv_obj_set_style_border_width(boot_bar, 0, LV_PART_MAIN);
@@ -227,7 +227,7 @@ void setup() {
     lv_label_set_text(lbl_boot_version, "v" FIRMWARE_VERSION);
     lv_obj_set_style_text_color(lbl_boot_version, lv_color_hex(0x888888), 0);
     lv_obj_set_style_text_font(lbl_boot_version, &lv_font_montserrat_12, 0);
-    lv_obj_align(lbl_boot_version, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
+    lv_obj_align(lbl_boot_version, LV_ALIGN_BOTTOM_RIGHT, SX(-10), SY(-10));
 
     // Helper to update boot progress
     auto updateBootProgress = [&](int percent) {
@@ -295,7 +295,7 @@ void setup() {
         lv_obj_t* lbl_ota_wifi = lv_label_create(boot_scr);
         lv_obj_set_style_text_color(lbl_ota_wifi, lv_color_hex(0xD4A84B), 0);
         lv_obj_set_style_text_font(lbl_ota_wifi, &lv_font_montserrat_16, 0);
-        lv_obj_align(lbl_ota_wifi, LV_ALIGN_CENTER, 0, 50);
+        lv_obj_align(lbl_ota_wifi, LV_ALIGN_CENTER, 0, SY(50));
         lv_label_set_text_fmt(lbl_ota_wifi, "Waiting for WiFi: %s ...", ssid.c_str());
         lv_refr_now(NULL);
         int ota_wifi_tries = 0;

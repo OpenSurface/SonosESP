@@ -57,7 +57,7 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
     if (open_up) lv_dropdown_set_dir(dd, LV_DIR_TOP);
     lv_obj_t* list = lv_dropdown_get_list(dd);
     if (list) {
-        lv_obj_set_height(list, 260);
+        lv_obj_set_height(list, SY(260));
         lv_obj_set_style_bg_color(list, lv_color_hex(0x222222), 0);
         lv_obj_set_style_text_color(list, COL_TEXT, 0);
         lv_obj_set_style_text_font(list, &lv_font_montserrat_14, 0);
@@ -69,7 +69,7 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
 static lv_obj_t* makeSlider(lv_obj_t* parent, int min, int max, int value) {
     lv_obj_t* s = lv_slider_create(parent);
     lv_obj_set_width(s, lv_pct(100));
-    lv_obj_set_height(s, 20);
+    lv_obj_set_height(s, SY(20));
     lv_slider_set_range(s, min, max);
     lv_slider_set_value(s, value, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(s, lv_color_hex(0x333333), LV_PART_MAIN);
@@ -201,19 +201,19 @@ static void custom_ta_event_cb(lv_event_t* e) {
         // dark style; they only differ in size + mode (numeric pad vs alpha layout).
         if (is_name) {
             lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_TEXT_LOWER);
-            lv_obj_set_size(custom_kb, 760, 230);
+            lv_obj_set_size(custom_kb, SX(760), SY(230));
         } else {
             lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_USER_1);
-            lv_obj_set_size(custom_kb, 340, 200);
+            lv_obj_set_size(custom_kb, SX(340), SY(200));
         }
-        lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, -10);
+        lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, SY(-10));
 
         // Grow the bottom spacer so the scrollable has enough range to actually
         // move the focused field above the keyboard. Without this, lv_obj_scroll_to_y
         // is clamped to max_scroll (which is too small when the focused field is
         // already near the bottom of content) and the field stays behind the kb.
         if (bottom_spacer) {
-            lv_obj_set_height(bottom_spacer, 260);
+            lv_obj_set_height(bottom_spacer, SY(260));
             if (settings_scrollable) lv_obj_update_layout(settings_scrollable);
         }
 
@@ -595,8 +595,8 @@ void createClockSettingsScreen() {
     custom_kb = lv_keyboard_create(scr_clock_settings);
     lv_keyboard_set_map(custom_kb, LV_KEYBOARD_MODE_USER_1, num_kb_map, num_kb_ctrl);
     lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_USER_1);
-    lv_obj_set_size(custom_kb, 340, 200);
-    lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_set_size(custom_kb, SX(340), SY(200));
+    lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, SY(-10));
     lv_obj_add_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_event_cb(custom_kb, kb_close_event_cb, LV_EVENT_CANCEL, NULL);
     lv_obj_add_event_cb(custom_kb, kb_close_event_cb, LV_EVENT_READY,  NULL);
