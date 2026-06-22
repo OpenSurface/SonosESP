@@ -182,6 +182,16 @@ The current UI uses absolute pixels for 800×480. The 7″ is 1024×600, so we m
 **Honest caveats:** fonts step between tiers (not continuous); some elements may need a manual
 nudge after scaling; pixel-perfect mockups need spot-checking on hardware.
 
+**Font status (7″).** The body-text tiers above use LVGL **built-in** Montserrat fonts and
+already step up on the 1024-wide panel (32/20/16 vs the 4″'s 24/16/14) — no generation needed.
+The **custom** icon/clock fonts (`lv_font_mdi_*`, `lv_font_weathericons_*`,
+`lv_font_montserrat_140`) are pre-generated `.c` files shared by both builds; the 7″ links and
+renders them at their native px (clear on 1024×600). Generating *larger* icon/clock variants is a
+**hardware-validation polish step** — it needs the physical panel to judge sizing, and the big
+clock digits can't be regenerated until `Montserrat-Medium.ttf` is added to the repo (only the
+MDI + FontAwesome TTFs ship in `node_modules`). Deliberately **not** fabricated blind, to avoid
+flash bloat and unvalidated assets.
+
 ### Alternatives considered (and why not)
 | Option | Verdict |
 |---|---|

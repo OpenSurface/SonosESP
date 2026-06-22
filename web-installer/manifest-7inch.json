@@ -1,8 +1,8 @@
 {
-  "name": "SonosESP — 7\" Screen (GUITION JC1060P470C)",
-  "version": "0.0.0-wip",
+  "name": "SonosESP — 7\" Screen (GUITION JC1060P470C) [BETA]",
+  "version": "1.8.4",
   "new_install_prompt_erase": true,
-  "_note": "PLACEHOLDER — 7in firmware (firmware-7inch.bin) is not built yet; the JD9165 panel driver must be ported first. The installer keeps the 7in option disabled until this manifest's binary exists. See docs/MULTI_SCREEN_SUPPORT.md.",
+  "_note": "BETA — firmware-7inch.bin is code-complete (JD9165 1024x600 panel driver + responsive UI) but NOT yet validated on physical 7in hardware. Built by deploy-pages.yml from the esp32_7inch env. See docs/MULTI_SCREEN_SUPPORT.md.",
   "builds": [
     {
       "chipFamily": "ESP32-P4",

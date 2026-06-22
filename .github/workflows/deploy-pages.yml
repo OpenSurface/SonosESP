@@ -95,20 +95,23 @@ jobs:
         rm -rf .pio
         echo "Build directory cleaned"
 
-    - name: Build firmware
+    - name: Build firmware (both screen variants)
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       env:
         USE_CCACHE: "1"
-      run: pio run
+      run: pio run -e esp32_4inch -e esp32_7inch
 
     - name: Copy binaries to web-installer
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       run: |
         mkdir -p web-installer
+        # bootloader + partitions are board-level (identical across SCREEN_SIZE);
+        # both manifests reference these shared names.
         cp .pio/build/esp32_4inch/bootloader.bin web-installer/
         cp .pio/build/esp32_4inch/partitions.bin web-installer/
-        # canonical 4" binary (used by manifest-4inch.json)
+        # canonical per-screen app binaries
         cp .pio/build/esp32_4inch/firmware.bin web-installer/firmware-4inch.bin
+        cp .pio/build/esp32_7inch/firmware.bin web-installer/firmware-7inch.bin
         # legacy alias (manifest.json) — kept during the ~1-month transition, then remove
         cp .pio/build/esp32_4inch/firmware.bin web-installer/firmware.bin
         ls -la web-installer/

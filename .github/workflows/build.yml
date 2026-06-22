@@ -20,6 +20,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
+    # Build every screen variant so a break in either is caught in CI.
+    # 4" is the shipping product; 7" is code-complete but not yet hardware-validated.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - env: esp32_4inch
+            screen: 4inch
+          - env: esp32_7inch
+            screen: 7inch
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
@@ -68,7 +79,7 @@ jobs:
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       uses: hendrikmuhs/ccache-action@v1
       with:
-        key: ${{ runner.os }}-ccache-${{ hashFiles('**/platformio.ini') }}
+        key: ${{ runner.os }}-ccache-${{ matrix.env }}-${{ hashFiles('**/platformio.ini') }}
 
     - name: Install PlatformIO
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
@@ -76,54 +87,68 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Build firmware
+    - name: Build firmware (${{ matrix.screen }})
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       env:
         USE_CCACHE: "1"
-      run: pio run
+      run: pio run -e ${{ matrix.env }}
 
-    - name: Copy binaries to web-installer
+    - name: Stage binaries (${{ matrix.screen }})
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       run: |
-        mkdir -p web-installer
-        cp .pio/build/esp32_4inch/bootloader.bin web-installer/
-        cp .pio/build/esp32_4inch/partitions.bin web-installer/
-        cp .pio/build/esp32_4inch/firmware.bin web-installer/
+        OUT=".pio/build/${{ matrix.env }}"
+        mkdir -p dist
+        cp "$OUT/bootloader.bin"  "dist/bootloader-${{ matrix.screen }}.bin"
+        cp "$OUT/partitions.bin"  "dist/partitions-${{ matrix.screen }}.bin"
+        cp "$OUT/firmware.bin"    "dist/firmware-${{ matrix.screen }}.bin"
+        # Legacy unsuffixed names — kept ~1 month for the deployed <=v1.8.4 4" fleet
+        # whose OTA matches the "firmware.bin" substring. Remove after transition.
+        if [ "${{ matrix.screen }}" = "4inch" ]; then
+          cp "$OUT/bootloader.bin" dist/bootloader.bin
+          cp "$OUT/partitions.bin" dist/partitions.bin
+          cp "$OUT/firmware.bin"   dist/firmware.bin
+        fi
+        ls -l dist/
 
-    - name: Upload firmware artifacts
+    - name: Upload firmware artifacts (${{ matrix.screen }})
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       uses: actions/upload-artifact@v7
       with:
-        name: firmware-binaries
-        path: |
-          .pio/build/esp32_4inch/bootloader.bin
-          .pio/build/esp32_4inch/partitions.bin
-          .pio/build/esp32_4inch/firmware.bin
+        name: firmware-${{ matrix.screen }}
+        path: dist/
         retention-days: 30
 
-    - name: Upload web-installer artifacts
-      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
-      uses: actions/upload-artifact@v7
-      with:
-        name: web-installer
-        path: web-installer/
-        retention-days: 30
-
-    - name: Create Release Assets
+    - name: Create Release Assets (${{ matrix.screen }})
       if: github.event_name == 'release'
       run: |
-        cd .pio/build/esp32_4inch
-        zip -r ../../../sonos-controller-firmware.zip bootloader.bin partitions.bin firmware.bin
+        cd dist
+        zip -r "../sonos-controller-firmware-${{ matrix.screen }}.zip" \
+          "bootloader-${{ matrix.screen }}.bin" \
+          "partitions-${{ matrix.screen }}.bin" \
+          "firmware-${{ matrix.screen }}.bin"
 
-    - name: Upload Release Assets
+    - name: Upload Release Assets (${{ matrix.screen }})
       if: github.event_name == 'release'
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          sonos-controller-firmware.zip
-          .pio/build/esp32_4inch/firmware.bin
-          .pio/build/esp32_4inch/bootloader.bin
-          .pio/build/esp32_4inch/partitions.bin
+          sonos-controller-firmware-${{ matrix.screen }}.zip
+          dist/firmware-${{ matrix.screen }}.bin
+          dist/bootloader-${{ matrix.screen }}.bin
+          dist/partitions-${{ matrix.screen }}.bin
         generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # Legacy unsuffixed release assets for the deployed 4" fleet's OTA substring
+    # match. Remove ~1 month after the multi-screen release ships.
+    - name: Upload legacy 4" release assets
+      if: github.event_name == 'release' && matrix.screen == '4inch'
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          dist/firmware.bin
+          dist/bootloader.bin
+          dist/partitions.bin
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

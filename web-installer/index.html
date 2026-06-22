@@ -366,6 +366,7 @@
         }
         .so-badge.available { background: rgba(0,255,136,0.15); color: #00ff88; }
         .so-badge.soon { background: rgba(255,170,0,0.15); color: #ffaa00; }
+        .so-badge.beta { background: rgba(255,170,0,0.15); color: #ffaa00; }
         .coming-soon-note {
             color: #ffaa00; font-size: 0.92rem; text-align: center;
             padding: 1.25rem; border: 1px dashed rgba(255,170,0,0.4); border-radius: 8px;
@@ -426,7 +427,7 @@
                 <button class="screen-option" data-screen="7inch" type="button">
                     <span class="so-size">7&quot;</span>
                     <span class="so-model">GUITION JC1060P470C · 1024×600</span>
-                    <span class="so-badge soon">COMING SOON</span>
+                    <span class="so-badge beta">BETA</span>
                 </button>
             </div>
         </div>
@@ -518,7 +519,8 @@
                     ['Extra', 'Ethernet'],
                 ],
                 manifest: './manifest-7inch.json',
-                available: false,   // flip to true once firmware-7inch.bin is published
+                available: true,
+                beta: true,   // code-complete port, not yet validated on physical 7" hardware
             },
         };
 
@@ -579,6 +581,12 @@
 
             flashSection.innerHTML = '';
             if (b.available) {
+                if (b.beta) {
+                    const beta = document.createElement('div');
+                    beta.className = 'coming-soon-note';
+                    beta.innerHTML = '⚠ <strong>BETA — untested on hardware.</strong> The 7&quot; build is code-complete (JD9165 panel + responsive UI) but has not yet been validated on a physical 7&quot; unit. Flash only if you own this board and can report back. The 4&quot; firmware is unaffected.';
+                    flashSection.appendChild(beta);
+                }
                 const btn = document.createElement('esp-web-install-button');
                 btn.setAttribute('manifest', b.manifest);
                 btn.innerHTML = `<button slot="activate">INSTALL ${key === '7inch' ? '7&quot;' : '4&quot;'} FIRMWARE</button>`;
@@ -587,7 +595,7 @@
                 const i2 = document.createElement('p'); i2.className = 'browser-info'; i2.style.cssText = 'margin-top:0.5rem;color:#ffaa00;'; i2.textContent = 'After flashing completes, unplug and replug to reboot.';
                 flashSection.append(i1, i2);
                 wireInstallButton(btn);
-                logMessage('info', '●', `Selected ${key} — ready to flash`);
+                logMessage('info', '●', `Selected ${key} — ready to flash${b.beta ? ' (BETA)' : ''}`);
             } else {
                 flashSection.innerHTML = `<div class="coming-soon-note">⚠ The 7&quot; firmware is still in development (JD9165 panel + responsive UI), so it can't be flashed yet. Watch the repo for updates.</div>`;
                 logMessage('warning', '!', `${key} firmware not available yet`);
