@@ -44,7 +44,7 @@ VERSION_FILES = {
 
 def get_current_version():
     """Read current version from version.json"""
-    with open('version.json', 'r') as f:
+    with open('version.json', 'r', encoding='utf-8') as f:
         data = json.load(f)
         return data['version']
 
@@ -99,13 +99,13 @@ def bump_version(current, bump_type):
 
 def update_json_file(filepath, key, new_version):
     """Update version in a JSON file"""
-    with open(filepath, 'r') as f:
+    with open(filepath, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
     data[key] = new_version
 
-    with open(filepath, 'w') as f:
-        json.dump(data, f, indent=2)
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
         f.write('\n')
 
     print(f"  [OK] {filepath}")
