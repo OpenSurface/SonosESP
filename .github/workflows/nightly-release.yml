@@ -22,7 +22,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         submodules: recursive
         fetch-depth: 1
@@ -52,7 +52,7 @@ jobs:
 
     - name: Set up Python
       if: steps.check_release.outputs.EXISTS == 'false'
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
         cache: 'pip'
@@ -108,7 +108,7 @@ jobs:
 
     - name: Create GitHub Nightly Release
       if: steps.check_release.outputs.EXISTS == 'false'
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         tag_name: v${{ inputs.version_tag }}
         name: v${{ inputs.version_tag }} (Nightly)

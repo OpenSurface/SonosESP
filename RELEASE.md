@@ -29,6 +29,20 @@ SonosESP has two release channels:
   - Accessible via OTA "Nightly" channel
   - Version format: `X.Y.Z-nightly.COMMITHASH`
 
+### Screen variants (one codebase, two builds)
+
+Since the multi-screen work (#89), every release is built for **both** screens from
+the same source via PlatformIO envs (see `platformio.ini`):
+
+| Variant | Env | Board | App binary |
+|---|---|---|---|
+| **4″** (shipping) | `esp32_4inch` | GUITION JC4880P433C (ST7701, 800×480) | `firmware-4inch.bin` |
+| **7″** (BETA) | `esp32_7inch` | GUITION JC1060P470C (JD9165, 1024×600) | `firmware-7inch.bin` |
+
+- `bootloader.bin` / `partitions.bin` are **board-level and identical** across both, so a release ships one shared copy of each.
+- **Legacy `firmware.bin` / `firmware-merged.bin`** (the 4″ build) are still attached to each release for ~1 month — the deployed ≤v1.8.4 fleet's OTA matches the `firmware.bin` substring. Remove after the transition.
+- The **7″ is not yet hardware-validated**: it is offered as **BETA via the web installer**, not pushed to the stable OTA fleet. Don't gate a 7″ rollout on `auto-release` until a physical 7″ unit confirms panel/touch bring-up.
+
 ---
 
 ## Prerequisites
@@ -74,7 +88,8 @@ python bump_version.py nightly
 - Appends `-nightly.COMMITHASH` (e.g., `1.1.6-nightly.abc1234`)
 - Updates all version files:
   - `version.json`
-  - `web-installer/manifest.json`
+  - `web-installer/manifest-4inch.json` and `web-installer/manifest-7inch.json`
+  - `web-installer/manifest.json` (legacy 4″ alias — removed after the transition)
   - `include/ui_common.h`
 
 **Output:**
@@ -288,12 +303,12 @@ gh release view v1.2.0
 gh release list
 ```
 
-**Release should contain:**
-- `firmware-merged.bin`
-- `sonos-controller-firmware-v1.2.0.zip`
-- `firmware.bin`
-- `bootloader.bin`
-- `partitions.bin`
+**Release should contain (both screens — built by `auto-release.yml`):**
+- `firmware-4inch.bin`, `firmware-7inch.bin` — per-screen app binaries
+- `firmware-merged-4inch.bin`, `firmware-merged-7inch.bin` — full single-image (web-flash)
+- `bootloader.bin`, `partitions.bin` — shared (board-level)
+- `sonos-controller-firmware-4inch-v1.2.0.zip`, `…-7inch-v1.2.0.zip`
+- `firmware.bin`, `firmware-merged.bin` — legacy 4″ aliases (fleet OTA; remove after transition)
 - Auto-generated release notes
 
 ### Step 6: Test OTA Update
@@ -488,17 +503,20 @@ gh release view vX.Y.Z                   # View specific release
 ```
 SonosESP/
 ├── version.json                          # Version source of truth
-├── bump_version.py                       # Version bump script
+├── bump_version.py                       # Version bump script (updates both manifests)
 ├── create_nightly.py                     # Nightly release trigger
+├── platformio.ini                        # esp32_4inch + esp32_7inch envs
 ├── web-installer/
-│   └── manifest.json                     # Web installer version
+│   ├── manifest-4inch.json               # 4" installer manifest (canonical)
+│   ├── manifest-7inch.json               # 7" installer manifest (BETA)
+│   └── manifest.json                     # legacy 4" alias (remove after transition)
 ├── include/
 │   └── ui_common.h                       # Firmware version constant
 └── .github/workflows/
-    ├── auto-release.yml                  # Stable release (auto)
-    ├── nightly-release.yml               # Nightly release (manual)
-    ├── build.yml                         # Build verification
-    └── deploy-pages.yml                  # Web installer deployment
+    ├── auto-release.yml                  # Stable release (auto) — builds BOTH screens, attaches all assets
+    ├── nightly-release.yml               # Nightly release (manual, 4" only)
+    ├── build.yml                         # CI verification (push/PR) — matrix builds both screens
+    └── deploy-pages.yml                  # Web installer deployment — builds both, publishes both binaries
 ```
 
 ---

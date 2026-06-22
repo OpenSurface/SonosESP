@@ -21,7 +21,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         submodules: recursive
         fetch-depth: 1
@@ -63,7 +63,7 @@ jobs:
 
     - name: Set up Python
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
         cache: 'pip'
@@ -96,39 +96,54 @@ jobs:
         rm -rf .pio
         echo "Build directory cleaned"
 
-    - name: Build firmware
+    - name: Build firmware (both screen variants)
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       env:
         USE_CCACHE: "1"
-      run: pio run
+      run: pio run -e esp32_4inch -e esp32_7inch
 
-    - name: Create merged firmware binary
+    - name: Assemble release assets (per-screen + legacy 4")
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       run: |
         pip install esptool
-        cd .pio/build/esp32_4inch
-        python -m esptool --chip esp32p4 merge_bin -o ../../../firmware-merged.bin --flash_mode qio --flash_size 16MB 0x0 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin
-        echo "Merged firmware binary created successfully"
-
-    - name: Create release ZIP
-      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
-      run: |
-        cd .pio/build/esp32_4inch
-        zip -r ../../../sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip bootloader.bin partitions.bin firmware.bin
-        echo "Created release ZIP with individual binaries"
+        VER="${{ steps.get_version.outputs.VERSION }}"
+        ROOT="$PWD"
+        mkdir -p dist
+        # bootloader + partitions are board-level (identical across SCREEN_SIZE) -> share one copy
+        cp .pio/build/esp32_4inch/bootloader.bin dist/bootloader.bin
+        cp .pio/build/esp32_4inch/partitions.bin dist/partitions.bin
+        for s in 4inch 7inch; do
+          OUT=".pio/build/esp32_${s}"
+          cp "$OUT/firmware.bin" "dist/firmware-${s}.bin"
+          # full single-image (web-flash) per screen
+          python -m esptool --chip esp32p4 merge_bin -o "dist/firmware-merged-${s}.bin" \
+            --flash_mode qio --flash_size 16MB \
+            0x0 "$OUT/bootloader.bin" 0x8000 "$OUT/partitions.bin" 0x10000 "$OUT/firmware.bin"
+          (cd "$OUT" && zip -r "$ROOT/dist/sonos-controller-firmware-${s}-v${VER}.zip" bootloader.bin partitions.bin firmware.bin)
+        done
+        # LEGACY unsuffixed assets the deployed <=v1.8.4 4" fleet's OTA matches by
+        # the "firmware.bin" substring. Remove ~1 month after the multi-screen release.
+        cp .pio/build/esp32_4inch/firmware.bin dist/firmware.bin
+        cp dist/firmware-merged-4inch.bin dist/firmware-merged.bin
+        ls -l dist/
 
     - name: Create GitHub Release
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         tag_name: v${{ steps.get_version.outputs.VERSION }}
         name: v${{ steps.get_version.outputs.VERSION }}
         files: |
-          firmware-merged.bin
-          sonos-controller-firmware-v${{ steps.get_version.outputs.VERSION }}.zip
-          .pio/build/esp32_4inch/firmware.bin
-          .pio/build/esp32_4inch/bootloader.bin
-          .pio/build/esp32_4inch/partitions.bin
+          dist/firmware-4inch.bin
+          dist/firmware-7inch.bin
+          dist/firmware-merged-4inch.bin
+          dist/firmware-merged-7inch.bin
+          dist/bootloader.bin
+          dist/partitions.bin
+          dist/sonos-controller-firmware-4inch-v${{ steps.get_version.outputs.VERSION }}.zip
+          dist/sonos-controller-firmware-7inch-v${{ steps.get_version.outputs.VERSION }}.zip
+          dist/firmware.bin
+          dist/firmware-merged.bin
         draft: false
         prerelease: false
         generate_release_notes: true

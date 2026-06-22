@@ -5,11 +5,12 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
-  release:
-    types: [ created ]
 
+# Pure CI verification (push/PR). Release assets are produced solely by
+# auto-release.yml on a version.json bump, so there is no release trigger here
+# (avoids a duplicate build + asset race against the release workflow).
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,7 +34,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         submodules: recursive
         fetch-depth: 1
@@ -60,7 +61,7 @@ jobs:
 
     - name: Set up Python
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
         cache: 'pip'
@@ -117,38 +118,3 @@ jobs:
         name: firmware-${{ matrix.screen }}
         path: dist/
         retention-days: 30
-
-    - name: Create Release Assets (${{ matrix.screen }})
-      if: github.event_name == 'release'
-      run: |
-        cd dist
-        zip -r "../sonos-controller-firmware-${{ matrix.screen }}.zip" \
-          "bootloader-${{ matrix.screen }}.bin" \
-          "partitions-${{ matrix.screen }}.bin" \
-          "firmware-${{ matrix.screen }}.bin"
-
-    - name: Upload Release Assets (${{ matrix.screen }})
-      if: github.event_name == 'release'
-      uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          sonos-controller-firmware-${{ matrix.screen }}.zip
-          dist/firmware-${{ matrix.screen }}.bin
-          dist/bootloader-${{ matrix.screen }}.bin
-          dist/partitions-${{ matrix.screen }}.bin
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    # Legacy unsuffixed release assets for the deployed 4" fleet's OTA substring
-    # match. Remove ~1 month after the multi-screen release ships.
-    - name: Upload legacy 4" release assets
-      if: github.event_name == 'release' && matrix.screen == '4inch'
-      uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          dist/firmware.bin
-          dist/bootloader.bin
-          dist/partitions.bin
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
