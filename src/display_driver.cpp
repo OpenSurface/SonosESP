@@ -1,6 +1,12 @@
 #include "display_driver.h"
 #include "config.h"
+#if SCREEN_SIZE == 7
+#include "../lib/jd9165_lcd/jd9165_lcd.h"
+typedef jd9165_lcd panel_lcd_t;
+#else
 #include "../lib/st7701_lcd/st7701_lcd.h"
+typedef st7701_lcd panel_lcd_t;
+#endif
 #include <esp_heap_caps.h>
 #include <esp_lcd_panel_ops.h>
 #include <esp_private/esp_cache_private.h>
@@ -8,12 +14,18 @@
 
 #define USE_PPA_ACCELERATION 0  // Disable hardware acceleration (causes glitches)
 
-static st7701_lcd* lcd = NULL;
+static panel_lcd_t* lcd = NULL;
 static lv_color_t *buf1 = NULL;
 static lv_color_t *buf2 = NULL;
-static lv_color_t *rotate_buf = NULL;  // Rotation buffer
 static lv_display_t *disp = NULL;
 static bsp_lcd_handles_t lcd_handles;
+
+#if SCREEN_SIZE != 7
+// ============================================================================
+// 4" ST7701 — portrait panel (480x800) driven from a landscape (800x480)
+// LVGL framebuffer via a software 90° rotation in the flush callback.
+// ============================================================================
+static lv_color_t *rotate_buf = NULL;  // Rotation buffer
 
 #if USE_PPA_ACCELERATION
 static ppa_client_handle_t ppa_handle = NULL;
@@ -101,7 +113,7 @@ bool display_init(void) {
 #endif
 
     // Create ST7701 LCD instance
-    lcd = new st7701_lcd(LCD_RST);
+    lcd = new panel_lcd_t(LCD_RST);
     if (!lcd) {
         Serial.println("[Display] ERROR: Failed to create LCD instance!");
         return false;
@@ -148,14 +160,6 @@ bool display_init(void) {
 
     Serial.println("[Display] Ready! 800x480 landscape with manual 90° rotation to portrait panel");
     return true;
-}
-
-void display_set_brightness(uint8_t brightness_percent) {
-    if (lcd) {
-        // Clamp brightness to 0-100%
-        if (brightness_percent > 100) brightness_percent = 100;
-        lcd->example_bsp_set_lcd_backlight(brightness_percent);
-    }
 }
 
 void display_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *px_map) {
@@ -209,4 +213,90 @@ void display_deinit() {
         ppa_handle = NULL;
     }
 #endif
+}
+
+#else  // SCREEN_SIZE == 7
+// ============================================================================
+// 7" JD9165 — native 1024x600 LANDSCAPE panel. No rotation: LVGL renders at
+// the panel's native orientation and the framebuffer is pushed straight to the
+// panel. NOTE: code-complete port (CoopsInChina fork), not yet hardware-tested.
+// ============================================================================
+bool display_init(void) {
+    Serial.printf("[Display] Initializing MIPI DSI interface for %s...\n", DISPLAY_MODEL);
+
+    lcd = new panel_lcd_t(LCD_RST);
+    if (!lcd) {
+        Serial.println("[Display] ERROR: Failed to create LCD instance!");
+        return false;
+    }
+
+    lcd->begin();
+    lcd->get_handle(&lcd_handles);
+
+    Serial.printf("[Display] %s LCD initialized successfully\n", DISPLAY_MODEL);
+
+    // LVGL buffers in PSRAM — native landscape, no rotation buffer needed.
+    size_t lvgl_size = DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(lv_color_t);
+    buf1 = (lv_color_t *)heap_caps_malloc(lvgl_size, MALLOC_CAP_SPIRAM);
+    buf2 = (lv_color_t *)heap_caps_malloc(lvgl_size, MALLOC_CAP_SPIRAM);
+
+    if (!buf1 || !buf2) {
+        Serial.println("[Display] ERROR: Failed to allocate buffers!");
+        if (buf1) heap_caps_free(buf1);
+        if (buf2) heap_caps_free(buf2);
+        return false;
+    }
+
+    Serial.printf("[Display] LVGL buffers: %zu bytes each (landscape %dx%d)\n",
+                  lvgl_size, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+    Serial.printf("[Display] Free PSRAM: %zu bytes\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+
+    disp = lv_display_create(DISPLAY_WIDTH, DISPLAY_HEIGHT);
+    if (!disp) {
+        Serial.println("[Display] ERROR: Failed to create display");
+        return false;
+    }
+
+    lv_display_set_flush_cb(disp, display_flush);
+    lv_display_set_buffers(disp, buf1, buf2, lvgl_size, LV_DISPLAY_RENDER_MODE_FULL);
+
+    Serial.println("[Display] Ready! 1024x600 landscape, no rotation (direct flush)");
+    return true;
+}
+
+void display_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *px_map) {
+    if (!lcd || !lcd_handles.panel) {
+        lv_display_flush_ready(disp_drv);
+        return;
+    }
+
+    // Native landscape: push the rendered region straight to the panel.
+    lcd->lcd_draw_bitmap(area->x1, area->y1, area->x2 + 1, area->y2 + 1, (uint16_t *)px_map);
+
+    lv_display_flush_ready(disp_drv);
+}
+
+void display_deinit() {
+    if (lcd) {
+        delete lcd;
+        lcd = NULL;
+    }
+    if (buf1) {
+        heap_caps_free(buf1);
+        buf1 = NULL;
+    }
+    if (buf2) {
+        heap_caps_free(buf2);
+        buf2 = NULL;
+    }
+}
+
+#endif  // SCREEN_SIZE
+
+void display_set_brightness(uint8_t brightness_percent) {
+    if (lcd) {
+        // Clamp brightness to 0-100%
+        if (brightness_percent > 100) brightness_percent = 100;
+        lcd->example_bsp_set_lcd_backlight(brightness_percent);
+    }
 }

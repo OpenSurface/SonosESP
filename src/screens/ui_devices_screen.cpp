@@ -40,7 +40,7 @@ void refreshDeviceList() {
 
         // Create main button - taller if it has subtitle
         lv_obj_t* btn = lv_btn_create(list_devices);
-        lv_obj_set_size(btn, lv_pct(100), hasGroup || isPlaying ? 70 : 60);
+        lv_obj_set_size(btn, lv_pct(100), hasGroup || isPlaying ? SY(70) : SY(60));
         lv_obj_set_user_data(btn, (void*)(intptr_t)i);
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
@@ -111,7 +111,7 @@ void refreshDeviceList() {
                 if (!member || member->groupCoordinatorUUID != dev->rinconID) continue;
 
                 lv_obj_t* memBtn = lv_btn_create(list_devices);
-                lv_obj_set_size(memBtn, lv_pct(95), 50);
+                lv_obj_set_size(memBtn, lv_pct(95), SY(50));
                 lv_obj_set_user_data(memBtn, (void*)(intptr_t)j);
                 lv_obj_set_style_radius(memBtn, 8, 0);
                 lv_obj_set_style_shadow_width(memBtn, 0, 0);
@@ -171,7 +171,7 @@ void refreshDeviceList() {
             bool isSelected = (current && dev->ip == current->ip);
 
             lv_obj_t* btn = lv_btn_create(list_devices);
-            lv_obj_set_size(btn, 720, 60);
+            lv_obj_set_size(btn, SX(720), SY(60));
             lv_obj_set_user_data(btn, (void*)(intptr_t)i);
             lv_obj_set_style_radius(btn, 12, 0);
             lv_obj_set_style_shadow_width(btn, 0, 0);
@@ -210,7 +210,7 @@ void createDevicesScreen() {
 
     // Title + Scan button row
     lv_obj_t* title_row = lv_obj_create(content);
-    lv_obj_set_size(title_row, lv_pct(100), 40);
+    lv_obj_set_size(title_row, lv_pct(100), SY(40));
     lv_obj_set_pos(title_row, 0, 0);
     lv_obj_set_style_bg_opa(title_row, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(title_row, 0, 0);
@@ -224,7 +224,7 @@ void createDevicesScreen() {
     lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, 0, 0);
 
     btn_sonos_scan = lv_button_create(title_row);
-    lv_obj_set_size(btn_sonos_scan, 110, 40);
+    lv_obj_set_size(btn_sonos_scan, SX(110), SY(40));
     lv_obj_align(btn_sonos_scan, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_set_style_bg_color(btn_sonos_scan, COL_ACCENT, 0);
     lv_obj_set_style_radius(btn_sonos_scan, 20, 0);
@@ -238,15 +238,15 @@ void createDevicesScreen() {
 
     // Status label
     lbl_status = lv_label_create(content);
-    lv_obj_set_pos(lbl_status, 0, 50);
+    lv_obj_set_pos(lbl_status, 0, SY(50));
     lv_label_set_text(lbl_status, "Tap Scan to find speakers");
     lv_obj_set_style_text_color(lbl_status, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_status, &lv_font_mdi_16, 0);
 
     // Devices list
     list_devices = lv_list_create(content);
-    lv_obj_set_size(list_devices, lv_pct(100), 380);
-    lv_obj_set_pos(list_devices, 0, 75);
+    lv_obj_set_size(list_devices, lv_pct(100), SY(380));
+    lv_obj_set_pos(list_devices, 0, SY(75));
     lv_obj_set_style_bg_color(list_devices, lv_color_hex(0x1A1A1A), 0);
     lv_obj_set_style_border_width(list_devices, 0, 0);
     lv_obj_set_style_radius(list_devices, 0, 0);
@@ -262,7 +262,7 @@ void createDevicesScreen() {
 
     // Spinner for scan feedback (centered in content area, hidden by default)
     spinner_scan = lv_spinner_create(content);
-    lv_obj_set_size(spinner_scan, 100, 100);
+    lv_obj_set_size(spinner_scan, SMIN(100), SMIN(100));
     lv_obj_center(spinner_scan);
     lv_obj_set_style_arc_color(spinner_scan, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_arc_color(spinner_scan, lv_color_hex(0x555555), LV_PART_MAIN);

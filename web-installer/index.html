@@ -342,7 +342,43 @@
         .log-error .log-icon { color: #ff4444; }
         .log-progress .log-icon { color: #aa88ff; }
 
-        /* Features */
+        /* Screen selector */
+        .screen-selector { margin-bottom: 2.5rem; }
+        .screen-selector h2 { font-size: 1.1rem; font-weight: 500; margin-bottom: 1rem; color: #fff; }
+        .screen-options { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media (max-width: 768px) { .screen-options { grid-template-columns: 1fr; } }
+        .screen-option {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 1.25rem;
+            color: #fff; cursor: pointer; text-align: left;
+            font-family: inherit;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .screen-option:hover { border-color: rgba(255,255,255,0.35); }
+        .screen-option.selected { border-color: #fff; background: rgba(255,255,255,0.06); }
+        .screen-option .so-size { font-size: 1.35rem; font-weight: 600; display: block; }
+        .screen-option .so-model { color: rgba(255,255,255,0.5); font-size: 0.85rem; }
+        .screen-option .so-badge {
+            display: inline-block; margin-top: 0.75rem; font-size: 0.7rem;
+            padding: 0.15rem 0.6rem; border-radius: 10px; letter-spacing: 0.5px;
+        }
+        .so-badge.available { background: rgba(0,255,136,0.15); color: #00ff88; }
+        .so-badge.soon { background: rgba(255,170,0,0.15); color: #ffaa00; }
+        .so-badge.beta { background: rgba(255,170,0,0.15); color: #ffaa00; }
+        .coming-soon-note {
+            color: #ffaa00; font-size: 0.92rem; text-align: center;
+            padding: 1.25rem; border: 1px dashed rgba(255,170,0,0.4); border-radius: 8px;
+        }
+
+        /* Requirements / References lists */
+        .reqs { list-style: none; }
+        .reqs li { padding: 0.6rem 0 0.6rem 1.5rem; position: relative; font-size: 0.92rem; color: rgba(255,255,255,0.75); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .reqs li:last-child { border-bottom: none; }
+        .reqs li::before { content: "›"; position: absolute; left: 0; color: rgba(255,255,255,0.4); }
+        .reqs a { color: #fff; border-bottom: 1px solid rgba(255,255,255,0.3); text-decoration: none; }
+        .reqs a:hover { border-bottom-color: #fff; }
 
         /* Footer */
         footer {
@@ -379,37 +415,31 @@
             </a>
         </div>
 
-        <div class="notice">
-            <p><strong>Hardware Requirement:</strong> GUITION JC4880P433C (800x480 RGB, GT911 Touch, ESP32-P4 + ESP32-C6)</p>
+        <!-- 1. Screen selector -->
+        <div class="screen-selector">
+            <h2>1 · Choose your screen</h2>
+            <div class="screen-options" id="screen-options">
+                <button class="screen-option selected" data-screen="4inch" type="button">
+                    <span class="so-size">4&quot;</span>
+                    <span class="so-model">GUITION JC4880P433C · 800×480</span>
+                    <span class="so-badge available">AVAILABLE</span>
+                </button>
+                <button class="screen-option" data-screen="7inch" type="button">
+                    <span class="so-size">7&quot;</span>
+                    <span class="so-model">GUITION JC1060P470C · 1024×600</span>
+                    <span class="so-badge beta">BETA</span>
+                </button>
+            </div>
         </div>
+
+        <div class="notice" id="board-notice"></div>
 
         <div class="grid">
             <div class="card">
                 <div class="card-content">
                     <div class="card-section">
                         <h2>Hardware Specifications</h2>
-                        <div class="specs">
-                            <div class="spec-row">
-                                <span class="spec-label">Microcontroller</span>
-                                <span class="spec-value">ESP32-P4</span>
-                            </div>
-                            <div class="spec-row">
-                                <span class="spec-label">Display</span>
-                                <span class="spec-value">800×480 RGB</span>
-                            </div>
-                            <div class="spec-row">
-                                <span class="spec-label">Touch</span>
-                                <span class="spec-value">GT911 I2C</span>
-                            </div>
-                            <div class="spec-row">
-                                <span class="spec-label">Flash</span>
-                                <span class="spec-value">16 MB</span>
-                            </div>
-                            <div class="spec-row">
-                                <span class="spec-label">PSRAM</span>
-                                <span class="spec-value">OPI</span>
-                            </div>
-                        </div>
+                        <div class="specs" id="specs-table"></div>
                     </div>
                 </div>
             </div>
@@ -417,40 +447,46 @@
             <div class="card">
                 <div class="card-content">
                     <div class="card-section">
-                        <h2>Installation Steps</h2>
+                        <h2>2 · Install</h2>
                         <ol class="steps">
-                            <li>
-                                <strong>Connect Device</strong>
-                                <span>Plug ESP32-P4 via USB-C</span>
-                            </li>
-                            <li>
-                                <strong>Flash Firmware</strong>
-                                <span>Click button below, select COM port</span>
-                            </li>
-                            <li>
-                                <strong>Wait for Completion</strong>
-                                <span>Do not disconnect during flash</span>
-                            </li>
-                            <li>
-                                <strong>Configure WiFi</strong>
-                                <span>Use on-screen keyboard after reboot</span>
-                            </li>
+                            <li><strong>Connect</strong><span>Plug the board in via USB-C</span></li>
+                            <li><strong>Flash</strong><span>Click below, then pick the serial port</span></li>
+                            <li><strong>Wait</strong><span>Do not disconnect during flashing</span></li>
+                            <li><strong>Set up WiFi</strong><span>On-screen keyboard after reboot</span></li>
                         </ol>
                     </div>
-
-                    <div class="flash-section">
-                        <esp-web-install-button manifest="./manifest.json">
-                            <button slot="activate">INSTALL FIRMWARE</button>
-                        </esp-web-install-button>
-                        <p class="browser-info">Requires Chrome, Edge, or Opera</p>
-                        <p class="browser-info" style="margin-top: 0.5rem; color: #ffaa00;">After installation completes, unplug and replug your device to reboot.</p>
-                    </div>
+                    <div class="flash-section" id="flash-section"></div>
                 </div>
             </div>
         </div>
 
+        <!-- Requirements -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2>Requirements</h2>
+            <ul class="reqs">
+                <li>A supported board — the one selected above.</li>
+                <li>A <strong>data-capable USB-C cable</strong> (charge-only cables won't work).</li>
+                <li><strong>Chrome, Edge, or Opera</strong> on desktop — needs the Web Serial API (Safari / Firefox / mobile are not supported).</li>
+                <li>A <strong>2.4 GHz WiFi</strong> network and at least one <strong>Sonos</strong> speaker on the same LAN.</li>
+            </ul>
+        </div>
 
+        <!-- References -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2>References</h2>
+            <ul class="reqs">
+                <li><a href="https://github.com/OpenSurface/SonosESP" target="_blank">Project repository &amp; documentation</a></li>
+                <li><a href="https://github.com/OpenSurface/SonosESP/releases" target="_blank">Releases &amp; changelog</a></li>
+                <li><a href="https://github.com/OpenSurface/SonosESP/issues" target="_blank">Report an issue / request a feature</a></li>
+                <li>After the first install, future updates arrive <strong>over-the-air</strong> from the device's <em>Settings → Update</em> — no re-flashing needed.</li>
+            </ul>
+        </div>
 
+        <!-- Installer log -->
+        <div class="console-wrapper" style="margin-bottom: 2rem;">
+            <div class="console-header">Installer Log</div>
+            <div class="console" id="console"></div>
+        </div>
 
         <footer>
             <p>SonosESP Controller | <a href="https://github.com/OpenSurface/SonosESP" target="_blank">GitHub</a> | Future updates via OTA from device settings</p>
@@ -458,125 +494,124 @@
     </div>
 
     <script>
-        // Fetch manifest data and update UI
-        fetch('./manifest.json')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('project-title').textContent = data.name;
-                document.getElementById('project-version').textContent = `v${data.version}`;
-            })
-            .catch(err => console.error('Failed to load manifest:', err));
+        // ── Board definitions (one entry per screen variant) ─────────────────
+        const BOARDS = {
+            '4inch': {
+                notice: '<strong>Hardware:</strong> GUITION JC4880P433C — 800×480 RGB, GT911 touch, ESP32-P4 + ESP32-C6',
+                specs: [
+                    ['Microcontroller', 'ESP32-P4 + C6'],
+                    ['Display', '800×480 (ST7701)'],
+                    ['Touch', 'GT911 I²C'],
+                    ['Flash', '16 MB'],
+                    ['PSRAM', '32 MB OPI'],
+                ],
+                manifest: './manifest-4inch.json',
+                available: true,
+            },
+            '7inch': {
+                notice: '<strong>Hardware:</strong> GUITION JC1060P470C — 1024×600 RGB, GT911 touch, ESP32-P4 + ESP32-C6, Ethernet',
+                specs: [
+                    ['Microcontroller', 'ESP32-P4 + C6'],
+                    ['Display', '1024×600 (JD9165)'],
+                    ['Touch', 'GT911 I²C'],
+                    ['Flash', '16 MB'],
+                    ['PSRAM', '32 MB OPI'],
+                    ['Extra', 'Ethernet'],
+                ],
+                manifest: './manifest-7inch.json',
+                available: true,
+                beta: true,   // code-complete port, not yet validated on physical 7" hardware
+            },
+        };
 
-        // Console logging system
+        // ── Console logging (guarded so it never throws if the element is absent) ──
         const console_elem = document.getElementById('console');
-
-        function getTimestamp() {
-            const now = new Date();
-            return now.toTimeString().split(' ')[0];
-        }
-
+        const ts = () => new Date().toTimeString().split(' ')[0];
         function logMessage(type, icon, message) {
+            if (!console_elem) return;
             const line = document.createElement('div');
             line.className = `log-line log-${type}`;
-
-            const time = document.createElement('span');
-            time.className = 'log-time';
-            time.textContent = getTimestamp();
-
-            const iconSpan = document.createElement('span');
-            iconSpan.className = 'log-icon';
-            iconSpan.textContent = icon;
-
-            const msg = document.createElement('span');
-            msg.className = 'log-message';
-            msg.textContent = message;
-
-            line.appendChild(time);
-            line.appendChild(iconSpan);
-            line.appendChild(msg);
+            const t = document.createElement('span'); t.className = 'log-time'; t.textContent = ts();
+            const i = document.createElement('span'); i.className = 'log-icon'; i.textContent = icon;
+            const m = document.createElement('span'); m.className = 'log-message'; m.textContent = message;
+            line.append(t, i, m);
             console_elem.appendChild(line);
             console_elem.scrollTop = console_elem.scrollHeight;
         }
 
-        // Initial messages
-        logMessage('info', '●', 'ESP32-P4 Web Installer initialized');
-        logMessage('info', '○', 'Waiting for device connection...');
-        logMessage('info', '→', 'Click "INSTALL FIRMWARE" to begin flashing');
-        logMessage('success', '✓', 'System ready');
-
-        // Live Logs from ESP32 (SSE)
-        if (!!window.EventSource) {
-            const source = new EventSource('/events');
-
-            source.onopen = function(e) {
-                logMessage('success', '●', 'Live log stream connected');
-            };
-
-            source.onerror = function(e) {
-                if (e.target.readyState != EventSource.OPEN) {
-                    // Silent error to avoid cluttering UI when not served from ESP32
-                }
-            };
-
-            source.addEventListener('log', function(e) {
-                logMessage('info', '»', e.data);
-            }, false);
-        }
-
-        // Monitor esp-web-install-button events
-        const installButton = document.querySelector('esp-web-install-button');
-
-        if (installButton) {
-            // Log all events for debugging
-            ['state-changed', 'progress', 'error'].forEach(eventType => {
-                installButton.addEventListener(eventType, (e) => {
-                    console.log(`Event: ${eventType}`, e.detail);
-                });
+        // ── Wire esp-web-install-button events (called after each (re)create) ──
+        function wireInstallButton(btn) {
+            btn.addEventListener('state-changed', (e) => {
+                const map = {
+                    CONNECTED: ['success', '✓', 'Device connected'],
+                    PREPARING: ['progress', '◆', 'Preparing flash…'],
+                    WRITING:   ['progress', '▶', 'Writing firmware…'],
+                    FINISHED:  ['success', '✓', 'Installation complete — device will reboot'],
+                    ERROR:     ['error', '✖', 'Installation failed — check the cable/port'],
+                    MANIFEST:  ['info', '●', 'Loading firmware manifest…'],
+                    ASK_ERASE: ['warning', '!', 'Confirmation required'],
+                };
+                logMessage(...(map[e.detail] || ['info', '●', `State: ${e.detail}`]));
             });
-
-            installButton.addEventListener('state-changed', (e) => {
-                const state = e.detail;
-
-                if (state === 'CONNECTED') {
-                    logMessage('success', '✓', 'Device connected successfully');
-                } else if (state === 'PREPARING') {
-                    logMessage('progress', '◆', 'Preparing flash operation...');
-                    logMessage('info', '→', 'Erasing existing firmware...');
-                } else if (state === 'WRITING') {
-                    logMessage('progress', '▶', 'Writing firmware to device');
-                } else if (state === 'FINISHED') {
-                    logMessage('success', '✓', 'Firmware installation complete');
-                    logMessage('success', '✓', 'Device will reboot automatically');
-                    logMessage('info', '→', 'Configure WiFi using on-screen keyboard');
-                } else if (state === 'ERROR') {
-                    logMessage('error', '✖', 'Installation failed - check connection');
-                } else if (state === 'MANIFEST') {
-                    logMessage('info', '●', 'Loading firmware manifest...');
-                } else if (state === 'ASK_ERASE') {
-                    logMessage('warning', '!', 'User confirmation required');
-                } else {
-                    logMessage('info', '●', `State: ${state}`);
-                }
-            });
-
-            installButton.addEventListener('progress', (e) => {
+            btn.addEventListener('progress', (e) => {
                 if (e.detail && e.detail.percentage !== undefined) {
                     const pct = Math.round(e.detail.percentage);
-                    if (pct % 10 === 0) { // Log every 10%
-                        logMessage('progress', '▶', `Progress: ${pct}%`);
-                    }
+                    if (pct % 10 === 0) logMessage('progress', '▶', `Progress: ${pct}%`);
                 }
             });
-
-            installButton.addEventListener('error', (e) => {
-                logMessage('error', '✖', `Error: ${e.detail?.message || 'Unknown error'}`);
-                if (e.detail?.error) {
-                    logMessage('error', '✖', `Details: ${e.detail.error}`);
-                }
-            });
-        } else {
-            logMessage('error', '✖', 'Install button not found - check esp-web-tools loaded');
+            btn.addEventListener('error', (e) =>
+                logMessage('error', '✖', `Error: ${e.detail?.message || 'Unknown error'}`));
         }
+
+        // ── Render a board selection ──────────────────────────────────────────
+        const flashSection = document.getElementById('flash-section');
+        const boardNotice  = document.getElementById('board-notice');
+        const specsTable   = document.getElementById('specs-table');
+
+        function selectBoard(key) {
+            const b = BOARDS[key];
+            if (!b) return;
+
+            document.querySelectorAll('.screen-option').forEach(el =>
+                el.classList.toggle('selected', el.dataset.screen === key));
+
+            boardNotice.innerHTML = b.notice;
+            specsTable.innerHTML = b.specs.map(([k, v]) =>
+                `<div class="spec-row"><span class="spec-label">${k}</span><span class="spec-value">${v}</span></div>`).join('');
+
+            flashSection.innerHTML = '';
+            if (b.available) {
+                if (b.beta) {
+                    const beta = document.createElement('div');
+                    beta.className = 'coming-soon-note';
+                    beta.innerHTML = '⚠ <strong>BETA — untested on hardware.</strong> The 7&quot; build is code-complete (JD9165 panel + responsive UI) but has not yet been validated on a physical 7&quot; unit. Flash only if you own this board and can report back. The 4&quot; firmware is unaffected.';
+                    flashSection.appendChild(beta);
+                }
+                const btn = document.createElement('esp-web-install-button');
+                btn.setAttribute('manifest', b.manifest);
+                btn.innerHTML = `<button slot="activate">INSTALL ${key === '7inch' ? '7&quot;' : '4&quot;'} FIRMWARE</button>`;
+                flashSection.appendChild(btn);
+                const i1 = document.createElement('p'); i1.className = 'browser-info'; i1.textContent = 'Requires Chrome, Edge, or Opera (desktop).';
+                const i2 = document.createElement('p'); i2.className = 'browser-info'; i2.style.cssText = 'margin-top:0.5rem;color:#ffaa00;'; i2.textContent = 'After flashing completes, unplug and replug to reboot.';
+                flashSection.append(i1, i2);
+                wireInstallButton(btn);
+                logMessage('info', '●', `Selected ${key} — ready to flash${b.beta ? ' (BETA)' : ''}`);
+            } else {
+                flashSection.innerHTML = `<div class="coming-soon-note">⚠ The 7&quot; firmware is still in development (JD9165 panel + responsive UI), so it can't be flashed yet. Watch the repo for updates.</div>`;
+                logMessage('warning', '!', `${key} firmware not available yet`);
+            }
+        }
+
+        document.querySelectorAll('.screen-option').forEach(el =>
+            el.addEventListener('click', () => selectBoard(el.dataset.screen)));
+
+        // version label from the canonical (4") manifest
+        fetch('./manifest-4inch.json').then(r => r.json())
+            .then(d => { document.getElementById('project-version').textContent = `v${d.version}`; })
+            .catch(() => {});
+
+        logMessage('info', '●', 'Web installer ready');
+        selectBoard('4inch');
     </script>
 </body>
 </html>

@@ -19,7 +19,7 @@ def remove_lvgl_asm_dirs():
 
     # Possible LVGL paths
     lvgl_paths = [
-        os.path.join(project_dir, ".pio", "libdeps", "esp32-p4", "lvgl"),
+        os.path.join(project_dir, ".pio", "libdeps", "esp32_4inch", "lvgl"),
         os.path.join(project_dir, "lib", "lvgl"),
         os.path.join(project_dir, ".pio", "libdeps", "*", "lvgl"),
     ]

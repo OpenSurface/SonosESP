@@ -1,0 +1,15 @@
+{
+  "name": "SonosESP — 4\" Screen (GUITION JC4880P433C)",
+  "version": "1.8.4",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-P4",
+      "parts": [
+        { "path": "bootloader.bin",     "offset": 8192  },
+        { "path": "partitions.bin",     "offset": 32768 },
+        { "path": "firmware-4inch.bin", "offset": 65536 }
+      ]
+    }
+  ]
+}

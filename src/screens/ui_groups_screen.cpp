@@ -52,7 +52,7 @@ void refreshGroupsList() {
 
         // Create group header button - taller to show now playing info
         lv_obj_t* btn = lv_btn_create(list_groups);
-        lv_obj_set_size(btn, lv_pct(100), (isPlaying && hasTrack) ? 85 : 70);
+        lv_obj_set_size(btn, lv_pct(100), (isPlaying && hasTrack) ? SY(85) : SY(70));
         lv_obj_set_user_data(btn, (void*)(intptr_t)i);
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
@@ -133,7 +133,7 @@ void refreshGroupsList() {
 
                 // Member item (indented)
                 lv_obj_t* memBtn = lv_btn_create(list_groups);
-                lv_obj_set_size(memBtn, 680, 50);
+                lv_obj_set_size(memBtn, SX(680), SY(50));
                 lv_obj_set_user_data(memBtn, (void*)(intptr_t)j);
                 lv_obj_set_style_radius(memBtn, 8, 0);
                 lv_obj_set_style_shadow_width(memBtn, 0, 0);
@@ -156,7 +156,7 @@ void refreshGroupsList() {
 
                 // Remove from group button
                 lv_obj_t* removeBtn = lv_btn_create(memBtn);
-                lv_obj_set_size(removeBtn, 90, 35);
+                lv_obj_set_size(removeBtn, SX(90), SY(35));
                 lv_obj_align(removeBtn, LV_ALIGN_RIGHT_MID, -5, 0);
                 lv_obj_set_style_bg_color(removeBtn, lv_color_hex(0x8B0000), 0);
                 lv_obj_set_style_radius(removeBtn, 8, 0);
@@ -188,7 +188,7 @@ void refreshGroupsList() {
         if (coordinator) {
             // Header for available speakers
             lv_obj_t* hdr = lv_obj_create(list_groups);
-            lv_obj_set_size(hdr, 720, 40);
+            lv_obj_set_size(hdr, SX(720), SY(40));
             lv_obj_set_style_bg_color(hdr, lv_color_hex(0x1A1A1A), 0);
             lv_obj_set_style_border_width(hdr, 0, 0);
             lv_obj_set_style_pad_all(hdr, 10, 0);
@@ -213,7 +213,7 @@ void refreshGroupsList() {
                 if (!dev->isGroupCoordinator) continue;
 
                 lv_obj_t* addBtn = lv_btn_create(list_groups);
-                lv_obj_set_size(addBtn, 720, 55);
+                lv_obj_set_size(addBtn, SX(720), SY(55));
                 lv_obj_set_user_data(addBtn, (void*)(intptr_t)i);
                 lv_obj_set_style_radius(addBtn, 10, 0);
                 lv_obj_set_style_shadow_width(addBtn, 0, 0);
@@ -259,7 +259,7 @@ void createGroupsScreen() {
 
     // Title + Refresh button row
     lv_obj_t* title_row = lv_obj_create(content);
-    lv_obj_set_size(title_row, lv_pct(100), 40);
+    lv_obj_set_size(title_row, lv_pct(100), SY(40));
     lv_obj_set_pos(title_row, 0, 0);
     lv_obj_set_style_bg_opa(title_row, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(title_row, 0, 0);
@@ -273,7 +273,7 @@ void createGroupsScreen() {
     lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, 0, 0);
 
     btn_groups_scan = lv_button_create(title_row);
-    lv_obj_set_size(btn_groups_scan, 110, 40);
+    lv_obj_set_size(btn_groups_scan, SX(110), SY(40));
     lv_obj_align(btn_groups_scan, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_set_style_bg_color(btn_groups_scan, COL_ACCENT, 0);
     lv_obj_set_style_radius(btn_groups_scan, 20, 0);
@@ -325,15 +325,15 @@ void createGroupsScreen() {
 
     // Status label
     lbl_groups_status = lv_label_create(content);
-    lv_obj_set_pos(lbl_groups_status, 0, 50);
+    lv_obj_set_pos(lbl_groups_status, 0, SY(50));
     lv_label_set_text(lbl_groups_status, "Tap a group to manage it");
     lv_obj_set_style_text_color(lbl_groups_status, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_groups_status, &lv_font_mdi_16, 0);
 
     // Groups list
     list_groups = lv_obj_create(content);
-    lv_obj_set_size(list_groups, lv_pct(100), 380);
-    lv_obj_set_pos(list_groups, 0, 75);
+    lv_obj_set_size(list_groups, lv_pct(100), SY(380));
+    lv_obj_set_pos(list_groups, 0, SY(75));
     lv_obj_set_style_bg_color(list_groups, lv_color_hex(0x1A1A1A), 0);
     lv_obj_set_style_border_width(list_groups, 0, 0);
     lv_obj_set_style_radius(list_groups, 0, 0);
@@ -350,7 +350,7 @@ void createGroupsScreen() {
 
     // Spinner for scan feedback (centered in content area, hidden by default)
     spinner_groups_scan = lv_spinner_create(content);
-    lv_obj_set_size(spinner_groups_scan, 100, 100);
+    lv_obj_set_size(spinner_groups_scan, SMIN(100), SMIN(100));
     lv_obj_center(spinner_groups_scan);
     lv_obj_set_style_arc_color(spinner_groups_scan, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_arc_color(spinner_groups_scan, lv_color_hex(0x555555), LV_PART_MAIN);

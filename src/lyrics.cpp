@@ -509,9 +509,9 @@ void clearLyrics() {
 void createLyricsOverlay(lv_obj_t* parent) {
     // Gradient overlay at bottom of album art — transparent top, semi-opaque black bottom
     lyrics_container = lv_obj_create(parent);
-    lv_obj_set_size(lyrics_container, 420, 180);
+    lv_obj_set_size(lyrics_container, SMIN(420), SY(180));  // width tracks the album art (SMIN(ART_SIZE))
     // Centered in 450px panel (x=15), bottom aligned with art bottom (y=270..450)
-    lv_obj_align(lyrics_container, LV_ALIGN_BOTTOM_MID, 0, -30);
+    lv_obj_align(lyrics_container, LV_ALIGN_BOTTOM_MID, 0, SY(-30));
     // Vertical gradient: transparent at top, dark semi-opaque at bottom
     lv_obj_set_style_bg_opa(lyrics_container, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_color(lyrics_container, lv_color_hex(0x000000), 0);
@@ -538,7 +538,7 @@ void createLyricsOverlay(lv_obj_t* parent) {
     // Previous line — dimmed
     lbl_lyric_prev = lv_label_create(lyrics_container);
     lv_label_set_text(lbl_lyric_prev, "");
-    lv_obj_set_width(lbl_lyric_prev, 396);
+    lv_obj_set_width(lbl_lyric_prev, SMIN(396));
     lv_obj_set_style_text_font(lbl_lyric_prev, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(lbl_lyric_prev, lv_color_hex(0xAAAAAA), 0);
     lv_obj_set_style_text_align(lbl_lyric_prev, LV_TEXT_ALIGN_CENTER, 0);
@@ -547,7 +547,7 @@ void createLyricsOverlay(lv_obj_t* parent) {
     // Current line — bright, larger
     lbl_lyric_current = lv_label_create(lyrics_container);
     lv_label_set_text(lbl_lyric_current, "");
-    lv_obj_set_width(lbl_lyric_current, 396);
+    lv_obj_set_width(lbl_lyric_current, SMIN(396));
     lv_obj_set_style_text_font(lbl_lyric_current, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(lbl_lyric_current, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_align(lbl_lyric_current, LV_TEXT_ALIGN_CENTER, 0);
@@ -556,7 +556,7 @@ void createLyricsOverlay(lv_obj_t* parent) {
     // Next line — dimmed
     lbl_lyric_next = lv_label_create(lyrics_container);
     lv_label_set_text(lbl_lyric_next, "");
-    lv_obj_set_width(lbl_lyric_next, 396);
+    lv_obj_set_width(lbl_lyric_next, SMIN(396));
     lv_obj_set_style_text_font(lbl_lyric_next, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(lbl_lyric_next, lv_color_hex(0xAAAAAA), 0);
     lv_obj_set_style_text_align(lbl_lyric_next, LV_TEXT_ALIGN_CENTER, 0);

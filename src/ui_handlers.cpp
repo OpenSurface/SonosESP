@@ -1511,10 +1511,10 @@ static void displayCompletedArt() {
     }
     if (blur_bg_ready && img_blur_bg && blur_bg_buf) {
         memset(&blur_bg_dsc, 0, sizeof(blur_bg_dsc));
-        blur_bg_dsc.header.w  = 800;
-        blur_bg_dsc.header.h  = 480;
+        blur_bg_dsc.header.w  = DISPLAY_WIDTH;
+        blur_bg_dsc.header.h  = DISPLAY_HEIGHT;
         blur_bg_dsc.header.cf = LV_COLOR_FORMAT_RGB565;
-        blur_bg_dsc.data_size = 800 * 480 * 2;
+        blur_bg_dsc.data_size = DISPLAY_WIDTH * DISPLAY_HEIGHT * 2;
         blur_bg_dsc.data      = (const uint8_t*)blur_bg_buf;
         lv_img_set_src(img_blur_bg, &blur_bg_dsc);
         lv_obj_remove_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);

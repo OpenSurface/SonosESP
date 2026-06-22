@@ -3,12 +3,7 @@
 
 #include <Arduino.h>
 #include "lvgl.h"
-
-// GT911 Touch Controller pins for ESP32-P4 JC4880P443C
-#define TOUCH_GT911_SDA  7
-#define TOUCH_GT911_SCL  8
-#define TOUCH_GT911_INT  -1   // Not used
-#define TOUCH_GT911_RST  -1   // Not used
+#include "config.h"   // GT911 pins + TOUCH_PANEL_* come from the SCREEN_SIZE block
 
 // Function declarations
 bool touch_init(void);

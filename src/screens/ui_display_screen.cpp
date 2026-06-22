@@ -43,7 +43,7 @@ void createDisplaySettingsScreen() {
 
     lv_obj_t* slider_brightness = lv_slider_create(content);
     lv_obj_set_width(slider_brightness, lv_pct(100));
-    lv_obj_set_height(slider_brightness, 20);
+    lv_obj_set_height(slider_brightness, SY(20));
     lv_slider_set_range(slider_brightness, 10, 100);
     lv_slider_set_value(slider_brightness, brightness_level, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(slider_brightness, lv_color_hex(0x333333), LV_PART_MAIN);
@@ -75,7 +75,7 @@ void createDisplaySettingsScreen() {
 
     lv_obj_t* slider_dim_timeout = lv_slider_create(content);
     lv_obj_set_width(slider_dim_timeout, lv_pct(100));
-    lv_obj_set_height(slider_dim_timeout, 20);
+    lv_obj_set_height(slider_dim_timeout, SY(20));
     lv_slider_set_range(slider_dim_timeout, 0, 300);
     lv_slider_set_value(slider_dim_timeout, autodim_timeout, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(slider_dim_timeout, lv_color_hex(0x333333), LV_PART_MAIN);
@@ -107,7 +107,7 @@ void createDisplaySettingsScreen() {
 
     lv_obj_t* slider_dimmed_brightness = lv_slider_create(content);
     lv_obj_set_width(slider_dimmed_brightness, lv_pct(100));
-    lv_obj_set_height(slider_dimmed_brightness, 20);
+    lv_obj_set_height(slider_dimmed_brightness, SY(20));
     lv_slider_set_range(slider_dimmed_brightness, 5, 50);
     lv_slider_set_value(slider_dimmed_brightness, brightness_dimmed, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(slider_dimmed_brightness, lv_color_hex(0x333333), LV_PART_MAIN);

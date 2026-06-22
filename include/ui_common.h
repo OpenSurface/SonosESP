@@ -14,6 +14,7 @@
 #include "touch_driver.h"
 #include "sonos_controller.h"
 #include "esp_heap_caps.h"
+#include "ui_scale.h"   // SX()/SY() resolution-relative scaling + FONT_* tiers
 
 // Default WiFi credentials (empty = force WiFi setup via UI)
 #define DEFAULT_WIFI_SSID ""

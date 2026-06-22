@@ -29,7 +29,7 @@ lv_obj_t* addCard(lv_obj_t* parent, const char* title) {
         lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
 
         lv_obj_t* underline = lv_obj_create(card);
-        lv_obj_set_size(underline, 36, 2);
+        lv_obj_set_size(underline, SX(36), SY(2));
         lv_obj_set_style_bg_color(underline, COL_ACCENT, 0);
         lv_obj_set_style_bg_opa(underline, LV_OPA_COVER, 0);
         lv_obj_set_style_radius(underline, 1, 0);
@@ -61,7 +61,7 @@ void addDescLabel(lv_obj_t* parent, const char* text) {
 
 lv_obj_t* addSwitch(lv_obj_t* parent, bool initial) {
     lv_obj_t* sw = lv_switch_create(parent);
-    lv_obj_set_size(sw, 50, 26);
+    lv_obj_set_size(sw, SX(50), SY(26));
     lv_obj_set_style_margin_top(sw, 4, 0);
     lv_obj_set_style_radius(sw, 13, LV_PART_MAIN);
     lv_obj_set_style_bg_color(sw, lv_color_hex(0x333333), LV_PART_MAIN);

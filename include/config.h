@@ -57,11 +57,52 @@
 #define MIN_BRIGHTNESS          5       // Minimum brightness allowed
 #define MAX_BRIGHTNESS          100     // Maximum brightness
 
-// Display dimensions (LVGL renders in landscape, driver rotates to portrait panel)
-#define DISPLAY_WIDTH           800     // LVGL width (landscape)
-#define DISPLAY_HEIGHT          480     // LVGL height (landscape)
-#define PANEL_WIDTH             480     // Physical panel width (portrait)
-#define PANEL_HEIGHT            800     // Physical panel height (portrait)
+// =============================================================================
+// SCREEN VARIANT  (build-time: -DSCREEN_SIZE=4 | 7 ; defaults to 4")
+// -----------------------------------------------------------------------------
+// To add a screen variant: add an env in platformio.ini with -DSCREEN_SIZE=N,
+// add a matching branch below, and port its panel driver under lib/. Keep the
+// UI resolution-relative via include/ui_scale.h so no per-size layout is needed.
+// See docs/MULTI_SCREEN_SUPPORT.md.
+// =============================================================================
+#ifndef SCREEN_SIZE
+#define SCREEN_SIZE 4                   // default to 4" if no build flag is set
+#endif
+
+#if SCREEN_SIZE == 4
+    // GUITION JC4880P433C — ST7701 MIPI DSI
+    #define DISPLAY_WIDTH       800     // LVGL width (landscape)
+    #define DISPLAY_HEIGHT      480     // LVGL height (landscape)
+    #define PANEL_WIDTH         480     // Physical panel width (portrait)
+    #define PANEL_HEIGHT        800     // Physical panel height (portrait)
+    #define DISPLAY_MODEL       "ST7701 4\" (800x480)"
+    #define LCD_RST             5       // Reset GPIO for ST7701
+    #define TOUCH_GT911_SDA     7
+    #define TOUCH_GT911_SCL     8
+    #define TOUCH_GT911_INT     -1      // Not used
+    #define TOUCH_GT911_RST     -1      // Not used
+    #define TOUCH_PANEL_WIDTH   480     // Touch panel native width (portrait)
+    #define TOUCH_PANEL_HEIGHT  800     // Touch panel native height (portrait)
+#elif SCREEN_SIZE == 7
+    // GUITION JC1060P470C — JD9165 MIPI DSI, native 1024x600 LANDSCAPE.
+    // Unlike the 4" ST7701 (portrait panel rotated 90°), the JD9165 is wired
+    // landscape, so the flush path does NOT rotate (PANEL_* == DISPLAY_*).
+    // Code-complete from the CoopsInChina fork port; not yet hardware-validated.
+    #define DISPLAY_WIDTH       1024    // LVGL width (landscape)
+    #define DISPLAY_HEIGHT      600     // LVGL height (landscape)
+    #define PANEL_WIDTH         1024    // Physical panel width (no rotation)
+    #define PANEL_HEIGHT        600     // Physical panel height (no rotation)
+    #define DISPLAY_MODEL       "JD9165 7\" (1024x600)"
+    #define LCD_RST             23      // Reset GPIO for JD9165 (CoopsInChina fork)
+    #define TOUCH_GT911_SDA     7
+    #define TOUCH_GT911_SCL     8
+    #define TOUCH_GT911_INT     11
+    #define TOUCH_GT911_RST     22
+    #define TOUCH_PANEL_WIDTH   1024    // Touch panel native width (landscape)
+    #define TOUCH_PANEL_HEIGHT  600     // Touch panel native height (landscape)
+#else
+    #error "Unsupported SCREEN_SIZE (use 4 or 7)"
+#endif
 
 // =============================================================================
 // ALBUM ART
