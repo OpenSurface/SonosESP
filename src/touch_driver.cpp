@@ -2,6 +2,14 @@
 #include <Wire.h>
 #include <TAMC_GT911.h>
 
+// External callback for screen wake
+extern void resetScreenTimeout();
+
+#if SCREEN_SIZE != 7
+// ============================================================================
+// 4" GT911 — portrait sensor (480×800) mapped to landscape (800×480) via a
+// manual 90° rotation that matches the ST7701 display rotation.
+// ============================================================================
 // Touch sensor is in portrait orientation (480×800)
 #define TOUCH_MAP_X1 480
 #define TOUCH_MAP_X2 0
@@ -35,9 +43,6 @@ bool touch_init(void) {
 
     return true;
 }
-
-// External callback for screen wake
-extern void resetScreenTimeout();
 
 void touch_read(lv_indev_t *indev_drv, lv_indev_data_t *data) {
     static bool was_touched = false;
@@ -76,3 +81,59 @@ void touch_read(lv_indev_t *indev_drv, lv_indev_data_t *data) {
         was_touched = false;
     }
 }
+
+#else  // SCREEN_SIZE == 7
+// ============================================================================
+// 7" GT911 — native landscape sensor (1024×600). No rotation: raw coordinates
+// map directly to LVGL's landscape framebuffer.
+// NOTE: code-complete port (CoopsInChina fork), not yet hardware-tested.
+// ============================================================================
+TAMC_GT911 ts = TAMC_GT911(TOUCH_GT911_SDA, TOUCH_GT911_SCL, TOUCH_GT911_INT, TOUCH_GT911_RST,
+                           TOUCH_PANEL_WIDTH, TOUCH_PANEL_HEIGHT);
+
+static lv_indev_t *indev = NULL;
+
+bool touch_init(void) {
+    Serial.printf("[Touch] Initializing GT911 for %s...\n", DISPLAY_MODEL);
+
+    Wire.begin(TOUCH_GT911_SDA, TOUCH_GT911_SCL);
+    ts.begin();
+    ts.setRotation(ROTATION_INVERTED);
+
+    Serial.println("[Touch] GT911 initialized!");
+
+    indev = lv_indev_create();
+    if (!indev) {
+        Serial.println("[Touch] ERROR: Failed to create input device");
+        return false;
+    }
+
+    lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+    lv_indev_set_read_cb(indev, touch_read);
+
+    return true;
+}
+
+void touch_read(lv_indev_t *indev_drv, lv_indev_data_t *data) {
+    static bool was_touched = false;
+    ts.read();
+
+    if (ts.isTouched && ts.touches > 0) {
+        // Native landscape: scale raw sensor coords to the LVGL framebuffer.
+        int16_t x = map(ts.points[0].x, 0, TOUCH_PANEL_WIDTH - 1, 0, DISPLAY_WIDTH - 1);
+        int16_t y = map(ts.points[0].y, 0, TOUCH_PANEL_HEIGHT - 1, 0, DISPLAY_HEIGHT - 1);
+        data->point.x = constrain(x, 0, DISPLAY_WIDTH - 1);
+        data->point.y = constrain(y, 0, DISPLAY_HEIGHT - 1);
+        data->state = LV_INDEV_STATE_PRESSED;
+
+        if (!was_touched) {
+            resetScreenTimeout();
+            was_touched = true;
+        }
+    } else {
+        data->state = LV_INDEV_STATE_RELEASED;
+        was_touched = false;
+    }
+}
+
+#endif  // SCREEN_SIZE

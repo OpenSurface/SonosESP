@@ -10,8 +10,7 @@
 // per variant in config.h (SCREEN_SIZE) — do not redefine them here.
 #define DISPLAY_BUF_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT)  // Full frame buffer
 
-// ST7701 LCD Controller pins
-#define LCD_RST     5  // Reset GPIO for ST7701
+// LCD_RST and touch pins are defined per variant in config.h (SCREEN_SIZE block).
 
 // Note: MIPI DSI interface uses dedicated hardware pins on ESP32-P4
 // No manual pin configuration needed for DSI data/clock

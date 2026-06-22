@@ -76,15 +76,30 @@
     #define PANEL_WIDTH         480     // Physical panel width (portrait)
     #define PANEL_HEIGHT        800     // Physical panel height (portrait)
     #define DISPLAY_MODEL       "ST7701 4\" (800x480)"
+    #define LCD_RST             5       // Reset GPIO for ST7701
+    #define TOUCH_GT911_SDA     7
+    #define TOUCH_GT911_SCL     8
+    #define TOUCH_GT911_INT     -1      // Not used
+    #define TOUCH_GT911_RST     -1      // Not used
+    #define TOUCH_PANEL_WIDTH   480     // Touch panel native width (portrait)
+    #define TOUCH_PANEL_HEIGHT  800     // Touch panel native height (portrait)
 #elif SCREEN_SIZE == 7
-    // GUITION JC1060P470C — JD9165 MIPI DSI. PLACEHOLDER: panel driver not yet
-    // ported (see docs/MULTI_SCREEN_SUPPORT.md, Phase 2). Dims kept for build-time
-    // wiring only; not yet validated on hardware.
+    // GUITION JC1060P470C — JD9165 MIPI DSI, native 1024x600 LANDSCAPE.
+    // Unlike the 4" ST7701 (portrait panel rotated 90°), the JD9165 is wired
+    // landscape, so the flush path does NOT rotate (PANEL_* == DISPLAY_*).
+    // Code-complete from the CoopsInChina fork port; not yet hardware-validated.
     #define DISPLAY_WIDTH       1024    // LVGL width (landscape)
     #define DISPLAY_HEIGHT      600     // LVGL height (landscape)
-    #define PANEL_WIDTH         600     // Physical panel width (portrait)
-    #define PANEL_HEIGHT        1024    // Physical panel height (portrait)
+    #define PANEL_WIDTH         1024    // Physical panel width (no rotation)
+    #define PANEL_HEIGHT        600     // Physical panel height (no rotation)
     #define DISPLAY_MODEL       "JD9165 7\" (1024x600)"
+    #define LCD_RST             23      // Reset GPIO for JD9165 (CoopsInChina fork)
+    #define TOUCH_GT911_SDA     7
+    #define TOUCH_GT911_SCL     8
+    #define TOUCH_GT911_INT     11
+    #define TOUCH_GT911_RST     22
+    #define TOUCH_PANEL_WIDTH   1024    // Touch panel native width (landscape)
+    #define TOUCH_PANEL_HEIGHT  600     // Touch panel native height (landscape)
 #else
     #error "Unsupported SCREEN_SIZE (use 4 or 7)"
 #endif
