@@ -37,32 +37,40 @@ If you find this project helpful, consider supporting me on Ko-fi!
 
 ##  Hardware
 
-This project requires the **GUITION JC4880P433C** development board:
+SonosESP runs on **GUITION ESP32-P4 + ESP32-C6 touchscreen boards**. Two screen
+sizes build from the **same codebase** — the web installer and OTA pick the right
+firmware automatically (`firmware-4inch.bin` / `firmware-7inch.bin`).
 
 ![GUITION JC4880P433C](assets/image.png)
 
+| | **4″ — stable** | **7″ — BETA** |
+|---|---|---|
+| **Board** | GUITION JC4880P433C | GUITION JC1060P470C |
+| **Display** | 800×480, ST7701 (MIPI DSI) | 1024×600, JD9165 (MIPI DSI) |
+| **Touch** | GT911 capacitive (I²C) | GT911 capacitive (I²C) |
+| **MCU** | ESP32-P4 (400 MHz dual-core) | ESP32-P4 (400 MHz dual-core) |
+| **WiFi** | ESP32-C6 (via ESP-Hosted) | ESP32-C6 (via ESP-Hosted) |
+| **Flash / PSRAM** | 16 MB / 32 MB OPI | 16 MB / 32 MB OPI |
+| **Interface** | USB-C | USB-C |
 
-| Component | Specification |
-|-----------|--------------|
-| **MCU** | ESP32-P4 (400 MHz dual-core) |
-| **WiFi Module** | ESP32-C6 (via ESP-Hosted) |
-| **Display** | 800×480 RGB LCD with ST7701 driver |
-| **Touch** | GT911 capacitive touch (I2C) |
-| **Flash** | 16 MB |
-| **PSRAM** | OPI PSRAM |
-| **Interface** | USB-C |
-
-> **Note:** This firmware is specifically designed for the GUITION JC4880P433C board. It will not work on other ESP32 boards without significant modifications.
+> **Note:** This firmware targets these specific GUITION boards and won't run on
+> other ESP32 boards without significant changes.
+>
+> The **4″** is the production target (thousands of installs in the wild). The
+> **7″** is **BETA** — code-complete and building from the same source, but not
+> yet validated on physical hardware. Flash it only if you own the board and can
+> report back. See [docs/MULTI_SCREEN_SUPPORT.md](docs/MULTI_SCREEN_SUPPORT.md).
 
 ## Installation
 
 ### Web Installer (Recommended)
 
 1. Visit the [Web Installer](https://opensurface.github.io/SonosESP/)
-2. Connect your ESP32-P4 via USB-C
-3. Click "Install Firmware" and select the COM port
-4. Wait for installation to complete
-5. Configure WiFi using the on-screen keyboard after reboot
+2. **Choose your screen** — 4″ (stable) or 7″ (BETA)
+3. Connect your ESP32-P4 board via USB-C
+4. Click "Install Firmware" and select the COM port
+5. Wait for installation to complete
+6. Configure WiFi using the on-screen keyboard after reboot
 
 > Requires Chrome, Edge, or Opera browser with Web Serial support
 
@@ -91,7 +99,7 @@ The device supports automatic Over-The-Air (OTA) firmware updates from GitHub re
 - **Thread Safety** - Mutex protection for shared resources
 - **Memory Management** - PSRAM for album art and lyrics, heap monitoring
 - **Network Layer** - HTTPClient for SOAP requests, HTTPS for lyrics/art, UDP for SSDP discovery
-- **UI Framework** - LVGL 9.4.0 with custom theme
+- **UI Framework** - LVGL 9.5 with custom theme; resolution-relative scaling (`ui_scale.h`) so one layout fits both the 4″ and 7″ panels
 - **Image Processing** - ESP32-P4 hardware JPEG decoder + software PNG decoder, custom bilinear scaling with fixed-point math
 - **Lyrics System** - Time-synced LRC parsing with HTTPS fetching, auto-hide, and retry logic
 - **Clock Screensaver** - Inactivity-triggered fullscreen clock with random Unsplash backgrounds
