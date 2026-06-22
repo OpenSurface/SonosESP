@@ -33,7 +33,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         submodules: recursive
         fetch-depth: 1
@@ -60,7 +60,7 @@ jobs:
 
     - name: Set up Python
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
         cache: 'pip'
@@ -129,7 +129,7 @@ jobs:
 
     - name: Upload Release Assets (${{ matrix.screen }})
       if: github.event_name == 'release'
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         files: |
           sonos-controller-firmware-${{ matrix.screen }}.zip
@@ -144,7 +144,7 @@ jobs:
     # match. Remove ~1 month after the multi-screen release ships.
     - name: Upload legacy 4" release assets
       if: github.event_name == 'release' && matrix.screen == '4inch'
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         files: |
           dist/firmware.bin
