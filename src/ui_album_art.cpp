@@ -850,7 +850,7 @@ static void displayArt(const DecodeResult& dec, const char* url) {
         }
 
         // Step 3: bilinear upscale to full screen
-        scaleImageBilinear(src_buf, TINY, TINY, TINY, blur_bg_buf, 800, 480);
+        scaleImageBilinear(src_buf, TINY, TINY, TINY, blur_bg_buf, DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
 
     if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
@@ -1002,7 +1002,7 @@ void albumArtTask(void* param) {
     if (!art_temp_buffer)
         art_temp_buffer = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
     if (!blur_bg_buf)
-        blur_bg_buf = (uint16_t*)heap_caps_malloc(800 * 480 * 2, MALLOC_CAP_SPIRAM);
+        blur_bg_buf = (uint16_t*)heap_caps_malloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * 2, MALLOC_CAP_SPIRAM);
     if (!art_buffer || !art_temp_buffer) { vTaskDelete(NULL); return; }
 
     if (!art_cache[0].pixels)
