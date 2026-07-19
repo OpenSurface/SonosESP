@@ -130,12 +130,27 @@ Real SonosESP installs in the wild — kitchens, offices, studios, dorm rooms.
 
 <table>
   <tr>
-    <td align="center" width="33%">
-      <em>Your build here?</em><br>
-      <a href="https://github.com/OpenSurface/SonosESP/issues/new?template=showcase.yml">Share a photo →</a>
+    <td align="center" width="50%">
+      <a href="https://github.com/OpenSurface/SonosESP/issues/97"><img src="https://github.com/user-attachments/assets/26036636-6b42-44ce-bb5c-498b7dfd2936" width="380" alt="4-inch SonosESP with a Brennan B3 jukebox"/></a><br>
+      <sub><b>Living room · Brennan B3 Jukebox</b><br>Sonos Beam 2 + 2 Symfonisk frames · <a href="https://github.com/johnhenrick3-cpu">@johnhenrick3-cpu</a></sub>
     </td>
-    <td align="center" width="33%"></td>
-    <td align="center" width="33%"></td>
+    <td align="center" width="50%">
+      <a href="https://github.com/OpenSurface/SonosESP/issues/96"><img src="https://github.com/user-attachments/assets/ec17fe9a-abac-4a81-bd77-8aa3f73e2f0c" width="380" alt="4-inch SonosESP with a Brennan B2 jukebox"/></a><br>
+      <sub><b>Living room · Brennan B2 Jukebox</b><br>Sonos Era 300 · <a href="https://github.com/johnhenrick3-cpu">@johnhenrick3-cpu</a></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <a href="https://github.com/OpenSurface/SonosESP/issues/95"><img src="https://github.com/user-attachments/assets/d0f0d7e4-73a2-46f6-aeab-50cc429ea9e4" width="380" alt="7-inch SonosESP variant on a kitchen table"/></a><br>
+      <sub><b>Kitchen table · 7&quot; variant <em>(beta)</em></b><br>Sonos Move 2 · <a href="https://github.com/johnhenrick3-cpu">@johnhenrick3-cpu</a></sub>
+    </td>
+    <td align="center" width="50%">
+      <a href="https://github.com/OpenSurface/SonosESP/issues/94"><img src="https://github.com/user-attachments/assets/b7f5e037-3ea3-4802-8b7d-62adacd9078d" width="380" alt="4-inch SonosESP on a bedside table"/></a><br>
+      <sub><b>Bedside table</b><br>Sonos Ray + 2 Symfonisk lamps · <a href="https://github.com/johnhenrick3-cpu">@johnhenrick3-cpu</a></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><em>Want yours featured?</em> <a href="https://github.com/OpenSurface/SonosESP/issues/new?template=showcase.yml">Share a photo →</a></td>
   </tr>
 </table>
 
