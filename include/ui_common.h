@@ -139,6 +139,13 @@ extern int ui_vol;
 extern bool ui_playing, ui_shuffle, ui_muted;
 extern bool dragging_vol, dragging_prog;
 
+// Set to force updateUI() to re-push every value to the widgets on its next pass,
+// bypassing the "only write when changed" caches. Needed after the player screen
+// is rebuilt (theme switch): the new widgets start blank while the caches still
+// hold the playing track, so nothing would be redrawn until the song changed.
+// Covers the caches that live as function-local statics and can't be reset directly.
+extern volatile bool ui_force_refresh;
+
 // WiFi state
 extern String selectedSSID;
 extern int kb_mode;

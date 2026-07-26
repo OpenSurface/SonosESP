@@ -1623,7 +1623,7 @@ static void updateNextTrackUI(SonosDevice* d) {
 
     // ── LVGL work happens outside the lock ──
     if (show) {
-        if (nextTitle != last_next_title) {
+        if (nextTitle != last_next_title || ui_force_refresh) {
             lv_label_set_text(lbl_next_title, nextTitle.c_str());
             lv_label_set_text(lbl_next_artist, nextArtist.c_str());
             lv_obj_clear_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
@@ -1918,18 +1918,22 @@ void updateUI() {
 
     // Album name (below album art)
     static String ui_album_name = "";
-    if (s_album != ui_album_name) {
+    if (s_album != ui_album_name || ui_force_refresh) {
         lv_label_set_text(lbl_album, s_album.c_str());
         ui_album_name = s_album;
     }
 
     // Device name in header
     static String ui_device_name = "";
-    if (s_room != ui_device_name) {
+    if (s_room != ui_device_name || ui_force_refresh) {
         String np = "Now Playing - " + s_room;
         lv_label_set_text(lbl_device_name, np.c_str());
         ui_device_name = s_room;
     }
+
+    // Consume the force-refresh request now that every cached block above has
+    // had a chance to re-push its value into the (possibly rebuilt) widgets.
+    ui_force_refresh = false;
 
     // Time display
     String t = s_relTime;

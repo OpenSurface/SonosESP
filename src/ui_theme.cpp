@@ -175,6 +175,9 @@ void themeSet(uint8_t idx) {
     ui_playing = !ui_playing;
     ui_shuffle = !ui_shuffle;
     ui_muted   = !ui_muted;
+    // The remaining caches (device name, album, next-up) are function-local statics
+    // that can't be reached from here — this makes updateUI() re-push them once.
+    ui_force_refresh = true;
 
     // Re-publish the currently loaded artwork/colour into the fresh widgets.
     // displayCompletedArt() consumes these flags on the next UI tick and rebuilds
