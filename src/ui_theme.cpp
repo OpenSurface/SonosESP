@@ -47,7 +47,11 @@ bool themeUsesBlurBg(void) {
 //   - scale:    tint stays dark enough for white text; solid is lifted to the
 //     vivid fill in the mockup.
 // A floor keeps near-black artwork from producing an unreadable void.
-static uint32_t shade(uint32_t c, float scale, float sat, int floor_lum) {
+// `ceil_lum` is what keeps a bright or washed-out album from producing a glaring
+// backdrop that white lyrics disappear into — the brightness is clamped into a
+// band rather than tracking the artwork upward without limit. Pass 0 to skip it
+// (used for the accent colour, which is meant to be bright).
+static uint32_t shade(uint32_t c, float scale, float sat, int floor_lum, int ceil_lum) {
     int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
     int mean = (r + g + b) / 3;
 
@@ -56,19 +60,27 @@ static uint32_t shade(uint32_t c, float scale, float sat, int floor_lum) {
     b = mean + (int)((b - mean) * sat);
 
     r = (int)(r * scale); g = (int)(g * scale); b = (int)(b * scale);
+    if (r < 0) r = 0; if (g < 0) g = 0; if (b < 0) b = 0;
 
-    // Lift very dark results so text/controls stay legible against the backdrop.
+    // Lift very dark results so the screen doesn't read as black.
     int lum = (r * 30 + g * 59 + b * 11) / 100;
-    if (lum < floor_lum && lum > 0) {
-        int lift = (floor_lum * 100) / (lum > 0 ? lum : 1);
-        r = (r * lift) / 100; g = (g * lift) / 100; b = (b * lift) / 100;
-    } else if (lum == 0) {
+    if (lum == 0) {
         r = g = b = floor_lum;
+    } else if (lum < floor_lum) {
+        int lift = (floor_lum * 100) / lum;
+        r = (r * lift) / 100; g = (g * lift) / 100; b = (b * lift) / 100;
     }
 
-    if (r < 0) r = 0; if (r > 255) r = 255;
-    if (g < 0) g = 0; if (g > 255) g = 255;
-    if (b < 0) b = 0; if (b > 255) b = 255;
+    // Pull bright results back down so the backdrop never overpowers the text.
+    if (ceil_lum > 0) {
+        lum = (r * 30 + g * 59 + b * 11) / 100;
+        if (lum > ceil_lum) {
+            int cut = (ceil_lum * 100) / lum;
+            r = (r * cut) / 100; g = (g * cut) / 100; b = (b * cut) / 100;
+        }
+    }
+
+    if (r > 255) r = 255; if (g > 255) g = 255; if (b > 255) b = 255;
     return ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
 }
 
@@ -81,16 +93,17 @@ void themeApplyBackdrop(uint32_t rgb) {
 
         case THEME_BG_AMBIENT_TINT:
             // Deep and muted: sits behind the existing panels, white text on top.
-            lv_obj_set_style_bg_color(scr_main, lv_color_hex(shade(rgb, 0.90f, 1.35f, 26)), 0);
+            lv_obj_set_style_bg_color(scr_main, lv_color_hex(shade(rgb, 0.90f, 1.35f, 26, 64)), 0);
             break;
 
         case THEME_BG_AMBIENT_SOLID:
-            // Vivid full-bleed fill (mockup theme-03).
-            lv_obj_set_style_bg_color(scr_main, lv_color_hex(shade(rgb, 2.30f, 1.60f, 70)), 0);
-            // The play button is this layout's accent — lift it further so it still
-            // separates from the saturated backdrop it sits on.
+            // Rich full-bleed fill, deliberately held in a mid-dark band: bright
+            // artwork used to wash this out until the white lyrics were unreadable.
+            lv_obj_set_style_bg_color(scr_main, lv_color_hex(shade(rgb, 1.55f, 1.30f, 42, 100)), 0);
+            // The play button is this layout's accent — kept bright (no ceiling) so
+            // it still separates from the backdrop it sits on.
             if (btn_play)
-                lv_obj_set_style_bg_color(btn_play, lv_color_hex(shade(rgb, 3.20f, 1.70f, 140)), 0);
+                lv_obj_set_style_bg_color(btn_play, lv_color_hex(shade(rgb, 3.20f, 1.70f, 140, 0)), 0);
             break;
     }
 }
@@ -152,6 +165,16 @@ void themeSet(uint8_t idx) {
         if (lv_screen_active() == old) lv_screen_load(scr_main);
         lv_obj_del(old);          // delete AFTER rebuild so nothing sees a dangling scr_main
     }
+
+    // Invalidate the UI caches. updateUI() only writes a label when the value
+    // differs from these, so after a rebuild the new (empty) widgets would keep
+    // showing "Not Playing" until the track actually changed. Strings get a value
+    // no track can match; the bools are inverted so the next tick corrects them.
+    ui_title  = "\x01"; ui_artist = "\x01"; ui_repeat = "\x01";
+    ui_vol    = -1;
+    ui_playing = !ui_playing;
+    ui_shuffle = !ui_shuffle;
+    ui_muted   = !ui_muted;
 
     // Re-publish the currently loaded artwork/colour into the fresh widgets.
     // displayCompletedArt() consumes these flags on the next UI tick and rebuilds

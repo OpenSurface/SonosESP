@@ -48,14 +48,34 @@
 // Vertical centring inside the bar — one source of truth for the whole row.
 #define IM_BAR_MID(h)  ((IM_BAR_H - (h)) / 2)
 
+// Volume icon: rests on the right of the bar; slides to the head of the progress
+// row when tapped, handing the full width of that row to the volume slider.
+#define IM_MUTE_X      624
+#define IM_VOL_ICON_X  IM_MARGIN
+#define IM_ROW_X       78
+#define IM_ROW_W       250
+
+// How long the title lingers on the stage when a track has no lyrics, before it
+// fades away and leaves a clean field of colour.
+#define IM_TITLE_HOLD_MS   5000
+// Idle timeout for the slide-out volume bar.
+#define IM_VOL_HOLD_MS     4000
+
 // ── Lyric stage state ───────────────────────────────────────────────────────
 static lv_obj_t*    im_stage      = nullptr;   // the big animated text
 static lv_timer_t*  im_timer      = nullptr;
 static int          im_last_idx   = -999;
 static char         im_last_txt[MAX_LYRIC_TEXT] = "";
+static uint32_t     im_fade_at    = 0;         // ms deadline to fade the stage out (0 = stay)
+
+// ── Volume fly-out state ────────────────────────────────────────────────────
+static bool         im_vol_open   = false;
+static uint32_t     im_vol_close_at = 0;
+static lv_obj_t*    im_prog_group[3] = { nullptr, nullptr, nullptr };  // time / progress / -time
 
 static void im_anim_opa(void* o, int32_t v) { lv_obj_set_style_text_opa((lv_obj_t*)o, (lv_opa_t)v, 0); }
 static void im_anim_y(void* o, int32_t v)   { lv_obj_set_y((lv_obj_t*)o, v); }
+static void im_anim_x(void* o, int32_t v)   { lv_obj_set_x((lv_obj_t*)o, v); }
 
 // Places `txt` on the stage. `lively` = a new synced lyric line: randomise the
 // position and animate it in. Otherwise (title fallback) sit calmly centred.
@@ -117,28 +137,91 @@ static void im_show(const char* txt, bool lively) {
     lv_anim_start(&a);
 }
 
+// Fades the stage out and leaves it empty.
+static void im_stage_fade_out(void) {
+    if (!im_stage) return;
+    im_fade_at = 0;
+    lv_anim_delete(im_stage, im_anim_opa);
+    lv_anim_delete(im_stage, im_anim_y);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, im_stage);
+    lv_anim_set_duration(&a, 420);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
+    lv_anim_set_exec_cb(&a, im_anim_opa);
+    lv_anim_set_values(&a, lv_obj_get_style_text_opa(im_stage, LV_PART_MAIN), 0);
+    lv_anim_start(&a);
+}
+
+// Slides the volume bar into the progress row, or puts the progress row back.
+static void im_vol_set_open(bool open) {
+    if (!btn_mute || !slider_vol) return;
+    im_vol_open = open;
+    im_vol_close_at = open ? (lv_tick_get() + IM_VOL_HOLD_MS) : 0;
+
+    // The volume slider occupies the same slot as the progress bar, so opening it
+    // gives the whole width of the bar to volume — nothing is cramped in beside it.
+    for (auto* o : im_prog_group) {
+        if (!o) continue;
+        if (open) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+        else      lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (open) lv_obj_remove_flag(slider_vol, LV_OBJ_FLAG_HIDDEN);
+    else      lv_obj_add_flag(slider_vol, LV_OBJ_FLAG_HIDDEN);
+
+    // Glide the icon between its resting place and the head of the volume row.
+    lv_anim_delete(btn_mute, im_anim_x);
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, btn_mute);
+    lv_anim_set_duration(&a, 260);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_exec_cb(&a, im_anim_x);
+    lv_anim_set_values(&a, lv_obj_get_x(btn_mute), open ? SX(IM_VOL_ICON_X) : SX(IM_MUTE_X));
+    lv_anim_start(&a);
+}
+
+// Any interaction with the volume keeps it on screen.
+static void im_vol_poke(void) {
+    if (im_vol_open) im_vol_close_at = lv_tick_get() + IM_VOL_HOLD_MS;
+}
+
 // Drives the stage. updateLyricsDisplay() owns the timing and advances
 // current_lyric_index; we only react to it changing.
 static void im_tick(lv_timer_t*) {
+    // Auto-close the volume fly-out.
+    if (im_vol_open && im_vol_close_at && lv_tick_get() > im_vol_close_at) im_vol_set_open(false);
+
     if (!im_stage) return;
 
     bool have = lyrics_enabled && lyrics_ready && lyric_count > 0;
     if (have) {
         if (current_lyric_index != im_last_idx) {
             im_last_idx = current_lyric_index;
-            im_show(lyricsCurrentText(), true);
+            const char* t = lyricsCurrentText();
+            if (t && t[0]) {
+                im_show(t, true);
+                im_fade_at = 0;          // lyrics keep coming — stay on screen
+            } else {
+                im_stage_fade_out();     // gap between lines
+            }
         }
         return;
     }
 
-    // No lyrics — show the track title so the stage still carries the design.
+    // No lyrics for this track (or lyrics switched off): show the title briefly so
+    // the stage still carries the design, then let it fade so the screen settles
+    // into clean colour instead of parking text there forever.
     im_last_idx = -999;   // re-animate when lyrics do arrive
     const char* t = lbl_title ? lv_label_get_text(lbl_title) : "";
     if (t && strcmp(t, im_last_txt) != 0) {
         strncpy(im_last_txt, t, sizeof(im_last_txt) - 1);
         im_last_txt[sizeof(im_last_txt) - 1] = '\0';
         im_show(t, false);
+        im_fade_at = lv_tick_get() + IM_TITLE_HOLD_MS;
     }
+    if (im_fade_at && lv_tick_get() > im_fade_at) im_stage_fade_out();
 }
 
 // The stage timer outlives nothing — kill it with the screen it draws on.
@@ -199,6 +282,9 @@ static void park(lv_obj_t* o) {
 void buildImmersivePlayer() {
     im_stage = nullptr; im_timer = nullptr;
     im_last_idx = -999; im_last_txt[0] = '\0';
+    im_fade_at = 0;
+    im_vol_open = false; im_vol_close_at = 0;
+    im_prog_group[0] = im_prog_group[1] = im_prog_group[2] = nullptr;
 
     scr_main = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_main, lv_color_hex(0x1b1b1b), 0);   // until the first art colour lands
@@ -355,8 +441,8 @@ void buildImmersivePlayer() {
     lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_14, 0);
 
     slider_progress = lv_slider_create(bar);
-    lv_obj_set_pos(slider_progress, SX(78), SY(IM_BAR_MID(6)));
-    lv_obj_set_size(slider_progress, SX(250), SY(6));
+    lv_obj_set_pos(slider_progress, SX(IM_ROW_X), SY(IM_BAR_MID(6)));
+    lv_obj_set_size(slider_progress, SX(IM_ROW_W), SY(6));
     lv_slider_set_range(slider_progress, 0, 100);
     lv_obj_set_style_bg_color(slider_progress, lv_color_hex(0x3A3A3A), LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_progress, COL_ACCENT, LV_PART_INDICATOR);
@@ -389,17 +475,34 @@ void buildImmersivePlayer() {
     lv_obj_center(ico_play);
 
     btn_next = roundBtn(bar, MDI_SKIP_NEXT, &lv_font_mdi_32, 552, IM_BAR_MID(44), 44, ev_next, false);
-    btn_mute = roundBtn(bar, MDI_VOLUME_HIGH, &lv_font_mdi_32, 624, IM_BAR_MID(44), 44, ev_mute, false);
 
+    // Volume: just an icon until tapped. Tapping slides it to the head of the row
+    // and reveals the slider across the full width; tapping again while open
+    // toggles mute (so mute is still reachable). Auto-closes after IM_VOL_HOLD_MS.
+    btn_mute = roundBtn(bar, MDI_VOLUME_HIGH, &lv_font_mdi_32, IM_MUTE_X, IM_BAR_MID(44), 44, nullptr, false);
+    lv_obj_add_event_cb(btn_mute, [](lv_event_t* e) {
+        if (im_vol_open) { ev_mute(e); im_vol_poke(); }
+        else             { im_vol_set_open(true); }
+    }, LV_EVENT_CLICKED, NULL);
+
+    // Shares the progress row's slot — only one of the two is visible at a time.
     slider_vol = lv_slider_create(bar);
-    lv_obj_set_pos(slider_vol, SX(680), SY(IM_BAR_MID(6)));
-    lv_obj_set_size(slider_vol, SX(88), SY(6));   // 680 + 88 = 768, flush with the right margin
+    lv_obj_set_pos(slider_vol, SX(IM_ROW_X), SY(IM_BAR_MID(6)));
+    lv_obj_set_size(slider_vol, SX(IM_ROW_W + 120), SY(6));
     lv_slider_set_range(slider_vol, 0, 100);
     lv_obj_set_style_bg_color(slider_vol, lv_color_hex(0x3A3A3A), LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_KNOB);
-    lv_obj_set_style_pad_all(slider_vol, 3, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(slider_vol, 4, LV_PART_KNOB);
+    lv_obj_set_ext_click_area(slider_vol, 14);   // easier to grab a 6px bar
     lv_obj_add_event_cb(slider_vol, ev_vol_slider, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(slider_vol, [](lv_event_t*) { im_vol_poke(); }, LV_EVENT_ALL, NULL);
+    lv_obj_add_flag(slider_vol, LV_OBJ_FLAG_HIDDEN);   // hidden until the icon is tapped
+
+    // Watched by im_vol_set_open() so the volume row can take their place.
+    im_prog_group[0] = lbl_time;
+    im_prog_group[1] = slider_progress;
+    im_prog_group[2] = lbl_time_remaining;
 
     // ── Created but unused by this layout ───────────────────────────────────
     // updateUI() writes to all of these unconditionally, so they must exist.
