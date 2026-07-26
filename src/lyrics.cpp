@@ -688,6 +688,12 @@ void updateLyricsDisplay(int position_seconds) {
     lv_obj_set_style_text_color(lbl_lyric_current, lv_color_make(r, g, b), 0);
 }
 
+const char* lyricsCurrentText() {
+    if (!lyric_lines || !lyrics_ready) return "";
+    if (current_lyric_index < 0 || current_lyric_index >= lyric_count) return "";
+    return lyric_lines[current_lyric_index].text;
+}
+
 void setLyricsVisible(bool show) {
     if (!lyrics_container) return;
     if (show && lyrics_ready && lyric_count > 0) {

@@ -95,10 +95,11 @@ void themeApplyBackdrop(uint32_t rgb) {
     }
 }
 
-// Immersive header thumbnail size, in 800x480 design units.
-#define THEME_THUMB_PX   56
-#define THEME_THUMB_X    28
-#define THEME_THUMB_Y    22
+// Immersive header artwork, in 800x480 design units.
+// MUST match the header grid in ui_theme_immersive.cpp (IM_ART / IM_MARGIN / IM_HEAD_Y).
+#define THEME_THUMB_PX   112
+#define THEME_THUMB_X    32
+#define THEME_THUMB_Y    24
 
 void themeApplyArtGeometry(lv_obj_t* img) {
     if (!img) return;
