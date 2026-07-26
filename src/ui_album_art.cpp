@@ -10,6 +10,7 @@
 
 #include "ui_common.h"
 #include "config.h"
+#include "ui_theme.h"
 #include "ui_network_guard.h"
 #include <lwip/sockets.h>   // lwip_setsockopt / SO_RCVBUF
 #include <lwip/netdb.h>     // getaddrinfo / freeaddrinfo (for artPreConnectHTTP)
@@ -257,6 +258,10 @@ static void color_anim_cb(void* var, int32_t t) {
     if (btn_shuffle) lv_obj_set_style_bg_color(btn_shuffle, bright, LV_STATE_PRESSED);
     if (btn_repeat) lv_obj_set_style_bg_color(btn_repeat, bright, LV_STATE_PRESSED);
     if (btn_queue) lv_obj_set_style_bg_color(btn_queue, bright, LV_STATE_PRESSED);
+
+    // Theme backdrop rides the same interpolation, so an ambient background
+    // cross-fades between tracks instead of snapping. No-op for the Classic theme.
+    themeApplyBackdrop(((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
 }
 
 // Save final color as new baseline when animation completes

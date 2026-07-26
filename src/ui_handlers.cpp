@@ -7,6 +7,7 @@
 #include "ui_icons.h"
 #include <vector>
 #include "config.h"
+#include "ui_theme.h"
 #include "lyrics.h"
 #include "clock_screen.h"
 #include <esp_task_wdt.h>
@@ -1536,8 +1537,7 @@ static void displayCompletedArt() {
         art_dsc.data_size   = ART_SIZE * ART_SIZE * 2;
         art_dsc.data        = (const uint8_t*)art_buffer;
         lv_img_set_src(img_album, &art_dsc);
-        lv_obj_set_size(img_album, ART_SIZE, ART_SIZE);
-        lv_obj_center(img_album);
+        themeApplyArtGeometry(img_album);   // HERO (Classic) vs THUMB (Immersive)
         lv_obj_remove_flag(img_album, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
         art_ready = false;
@@ -1547,7 +1547,9 @@ static void displayCompletedArt() {
         lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
         art_show_placeholder = false;
     }
-    if (blur_bg_ready && img_blur_bg && blur_bg_buf) {
+    // Ambient/Immersive themes paint a solid backdrop instead — themeUsesBlurBg()
+    // keeps the blurred art hidden so it can't sit on top of that colour.
+    if (blur_bg_ready && img_blur_bg && blur_bg_buf && themeUsesBlurBg()) {
         memset(&blur_bg_dsc, 0, sizeof(blur_bg_dsc));
         blur_bg_dsc.header.w  = DISPLAY_WIDTH;
         blur_bg_dsc.header.h  = DISPLAY_HEIGHT;

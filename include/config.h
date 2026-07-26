@@ -226,6 +226,8 @@
 // (No migration needed: the old key could never be written, so there is nothing to read.)
 #define NVS_KEY_BRIGHTNESS_DIM  "bright_dim"
 #define NVS_KEY_AUTODIM         "autodim_sec"
+#define NVS_KEY_THEME           "theme"         // player theme index (see ui_theme.h)
+#define DEFAULT_THEME           0               // 0 = Classic (unchanged original look)
 #define NVS_KEY_OTA_CHANNEL     "ota_channel"
 #define NVS_KEY_CACHED_DEVICE   "cached_dev"
 #define NVS_KEY_LYRICS          "lyrics"

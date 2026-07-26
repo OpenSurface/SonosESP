@@ -12,14 +12,25 @@
 #include "ui_common.h"
 #include "lyrics.h"
 #include "ui_icons.h"
+#include "ui_theme.h"
 
-// ==================== MAIN SCREEN - CLEAN SIMPLE DESIGN ====================
+// Entry point: hands off to the active theme's builder (see ui_theme.cpp).
+// Each builder is responsible for creating scr_main and every player widget global.
 void createMainScreen() {
+    themeCurrent()->build();
+}
+
+// ==================== CLASSIC LAYOUT — used by Classic + Ambient ============
+// Ambient shares this layout and differs only in backdrop treatment, which is
+// applied by themeApplyBackdrop() from the art colour animation.
+void buildClassicPlayer() {
     scr_main = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_main, lv_color_hex(0x111111), 0);  // dark fallback before first art loads
     lv_obj_clear_flag(scr_main, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Blurred art background — fullscreen, must be first child (lowest z-order)
+    // Blurred art background — fullscreen, must be first child (lowest z-order).
+    // Ambient keeps this hidden (themeUsesBlurBg() gates the upload) so the tinted
+    // screen colour shows through the transparent panels instead.
     img_blur_bg = lv_img_create(scr_main);
     lv_obj_set_size(img_blur_bg, SX(800), SY(480));
     lv_obj_set_pos(img_blur_bg, 0, 0);

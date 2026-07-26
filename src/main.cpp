@@ -8,6 +8,7 @@
 #include "config.h"
 #include "lyrics.h"
 #include "clock_screen.h"
+#include "ui_theme.h"
 #include <esp_flash.h>
 #include <esp_task_wdt.h>
 // Sonos logo
@@ -250,6 +251,10 @@ void setup() {
 
     // Initialize lyrics PSRAM buffer before creating screens
     initLyrics();
+
+    // Resolve the saved player theme BEFORE the first build — createMainScreen()
+    // dispatches to the active theme's builder. Clamps stale/invalid indices.
+    themeLoad();
 
     createMainScreen();
     updateBootProgress(35);
