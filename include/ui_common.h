@@ -231,7 +231,7 @@ void updateUI();
 void processUpdates();
 void triggerPendingOTA();  // Called from setup() if NVS_KEY_OTA_PENDING was saved before reboot — runs OTA at boot before background tasks start (full DMA headroom)
 String urlEncode(const char *url);
-void cleanupBrowseData(lv_obj_t *list);
+// (cleanupBrowseData removed — browse rows now free their ItemData via LV_EVENT_DELETE)
 lv_obj_t *createSettingsSidebar(lv_obj_t *screen, int activeIdx);
 
 // HTML entity decoding helper (inline to avoid code duplication)

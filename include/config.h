@@ -116,6 +116,13 @@
 #define ART_DECODE_MAX_FAILURES 3       // Give up on URL after N decode failures
 #define ART_SW_JPEG_FALLBACK    1       // Enable JPEGDEC SW fallback (progressive, non-div-8)
 
+// Widest PNG accepted by decodeToRGB565(). SAFETY-CRITICAL: pngDraw()'s static row
+// buffer is sized from this, and PNGdec's getLineAsRGB565() takes no length argument —
+// it writes iWidth pixels unconditionally. Any PNG wider than this is rejected before
+// decode. Keep the buffer (2 bytes/px) and this limit in lock-step.
+#define PNG_MAX_DECODE_WIDTH    1024    // 2KB row buffer; Sonos getaa is capped at 600px
+#define PNG_MAX_DECODE_HEIGHT   2048    // height is streamed row-by-row — no buffer impact
+
 // =============================================================================
 // SONOS CONTROLLER
 // =============================================================================
@@ -212,7 +219,12 @@
 #define NVS_KEY_SSID            "ssid"
 #define NVS_KEY_PASSWORD        "pass"
 #define NVS_KEY_BRIGHTNESS      "brightness"
-#define NVS_KEY_BRIGHTNESS_DIM  "brightness_dimmed"
+// NOTE: NVS keys are limited to 15 characters. A longer key makes nvs_set_* fail with
+// ESP_ERR_NVS_KEY_TOO_LONG, and Arduino's Preferences only reports that via log_e() —
+// which is compiled out by CORE_DEBUG_LEVEL=0, so the write fails SILENTLY.
+// "brightness_dimmed" was 17 chars, so dimmed brightness never persisted across reboots.
+// (No migration needed: the old key could never be written, so there is nothing to read.)
+#define NVS_KEY_BRIGHTNESS_DIM  "bright_dim"
 #define NVS_KEY_AUTODIM         "autodim_sec"
 #define NVS_KEY_OTA_CHANNEL     "ota_channel"
 #define NVS_KEY_CACHED_DEVICE   "cached_dev"
@@ -345,6 +357,7 @@
 // Lyrics-specific
 #define LYRICS_ART_WAIT_TIMEOUT_MS  15000   // Max wait for art_download_in_progress to clear (storm cooldown 3000ms + download ~2000ms + margin)
 #define LYRICS_RETRY_DELAY_MS        2000   // Between lyrics HTTPS fetch retry attempts
+#define LYRICS_TCB_REAP_MS            100   // Grace before reusing the static TCB (idle0 reap)
 #define CLOCK_BG_MIN_DMA            64000   // Skip clockBgTask photo download if DMA below this.
                                             // TX crash confirmed at 57KB (log16) — 64KB = 7KB margin above crash floor.
                                             // Photo is non-critical (clock still shows, weather still fetches).

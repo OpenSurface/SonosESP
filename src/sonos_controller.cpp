@@ -167,29 +167,6 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
 String SonosController::sendSOAP(SonosDevice* dev, const char* service, const char* action, const char* args) {
     if (!dev) return "";
 
-    // Use static buffers to eliminate String allocation/fragmentation
-    static char url[256];
-    static char body[2048];  // Large buffer for SOAP body
-    static char soapAction[256];
-    const char* endpoint;
-
-    // Determine endpoint (no String allocation)
-    if (strstr(service, "AVTransport")) {
-        endpoint = "/MediaRenderer/AVTransport/Control";
-    } else if (strstr(service, "RenderingControl")) {
-        endpoint = "/MediaRenderer/RenderingControl/Control";
-    } else if (strstr(service, "ContentDirectory")) {
-        endpoint = "/MediaServer/ContentDirectory/Control";
-    } else {
-        // Fallback - build endpoint in buffer
-        static char custom_endpoint[128];
-        snprintf(custom_endpoint, sizeof(custom_endpoint), "/MediaRenderer/%s/Control", service);
-        endpoint = custom_endpoint;
-    }
-
-    // Build URL without String concatenation
-    snprintf(url, sizeof(url), "http://%s:1400%s", dev->ip.toString().c_str(), endpoint);
-
     // Validate args size to prevent buffer overflow
     // SOAP wrapper adds ~400 bytes, so args must stay under 1600 bytes
     size_t args_len = strlen(args);
@@ -197,35 +174,6 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
         Serial.printf("[SONOS] ERROR: SOAP args too large (%d bytes, max 1600)\n", args_len);
         return "";
     }
-
-    // Build SOAP body without String concatenation
-    snprintf(body, sizeof(body),
-        "<?xml version=\"1.0\"?>"
-        "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" "
-        "s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
-        "<s:Body><u:%s xmlns:u=\"urn:schemas-upnp-org:service:%s:1\">%s</u:%s>"
-        "</s:Body></s:Envelope>",
-        action, service, args, action);
-
-    // Build SOAPAction header
-    snprintf(soapAction, sizeof(soapAction), "urn:schemas-upnp-org:service:%s:1#%s", service, action);
-
-    // Fresh HTTPClient per request — Sonos's embedded HTTP server does not support
-    // HTTP/1.1 keep-alive (persistent connections cause -1 / connection-refused errors).
-    HTTPClient http;
-    http.begin(url);
-    http.setTimeout(2000);
-    http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
-    // Tell Sonos to close the connection after the response. Sonos already does this
-    // (no keep-alive per comment above), but making it explicit ensures the server
-    // sends its FIN immediately after the response body → FIN-wait loop (below) reliably
-    // detects CLOSE_WAIT → passive close → zero DMA cost per SOAP.
-    http.addHeader("Connection", "close");
-
-    // Build full header value with quotes
-    static char soapActionHeader[280];
-    snprintf(soapActionHeader, sizeof(soapActionHeader), "\"%s\"", soapAction);
-    http.addHeader("SOAPAction", soapActionHeader);
 
     // PRE-WAIT: general 200ms cooldown only. SOAP is plain HTTP — it does NOT need the
     // HTTPS cooldown (SDIO_HTTPS_COOLDOWN_MS = 3s). That cooldown was preventing SOAPs
@@ -243,7 +191,6 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
     // Acquire network_mutex to serialize WiFi access
     if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
         Serial.println("[SOAP] Failed to acquire network mutex - request failed");
-        http.end();
         return "";
     }
 
@@ -255,6 +202,63 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
             vTaskDelay(pdMS_TO_TICKS(SDIO_GENERAL_COOLDOWN_MS - elapsed));
         }
     }
+
+    // ── Request construction — MUST stay inside the mutex ─────────────────────
+    // These buffers are static to avoid ~2.9KB of stack on each of the three task
+    // stacks that call sendSOAP(), which makes them SHARED state. sendSOAP() runs
+    // concurrently on mainAppTask (browse/groups/play), pollingTask and networkTask,
+    // so building them before the mutex allowed one task to overwrite another's body
+    // during the cooldown/mutex wait — e.g. a user's Next command being POSTed with a
+    // GetPositionInfo body under a Next SOAPAction (command silently lost). Everything
+    // below reads these buffers, so it all belongs under the lock.
+    static char url[256];
+    static char body[2048];  // Large buffer for SOAP body
+    static char soapAction[256];
+    static char soapActionHeader[280];
+    static char custom_endpoint[128];
+    const char* endpoint;
+
+    // Determine endpoint (no String allocation)
+    if (strstr(service, "AVTransport")) {
+        endpoint = "/MediaRenderer/AVTransport/Control";
+    } else if (strstr(service, "RenderingControl")) {
+        endpoint = "/MediaRenderer/RenderingControl/Control";
+    } else if (strstr(service, "ContentDirectory")) {
+        endpoint = "/MediaServer/ContentDirectory/Control";
+    } else {
+        // Fallback - build endpoint in buffer
+        snprintf(custom_endpoint, sizeof(custom_endpoint), "/MediaRenderer/%s/Control", service);
+        endpoint = custom_endpoint;
+    }
+
+    // Build URL without String concatenation
+    snprintf(url, sizeof(url), "http://%s:1400%s", dev->ip.toString().c_str(), endpoint);
+
+    // Build SOAP body without String concatenation
+    snprintf(body, sizeof(body),
+        "<?xml version=\"1.0\"?>"
+        "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" "
+        "s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
+        "<s:Body><u:%s xmlns:u=\"urn:schemas-upnp-org:service:%s:1\">%s</u:%s>"
+        "</s:Body></s:Envelope>",
+        action, service, args, action);
+
+    // Build SOAPAction header (quoted form built straight after)
+    snprintf(soapAction, sizeof(soapAction), "urn:schemas-upnp-org:service:%s:1#%s", service, action);
+    snprintf(soapActionHeader, sizeof(soapActionHeader), "\"%s\"", soapAction);
+
+    // Fresh HTTPClient per request — Sonos's embedded HTTP server does not support
+    // HTTP/1.1 keep-alive (persistent connections cause -1 / connection-refused errors).
+    HTTPClient http;
+    http.begin(url);
+    http.setTimeout(2000);
+    http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
+    // Tell Sonos to close the connection after the response. Sonos already does this
+    // (no keep-alive per comment above), but making it explicit ensures the server
+    // sends its FIN immediately after the response body → FIN-wait loop (below) reliably
+    // detects CLOSE_WAIT → passive close → zero DMA cost per SOAP.
+    http.addHeader("Connection", "close");
+    http.addHeader("SOAPAction", soapActionHeader);
 
     int code = http.POST(body);
     String response = "";  // Keep String for return value (used by callers)
@@ -1756,8 +1760,19 @@ void SonosController::pollingTaskFunction(void* param) {
             // Guard clears once the art task downloads and syncs pending_art_url=last_art_url.
             // Uses != last_art_url (NOT !isEmpty()): isEmpty() is true for any stream with
             // art → would block volume/transport/queue polling forever during stable playback.
-            if (art_download_in_progress || isAlbumArtPending()) {
+            // The vTaskDelay is OUTSIDE the connected-device block (bottom of the while
+            // loop), so `continue` here skips it entirely — this guard must delay itself
+            // or it spins the optional-SOAP section with zero inter-cycle pause (the exact
+            // SOAP storm the rest of this architecture exists to prevent). The sibling
+            // guards above both delay before continuing.
+            // Bounded by the same 10s window as the guard above: art abort paths leave
+            // art_download_in_progress set deliberately, and isAlbumArtPending() also
+            // returns true on art_mutex timeout — without a bound, either one stalls
+            // volume/transport/queue polling forever.
+            if ((art_download_in_progress || isAlbumArtPending()) &&
+                last_track_change_ms > 0 && millis() - last_track_change_ms < 10000) {
                 tick++;
+                vTaskDelay(pdMS_TO_TICKS(POLL_BASE_INTERVAL_MS));
                 continue;
             }
             // ─────────────────────────────────────────────────────────────────────

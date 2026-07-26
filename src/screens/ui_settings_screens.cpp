@@ -266,25 +266,30 @@ void createSourcesScreen() {
 // ============================================================================
 // Browse Screen
 // ============================================================================
-void cleanupBrowseData(lv_obj_t* list) {
-    if (!list) return;
-    uint32_t child_count = lv_obj_get_child_count(list);
-    for (uint32_t i = 0; i < child_count; i++) {
-        lv_obj_t* child = lv_obj_get_child(list, i);
-        if (child) {
-            void* data = lv_obj_get_user_data(child);
-            if (data) {
-                heap_caps_free(data);
-                lv_obj_set_user_data(child, NULL);
-            }
-        }
+// Frees a browse row's heap-allocated ItemData when LVGL destroys the button — for ANY
+// reason (screen rebuild, lv_obj_del of an ancestor, list refresh). Attached per-button
+// where the ItemData is created.
+//
+// Replaces the old cleanupBrowseData(list) sweep, which was handed
+// lv_obj_get_child(scr_browse, -1) — the *content container*, not the item list. The list
+// is a grandchild, so the sweep only ever inspected {title, list} (neither carries
+// user_data) and freed nothing: ~2.2KB per row leaked on every navigation.
+// Deliberately NOT a recursive sweep: user_data elsewhere in this project stores plain
+// integer indices cast to void* (device/group/queue rows), which must never be freed.
+static void browseItemDeleteCb(lv_event_t* e) {
+    lv_obj_t* btn = (lv_obj_t*)lv_event_get_target(e);
+    if (!btn) return;
+    void* data = lv_obj_get_user_data(btn);
+    if (data) {
+        heap_caps_free(data);
+        lv_obj_set_user_data(btn, NULL);
     }
 }
 
 void createBrowseScreen() {
     if (scr_browse) {
-        lv_obj_t* list = lv_obj_get_child(scr_browse, -1);
-        cleanupBrowseData(list);
+        // Per-row ItemData is released by browseItemDeleteCb as LVGL tears down the
+        // subtree — no manual sweep needed (and the old one walked the wrong node).
         lv_obj_del(scr_browse);
     }
 
@@ -389,6 +394,8 @@ void createBrowseScreen() {
         data->itemXML[sizeof(data->itemXML) - 1] = '\0';
         data->isContainer = isContainer;
         lv_obj_set_user_data(btn, data);
+        // LVGL frees this ItemData when the button is destroyed (see browseItemDeleteCb).
+        lv_obj_add_event_cb(btn, browseItemDeleteCb, LV_EVENT_DELETE, NULL);
 
         lv_obj_t* icon = lv_label_create(btn);
         lv_label_set_text(icon, isContainer ? MDI_FOLDER : MDI_SPEAKER);

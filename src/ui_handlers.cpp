@@ -664,19 +664,57 @@ static void checkForUpdates() {
             Serial.printf("[OTA] Latest %s version: v%s (prerelease: %s)\n",
                           channelName, latest_version.c_str(), isPrerelease ? "yes" : "no");
 
-            // Find firmware.bin asset
+            // Find the firmware asset for THIS screen variant.
+            // Preferred: firmware-4inch.bin / firmware-7inch.bin (published since v1.9.0).
+            // Fallback:  the legacy unsuffixed firmware.bin, which is a copy of the 4"
+            //            build — correct for the 4" only, and scheduled for removal.
+            //            A 7" unit must never take it or it flashes 4" firmware.
+            // Note "firmware-4inch.bin".indexOf("firmware.bin") is -1 (no substring match),
+            // so the legacy check cannot accidentally swallow a variant asset.
+            #if SCREEN_SIZE == 7
+                const char* kVariantAsset = "firmware-7inch.bin";
+                const bool  kAllowLegacy  = false;   // legacy asset is the 4" build
+            #else
+                const char* kVariantAsset = "firmware-4inch.bin";
+                const bool  kAllowLegacy  = true;
+            #endif
+
+            // Reset before scanning: on a release with no matching asset this otherwise
+            // retains the URL from a previous check and the UI still offers to install it.
+            download_url = "";
+            String legacy_url = "";
             JsonArray assets = releaseObj["assets"];
             for (JsonObject asset : assets) {
                 String name = asset["name"].as<String>();
-                if (name.indexOf("firmware.bin") >= 0) {
+                if (name.indexOf(kVariantAsset) >= 0) {
                     download_url = asset["browser_download_url"].as<String>();
                     // Use HTTPS directly - ESP32-P4 supports it with WiFiClientSecure
-                    break;
+                    break;  // exact variant match wins
                 }
+                if (kAllowLegacy && name.indexOf("firmware.bin") >= 0) {
+                    legacy_url = asset["browser_download_url"].as<String>();
+                }
+            }
+            if (download_url.length() == 0 && legacy_url.length() > 0) {
+                Serial.println("[OTA] Variant asset not found - using legacy firmware.bin");
+                download_url = legacy_url;
+            }
+            if (download_url.length() == 0) {
+                Serial.printf("[OTA] No firmware asset for this build (%s) in release\n", kVariantAsset);
             }
 
             // Compare versions
-            if (latest_version != FIRMWARE_VERSION) {
+            if (latest_version != FIRMWARE_VERSION && download_url.length() == 0) {
+                // Newer release exists but carries no asset this build can install —
+                // don't offer an Install button that would download nothing.
+                if (lbl_ota_status) {
+                    lv_label_set_text_fmt(lbl_ota_status, MDI_ALERT " v%s available, no build for this screen", latest_version.c_str());
+                    lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFFAA00), 0);
+                }
+                if (btn_install_update) {
+                    lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+                }
+            } else if (latest_version != FIRMWARE_VERSION) {
                 if (lbl_ota_status) {
                     lv_label_set_text_fmt(lbl_ota_status, MDI_DOWNLOAD " Update available: v%s", latest_version.c_str());
                     lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0x4ECB71), 0);
