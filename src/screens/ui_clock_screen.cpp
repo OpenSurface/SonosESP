@@ -1081,7 +1081,14 @@ void checkClockTrigger() {
                     clkbg_task_stack = (StackType_t*)heap_caps_malloc(
                         CLOCK_BG_TASK_STACK, MALLOC_CAP_SPIRAM);
                 }
-                if (clkbg_task_stack) {
+                // Guard against a second create on the SAME static TCB + stack. CLOCK_EXITING
+                // gives up after 2s, but a photo GET can block for 15s+, so the task can
+                // still be alive when the next screensaver entry lands here. Re-initialising
+                // a live TCB puts two tasks on one 8KB stack → scheduler list corruption.
+                // (Every other task site in the project already guards on its handle.)
+                if (clockBgTaskHandle) {
+                    Serial.println("[CLOCK] BG task still running from previous session — not recreating");
+                } else if (clkbg_task_stack) {
                     clockBgTaskHandle = xTaskCreateStaticPinnedToCore(
                         clockBgTask, "ClkBg",
                         CLOCK_BG_TASK_STACK / sizeof(StackType_t),
@@ -1166,10 +1173,17 @@ void checkClockTrigger() {
                 lv_img_set_src(clock_bg_img, nullptr);
             }
 
-            // Now safe to free the pixel buffer
-            if (clock_bg_buffer) {
+            // Free the pixel buffer ONLY if the background task has actually exited.
+            // On the timeout path the task is still running and may be mid-JPEG-decode:
+            // it captured clock_bg_buffer before its last shutdown check and memsets +
+            // decodes 768KB into it with no re-check, so freeing here was a use-after-free
+            // into PSRAM. Leaking it until the task exits is the safe trade — the next
+            // entry reuses the existing allocation rather than allocating a second one.
+            if (clock_bg_buffer && clockBgTaskHandle == nullptr) {
                 heap_caps_free(clock_bg_buffer);
                 clock_bg_buffer = nullptr;
+            } else if (clock_bg_buffer) {
+                Serial.println("[CLOCK] BG task still alive — retaining buffer (freed on next clean exit)");
             }
             // Zero out descriptor so it no longer references freed memory
             memset(&clock_bg_dsc, 0, sizeof(clock_bg_dsc));

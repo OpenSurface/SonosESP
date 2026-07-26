@@ -21,7 +21,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.9.0"
+#define FIRMWARE_VERSION "1.10.0"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -139,6 +139,13 @@ extern int ui_vol;
 extern bool ui_playing, ui_shuffle, ui_muted;
 extern bool dragging_vol, dragging_prog;
 
+// Set to force updateUI() to re-push every value to the widgets on its next pass,
+// bypassing the "only write when changed" caches. Needed after the player screen
+// is rebuilt (theme switch): the new widgets start blank while the caches still
+// hold the playing track, so nothing would be redrawn until the song changed.
+// Covers the caches that live as function-local statics and can't be reset directly.
+extern volatile bool ui_force_refresh;
+
 // WiFi state
 extern String selectedSSID;
 extern int kb_mode;
@@ -231,7 +238,7 @@ void updateUI();
 void processUpdates();
 void triggerPendingOTA();  // Called from setup() if NVS_KEY_OTA_PENDING was saved before reboot — runs OTA at boot before background tasks start (full DMA headroom)
 String urlEncode(const char *url);
-void cleanupBrowseData(lv_obj_t *list);
+// (cleanupBrowseData removed — browse rows now free their ItemData via LV_EVENT_DELETE)
 lv_obj_t *createSettingsSidebar(lv_obj_t *screen, int activeIdx);
 
 // HTML entity decoding helper (inline to avoid code duplication)

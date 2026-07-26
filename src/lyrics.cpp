@@ -19,6 +19,13 @@ int lyric_count = 0;
 volatile bool lyrics_ready = false;
 volatile bool lyrics_fetching = false;
 volatile bool lyrics_abort_requested = false;  // Abort flag for rapid track changes
+
+// Set by the lyrics task immediately before vTaskDelete(NULL); requestLyrics() clears
+// lyricsTaskHandle only after LYRICS_TCB_REAP_MS has elapsed. The task uses a STATIC TCB,
+// which stays on FreeRTOS's termination list until the idle task reaps it — clearing the
+// handle inside the task let mainAppTask (which re-polls every UI frame, ~3ms) observe
+// NULL and re-initialise a TCB that was still queued for deletion → scheduler corruption.
+static volatile unsigned long lyrics_task_exit_ms = 0;
 int current_lyric_index = -1;
 
 // Pending fetch parameters (use fixed buffers to avoid String allocation overhead)
@@ -140,7 +147,7 @@ static void lyricsTaskFunc(void* param) {
     if (lyrics_abort_requested || lyrics_shutdown_requested) {
         lyrics_fetching = false;
         lyrics_abort_requested = false;
-        lyricsTaskHandle = NULL;
+        lyrics_task_exit_ms = millis();  // handle cleared by requestLyrics after reap grace
         vTaskDelete(NULL);
         return;
     }
@@ -204,7 +211,7 @@ static void lyricsTaskFunc(void* param) {
             lyrics_fetching = false;
             lyrics_abort_requested = false;
             lyrics_retry_count = 0;
-            lyricsTaskHandle = NULL;
+            lyrics_task_exit_ms = millis();  // handle cleared by requestLyrics after reap grace
             vTaskDelete(NULL);
             return;
         }
@@ -224,7 +231,7 @@ static void lyricsTaskFunc(void* param) {
         if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(3000))) {
             Serial.println("[LYRICS] Network busy, skipping fetch");
             lyrics_fetching = false;
-            lyricsTaskHandle = NULL;
+            lyrics_task_exit_ms = millis();  // handle cleared by requestLyrics after reap grace
             vTaskDelete(NULL);
             return;
         }
@@ -264,7 +271,7 @@ static void lyricsTaskFunc(void* param) {
                               (unsigned)dma_total, (unsigned)LYRICS_MIN_FREE_DMA);
                 xSemaphoreGive(network_mutex);
                 lyrics_fetching = false;
-                lyricsTaskHandle = NULL;
+                lyrics_task_exit_ms = millis();  // handle cleared by requestLyrics after reap grace
                 vTaskDelete(NULL);
                 return;
             }
@@ -362,7 +369,7 @@ static void lyricsTaskFunc(void* param) {
             lyrics_fetching = false;
             lyrics_abort_requested = false;
             lyrics_retry_count = 0;
-            lyricsTaskHandle = NULL;
+            lyrics_task_exit_ms = millis();  // handle cleared by requestLyrics after reap grace
             vTaskDelete(NULL);
             return;
         }
@@ -377,7 +384,7 @@ static void lyricsTaskFunc(void* param) {
             lyrics_fetching = false;
             lyrics_abort_requested = false;
             lyrics_retry_count = 0;
-            lyricsTaskHandle = NULL;
+            lyrics_task_exit_ms = millis();  // handle cleared by requestLyrics after reap grace
             vTaskDelete(NULL);
             return;
         }
@@ -413,7 +420,7 @@ static void lyricsTaskFunc(void* param) {
     lyrics_status_until_ms = millis() + 5000;
 
     lyrics_fetching = false;
-    lyricsTaskHandle = NULL;
+    lyrics_task_exit_ms = millis();  // handle cleared by requestLyrics after reap grace
     vTaskDelete(NULL);
 }
 
@@ -453,7 +460,18 @@ bool requestLyrics(const String& artist, const String& title, int durationSec) {
     // Caller (updateUI) does NOT update lyrics_last_track when we return false, so the
     // condition fires again next frame. Old task exits when its current network call
     // completes or times out (≤ 10s) and sees lyrics_abort_requested → cleans up TLS
-    // properly → sets lyricsTaskHandle = NULL. Next frame: we spawn normally.
+    // properly → signals exit via lyrics_task_exit_ms. Next frame: we spawn normally.
+    //
+    // Reap grace: the task signals exit just before vTaskDelete(NULL), but its STATIC TCB
+    // remains on FreeRTOS's termination list until idle0 runs. Only release the handle once
+    // that grace period has passed, so xTaskCreateStatic never re-inits a queued-for-delete
+    // TCB. Until then we fall into the abort path below and simply retry next frame.
+    if (lyricsTaskHandle != NULL && lyrics_task_exit_ms != 0 &&
+        millis() - lyrics_task_exit_ms >= LYRICS_TCB_REAP_MS) {
+        lyricsTaskHandle    = NULL;
+        lyrics_task_exit_ms = 0;
+    }
+
     if (lyricsTaskHandle != NULL) {
         Serial.println("[LYRICS] Previous task still running — aborting, will retry next frame");
         lyrics_abort_requested = true;
@@ -668,6 +686,12 @@ void updateLyricsDisplay(int position_seconds) {
     g = max(g, (uint8_t)200);
     b = max(b, (uint8_t)200);
     lv_obj_set_style_text_color(lbl_lyric_current, lv_color_make(r, g, b), 0);
+}
+
+const char* lyricsCurrentText() {
+    if (!lyric_lines || !lyrics_ready) return "";
+    if (current_lyric_index < 0 || current_lyric_index >= lyric_count) return "";
+    return lyric_lines[current_lyric_index].text;
 }
 
 void setLyricsVisible(bool show) {

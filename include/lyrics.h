@@ -44,3 +44,8 @@ void setLyricsVisible(bool show);
 
 // Update lyrics status indicator (top left of album art)
 void updateLyricsStatus();
+
+// Text of the currently active lyric line, or "" when there is none.
+// Lets a theme render lyrics its own way (see the Immersive theme) while
+// updateLyricsDisplay() keeps doing the timing/index work.
+const char* lyricsCurrentText();

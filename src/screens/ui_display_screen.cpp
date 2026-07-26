@@ -122,7 +122,7 @@ void createDisplaySettingsScreen() {
         lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
         brightness_dimmed = lv_slider_get_value(slider);
         lv_label_set_text_fmt((lv_obj_t*)lv_event_get_user_data(e), "%d%%", brightness_dimmed);
-        wifiPrefs.putInt("brightness_dimmed", brightness_dimmed);
+        wifiPrefs.putInt(NVS_KEY_BRIGHTNESS_DIM, brightness_dimmed);
         if (screen_dimmed) setBrightness(brightness_dimmed);
     }, LV_EVENT_VALUE_CHANGED, lbl_dimmed_brightness_val);
 }

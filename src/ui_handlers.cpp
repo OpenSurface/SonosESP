@@ -7,6 +7,7 @@
 #include "ui_icons.h"
 #include <vector>
 #include "config.h"
+#include "ui_theme.h"
 #include "lyrics.h"
 #include "clock_screen.h"
 #include <esp_task_wdt.h>
@@ -664,19 +665,57 @@ static void checkForUpdates() {
             Serial.printf("[OTA] Latest %s version: v%s (prerelease: %s)\n",
                           channelName, latest_version.c_str(), isPrerelease ? "yes" : "no");
 
-            // Find firmware.bin asset
+            // Find the firmware asset for THIS screen variant.
+            // Preferred: firmware-4inch.bin / firmware-7inch.bin (published since v1.9.0).
+            // Fallback:  the legacy unsuffixed firmware.bin, which is a copy of the 4"
+            //            build — correct for the 4" only, and scheduled for removal.
+            //            A 7" unit must never take it or it flashes 4" firmware.
+            // Note "firmware-4inch.bin".indexOf("firmware.bin") is -1 (no substring match),
+            // so the legacy check cannot accidentally swallow a variant asset.
+            #if SCREEN_SIZE == 7
+                const char* kVariantAsset = "firmware-7inch.bin";
+                const bool  kAllowLegacy  = false;   // legacy asset is the 4" build
+            #else
+                const char* kVariantAsset = "firmware-4inch.bin";
+                const bool  kAllowLegacy  = true;
+            #endif
+
+            // Reset before scanning: on a release with no matching asset this otherwise
+            // retains the URL from a previous check and the UI still offers to install it.
+            download_url = "";
+            String legacy_url = "";
             JsonArray assets = releaseObj["assets"];
             for (JsonObject asset : assets) {
                 String name = asset["name"].as<String>();
-                if (name.indexOf("firmware.bin") >= 0) {
+                if (name.indexOf(kVariantAsset) >= 0) {
                     download_url = asset["browser_download_url"].as<String>();
                     // Use HTTPS directly - ESP32-P4 supports it with WiFiClientSecure
-                    break;
+                    break;  // exact variant match wins
                 }
+                if (kAllowLegacy && name.indexOf("firmware.bin") >= 0) {
+                    legacy_url = asset["browser_download_url"].as<String>();
+                }
+            }
+            if (download_url.length() == 0 && legacy_url.length() > 0) {
+                Serial.println("[OTA] Variant asset not found - using legacy firmware.bin");
+                download_url = legacy_url;
+            }
+            if (download_url.length() == 0) {
+                Serial.printf("[OTA] No firmware asset for this build (%s) in release\n", kVariantAsset);
             }
 
             // Compare versions
-            if (latest_version != FIRMWARE_VERSION) {
+            if (latest_version != FIRMWARE_VERSION && download_url.length() == 0) {
+                // Newer release exists but carries no asset this build can install —
+                // don't offer an Install button that would download nothing.
+                if (lbl_ota_status) {
+                    lv_label_set_text_fmt(lbl_ota_status, MDI_ALERT " v%s available, no build for this screen", latest_version.c_str());
+                    lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFFAA00), 0);
+                }
+                if (btn_install_update) {
+                    lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+                }
+            } else if (latest_version != FIRMWARE_VERSION) {
                 if (lbl_ota_status) {
                     lv_label_set_text_fmt(lbl_ota_status, MDI_DOWNLOAD " Update available: v%s", latest_version.c_str());
                     lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0x4ECB71), 0);
@@ -1498,8 +1537,7 @@ static void displayCompletedArt() {
         art_dsc.data_size   = ART_SIZE * ART_SIZE * 2;
         art_dsc.data        = (const uint8_t*)art_buffer;
         lv_img_set_src(img_album, &art_dsc);
-        lv_obj_set_size(img_album, ART_SIZE, ART_SIZE);
-        lv_obj_center(img_album);
+        themeApplyArtGeometry(img_album);   // HERO (Classic) vs THUMB (Immersive)
         lv_obj_remove_flag(img_album, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
         art_ready = false;
@@ -1509,7 +1547,9 @@ static void displayCompletedArt() {
         lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
         art_show_placeholder = false;
     }
-    if (blur_bg_ready && img_blur_bg && blur_bg_buf) {
+    // Ambient/Immersive themes paint a solid backdrop instead — themeUsesBlurBg()
+    // keeps the blurred art hidden so it can't sit on top of that colour.
+    if (blur_bg_ready && img_blur_bg && blur_bg_buf && themeUsesBlurBg()) {
         memset(&blur_bg_dsc, 0, sizeof(blur_bg_dsc));
         blur_bg_dsc.header.w  = DISPLAY_WIDTH;
         blur_bg_dsc.header.h  = DISPLAY_HEIGHT;
@@ -1583,7 +1623,7 @@ static void updateNextTrackUI(SonosDevice* d) {
 
     // ── LVGL work happens outside the lock ──
     if (show) {
-        if (nextTitle != last_next_title) {
+        if (nextTitle != last_next_title || ui_force_refresh) {
             lv_label_set_text(lbl_next_title, nextTitle.c_str());
             lv_label_set_text(lbl_next_artist, nextArtist.c_str());
             lv_obj_clear_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
@@ -1878,18 +1918,22 @@ void updateUI() {
 
     // Album name (below album art)
     static String ui_album_name = "";
-    if (s_album != ui_album_name) {
+    if (s_album != ui_album_name || ui_force_refresh) {
         lv_label_set_text(lbl_album, s_album.c_str());
         ui_album_name = s_album;
     }
 
     // Device name in header
     static String ui_device_name = "";
-    if (s_room != ui_device_name) {
+    if (s_room != ui_device_name || ui_force_refresh) {
         String np = "Now Playing - " + s_room;
         lv_label_set_text(lbl_device_name, np.c_str());
         ui_device_name = s_room;
     }
+
+    // Consume the force-refresh request now that every cached block above has
+    // had a chance to re-push its value into the (possibly rebuilt) widgets.
+    ui_force_refresh = false;
 
     // Time display
     String t = s_relTime;

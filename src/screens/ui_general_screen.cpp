@@ -10,6 +10,7 @@
 #include "config.h"
 #include "lyrics.h"
 #include "ui_settings_card.h"
+#include "ui_theme.h"
 
 // Forward declaration (defined in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -48,5 +49,61 @@ void createGeneralScreen() {
             wifiPrefs.putBool("lyrics", lyrics_enabled);
             setLyricsVisible(lyrics_enabled && lyrics_ready);
         }, LV_EVENT_VALUE_CHANGED, NULL);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // CARD — Theme  (issue #87)
+    // Options and descriptions come straight from the THEMES[] registry, so
+    // adding a theme in ui_theme.cpp appears here automatically.
+    // ────────────────────────────────────────────────────────────────────────
+    {
+        lv_obj_t* card = addCard(content, "Theme");
+
+        addSettingLabel(card, "Player appearance");
+
+        // Description label reflects whichever theme is currently selected.
+        static lv_obj_t* lbl_theme_desc;
+        lbl_theme_desc = lv_label_create(card);
+        lv_label_set_text(lbl_theme_desc, THEMES[active_theme].desc);
+        lv_obj_set_style_text_font(lbl_theme_desc, &lv_font_montserrat_12, 0);
+        lv_obj_set_style_text_color(lbl_theme_desc, COL_TEXT2, 0);
+        lv_obj_set_width(lbl_theme_desc, lv_pct(100));
+        lv_label_set_long_mode(lbl_theme_desc, LV_LABEL_LONG_WRAP);
+
+        // Build the "A\nB\nC" option string from the registry.
+        static char theme_opts[192];
+        theme_opts[0] = '\0';
+        for (uint8_t i = 0; i < THEME_COUNT; i++) {
+            if (i) strncat(theme_opts, "\n", sizeof(theme_opts) - strlen(theme_opts) - 1);
+            strncat(theme_opts, THEMES[i].name, sizeof(theme_opts) - strlen(theme_opts) - 1);
+        }
+
+        lv_obj_t* dd = lv_dropdown_create(card);
+        lv_dropdown_set_options(dd, theme_opts);
+        lv_dropdown_set_selected(dd, active_theme);
+        lv_obj_set_width(dd, lv_pct(100));
+        lv_obj_set_style_bg_color(dd, lv_color_hex(0x2A2A2A), 0);
+        lv_obj_set_style_text_color(dd, COL_TEXT, 0);
+        lv_obj_set_style_text_font(dd, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_border_color(dd, lv_color_hex(0x3A3A3A), 0);
+        lv_obj_set_style_radius(dd, 8, 0);
+        lv_obj_set_style_pad_all(dd, 10, 0);
+        lv_obj_set_style_margin_top(dd, 4, 0);
+        if (lv_obj_t* list = lv_dropdown_get_list(dd)) {
+            lv_obj_set_style_bg_color(list, lv_color_hex(0x1F1F1F), 0);
+            lv_obj_set_style_text_color(list, COL_TEXT, 0);
+            lv_obj_set_style_text_font(list, &lv_font_montserrat_14, 0);
+            lv_obj_set_style_border_color(list, lv_color_hex(0x3A3A3A), 0);
+        }
+        lv_obj_add_event_cb(dd, [](lv_event_t* e) {
+            lv_obj_t* d = (lv_obj_t*)lv_event_get_target(e);
+            uint8_t sel = (uint8_t)lv_dropdown_get_selected(d);
+            // Rebuilds the player screen; safe here — we're on the main LVGL
+            // thread and the settings screen (not scr_main) is displayed.
+            themeSet(sel);
+            if (lbl_theme_desc) lv_label_set_text(lbl_theme_desc, THEMES[active_theme].desc);
+        }, LV_EVENT_VALUE_CHANGED, NULL);
+
+        addDescLabel(card, "Applies immediately. Classic keeps the original blurred-art look.");
     }
 }

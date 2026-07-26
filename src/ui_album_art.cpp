@@ -10,6 +10,7 @@
 
 #include "ui_common.h"
 #include "config.h"
+#include "ui_theme.h"
 #include "ui_network_guard.h"
 #include <lwip/sockets.h>   // lwip_setsockopt / SO_RCVBUF
 #include <lwip/netdb.h>     // getaddrinfo / freeaddrinfo (for artPreConnectHTTP)
@@ -257,6 +258,10 @@ static void color_anim_cb(void* var, int32_t t) {
     if (btn_shuffle) lv_obj_set_style_bg_color(btn_shuffle, bright, LV_STATE_PRESSED);
     if (btn_repeat) lv_obj_set_style_bg_color(btn_repeat, bright, LV_STATE_PRESSED);
     if (btn_queue) lv_obj_set_style_bg_color(btn_queue, bright, LV_STATE_PRESSED);
+
+    // Theme backdrop rides the same interpolation, so an ambient background
+    // cross-fades between tracks instead of snapping. No-op for the Classic theme.
+    themeApplyBackdrop(((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
 }
 
 // Save final color as new baseline when animation completes
@@ -465,10 +470,15 @@ static int pngDraw(PNGDRAW* pDraw) {
 
     // Get RGB565 pixels from PNG decoder
     // Static: png is a single global instance, pngDraw is only ever called from the
-    // art task — no reentrancy. Avoids 1KB stack allocation per row during PNG decode.
-    static uint16_t lineBuffer[512];
+    // art task — no reentrancy. Avoids stack allocation per row during PNG decode.
+    //
+    // SIZE IS SAFETY-CRITICAL: getLineAsRGB565() writes pDraw->iWidth pixels and takes
+    // no length argument, so this buffer MUST hold the widest PNG that decodeToRGB565()
+    // accepts (PNG_MAX_DECODE_WIDTH). It was previously 512 while widths up to 2048 were
+    // allowed through — a 600px station logo (we request maxWidth=600) overran it.
+    static uint16_t lineBuffer[PNG_MAX_DECODE_WIDTH];
     int w = pDraw->iWidth;
-    if (w > 512) w = 512;
+    if (w > PNG_MAX_DECODE_WIDTH) return 0;   // rejected upstream; never write past the buffer
 
     // Convert PNG line to RGB565
     png.getLineAsRGB565(pDraw, lineBuffer, PNG_RGB565_LITTLE_ENDIAN, 0xFFFFFFFF);
@@ -514,8 +524,11 @@ static DecodeResult decodeToRGB565(uint8_t* buf, size_t len, bool isJPEG, bool i
         }
         int w = png.getWidth();
         int h = png.getHeight();
-        if (w <= 0 || h <= 0 || w > 2048 || h > 2048 || (size_t)w * h * 2 > 10 * 1024 * 1024) {
-            Serial.printf("[ART] Invalid PNG dimensions: %dx%d (max 2048x2048, 10MB)\n", w, h);
+        // Width limit is tied to pngDraw()'s row buffer — see PNG_MAX_DECODE_WIDTH.
+        if (w <= 0 || h <= 0 || w > PNG_MAX_DECODE_WIDTH || h > PNG_MAX_DECODE_HEIGHT ||
+            (size_t)w * h * 2 > 10 * 1024 * 1024) {
+            Serial.printf("[ART] Invalid PNG dimensions: %dx%d (max %dx%d, 10MB)\n",
+                          w, h, PNG_MAX_DECODE_WIDTH, PNG_MAX_DECODE_HEIGHT);
             png.close();
             return kDecodeFail;
         }
@@ -788,9 +801,25 @@ static void displayArt(const DecodeResult& dec, const char* url) {
     // 3. Bilinear upscale 32×32 → 800×480
     // Entire process runs once per track change in art task — zero LVGL/rendering overhead.
     // (LVGL 9.5 blur_radius would re-allocate a ~768KB layer buffer on every dirty redraw.)
+    // Blur scratch lives in PSRAM, allocated once and reused for the lifetime of the task.
+    // These were `static uint16_t [64*64]` (8KB each) in .bss, permanently holding 16KB of
+    // INTERNAL DMA-capable SRAM — the same scarce pool WiFi/SDIO, mbedTLS and the JPEG
+    // decoder draw from, and which ART_MIN_DMA_PRE_BURST (56KB) vs the ~68KB WiFi-connected
+    // ceiling is tuned against. Pure per-track scratch never needs DMA, so this returns
+    // 16KB of headroom — more than the entire margin those thresholds fight over.
+    static uint16_t* blur_tiny   = nullptr;
+    static uint16_t* blur_smooth = nullptr;
+    bool blur_generated = false;   // gates blur_bg_ready so a skip can't publish stale pixels
     if (blur_bg_buf) {
-        static uint16_t blur_tiny[64 * 64];
-        static uint16_t blur_smooth[64 * 64];
+        if (!blur_tiny)
+            blur_tiny = (uint16_t*)heap_caps_malloc(64 * 64 * 2, MALLOC_CAP_SPIRAM);
+        if (!blur_smooth)
+            blur_smooth = (uint16_t*)heap_caps_malloc(64 * 64 * 2, MALLOC_CAP_SPIRAM);
+        if (!blur_tiny || !blur_smooth)
+            Serial.println("[ART] Blur scratch alloc failed - skipping blurred background");
+    }
+    // Art itself still displays if this is skipped; only the blurred backdrop is lost.
+    if (blur_bg_buf && blur_tiny && blur_smooth) {
         const int TINY = 64;
 
         // Step 1: box-average downsample — map each tiny pixel to its art region
@@ -851,6 +880,7 @@ static void displayArt(const DecodeResult& dec, const char* url) {
 
         // Step 3: bilinear upscale to full screen
         scaleImageBilinear(src_buf, TINY, TINY, TINY, blur_bg_buf, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+        blur_generated = true;
     }
 
     if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
@@ -859,7 +889,7 @@ static void displayArt(const DecodeResult& dec, const char* url) {
         dominant_color = new_color;
         art_ready      = true;
         color_ready    = true;
-        blur_bg_ready  = true;
+        blur_bg_ready  = blur_generated;  // false if blur scratch alloc failed (no stale publish)
         xSemaphoreGive(art_mutex);
     }
 
@@ -1046,6 +1076,13 @@ void albumArtTask(void* param) {
         if (art_shutdown_requested) {
             Serial.println("[ART] Shutdown requested");
             Serial.printf("[ART] Shutdown complete - Free DMA: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
+            // This task is the ONLY writer that clears art_download_in_progress. Abort
+            // paths deliberately leave it set, so if we exit here holding it, nothing can
+            // ever clear it: pollingTask's early-exit guard then skips every SOAP until
+            // the art task is recreated (clock screen exit / OTA). That leaves SDIO fully
+            // silent for minutes — the C6 DMA clock-gate condition — and freezes playback
+            // state so the clock screen's auto-exit never fires.
+            art_download_in_progress = false;
             albumArtTaskHandle = NULL;  // Clear handle before deleting
             vTaskDelete(NULL);  // Delete self
             return;

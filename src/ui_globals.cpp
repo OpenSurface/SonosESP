@@ -191,6 +191,7 @@ int ui_vol = -1;
 bool ui_playing = false;
 bool ui_shuffle = false;
 bool ui_muted = false;
+volatile bool ui_force_refresh = false;
 bool dragging_vol = false;
 bool dragging_prog = false;
 
