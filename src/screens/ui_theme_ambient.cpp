@@ -121,8 +121,12 @@ void buildAmbientPlayer() {
     img_album = lv_img_create(panel_art);
     lv_obj_set_size(img_album, SMIN(AM_ART), SMIN(AM_ART));
     lv_obj_set_pos(img_album, SX(AM_L), SY(AM_ART_Y));
-    lv_obj_set_style_radius(img_album, SMIN(20), 0);
-    lv_obj_set_style_clip_corner(img_album, true, 0);
+    // Square corners on both the image AND its shadow. Rounding can't work here:
+    // themeApplyArtGeometry() scales the artwork (308 from a 420 source) and LVGL
+    // drops corner clipping on a transformed image — so the picture drew square
+    // while the shadow still used the radius, leaving rounded shadow corners
+    // poking out past the square edges.
+    lv_obj_set_style_radius(img_album, 0, 0);
     lv_obj_set_style_shadow_width(img_album, 36, 0);
     lv_obj_set_style_shadow_color(img_album, lv_color_hex(0x000000), 0);
     lv_obj_set_style_shadow_opa(img_album, LV_OPA_60, 0);
@@ -189,14 +193,19 @@ void buildAmbientPlayer() {
         // Scale the type up — the shared overlay is sized for the small strip over
         // the artwork in the original layout, which reads as tiny out here.
         // Children are prev / current / next, in creation order.
-        const lv_font_t* fonts[3] = { &lv_font_montserrat_16,
-                                      &lv_font_montserrat_24,
-                                      &lv_font_montserrat_16 };
+        //
+        // Only TWO lines are shown. The overlay is bottom-aligned inside its slot,
+        // so with three lines the block grew upward and the "previous" line ended
+        // up behind the artwork. Hiding it keeps current + next fully in the clear.
+        const lv_font_t* fonts[3] = { &lv_font_montserrat_16,   // prev (hidden)
+                                      &lv_font_montserrat_24,   // current
+                                      &lv_font_montserrat_16 }; // next
         for (int i = 0; i < 3; i++) {
             if (lv_obj_t* l = lv_obj_get_child(lyr, i)) {
                 lv_obj_set_style_text_font(l, fonts[i], 0);
                 lv_obj_set_width(l, SX(AM_ART + 4));
                 lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_LEFT, 0);
+                if (i == 0) lv_obj_add_flag(l, LV_OBJ_FLAG_HIDDEN);
             }
         }
     }
