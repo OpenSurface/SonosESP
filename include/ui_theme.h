@@ -80,10 +80,6 @@ void themeApplyBackdrop(uint32_t rgb);
 // "full size + centre" so a theme can show the art as a header thumbnail instead.
 void themeApplyArtGeometry(lv_obj_t* img);
 
-// Repaints the decorative backdrop pattern (if the active theme has one) from the
-// current ambient colour. Called from themeApplyBackdrop().
-void themeApplyPattern(uint32_t rgb);
-
 // Builders (registry entries point at these).
 void buildClassicPlayer(void);     // ui_main_screen.cpp
 void buildAmbientPlayer(void);     // ui_theme_ambient.cpp

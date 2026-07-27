@@ -19,11 +19,9 @@ const ThemeDef THEMES[] = {
       "The original - blurred album art fills the screen",
       THEME_BG_BLUR_ART,      ART_SIZE, THEME_ART_CENTRED, THEME_ART_CENTRED, buildClassicPlayer },
 
-    // art_y is the centred (no-lyrics) resting place; am_tick() lifts the artwork
-    // when there are lyrics to show beneath it.
     { "Ambient",
       "Tinted backdrop, lyrics below the artwork",
-      THEME_BG_AMBIENT_TINT,  308,      39,                86,                buildAmbientPlayer },
+      THEME_BG_AMBIENT_TINT,  308,      39,                36,                buildAmbientPlayer },
 
     { "Immersive",
       "Full-bleed colour, oversized title and large lyrics",
@@ -95,9 +93,8 @@ void themeApplyBackdrop(uint32_t rgb) {
             break;
 
         case THEME_BG_AMBIENT_TINT:
-            // Deep and muted: white text and the soft circle pattern sit on top.
+            // Deep and muted, painted flat: a gradient bands badly in RGB565.
             lv_obj_set_style_bg_color(scr_main, lv_color_hex(shade(rgb, 0.90f, 1.35f, 26, 64)), 0);
-            themeApplyPattern(rgb);
             break;
 
         case THEME_BG_AMBIENT_SOLID:

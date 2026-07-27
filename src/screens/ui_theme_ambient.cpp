@@ -2,18 +2,16 @@
  * "Ambient" player theme (issue #87, mockup theme-02.png).
  *
  * A refined take on the original layout rather than a recolour of it:
- *   - backdrop tinted from the artwork, over a soft vertical gradient
- *   - smaller rounded artwork on the left, with the synced lyrics sitting BELOW
- *     it instead of overlaid on top
- *   - artwork is vertically centred when a track has no lyrics, and lifts to the
- *     top only when there are lyrics to make room for (see am_tick)
+ *   - flat backdrop tinted from the artwork
+ *   - smaller rounded artwork on the left, at a fixed position, with the synced
+ *     lyrics sitting BELOW it instead of overlaid on top
  *   - pill-shaped room selector, circular queue/settings buttons
  *   - accent-coloured artist over a large white title, then album, progress,
  *     transport, and a volume row along the bottom of the right column
  *
  * ── Layout grid (800x480 design space, wrapped in SX/SY/SMIN)
- *   left column  : x  39 .. 347   artwork 308 square (y 86 centred / y 28 raised)
- *   lyrics       : below the raised artwork, from y 350
+ *   left column  : x  39 .. 347   artwork 308 square at y 36
+ *   lyrics       : below the artwork, from y 360
  *   right column : x 375 .. 768
  *   transport    : centred on x = 571, all items on the y = 362 centreline
  *
@@ -30,30 +28,17 @@
 // ── Grid ────────────────────────────────────────────────────────────────────
 #define AM_L            39                  // left column origin
 #define AM_ART          308
-#define AM_ART_Y_MID    ((480 - AM_ART) / 2) // 86 — artwork centred when there are no lyrics
-#define AM_ART_Y_TOP    28                   // raised, to open up room for lyrics below
+// The artwork never moves. An earlier version centred it and lifted it when a
+// track had lyrics, but that jump on every song looked cheap — a fixed frame
+// reads as far more considered. The lyric strip below is simply always reserved,
+// and sits empty on tracks without lyrics.
+#define AM_ART_Y        36
+#define AM_LYRIC_Y      (AM_ART_Y + AM_ART + 16)   // 360
 #define AM_R            375                 // right column origin
 #define AM_RIGHT        768
 #define AM_RW           (AM_RIGHT - AM_R)    // 393
 #define AM_CTRL_MID     571                 // transport centreline (x)
 #define AM_CTRL_Y       362                 // transport centreline (y)
-
-// Follows the artwork so the pair always moves together.
-static lv_obj_t*   am_lyric_slot   = nullptr;
-static lv_timer_t* am_timer        = nullptr;
-
-// Backdrop treatment: a soft vertical gradient from the ambient colour into a
-// darker version of itself. This replaced a set of large translucent circles —
-// with the software renderer (PPA is disabled) those had to be alpha-blended over
-// big areas on every redraw, which is real frame time spent on decoration you can
-// barely see. A gradient is effectively free and reads as more deliberate.
-void themeApplyPattern(uint32_t rgb) {
-    if (!scr_main) return;
-    int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
-    lv_color_t deep = lv_color_make((uint8_t)(r / 3), (uint8_t)(g / 3), (uint8_t)(b / 3));
-    lv_obj_set_style_bg_grad_color(scr_main, deep, 0);
-    lv_obj_set_style_bg_grad_dir(scr_main, LV_GRAD_DIR_VER, 0);
-}
 
 static void pressScale(lv_obj_t* b) {
     static lv_style_transition_dsc_t tr;
@@ -100,48 +85,14 @@ static void park(lv_obj_t* o) {
     lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
 }
 
-// Artwork sits vertically centred by default and lifts to the top only when
-// there are lyrics to show underneath it.
-//
-// Deliberately a snap, not an animation: sliding a 308px rounded image with a
-// shadow means re-blitting ~95k pixels per frame, and with PPA disabled every one
-// of those is a software blend — it would visibly stutter. Nothing here costs
-// extra memory, only draw time, so the cheap answer is to not tween it.
-//
-// This also re-asserts the position rather than only reacting to a change, so it
-// self-corrects after themeApplyArtGeometry() re-places the artwork on each new
-// image without needing the two to coordinate.
-static void am_tick(lv_timer_t*) {
-    if (!img_album) return;
-    bool have = lyrics_enabled && lyrics_ready && lyric_count > 0;
-    lv_coord_t want = have ? SY(AM_ART_Y_TOP) : SY(AM_ART_Y_MID);
-    if (lv_obj_get_y(img_album) == want) return;
-
-    lv_coord_t delta = want - lv_obj_get_y(img_album);
-    lv_obj_set_y(img_album, want);
-    // Keep the overlays that are pinned to the artwork in step with it.
-    if (art_placeholder)   lv_obj_set_y(art_placeholder,   lv_obj_get_y(art_placeholder)   + delta);
-    if (lbl_lyrics_status) lv_obj_set_y(lbl_lyrics_status, lv_obj_get_y(lbl_lyrics_status) + delta);
-    if (lbl_linein_icon)     lv_obj_set_y(lbl_linein_icon,     lv_obj_get_y(lbl_linein_icon)     + delta);
-    if (lbl_linein_subtitle) lv_obj_set_y(lbl_linein_subtitle, lv_obj_get_y(lbl_linein_subtitle) + delta);
-    if (lbl_tv_icon)         lv_obj_set_y(lbl_tv_icon,         lv_obj_get_y(lbl_tv_icon)         + delta);
-    if (lbl_tv_subtitle)     lv_obj_set_y(lbl_tv_subtitle,     lv_obj_get_y(lbl_tv_subtitle)     + delta);
-}
-
-static void am_screen_deleted(lv_event_t*) {
-    if (am_timer) { lv_timer_delete(am_timer); am_timer = nullptr; }
-    am_lyric_slot = nullptr;
-}
-
 void buildAmbientPlayer() {
-    am_lyric_slot = nullptr; am_timer = nullptr;
-
     scr_main = lv_obj_create(NULL);
+    // Flat tint, no gradient. A vertical gradient across the full screen banded
+    // visibly into hard steps: the panel is RGB565 (LV_COLOR_DEPTH 16), so each
+    // channel can only move in ~8/255 jumps, and LVGL 9 has no gradient dithering
+    // to hide them. Flat colour is the only genuinely smooth option here.
     lv_obj_set_style_bg_color(scr_main, lv_color_hex(0x16121A), 0);   // until the first art colour
-    lv_obj_set_style_bg_grad_color(scr_main, lv_color_hex(0x08070A), 0);
-    lv_obj_set_style_bg_grad_dir(scr_main, LV_GRAD_DIR_VER, 0);
     lv_obj_clear_flag(scr_main, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_event_cb(scr_main, am_screen_deleted, LV_EVENT_DELETE, NULL);
 
     // Created for API compatibility — this theme paints its own backdrop, so
     // themeUsesBlurBg() keeps the blurred art switched off.
@@ -169,7 +120,7 @@ void buildAmbientPlayer() {
     // ── Left column: artwork ────────────────────────────────────────────────
     img_album = lv_img_create(panel_art);
     lv_obj_set_size(img_album, SMIN(AM_ART), SMIN(AM_ART));
-    lv_obj_set_pos(img_album, SX(AM_L), SY(AM_ART_Y_MID));
+    lv_obj_set_pos(img_album, SX(AM_L), SY(AM_ART_Y));
     lv_obj_set_style_radius(img_album, SMIN(20), 0);
     lv_obj_set_style_clip_corner(img_album, true, 0);
     lv_obj_set_style_shadow_width(img_album, 36, 0);
@@ -180,7 +131,7 @@ void buildAmbientPlayer() {
     lv_label_set_text(art_placeholder, MDI_MUSIC_NOTE);
     lv_obj_set_style_text_font(art_placeholder, &lv_font_mdi_32, 0);
     lv_obj_set_style_text_color(art_placeholder, COL_TEXT2, 0);
-    lv_obj_set_pos(art_placeholder, SX(AM_L + AM_ART / 2 - 16), SY(AM_ART_Y_MID + AM_ART / 2 - 16));
+    lv_obj_set_pos(art_placeholder, SX(AM_L + AM_ART / 2 - 16), SY(AM_ART_Y + AM_ART / 2 - 16));
 
     // Mode heroes (line-in / TV), centred on the artwork square.
     struct { lv_obj_t** icon; lv_obj_t** sub; const char* glyph; const char* text; } modes[] = {
@@ -192,7 +143,7 @@ void buildAmbientPlayer() {
         lv_label_set_text(*m.icon, m.glyph);
         lv_obj_set_style_text_font(*m.icon, &lv_font_mdi_80, 0);
         lv_obj_set_style_text_color(*m.icon, COL_ACCENT, 0);
-        lv_obj_set_pos(*m.icon, SX(AM_L + AM_ART / 2 - 40), SY(AM_ART_Y_MID + AM_ART / 2 - 60));
+        lv_obj_set_pos(*m.icon, SX(AM_L + AM_ART / 2 - 40), SY(AM_ART_Y + AM_ART / 2 - 60));
         lv_obj_add_flag(*m.icon, LV_OBJ_FLAG_HIDDEN);
 
         *m.sub = lv_label_create(panel_art);
@@ -200,13 +151,13 @@ void buildAmbientPlayer() {
         lv_obj_set_style_text_font(*m.sub, &lv_font_montserrat_14, 0);
         lv_obj_set_style_text_color(*m.sub, lv_color_hex(0xAAAAAA), 0);
         lv_obj_set_style_text_letter_space(*m.sub, 3, 0);
-        lv_obj_set_pos(*m.sub, SX(AM_L + AM_ART / 2 - 44), SY(AM_ART_Y_MID + AM_ART / 2 + 40));
+        lv_obj_set_pos(*m.sub, SX(AM_L + AM_ART / 2 - 44), SY(AM_ART_Y + AM_ART / 2 + 40));
         lv_obj_add_flag(*m.sub, LV_OBJ_FLAG_HIDDEN);
     }
 
     lbl_lyrics_status = lv_label_create(panel_art);
     lv_label_set_text(lbl_lyrics_status, "");
-    lv_obj_set_pos(lbl_lyrics_status, SX(AM_L), SY(AM_ART_Y_MID + AM_ART + 6));
+    lv_obj_set_pos(lbl_lyrics_status, SX(AM_L), SY(AM_ART_Y + AM_ART + 6));
     lv_obj_set_style_text_color(lbl_lyrics_status, lv_color_hex(0x888888), 0);
     lv_obj_set_style_text_font(lbl_lyrics_status, &lv_font_montserrat_12, 0);
 
@@ -215,18 +166,18 @@ void buildAmbientPlayer() {
     // positioned wrapper puts it exactly here without touching lyrics.cpp. Its
     // dark gradient panel is flattened — the backdrop is already dark, and in this
     // layout the lyrics are no longer sitting on top of the artwork.
-    // Sits under the artwork's raised position (AM_ART_Y_TOP + AM_ART = 336) and
+    // Sits directly under the artwork and runs to the bottom margin.
     // runs to the bottom margin.
-    am_lyric_slot = lv_obj_create(panel_art);
-    lv_obj_set_size(am_lyric_slot, SX(AM_ART + 20), SY(128));
-    lv_obj_set_pos(am_lyric_slot, SX(AM_L - 10), SY(AM_ART_Y_TOP + AM_ART + 14));
-    lv_obj_set_style_bg_opa(am_lyric_slot, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(am_lyric_slot, 0, 0);
-    lv_obj_set_style_pad_all(am_lyric_slot, 0, 0);
-    lv_obj_clear_flag(am_lyric_slot, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(am_lyric_slot, LV_OBJ_FLAG_CLICKABLE);
-    createLyricsOverlay(am_lyric_slot);
-    if (lv_obj_t* lyr = lv_obj_get_child(am_lyric_slot, 0)) {
+    lv_obj_t* lyric_slot = lv_obj_create(panel_art);
+    lv_obj_set_size(lyric_slot, SX(AM_ART + 20), SY(128));
+    lv_obj_set_pos(lyric_slot, SX(AM_L - 10), SY(AM_LYRIC_Y));
+    lv_obj_set_style_bg_opa(lyric_slot, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(lyric_slot, 0, 0);
+    lv_obj_set_style_pad_all(lyric_slot, 0, 0);
+    lv_obj_clear_flag(lyric_slot, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(lyric_slot, LV_OBJ_FLAG_CLICKABLE);
+    createLyricsOverlay(lyric_slot);
+    if (lv_obj_t* lyr = lv_obj_get_child(lyric_slot, 0)) {
         // Flatten the dark gradient panel — the backdrop is already dark, and here
         // the lyrics no longer sit on top of the artwork.
         lv_obj_set_style_bg_opa(lyr, LV_OPA_TRANSP, 0);
@@ -239,7 +190,7 @@ void buildAmbientPlayer() {
         // the artwork in the original layout, which reads as tiny out here.
         // Children are prev / current / next, in creation order.
         const lv_font_t* fonts[3] = { &lv_font_montserrat_16,
-                                      &lv_font_montserrat_28,
+                                      &lv_font_montserrat_24,
                                       &lv_font_montserrat_16 };
         for (int i = 0; i < 3; i++) {
             if (lv_obj_t* l = lv_obj_get_child(lyr, i)) {
@@ -406,7 +357,4 @@ void buildAmbientPlayer() {
     lv_obj_set_width(lbl_next_artist, SX(200));
     lv_obj_set_style_text_font(lbl_next_artist, &lv_font_montserrat_12, 0);
     park(lbl_next_artist);
-
-    // Keeps the artwork centred / raised as lyrics come and go.
-    am_timer = lv_timer_create(am_tick, 200, NULL);
 }
