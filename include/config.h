@@ -253,6 +253,14 @@
 #define CLOCK_MODE_PAUSED      2  // Show only when paused/stopped + X mins inactivity
 #define CLOCK_MODE_NOTHING     3  // Show only when nothing playing + X mins inactivity
 
+// Clock face style (independent of CLOCK_MODE_*, which controls WHEN it appears)
+#define CLOCK_STYLE_CLASSIC    0  // Centred HH:MM with date below
+#define CLOCK_STYLE_STANDBY    1  // Oversized overlapping two-tone digits
+// StandBy is the default face: existing users have no clk_style key in NVS, so
+// they pick up this default on upgrade and get the new clock without touching
+// settings. Anyone who explicitly selects Classic has the key written and keeps it.
+#define CLOCK_DEFAULT_STYLE    CLOCK_STYLE_STANDBY
+
 #define CLOCK_DEFAULT_MODE       0    // Disabled by default
 #define CLOCK_DEFAULT_TIMEOUT    5    // 5 minutes inactivity before clock
 #define CLOCK_DEFAULT_TZ_IDX     0    // Index 0 = UTC
@@ -266,8 +274,13 @@
 #define CLOCK_DEFAULT_WEATHER_FAHR 0  // 0 = Celsius, 1 = Fahrenheit
 
 #define CLOCK_BG_MAX_DL_SIZE  (512 * 1024)  // Max background JPEG download buffer (512KB; Flickr baseline ~100-250KB)
-#define CLOCK_BG_WIDTH        800           // Clock background pixel width
-#define CLOCK_BG_HEIGHT       480           // Clock background pixel height
+// Clock background photo size. MUST track the panel: these drive the loremflickr
+// request URL, the PSRAM decode buffer, its stride, and the size of the image +
+// dark overlay widgets. Hardcoded 800x480 meant the 7" (1024x600) asked for a
+// 4"-sized photo AND left a 224x120 L-shaped strip of the screen uncovered by the
+// image and its readability veil. Identity on the 4" — no change there.
+#define CLOCK_BG_WIDTH        DISPLAY_WIDTH   // Clock background pixel width
+#define CLOCK_BG_HEIGHT       DISPLAY_HEIGHT  // Clock background pixel height
 #define CLOCK_BG_TASK_STACK   8192          // clockBgTask stack size
 #define CLOCK_ENTER_TIMEOUT_MS 3000         // Max wait for art/lyrics tasks to exit
 #define CLOCK_EXIT_COOLDOWN_MS 30000        // Prevent re-trigger for 30s after exit
@@ -279,6 +292,7 @@
 #define NVS_KEY_CLOCK_REFRESH   "clk_refresh"
 #define NVS_KEY_CLOCK_KW        "clk_kw"
 #define NVS_KEY_CLOCK_12H       "clk_12h"
+#define NVS_KEY_CLOCK_STYLE     "clk_style"
 #define NVS_KEY_CLOCK_WEATHER_EN   "clk_wx_en"
 #define NVS_KEY_CLOCK_WEATHER_CITY "clk_wx_city"
 #define NVS_KEY_CLOCK_WEATHER_FAHR "clk_wx_fahr"

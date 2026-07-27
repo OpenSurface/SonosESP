@@ -226,6 +226,7 @@ bool clock_picsum_enabled = (bool)CLOCK_DEFAULT_PICSUM;
 int  clock_refresh_min    = CLOCK_DEFAULT_REFRESH;
 int  clock_bg_kw_idx      = CLOCK_DEFAULT_KW_IDX;
 bool clock_12h            = (bool)CLOCK_DEFAULT_12H;
+int  clock_style          = CLOCK_DEFAULT_STYLE;
 bool clock_weather_enabled  = (bool)CLOCK_DEFAULT_WEATHER_EN;
 int  clock_weather_city_idx = CLOCK_DEFAULT_WEATHER_CITY;
 bool clock_wx_fahrenheit    = (bool)CLOCK_DEFAULT_WEATHER_FAHR;

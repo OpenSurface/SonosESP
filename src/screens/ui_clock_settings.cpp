@@ -347,6 +347,16 @@ void createClockSettingsScreen() {
             clock_12h = lv_obj_has_state(sw, LV_STATE_CHECKED);
             wifiPrefs.putBool(NVS_KEY_CLOCK_12H, clock_12h);
         }, LV_EVENT_VALUE_CHANGED, NULL);
+
+        addSettingLabel(card, "Clock face");
+        addDescLabel(card, "Standby shows oversized overlapping digits, tinted from the album art");
+        lv_obj_t* dd_style = makeDropdown(card, "Classic\nStandby", (uint16_t)clock_style, false);
+        lv_obj_add_event_cb(dd_style, [](lv_event_t* e) {
+            lv_obj_t* dd = (lv_obj_t*)lv_event_get_target(e);
+            clock_style = (int)lv_dropdown_get_selected(dd);
+            wifiPrefs.putInt(NVS_KEY_CLOCK_STYLE, clock_style);
+            clockStyleChanged();   // swap faces on the already-built clock screen
+        }, LV_EVENT_VALUE_CHANGED, NULL);
     }
 
     // ────────────────────────────────────────────────────────────────────────

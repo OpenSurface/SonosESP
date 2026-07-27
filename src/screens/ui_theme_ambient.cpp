@@ -121,11 +121,19 @@ void buildAmbientPlayer() {
     img_album = lv_img_create(panel_art);
     lv_obj_set_size(img_album, SMIN(AM_ART), SMIN(AM_ART));
     lv_obj_set_pos(img_album, SX(AM_L), SY(AM_ART_Y));
-    lv_obj_set_style_radius(img_album, SMIN(20), 0);
-    lv_obj_set_style_clip_corner(img_album, true, 0);
-    lv_obj_set_style_shadow_width(img_album, 36, 0);
-    lv_obj_set_style_shadow_color(img_album, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_shadow_opa(img_album, LV_OPA_60, 0);
+    // Square artwork, and NO blur shadow.
+    //
+    // shadow_width in LVGL is a BLUR RADIUS, not an outline: the blur spreads
+    // equally in every direction from each corner point, so a 36px shadow renders
+    // with visibly rounded corners around a square image however the radius is
+    // set. Zeroing the radius could never fix that. A crisp 1px outline gives the
+    // artwork definition against the backdrop instead — and it also drops the
+    // most expensive draw on this screen, since blur is pure software here.
+    lv_obj_set_style_radius(img_album, 0, 0);
+    lv_obj_set_style_shadow_width(img_album, 0, 0);
+    lv_obj_set_style_border_width(img_album, 1, 0);
+    lv_obj_set_style_border_color(img_album, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_border_opa(img_album, LV_OPA_20, 0);
 
     art_placeholder = lv_label_create(panel_art);
     lv_label_set_text(art_placeholder, MDI_MUSIC_NOTE);
@@ -189,14 +197,19 @@ void buildAmbientPlayer() {
         // Scale the type up — the shared overlay is sized for the small strip over
         // the artwork in the original layout, which reads as tiny out here.
         // Children are prev / current / next, in creation order.
-        const lv_font_t* fonts[3] = { &lv_font_montserrat_16,
-                                      &lv_font_montserrat_24,
-                                      &lv_font_montserrat_16 };
+        //
+        // Only TWO lines are shown. The overlay is bottom-aligned inside its slot,
+        // so with three lines the block grew upward and the "previous" line ended
+        // up behind the artwork. Hiding it keeps current + next fully in the clear.
+        const lv_font_t* fonts[3] = { &lv_font_montserrat_16,   // prev (hidden)
+                                      &lv_font_montserrat_24,   // current
+                                      &lv_font_montserrat_16 }; // next
         for (int i = 0; i < 3; i++) {
             if (lv_obj_t* l = lv_obj_get_child(lyr, i)) {
                 lv_obj_set_style_text_font(l, fonts[i], 0);
                 lv_obj_set_width(l, SX(AM_ART + 4));
                 lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_LEFT, 0);
+                if (i == 0) lv_obj_add_flag(l, LV_OBJ_FLAG_HIDDEN);
             }
         }
     }

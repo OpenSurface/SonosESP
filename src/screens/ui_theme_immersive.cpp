@@ -345,11 +345,11 @@ void buildImmersivePlayer() {
     img_album = lv_img_create(panel_art);
     lv_obj_set_size(img_album, SMIN(IM_ART), SMIN(IM_ART));
     lv_obj_set_pos(img_album, SX(IM_MARGIN), SY(IM_HEAD_Y));
-    lv_obj_set_style_radius(img_album, SMIN(12), 0);
-    lv_obj_set_style_clip_corner(img_album, true, 0);
-    lv_obj_set_style_shadow_width(img_album, 24, 0);
-    lv_obj_set_style_shadow_color(img_album, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_shadow_opa(img_album, LV_OPA_50, 0);
+    // Square artwork, no blur shadow — see the note in ui_theme_ambient.cpp:
+    // shadow_width is a blur radius, so it always renders rounded corners around a
+    // square image. A 1px outline gives definition without that artefact.
+    lv_obj_set_style_radius(img_album, 0, 0);
+    lv_obj_set_style_shadow_width(img_album, 0, 0);
 
     art_placeholder = lv_label_create(panel_art);
     lv_label_set_text(art_placeholder, MDI_MUSIC_NOTE);

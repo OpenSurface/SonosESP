@@ -256,6 +256,159 @@ static void applyWeatherToWidgets() {
 // ============================================================================
 static lv_timer_t* clock_tick_timer = nullptr;
 
+// ── StandBy clock face ──────────────────────────────────────────────────────
+// Oversized digits that overlap each other, drawn in two tones taken from the
+// album artwork, with the colon as a pair of soft discs. Each digit is its own
+// label so it can carry its own colour and sit partly on top of its neighbour —
+// the semi-transparent text is what produces the blended overlap.
+LV_FONT_DECLARE(lv_font_clock_240);
+
+// The font is PROPORTIONAL, not monospace — '0' advances 163px but '1' only 94px.
+// Positioning by advance width would therefore shuffle the whole row every time a
+// 1 appeared. Instead each digit gets a fixed-width cell and is centred inside it,
+// so the row never moves and the digits stay optically even.
+#define SB_CELL      152    // fixed cell per digit, design units
+#define SB_OVERLAP    28    // how far each cell sits over the previous one
+#define SB_COLON_W    56    // width of the colon column
+#define SB_DOT        32    // colon disc diameter
+#define SB_INK       174    // real ink height of the font (line_height in the .c)
+#define SB_TOP       ((480 - SB_INK) / 2 - 22)   // vertically centred, lifted for the date
+
+static lv_obj_t* sb_digit[4] = { nullptr, nullptr, nullptr, nullptr };
+static lv_obj_t* sb_dot[2]   = { nullptr, nullptr };
+static lv_obj_t* sb_date     = nullptr;
+static int       sb_base_x[4] = { 0, 0, 0, 0 };   // design-space x of each cell
+static int       sb_colon_x   = 0;
+static bool      sb_lead_hidden = false;
+
+// Re-centres the row on the screen. With a hidden leading cell (12-hour times
+// before 10) the visible glyphs would otherwise sit half a cell right of centre,
+// which is exactly what "6:25" looked like — so everything shifts left by half a
+// cell whenever that slot is empty.
+static void standbyReflow(bool hide_leading) {
+    const int dx = hide_leading ? (SB_CELL - SB_OVERLAP) / 2 : 0;
+    for (int i = 0; i < 4; i++) {
+        if (sb_digit[i]) lv_obj_set_x(sb_digit[i], SX(sb_base_x[i] - dx));
+    }
+    for (int i = 0; i < 2; i++) {
+        if (sb_dot[i]) lv_obj_set_x(sb_dot[i], SX(sb_colon_x + (SB_COLON_W - SB_DOT) / 2 - dx));
+    }
+}
+
+// Two tones + a highlight, derived from the artwork's dominant colour so the
+// clock matches whatever is playing. Falls back to a blue close to the reference
+// when there is no artwork yet.
+static void standbyColours(lv_color_t* deep, lv_color_t* light, lv_color_t* dot) {
+    uint32_t c = dominant_color;
+    int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
+    if (r + g + b < 24) { r = 0x0A; g = 0x4A; b = 0xA8; }   // near-black art → blue
+
+    // Push the hue to full intensity first. dominant_color is deliberately
+    // darkened to ~40% for use as a background, which on black just looked muddy —
+    // normalising against the strongest channel gives a saturated, poster-like
+    // colour, and the two tones are then levels of that rather than dim/dimmer.
+    int mx = r; if (g > mx) mx = g; if (b > mx) mx = b;
+    if (mx > 0) { r = r * 255 / mx; g = g * 255 / mx; b = b * 255 / mx; }
+
+    auto lvl = [](int v, int pct) {
+        int x = v * pct / 100;
+        return (uint8_t)(x < 0 ? 0 : (x > 255 ? 255 : x));
+    };
+    *deep  = lv_color_make(lvl(r, 58), lvl(g, 58), lvl(b, 58));
+    *light = lv_color_make(lvl(r, 100), lvl(g, 100), lvl(b, 100));
+    *dot   = lv_color_make(0xEE, 0xF2, 0xF7);
+}
+
+static void buildStandbyFace(lv_obj_t* parent) {
+    for (int i = 0; i < 4; i++) sb_digit[i] = nullptr;
+    sb_dot[0] = sb_dot[1] = nullptr;
+
+    // Row is laid out symmetrically about the screen centre.
+    const int total = SB_CELL * 4 + SB_COLON_W - SB_OVERLAP * 4;
+    int x = (800 - total) / 2;
+
+    auto addDigit = [&](int idx, int xpos) {
+        sb_digit[idx] = lv_label_create(parent);
+        lv_label_set_text(sb_digit[idx], "0");
+        lv_obj_set_style_text_font(sb_digit[idx], &lv_font_clock_240, 0);
+        // Fixed cell + centred text: the glyph floats to the middle of its cell,
+        // so a narrow '1' next to a wide '0' still reads as an even row.
+        lv_obj_set_width(sb_digit[idx], SX(SB_CELL));
+        lv_obj_set_style_text_align(sb_digit[idx], LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_pos(sb_digit[idx], SX(xpos), SY(SB_TOP));
+        lv_obj_add_flag(sb_digit[idx], LV_OBJ_FLAG_HIDDEN);
+    };
+
+    addDigit(0, x);  sb_base_x[0] = x;                x += SB_CELL - SB_OVERLAP;
+    addDigit(1, x);  sb_base_x[1] = x;                x += SB_CELL - SB_OVERLAP;
+    const int colon_x = x;  sb_colon_x = x;           x += SB_COLON_W - SB_OVERLAP;
+    addDigit(2, x);  sb_base_x[2] = x;                x += SB_CELL - SB_OVERLAP;
+    addDigit(3, x);  sb_base_x[3] = x;
+
+    // Dots sit at ~38% and ~80% of the ink height, which is where a colon's
+    // dots fall optically. Derived from SB_INK rather than guessed offsets.
+    const int dot_y[2] = { SB_TOP + (SB_INK * 38) / 100 - SB_DOT / 2,
+                           SB_TOP + (SB_INK * 80) / 100 - SB_DOT / 2 };
+    for (int i = 0; i < 2; i++) {
+        sb_dot[i] = lv_obj_create(parent);
+        lv_obj_set_size(sb_dot[i], SMIN(SB_DOT), SMIN(SB_DOT));
+        lv_obj_set_pos(sb_dot[i], SX(colon_x + (SB_COLON_W - SB_DOT) / 2), SY(dot_y[i]));
+        lv_obj_set_style_radius(sb_dot[i], LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_border_width(sb_dot[i], 0, 0);
+        lv_obj_set_style_shadow_width(sb_dot[i], 0, 0);
+        lv_obj_clear_flag(sb_dot[i], LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_clear_flag(sb_dot[i], LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_flag(sb_dot[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Sits directly under the digits, not pinned to the bottom of the screen —
+    // bottom-aligning left it stranded ~125px below the time with a gap between.
+    sb_date = lv_label_create(parent);
+    lv_label_set_text(sb_date, "");
+    lv_obj_set_style_text_font(sb_date, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_color(sb_date, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_opa(sb_date, LV_OPA_60, 0);
+    lv_obj_align(sb_date, LV_ALIGN_TOP_MID, 0, SY(SB_TOP + SB_INK + 14));
+    lv_obj_add_flag(sb_date, LV_OBJ_FLAG_HIDDEN);
+}
+
+// Repaints the StandBy digits from the current artwork colour.
+static void standbyRecolour(void) {
+    lv_color_t deep, light, dot;
+    standbyColours(&deep, &light, &dot);
+    for (int i = 0; i < 4; i++) {
+        if (!sb_digit[i]) continue;
+        lv_obj_set_style_text_color(sb_digit[i], (i & 1) ? light : deep, 0);
+        // Slightly transparent so overlapping strokes blend instead of masking.
+        lv_obj_set_style_text_opa(sb_digit[i], (i & 1) ? 225 : 245, 0);
+    }
+    for (int i = 0; i < 2; i++) {
+        if (!sb_dot[i]) continue;
+        lv_obj_set_style_bg_color(sb_dot[i], dot, 0);
+        lv_obj_set_style_bg_opa(sb_dot[i], 210, 0);
+    }
+}
+
+// Shows whichever face is selected and hides the other.
+static void applyClockStyle(void) {
+    const bool standby = (clock_style == CLOCK_STYLE_STANDBY);
+    auto vis = [](lv_obj_t* o, bool show) {
+        if (!o) return;
+        if (show) lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
+        else      lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+    };
+    vis(clock_time_lbl, !standby);
+    vis(clock_date_lbl, !standby);
+    for (int i = 0; i < 4; i++) vis(sb_digit[i], standby);
+    for (int i = 0; i < 2; i++) vis(sb_dot[i],   standby);
+    vis(sb_date, standby);
+    if (standby) standbyRecolour();
+}
+
+void clockStyleChanged(void) {
+    applyClockStyle();
+}
+
 static void clock_tick_cb(lv_timer_t* /*timer*/) {
     if (!clock_time_lbl || !clock_date_lbl) return;
 
@@ -287,6 +440,39 @@ static void clock_tick_cb(lv_timer_t* /*timer*/) {
     char date_str[32];
     strftime(date_str, sizeof(date_str), "%a, %b %d", &timeinfo);
     lv_label_set_text(clock_date_lbl, date_str);
+
+    // StandBy face: drive the four digits individually. time_str is always
+    // "HH:MM" here (the 12h variant only strips a leading zero, which we want to
+    // keep as a blank slot so the row doesn't shift position on the hour).
+    if (clock_style == CLOCK_STYLE_STANDBY && sb_digit[0]) {
+        char h1[2] = { time_str[0], 0 };
+        char h2[2] = { time_str[1], 0 };
+        char m1[2] = { time_str[3], 0 };
+        char m2[2] = { time_str[4], 0 };
+        lv_label_set_text(sb_digit[0], h1);
+        lv_label_set_text(sb_digit[1], h2);
+        lv_label_set_text(sb_digit[2], m1);
+        lv_label_set_text(sb_digit[3], m2);
+
+        // The font carries digits only — no space glyph — so blanking the leading
+        // zero with " " drew a tofu box. Hide the whole cell instead, and shift the
+        // row so the remaining glyphs stay centred on the screen.
+        const bool hide_lead = (clock_12h && h1[0] == '0');
+        if (hide_lead) lv_obj_add_flag(sb_digit[0], LV_OBJ_FLAG_HIDDEN);
+        else           lv_obj_remove_flag(sb_digit[0], LV_OBJ_FLAG_HIDDEN);
+        if (hide_lead != sb_lead_hidden) {
+            sb_lead_hidden = hide_lead;
+            standbyReflow(hide_lead);
+        }
+        if (sb_date) lv_label_set_text(sb_date, date_str);
+
+        // Track the artwork colour as it changes between tracks.
+        static uint32_t sb_last_colour = 0xFFFFFFFF;
+        if (dominant_color != sb_last_colour) {
+            sb_last_colour = dominant_color;
+            standbyRecolour();
+        }
+    }
 }
 
 // ============================================================================
@@ -763,6 +949,9 @@ void createClockScreen() {
     lv_obj_set_style_text_font(clock_date_lbl, &lv_font_montserrat_24, 0);
     lv_obj_set_style_text_color(clock_date_lbl, lv_color_hex(0xAAAAAA), 0);
     lv_obj_align(clock_date_lbl, LV_ALIGN_CENTER, 0, SY(90));
+
+    buildStandbyFace(scr_clock);
+    applyClockStyle();
 
     // ── Weather overlay — hidden until first fetch ───────────────────────────
     

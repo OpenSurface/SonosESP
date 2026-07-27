@@ -86,6 +86,8 @@ void setup() {
     clock_refresh_min    = wifiPrefs.getInt(NVS_KEY_CLOCK_REFRESH,  CLOCK_DEFAULT_REFRESH);
     clock_bg_kw_idx      = wifiPrefs.getInt(NVS_KEY_CLOCK_KW,       CLOCK_DEFAULT_KW_IDX);
     clock_12h            = wifiPrefs.getBool(NVS_KEY_CLOCK_12H,     (bool)CLOCK_DEFAULT_12H);
+    clock_style          = wifiPrefs.getInt(NVS_KEY_CLOCK_STYLE,   CLOCK_DEFAULT_STYLE);
+    if (clock_style < 0 || clock_style > CLOCK_STYLE_STANDBY) clock_style = CLOCK_DEFAULT_STYLE;
     // Clamp indices in case lists changed between firmware versions
     if (clock_tz_idx    < 0 || clock_tz_idx    >= CLOCK_ZONES_COUNT)   clock_tz_idx    = 0;
     if (clock_bg_kw_idx < 0 || clock_bg_kw_idx >= CLOCK_BG_KW_COUNT)   clock_bg_kw_idx = 0;
