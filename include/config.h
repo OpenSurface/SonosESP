@@ -266,8 +266,13 @@
 #define CLOCK_DEFAULT_WEATHER_FAHR 0  // 0 = Celsius, 1 = Fahrenheit
 
 #define CLOCK_BG_MAX_DL_SIZE  (512 * 1024)  // Max background JPEG download buffer (512KB; Flickr baseline ~100-250KB)
-#define CLOCK_BG_WIDTH        800           // Clock background pixel width
-#define CLOCK_BG_HEIGHT       480           // Clock background pixel height
+// Clock background photo size. MUST track the panel: these drive the loremflickr
+// request URL, the PSRAM decode buffer, its stride, and the size of the image +
+// dark overlay widgets. Hardcoded 800x480 meant the 7" (1024x600) asked for a
+// 4"-sized photo AND left a 224x120 L-shaped strip of the screen uncovered by the
+// image and its readability veil. Identity on the 4" — no change there.
+#define CLOCK_BG_WIDTH        DISPLAY_WIDTH   // Clock background pixel width
+#define CLOCK_BG_HEIGHT       DISPLAY_HEIGHT  // Clock background pixel height
 #define CLOCK_BG_TASK_STACK   8192          // clockBgTask stack size
 #define CLOCK_ENTER_TIMEOUT_MS 3000         // Max wait for art/lyrics tasks to exit
 #define CLOCK_EXIT_COOLDOWN_MS 30000        // Prevent re-trigger for 30s after exit
