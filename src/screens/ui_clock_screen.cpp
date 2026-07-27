@@ -263,11 +263,16 @@ static lv_timer_t* clock_tick_timer = nullptr;
 // the semi-transparent text is what produces the blended overlap.
 LV_FONT_DECLARE(lv_font_clock_240);
 
-#define SB_DIGIT_W   146    // advance of one 240px digit, design units
-#define SB_OVERLAP    30    // how far each digit sits over the previous one
-#define SB_COLON_W    58    // width of the colon column
-#define SB_DOT        34    // colon disc diameter
-#define SB_TOP        96    // top of the digit row
+// The font is PROPORTIONAL, not monospace — '0' advances 163px but '1' only 94px.
+// Positioning by advance width would therefore shuffle the whole row every time a
+// 1 appeared. Instead each digit gets a fixed-width cell and is centred inside it,
+// so the row never moves and the digits stay optically even.
+#define SB_CELL      152    // fixed cell per digit, design units
+#define SB_OVERLAP    28    // how far each cell sits over the previous one
+#define SB_COLON_W    56    // width of the colon column
+#define SB_DOT        32    // colon disc diameter
+#define SB_INK       174    // real ink height of the font (line_height in the .c)
+#define SB_TOP       ((480 - SB_INK) / 2 - 22)   // vertically centred, lifted for the date
 
 static lv_obj_t* sb_digit[4] = { nullptr, nullptr, nullptr, nullptr };
 static lv_obj_t* sb_dot[2]   = { nullptr, nullptr };
@@ -281,13 +286,20 @@ static void standbyColours(lv_color_t* deep, lv_color_t* light, lv_color_t* dot)
     int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
     if (r + g + b < 24) { r = 0x0A; g = 0x4A; b = 0xA8; }   // near-black art → blue
 
-    auto mix = [](int v, float mul) {
-        int x = (int)(v * mul);
+    // Push the hue to full intensity first. dominant_color is deliberately
+    // darkened to ~40% for use as a background, which on black just looked muddy —
+    // normalising against the strongest channel gives a saturated, poster-like
+    // colour, and the two tones are then levels of that rather than dim/dimmer.
+    int mx = r; if (g > mx) mx = g; if (b > mx) mx = b;
+    if (mx > 0) { r = r * 255 / mx; g = g * 255 / mx; b = b * 255 / mx; }
+
+    auto lvl = [](int v, int pct) {
+        int x = v * pct / 100;
         return (uint8_t)(x < 0 ? 0 : (x > 255 ? 255 : x));
     };
-    *deep  = lv_color_make(mix(r, 1.9f), mix(g, 1.9f), mix(b, 1.9f));
-    *light = lv_color_make(mix(r, 3.1f), mix(g, 3.1f), mix(b, 3.1f));
-    *dot   = lv_color_make(0xE8, 0xEE, 0xF4);
+    *deep  = lv_color_make(lvl(r, 58), lvl(g, 58), lvl(b, 58));
+    *light = lv_color_make(lvl(r, 100), lvl(g, 100), lvl(b, 100));
+    *dot   = lv_color_make(0xEE, 0xF2, 0xF7);
 }
 
 static void buildStandbyFace(lv_obj_t* parent) {
@@ -295,28 +307,35 @@ static void buildStandbyFace(lv_obj_t* parent) {
     sb_dot[0] = sb_dot[1] = nullptr;
 
     // Row is laid out symmetrically about the screen centre.
-    const int total = SB_DIGIT_W * 4 + SB_COLON_W - SB_OVERLAP * 4;
+    const int total = SB_CELL * 4 + SB_COLON_W - SB_OVERLAP * 4;
     int x = (800 - total) / 2;
 
     auto addDigit = [&](int idx, int xpos) {
         sb_digit[idx] = lv_label_create(parent);
         lv_label_set_text(sb_digit[idx], "0");
         lv_obj_set_style_text_font(sb_digit[idx], &lv_font_clock_240, 0);
+        // Fixed cell + centred text: the glyph floats to the middle of its cell,
+        // so a narrow '1' next to a wide '0' still reads as an even row.
+        lv_obj_set_width(sb_digit[idx], SX(SB_CELL));
+        lv_obj_set_style_text_align(sb_digit[idx], LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_pos(sb_digit[idx], SX(xpos), SY(SB_TOP));
         lv_obj_add_flag(sb_digit[idx], LV_OBJ_FLAG_HIDDEN);
     };
 
-    addDigit(0, x);                                   x += SB_DIGIT_W - SB_OVERLAP;
-    addDigit(1, x);                                   x += SB_DIGIT_W - SB_OVERLAP;
-    const int colon_x = x;                            x += SB_COLON_W  - SB_OVERLAP;
-    addDigit(2, x);                                   x += SB_DIGIT_W - SB_OVERLAP;
+    addDigit(0, x);                                   x += SB_CELL - SB_OVERLAP;
+    addDigit(1, x);                                   x += SB_CELL - SB_OVERLAP;
+    const int colon_x = x;                            x += SB_COLON_W - SB_OVERLAP;
+    addDigit(2, x);                                   x += SB_CELL - SB_OVERLAP;
     addDigit(3, x);
 
+    // Dots sit at ~38% and ~80% of the ink height, which is where a colon's
+    // dots fall optically. Derived from SB_INK rather than guessed offsets.
+    const int dot_y[2] = { SB_TOP + (SB_INK * 38) / 100 - SB_DOT / 2,
+                           SB_TOP + (SB_INK * 80) / 100 - SB_DOT / 2 };
     for (int i = 0; i < 2; i++) {
         sb_dot[i] = lv_obj_create(parent);
         lv_obj_set_size(sb_dot[i], SMIN(SB_DOT), SMIN(SB_DOT));
-        lv_obj_set_pos(sb_dot[i], SX(colon_x + (SB_COLON_W - SB_DOT) / 2),
-                                  SY(SB_TOP + (i ? 190 : 96)));
+        lv_obj_set_pos(sb_dot[i], SX(colon_x + (SB_COLON_W - SB_DOT) / 2), SY(dot_y[i]));
         lv_obj_set_style_radius(sb_dot[i], LV_RADIUS_CIRCLE, 0);
         lv_obj_set_style_border_width(sb_dot[i], 0, 0);
         lv_obj_set_style_shadow_width(sb_dot[i], 0, 0);
@@ -411,11 +430,17 @@ static void clock_tick_cb(lv_timer_t* /*timer*/) {
         char h2[2] = { time_str[1], 0 };
         char m1[2] = { time_str[3], 0 };
         char m2[2] = { time_str[4], 0 };
-        if (clock_12h && h1[0] == '0') h1[0] = ' ';   // 09:30 -> " 9:30"
         lv_label_set_text(sb_digit[0], h1);
         lv_label_set_text(sb_digit[1], h2);
         lv_label_set_text(sb_digit[2], m1);
         lv_label_set_text(sb_digit[3], m2);
+
+        // The font carries digits only — no space glyph — so blanking the leading
+        // zero with " " drew a tofu box. Hide the whole cell instead. Its slot is
+        // left empty rather than reflowing the row, so the colon and minutes stay
+        // put as the hour rolls from 9 to 10.
+        if (clock_12h && h1[0] == '0') lv_obj_add_flag(sb_digit[0], LV_OBJ_FLAG_HIDDEN);
+        else                           lv_obj_remove_flag(sb_digit[0], LV_OBJ_FLAG_HIDDEN);
         if (sb_date) lv_label_set_text(sb_date, date_str);
 
         // Track the artwork colour as it changes between tracks.
