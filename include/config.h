@@ -253,6 +253,11 @@
 #define CLOCK_MODE_PAUSED      2  // Show only when paused/stopped + X mins inactivity
 #define CLOCK_MODE_NOTHING     3  // Show only when nothing playing + X mins inactivity
 
+// Clock face style (independent of CLOCK_MODE_*, which controls WHEN it appears)
+#define CLOCK_STYLE_CLASSIC    0  // Centred HH:MM with date below
+#define CLOCK_STYLE_STANDBY    1  // Oversized overlapping two-tone digits
+#define CLOCK_DEFAULT_STYLE    CLOCK_STYLE_CLASSIC
+
 #define CLOCK_DEFAULT_MODE       0    // Disabled by default
 #define CLOCK_DEFAULT_TIMEOUT    5    // 5 minutes inactivity before clock
 #define CLOCK_DEFAULT_TZ_IDX     0    // Index 0 = UTC
@@ -284,6 +289,7 @@
 #define NVS_KEY_CLOCK_REFRESH   "clk_refresh"
 #define NVS_KEY_CLOCK_KW        "clk_kw"
 #define NVS_KEY_CLOCK_12H       "clk_12h"
+#define NVS_KEY_CLOCK_STYLE     "clk_style"
 #define NVS_KEY_CLOCK_WEATHER_EN   "clk_wx_en"
 #define NVS_KEY_CLOCK_WEATHER_CITY "clk_wx_city"
 #define NVS_KEY_CLOCK_WEATHER_FAHR "clk_wx_fahr"

@@ -256,6 +256,121 @@ static void applyWeatherToWidgets() {
 // ============================================================================
 static lv_timer_t* clock_tick_timer = nullptr;
 
+// ── StandBy clock face ──────────────────────────────────────────────────────
+// Oversized digits that overlap each other, drawn in two tones taken from the
+// album artwork, with the colon as a pair of soft discs. Each digit is its own
+// label so it can carry its own colour and sit partly on top of its neighbour —
+// the semi-transparent text is what produces the blended overlap.
+LV_FONT_DECLARE(lv_font_clock_240);
+
+#define SB_DIGIT_W   146    // advance of one 240px digit, design units
+#define SB_OVERLAP    30    // how far each digit sits over the previous one
+#define SB_COLON_W    58    // width of the colon column
+#define SB_DOT        34    // colon disc diameter
+#define SB_TOP        96    // top of the digit row
+
+static lv_obj_t* sb_digit[4] = { nullptr, nullptr, nullptr, nullptr };
+static lv_obj_t* sb_dot[2]   = { nullptr, nullptr };
+static lv_obj_t* sb_date     = nullptr;
+
+// Two tones + a highlight, derived from the artwork's dominant colour so the
+// clock matches whatever is playing. Falls back to a blue close to the reference
+// when there is no artwork yet.
+static void standbyColours(lv_color_t* deep, lv_color_t* light, lv_color_t* dot) {
+    uint32_t c = dominant_color;
+    int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
+    if (r + g + b < 24) { r = 0x0A; g = 0x4A; b = 0xA8; }   // near-black art → blue
+
+    auto mix = [](int v, float mul) {
+        int x = (int)(v * mul);
+        return (uint8_t)(x < 0 ? 0 : (x > 255 ? 255 : x));
+    };
+    *deep  = lv_color_make(mix(r, 1.9f), mix(g, 1.9f), mix(b, 1.9f));
+    *light = lv_color_make(mix(r, 3.1f), mix(g, 3.1f), mix(b, 3.1f));
+    *dot   = lv_color_make(0xE8, 0xEE, 0xF4);
+}
+
+static void buildStandbyFace(lv_obj_t* parent) {
+    for (int i = 0; i < 4; i++) sb_digit[i] = nullptr;
+    sb_dot[0] = sb_dot[1] = nullptr;
+
+    // Row is laid out symmetrically about the screen centre.
+    const int total = SB_DIGIT_W * 4 + SB_COLON_W - SB_OVERLAP * 4;
+    int x = (800 - total) / 2;
+
+    auto addDigit = [&](int idx, int xpos) {
+        sb_digit[idx] = lv_label_create(parent);
+        lv_label_set_text(sb_digit[idx], "0");
+        lv_obj_set_style_text_font(sb_digit[idx], &lv_font_clock_240, 0);
+        lv_obj_set_pos(sb_digit[idx], SX(xpos), SY(SB_TOP));
+        lv_obj_add_flag(sb_digit[idx], LV_OBJ_FLAG_HIDDEN);
+    };
+
+    addDigit(0, x);                                   x += SB_DIGIT_W - SB_OVERLAP;
+    addDigit(1, x);                                   x += SB_DIGIT_W - SB_OVERLAP;
+    const int colon_x = x;                            x += SB_COLON_W  - SB_OVERLAP;
+    addDigit(2, x);                                   x += SB_DIGIT_W - SB_OVERLAP;
+    addDigit(3, x);
+
+    for (int i = 0; i < 2; i++) {
+        sb_dot[i] = lv_obj_create(parent);
+        lv_obj_set_size(sb_dot[i], SMIN(SB_DOT), SMIN(SB_DOT));
+        lv_obj_set_pos(sb_dot[i], SX(colon_x + (SB_COLON_W - SB_DOT) / 2),
+                                  SY(SB_TOP + (i ? 190 : 96)));
+        lv_obj_set_style_radius(sb_dot[i], LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_border_width(sb_dot[i], 0, 0);
+        lv_obj_set_style_shadow_width(sb_dot[i], 0, 0);
+        lv_obj_clear_flag(sb_dot[i], LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_clear_flag(sb_dot[i], LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_flag(sb_dot[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    sb_date = lv_label_create(parent);
+    lv_label_set_text(sb_date, "");
+    lv_obj_set_style_text_font(sb_date, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_color(sb_date, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_opa(sb_date, LV_OPA_50, 0);
+    lv_obj_align(sb_date, LV_ALIGN_BOTTOM_MID, 0, SY(-26));
+    lv_obj_add_flag(sb_date, LV_OBJ_FLAG_HIDDEN);
+}
+
+// Repaints the StandBy digits from the current artwork colour.
+static void standbyRecolour(void) {
+    lv_color_t deep, light, dot;
+    standbyColours(&deep, &light, &dot);
+    for (int i = 0; i < 4; i++) {
+        if (!sb_digit[i]) continue;
+        lv_obj_set_style_text_color(sb_digit[i], (i & 1) ? light : deep, 0);
+        // Slightly transparent so overlapping strokes blend instead of masking.
+        lv_obj_set_style_text_opa(sb_digit[i], (i & 1) ? 225 : 245, 0);
+    }
+    for (int i = 0; i < 2; i++) {
+        if (!sb_dot[i]) continue;
+        lv_obj_set_style_bg_color(sb_dot[i], dot, 0);
+        lv_obj_set_style_bg_opa(sb_dot[i], 210, 0);
+    }
+}
+
+// Shows whichever face is selected and hides the other.
+static void applyClockStyle(void) {
+    const bool standby = (clock_style == CLOCK_STYLE_STANDBY);
+    auto vis = [](lv_obj_t* o, bool show) {
+        if (!o) return;
+        if (show) lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
+        else      lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+    };
+    vis(clock_time_lbl, !standby);
+    vis(clock_date_lbl, !standby);
+    for (int i = 0; i < 4; i++) vis(sb_digit[i], standby);
+    for (int i = 0; i < 2; i++) vis(sb_dot[i],   standby);
+    vis(sb_date, standby);
+    if (standby) standbyRecolour();
+}
+
+void clockStyleChanged(void) {
+    applyClockStyle();
+}
+
 static void clock_tick_cb(lv_timer_t* /*timer*/) {
     if (!clock_time_lbl || !clock_date_lbl) return;
 
@@ -287,6 +402,29 @@ static void clock_tick_cb(lv_timer_t* /*timer*/) {
     char date_str[32];
     strftime(date_str, sizeof(date_str), "%a, %b %d", &timeinfo);
     lv_label_set_text(clock_date_lbl, date_str);
+
+    // StandBy face: drive the four digits individually. time_str is always
+    // "HH:MM" here (the 12h variant only strips a leading zero, which we want to
+    // keep as a blank slot so the row doesn't shift position on the hour).
+    if (clock_style == CLOCK_STYLE_STANDBY && sb_digit[0]) {
+        char h1[2] = { time_str[0], 0 };
+        char h2[2] = { time_str[1], 0 };
+        char m1[2] = { time_str[3], 0 };
+        char m2[2] = { time_str[4], 0 };
+        if (clock_12h && h1[0] == '0') h1[0] = ' ';   // 09:30 -> " 9:30"
+        lv_label_set_text(sb_digit[0], h1);
+        lv_label_set_text(sb_digit[1], h2);
+        lv_label_set_text(sb_digit[2], m1);
+        lv_label_set_text(sb_digit[3], m2);
+        if (sb_date) lv_label_set_text(sb_date, date_str);
+
+        // Track the artwork colour as it changes between tracks.
+        static uint32_t sb_last_colour = 0xFFFFFFFF;
+        if (dominant_color != sb_last_colour) {
+            sb_last_colour = dominant_color;
+            standbyRecolour();
+        }
+    }
 }
 
 // ============================================================================
@@ -763,6 +901,9 @@ void createClockScreen() {
     lv_obj_set_style_text_font(clock_date_lbl, &lv_font_montserrat_24, 0);
     lv_obj_set_style_text_color(clock_date_lbl, lv_color_hex(0xAAAAAA), 0);
     lv_obj_align(clock_date_lbl, LV_ALIGN_CENTER, 0, SY(90));
+
+    buildStandbyFace(scr_clock);
+    applyClockStyle();
 
     // ── Weather overlay — hidden until first fetch ───────────────────────────
     

@@ -254,6 +254,7 @@ extern bool clock_picsum_enabled; // true = download random photo background
 extern int  clock_refresh_min;    // Minutes between background photo refreshes
 extern int  clock_bg_kw_idx;      // Index into CLOCK_BG_KEYWORDS[]
 extern bool clock_12h;            // true = 12h AM/PM format, false = 24h
+extern int  clock_style;          // CLOCK_STYLE_* — which clock face to draw
 extern bool clock_weather_enabled;   // true = show weather widget
 extern int  clock_weather_city_idx;  // Index into CLOCK_CITIES[], OR == CLOCK_CITY_COUNT for custom location (issue #74)
 extern bool clock_wx_fahrenheit;     // true = display temps in °F
@@ -323,5 +324,6 @@ void createClockSettingsScreen();
 void checkClockTrigger();
 void exitClockScreen();
 void clockBgTask(void* param);
+void clockStyleChanged();   // re-apply CLOCK_STYLE_* to the built clock screen
 
 #endif // CLOCK_SCREEN_H

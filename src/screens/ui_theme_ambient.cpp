@@ -121,15 +121,19 @@ void buildAmbientPlayer() {
     img_album = lv_img_create(panel_art);
     lv_obj_set_size(img_album, SMIN(AM_ART), SMIN(AM_ART));
     lv_obj_set_pos(img_album, SX(AM_L), SY(AM_ART_Y));
-    // Square corners on both the image AND its shadow. Rounding can't work here:
-    // themeApplyArtGeometry() scales the artwork (308 from a 420 source) and LVGL
-    // drops corner clipping on a transformed image — so the picture drew square
-    // while the shadow still used the radius, leaving rounded shadow corners
-    // poking out past the square edges.
+    // Square artwork, and NO blur shadow.
+    //
+    // shadow_width in LVGL is a BLUR RADIUS, not an outline: the blur spreads
+    // equally in every direction from each corner point, so a 36px shadow renders
+    // with visibly rounded corners around a square image however the radius is
+    // set. Zeroing the radius could never fix that. A crisp 1px outline gives the
+    // artwork definition against the backdrop instead — and it also drops the
+    // most expensive draw on this screen, since blur is pure software here.
     lv_obj_set_style_radius(img_album, 0, 0);
-    lv_obj_set_style_shadow_width(img_album, 36, 0);
-    lv_obj_set_style_shadow_color(img_album, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_shadow_opa(img_album, LV_OPA_60, 0);
+    lv_obj_set_style_shadow_width(img_album, 0, 0);
+    lv_obj_set_style_border_width(img_album, 1, 0);
+    lv_obj_set_style_border_color(img_album, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_border_opa(img_album, LV_OPA_20, 0);
 
     art_placeholder = lv_label_create(panel_art);
     lv_label_set_text(art_placeholder, MDI_MUSIC_NOTE);
