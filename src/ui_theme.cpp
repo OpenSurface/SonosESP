@@ -13,18 +13,21 @@
 #include "lyrics.h"
 
 // ── Registry ────────────────────────────────────────────────────────────────
+//                                                                   art:  size   x                     y
 const ThemeDef THEMES[] = {
-    { "Classic",
-      "The original look - blurred album art fills the screen",
-      THEME_BG_BLUR_ART,      THEME_ART_HERO,  buildClassicPlayer },
+    { "SonosESP",
+      "The original - blurred album art fills the screen",
+      THEME_BG_BLUR_ART,      ART_SIZE, THEME_ART_CENTRED, THEME_ART_CENTRED, buildClassicPlayer },
 
+    // art_y is the centred (no-lyrics) resting place; am_tick() lifts the artwork
+    // when there are lyrics to show beneath it.
     { "Ambient",
-      "Same layout, backdrop tinted from the album artwork",
-      THEME_BG_AMBIENT_TINT,  THEME_ART_HERO,  buildClassicPlayer },
+      "Tinted backdrop, lyrics below the artwork",
+      THEME_BG_AMBIENT_TINT,  308,      39,                86,                buildAmbientPlayer },
 
     { "Immersive",
       "Full-bleed colour, oversized title and large lyrics",
-      THEME_BG_AMBIENT_SOLID, THEME_ART_THUMB, buildImmersivePlayer },
+      THEME_BG_AMBIENT_SOLID, 112,      32,                24,                buildImmersivePlayer },
 };
 const uint8_t THEME_COUNT = (uint8_t)(sizeof(THEMES) / sizeof(THEMES[0]));
 
@@ -92,8 +95,9 @@ void themeApplyBackdrop(uint32_t rgb) {
             break;
 
         case THEME_BG_AMBIENT_TINT:
-            // Deep and muted: sits behind the existing panels, white text on top.
+            // Deep and muted: white text and the soft circle pattern sit on top.
             lv_obj_set_style_bg_color(scr_main, lv_color_hex(shade(rgb, 0.90f, 1.35f, 26, 64)), 0);
+            themeApplyPattern(rgb);
             break;
 
         case THEME_BG_AMBIENT_SOLID:
@@ -108,31 +112,25 @@ void themeApplyBackdrop(uint32_t rgb) {
     }
 }
 
-// Immersive header artwork, in 800x480 design units.
-// MUST match the header grid in ui_theme_immersive.cpp (IM_ART / IM_MARGIN / IM_HEAD_Y).
-#define THEME_THUMB_PX   112
-#define THEME_THUMB_X    32
-#define THEME_THUMB_Y    24
-
 void themeApplyArtGeometry(lv_obj_t* img) {
     if (!img) return;
-    switch (themeCurrent()->art) {
-        case THEME_ART_THUMB:
-            // The decoded source is ART_SIZE square; scale it down to the thumbnail
-            // (LVGL zoom is 256 = 1:1) rather than re-decoding at another size.
-            lv_obj_set_size(img, SMIN(THEME_THUMB_PX), SMIN(THEME_THUMB_PX));
-            lv_image_set_scale(img, (256 * THEME_THUMB_PX) / ART_SIZE);
-            lv_obj_set_pos(img, SX(THEME_THUMB_X), SY(THEME_THUMB_Y));
-            break;
+    const ThemeDef* t = themeCurrent();
 
-        case THEME_ART_HERO:
-        default:
-            // Unchanged Classic behaviour — full size, centred in the art panel.
-            lv_image_set_scale(img, 256);
-            lv_obj_set_size(img, ART_SIZE, ART_SIZE);
-            lv_obj_center(img);
-            break;
+    if (t->art_x == THEME_ART_CENTRED && t->art_y == THEME_ART_CENTRED &&
+        t->art_size == ART_SIZE) {
+        // Unchanged Classic behaviour — full size, centred in the art panel.
+        lv_image_set_scale(img, 256);
+        lv_obj_set_size(img, ART_SIZE, ART_SIZE);
+        lv_obj_center(img);
+        return;
     }
+
+    // The decoded source is always ART_SIZE square; scale it to the theme's box
+    // (LVGL zoom is 256 = 1:1) rather than re-decoding at another size.
+    lv_obj_set_size(img, SMIN(t->art_size), SMIN(t->art_size));
+    lv_image_set_scale(img, (256 * t->art_size) / ART_SIZE);
+    if (t->art_x == THEME_ART_CENTRED) lv_obj_center(img);
+    else                               lv_obj_set_pos(img, SX(t->art_x), SY(t->art_y));
 }
 
 // ── Persistence ─────────────────────────────────────────────────────────────

@@ -30,21 +30,23 @@ typedef enum {
     THEME_BG_AMBIENT_SOLID,  // saturated full-bleed ambient colour
 } ThemeBgMode;
 
-// How the artwork is presented. displayCompletedArt() re-applies geometry every
-// time new art arrives, so this has to be part of the theme rather than something
-// the builder sets once.
-typedef enum {
-    THEME_ART_HERO = 0,   // large square, centred in the art panel (Classic)
-    THEME_ART_THUMB,      // small header thumbnail (Immersive)
-} ThemeArtMode;
-
 typedef void (*ThemeBuildFn)(void);   // must create scr_main + all player globals
+
+// Artwork placement, in 800x480 design-space units. displayCompletedArt()
+// re-applies this every time new art arrives, so it has to live in the registry
+// rather than being set once by the builder (otherwise the first decoded image
+// would overwrite whatever the builder chose).
+//   art_size : square edge length; the decoded ART_SIZE source is scaled to fit.
+//   art_x/y  : top-left position, or THEME_ART_CENTRED to centre in the parent.
+#define THEME_ART_CENTRED  (-1)
 
 typedef struct {
     const char*  name;    // label in the settings dropdown
     const char*  desc;    // one-line description shown under the dropdown
     ThemeBgMode  bg;
-    ThemeArtMode art;
+    int16_t      art_size;
+    int16_t      art_x;
+    int16_t      art_y;
     ThemeBuildFn build;
 } ThemeDef;
 
@@ -78,8 +80,13 @@ void themeApplyBackdrop(uint32_t rgb);
 // "full size + centre" so a theme can show the art as a header thumbnail instead.
 void themeApplyArtGeometry(lv_obj_t* img);
 
+// Repaints the decorative backdrop pattern (if the active theme has one) from the
+// current ambient colour. Called from themeApplyBackdrop().
+void themeApplyPattern(uint32_t rgb);
+
 // Builders (registry entries point at these).
-void buildClassicPlayer(void);     // ui_main_screen.cpp   — Classic + Ambient
+void buildClassicPlayer(void);     // ui_main_screen.cpp
+void buildAmbientPlayer(void);     // ui_theme_ambient.cpp
 void buildImmersivePlayer(void);   // ui_theme_immersive.cpp
 
 #endif // UI_THEME_H
