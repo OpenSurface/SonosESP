@@ -277,6 +277,23 @@ LV_FONT_DECLARE(lv_font_clock_240);
 static lv_obj_t* sb_digit[4] = { nullptr, nullptr, nullptr, nullptr };
 static lv_obj_t* sb_dot[2]   = { nullptr, nullptr };
 static lv_obj_t* sb_date     = nullptr;
+static int       sb_base_x[4] = { 0, 0, 0, 0 };   // design-space x of each cell
+static int       sb_colon_x   = 0;
+static bool      sb_lead_hidden = false;
+
+// Re-centres the row on the screen. With a hidden leading cell (12-hour times
+// before 10) the visible glyphs would otherwise sit half a cell right of centre,
+// which is exactly what "6:25" looked like — so everything shifts left by half a
+// cell whenever that slot is empty.
+static void standbyReflow(bool hide_leading) {
+    const int dx = hide_leading ? (SB_CELL - SB_OVERLAP) / 2 : 0;
+    for (int i = 0; i < 4; i++) {
+        if (sb_digit[i]) lv_obj_set_x(sb_digit[i], SX(sb_base_x[i] - dx));
+    }
+    for (int i = 0; i < 2; i++) {
+        if (sb_dot[i]) lv_obj_set_x(sb_dot[i], SX(sb_colon_x + (SB_COLON_W - SB_DOT) / 2 - dx));
+    }
+}
 
 // Two tones + a highlight, derived from the artwork's dominant colour so the
 // clock matches whatever is playing. Falls back to a blue close to the reference
@@ -322,11 +339,11 @@ static void buildStandbyFace(lv_obj_t* parent) {
         lv_obj_add_flag(sb_digit[idx], LV_OBJ_FLAG_HIDDEN);
     };
 
-    addDigit(0, x);                                   x += SB_CELL - SB_OVERLAP;
-    addDigit(1, x);                                   x += SB_CELL - SB_OVERLAP;
-    const int colon_x = x;                            x += SB_COLON_W - SB_OVERLAP;
-    addDigit(2, x);                                   x += SB_CELL - SB_OVERLAP;
-    addDigit(3, x);
+    addDigit(0, x);  sb_base_x[0] = x;                x += SB_CELL - SB_OVERLAP;
+    addDigit(1, x);  sb_base_x[1] = x;                x += SB_CELL - SB_OVERLAP;
+    const int colon_x = x;  sb_colon_x = x;           x += SB_COLON_W - SB_OVERLAP;
+    addDigit(2, x);  sb_base_x[2] = x;                x += SB_CELL - SB_OVERLAP;
+    addDigit(3, x);  sb_base_x[3] = x;
 
     // Dots sit at ~38% and ~80% of the ink height, which is where a colon's
     // dots fall optically. Derived from SB_INK rather than guessed offsets.
@@ -344,12 +361,14 @@ static void buildStandbyFace(lv_obj_t* parent) {
         lv_obj_add_flag(sb_dot[i], LV_OBJ_FLAG_HIDDEN);
     }
 
+    // Sits directly under the digits, not pinned to the bottom of the screen —
+    // bottom-aligning left it stranded ~125px below the time with a gap between.
     sb_date = lv_label_create(parent);
     lv_label_set_text(sb_date, "");
     lv_obj_set_style_text_font(sb_date, &lv_font_montserrat_24, 0);
     lv_obj_set_style_text_color(sb_date, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_text_opa(sb_date, LV_OPA_50, 0);
-    lv_obj_align(sb_date, LV_ALIGN_BOTTOM_MID, 0, SY(-26));
+    lv_obj_set_style_text_opa(sb_date, LV_OPA_60, 0);
+    lv_obj_align(sb_date, LV_ALIGN_TOP_MID, 0, SY(SB_TOP + SB_INK + 14));
     lv_obj_add_flag(sb_date, LV_OBJ_FLAG_HIDDEN);
 }
 
@@ -436,11 +455,15 @@ static void clock_tick_cb(lv_timer_t* /*timer*/) {
         lv_label_set_text(sb_digit[3], m2);
 
         // The font carries digits only — no space glyph — so blanking the leading
-        // zero with " " drew a tofu box. Hide the whole cell instead. Its slot is
-        // left empty rather than reflowing the row, so the colon and minutes stay
-        // put as the hour rolls from 9 to 10.
-        if (clock_12h && h1[0] == '0') lv_obj_add_flag(sb_digit[0], LV_OBJ_FLAG_HIDDEN);
-        else                           lv_obj_remove_flag(sb_digit[0], LV_OBJ_FLAG_HIDDEN);
+        // zero with " " drew a tofu box. Hide the whole cell instead, and shift the
+        // row so the remaining glyphs stay centred on the screen.
+        const bool hide_lead = (clock_12h && h1[0] == '0');
+        if (hide_lead) lv_obj_add_flag(sb_digit[0], LV_OBJ_FLAG_HIDDEN);
+        else           lv_obj_remove_flag(sb_digit[0], LV_OBJ_FLAG_HIDDEN);
+        if (hide_lead != sb_lead_hidden) {
+            sb_lead_hidden = hide_lead;
+            standbyReflow(hide_lead);
+        }
         if (sb_date) lv_label_set_text(sb_date, date_str);
 
         // Track the artwork colour as it changes between tracks.
