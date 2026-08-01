@@ -352,7 +352,7 @@ void createClockSettingsScreen() {
 
         // Options and description come from the CLOCK_FACES[] registry, so a new
         // face appears here automatically (see clock_face.h).
-        addSettingLabel(card, "Clock face");
+        addSettingLabel(card, "Theme");
         lv_obj_t* lbl_face_desc = addDescLabel(card, clockFaceCurrent()->desc);
         lv_obj_t* dd_style = makeDropdown(card, clockFaceOptions(), (uint16_t)clock_style, false);
         lv_obj_set_user_data(dd_style, lbl_face_desc);

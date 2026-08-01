@@ -260,10 +260,11 @@
 // Clock face style (independent of CLOCK_MODE_*, which controls WHEN it appears)
 #define CLOCK_STYLE_CLASSIC    0  // Centred HH:MM with date below
 #define CLOCK_STYLE_STANDBY    1  // Oversized overlapping two-tone digits
+#define CLOCK_STYLE_HORIZON    2  // Nocturne: centred clock, ambient glow, forecast chips
 // StandBy is the default face: existing users have no clk_style key in NVS, so
 // they pick up this default on upgrade and get the new clock without touching
 // settings. Anyone who explicitly selects Classic has the key written and keeps it.
-#define CLOCK_DEFAULT_STYLE    CLOCK_STYLE_STANDBY
+#define CLOCK_DEFAULT_STYLE    CLOCK_STYLE_HORIZON
 
 #define CLOCK_DEFAULT_MODE       0    // Disabled by default
 #define CLOCK_DEFAULT_TIMEOUT    5    // 5 minutes inactivity before clock

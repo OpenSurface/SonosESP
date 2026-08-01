@@ -4,6 +4,10 @@
 #include <string.h>
 #include <stdio.h>
 
+// Face builders (registry entries point at these).
+void buildHorizonFace(lv_obj_t* parent);
+void horizonTick(const struct tm* now);
+
 // ---------------------------------------------------------------------------
 // The registry. Adding a face is one row.
 //
@@ -17,6 +21,8 @@ const ClockFaceDef CLOCK_FACES[] = {
       true,  nullptr, nullptr },
     { "StandBy", "Oversized overlapping digits, tinted from the album art",
       true,  nullptr, nullptr },
+    { "Horizon", "Centred clock over an ambient glow, with a 6-hour forecast",
+      false, buildHorizonFace, horizonTick },
 };
 
 const uint8_t CLOCK_FACE_COUNT = (uint8_t)(sizeof(CLOCK_FACES) / sizeof(CLOCK_FACES[0]));

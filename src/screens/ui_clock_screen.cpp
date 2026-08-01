@@ -15,6 +15,7 @@
 #include "config.h"
 #include "ui_network_guard.h"
 #include "clock_screen.h"
+#include "clock_face.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_140);
 LV_FONT_DECLARE(lv_font_weathericons_80);
@@ -101,7 +102,8 @@ static lv_obj_t* clock_wx_set_t_lbl  = nullptr;  // "Set   19:45"
 // ============================================================================
 // WMO weather code → human-readable condition string
 // ============================================================================
-static const char* wmoCondition(int code) {
+// Non-static: shared with the Nocturne faces (ui_clock_horizon.cpp).
+const char* wmoCondition(int code) {
     if (code == 0)  return "Clear";
     if (code <= 2)  return "Mainly Clear";
     if (code == 3)  return "Overcast";
@@ -150,7 +152,8 @@ static bool isNightHour(int hour) {
     return (hour < rise_h || hour >= set_h);
 }
 
-static const char* wmoGlyph(int code, bool night = false) {
+// Non-static: shared with the Nocturne faces (ui_clock_horizon.cpp).
+const char* wmoGlyph(int code, bool night) {
     if (code == 0)  return night ? WI_NIGHT_CLEAR       : WI_DAY_SUNNY;
     if (code == 1)  return night ? WI_NIGHT_CLOUDY_HIGH : WI_DAY_CLOUDY_HIGH;
     if (code == 2)  return night ? WI_NIGHT_PARTLY      : WI_DAY_CLOUDY;
@@ -268,9 +271,11 @@ static lv_timer_t* clock_tick_timer = nullptr;
 // Y is derived from SB_INK — sat too low. The 7" tier uses a 300px font instead.
 #if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
     LV_FONT_DECLARE(lv_font_clock_300);
+void horizonSetVisible(bool show);   // ui_clock_horizon.cpp
     #define SB_FONT   lv_font_clock_300
 #else
     LV_FONT_DECLARE(lv_font_clock_240);
+void horizonSetVisible(bool show);   // ui_clock_horizon.cpp
     #define SB_FONT   lv_font_clock_240
 #endif
 
@@ -415,14 +420,23 @@ static void standbyRecolour(void) {
 
 // Shows whichever face is selected and hides the other.
 static void applyClockStyle(void) {
-    const bool standby = (clock_style == CLOCK_STYLE_STANDBY);
+    // A registry face with its own builder owns the whole screen: build it on
+    // first use, then hide every legacy widget. Faces without a builder
+    // (Classic, StandBy) keep the original show/hide behaviour below.
+    const ClockFaceDef* face = clockFaceCurrent();
+    const bool own_face = (face->build != nullptr);
+    if (own_face && scr_clock) face->build(scr_clock);
+    horizonSetVisible(own_face);
+
+    const bool standby = !own_face && (clock_style == CLOCK_STYLE_STANDBY);
+    const bool classic = !own_face && !standby;
     auto vis = [](lv_obj_t* o, bool show) {
         if (!o) return;
         if (show) lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
         else      lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
     };
-    vis(clock_time_lbl, !standby);
-    vis(clock_date_lbl, !standby);
+    vis(clock_time_lbl, classic);
+    vis(clock_date_lbl, classic);
     for (int i = 0; i < 4; i++) vis(sb_digit[i], standby);
     for (int i = 0; i < 2; i++) vis(sb_dot[i],   standby);
     vis(sb_date, standby);
@@ -449,6 +463,10 @@ static void clock_tick_cb(lv_timer_t* /*timer*/) {
         lv_label_set_text(clock_date_lbl, "Waiting for NTP...");
         return;
     }
+
+    // A face with its own tick owns all rendering from here.
+    const ClockFaceDef* face = clockFaceCurrent();
+    if (face->tick) { face->tick(&timeinfo); return; }
 
     char time_str[8];
     if (clock_12h) {
@@ -742,7 +760,7 @@ void clockBgTask(void* /*param*/) {
         uint8_t* dl_buf = nullptr;
         int dl_total = 0;
 
-        if (clock_picsum_enabled) {
+        if (clock_picsum_enabled && clockFaceUsesPhotoBg()) {
             // DMA guard: skip photo if DMA is depleted. SDIO TX copy buffer (transport_drv.c:290)
             // fails during HTTP SYN when session DMA loss ≥ -66KB — confirmed log16 crash3.
             // Photo is non-critical; weather fetch runs regardless.
@@ -1270,7 +1288,7 @@ void checkClockTrigger() {
             applyWeatherToWidgets();
 
             // Allocate and zero pixel buffer for background (800×480 RGB565 = 768 KB in PSRAM)
-            if (clock_picsum_enabled && !clock_bg_buffer) {
+            if (clock_picsum_enabled && clockFaceUsesPhotoBg() && !clock_bg_buffer) {
                 size_t buf_sz = (size_t)CLOCK_BG_WIDTH * CLOCK_BG_HEIGHT * 2;
                 clock_bg_buffer = (uint16_t*)heap_caps_malloc(
                     buf_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -1283,10 +1301,10 @@ void checkClockTrigger() {
 
             // Start background task for photo download and/or weather fetch.
             // Run if either feature is enabled (task skips photo section when picsum is off).
-            if (clock_picsum_enabled || clock_weather_enabled) {
+            if ((clock_picsum_enabled && clockFaceUsesPhotoBg()) || clock_weather_enabled) {
                 clock_bg_shutdown_requested = false;
                 clock_bg_ready              = false;
-                if (clock_picsum_enabled) memset(&clock_bg_dsc, 0, sizeof(clock_bg_dsc));
+                if (clock_picsum_enabled && clockFaceUsesPhotoBg()) memset(&clock_bg_dsc, 0, sizeof(clock_bg_dsc));
                 // Allocate stack in PSRAM to free 8KB of DMA SRAM for SDIO RX buffers.
                 // Same pattern as art task (20KB) and lyrics task (8KB).
                 // Safe: clockBgTask never calls NVS/flash write functions.
