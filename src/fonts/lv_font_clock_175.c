@@ -21,13 +21,9 @@
 #include "lvgl/lvgl.h"
 #endif
 
-/* Small clock tier, gated per panel (bitmap fonts do not scale, #89). */
+/* Used on BOTH panels: the small tier on 7", the Monolith mid tier on 4". */
 #ifndef LV_FONT_CLOCK_175
-    #if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
-        #define LV_FONT_CLOCK_175 1
-    #else
-        #define LV_FONT_CLOCK_175 0
-    #endif
+#define LV_FONT_CLOCK_175 1
 #endif
 
 #if LV_FONT_CLOCK_175

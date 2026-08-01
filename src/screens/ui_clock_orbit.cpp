@@ -30,16 +30,18 @@ LV_FONT_DECLARE(lv_font_weathericons_32);
 // Layout, 800x480 design units.
 #define ORB_PAD_X    46
 #define ORB_HEAD_Y   20
-#define ORB_CLOCK_Y  96
-#define ORB_META_Y   (ORB_CLOCK_Y + NOC_INK_SM + 10)
+#define ORB_CLOCK_Y  78
+// Clear of the arc: the arc bottom (horizon) is ORB_ARC_CY and its sunrise/
+// sunset labels run to ORB_ARC_CY+22, so the weather line starts below that.
+#define ORB_META_Y   250
 #define ORB_ARC_CX   612          // arc centre
-#define ORB_ARC_CY   214
-#define ORB_ARC_R    104
+#define ORB_ARC_CY   196
+#define ORB_ARC_R    100
 #define ORB_ARC_SEG  24           // polyline segments across the half arc
 #define ORB_DOT      15
-#define ORB_CURVE_Y  366
-#define ORB_CURVE_H  52
-#define ORB_LBL_Y    436
+#define ORB_CURVE_Y  330
+#define ORB_CURVE_H  46
+#define ORB_LBL_Y    392
 
 static lv_obj_t*      orb_root = nullptr;
 static lv_obj_t*      orb_city = nullptr;
@@ -54,6 +56,7 @@ static lv_obj_t*      orb_set  = nullptr;
 static lv_obj_t*      orb_curve = nullptr;
 static lv_obj_t*      orb_pt[6]     = {};
 static lv_obj_t*      orb_lbl_hr[6] = {};
+static lv_obj_t*      orb_lbl_ic[6] = {};
 static lv_obj_t*      orb_lbl_tmp[6]= {};
 
 // lv_line does not copy its point array — it must outlive the widget.
@@ -135,7 +138,11 @@ void buildOrbitFace(lv_obj_t* parent) {
     lv_obj_set_style_shadow_color(orb_sun, NOC_ACCENT, 0);
     lv_obj_set_style_shadow_width(orb_sun, SMIN(18), 0);
     lv_obj_set_style_shadow_opa(orb_sun, 180, 0);
-    lv_obj_add_flag(orb_sun, LV_OBJ_FLAG_HIDDEN);   // shown once sunrise/set known
+    // Park it at the arc apex. Before this it defaulted to (0,0) — the top-left
+    // corner — and visibly jumped onto the arc once the first weather fetch
+    // landed. Now it starts somewhere sensible and merely slides into place.
+    lv_obj_set_pos(orb_sun, SX(ORB_ARC_CX) - SMIN(ORB_DOT) / 2,
+                            SY(ORB_ARC_CY - ORB_ARC_R) - SMIN(ORB_DOT) / 2);
 
     // ── Temperature curve ───────────────────────────────────────────────────
     const int step = (800 - ORB_PAD_X * 2) / 6;
@@ -151,10 +158,17 @@ void buildOrbitFace(lv_obj_t* parent) {
         lv_obj_set_style_border_color(orb_pt[i], NOC_ACCENT, 0);
         lv_obj_set_style_border_width(orb_pt[i], 1, 0);
 
-        orb_lbl_hr[i]  = nocLabel(orb_root, &font_text_12, NOC_N500, "");
-        lv_obj_set_pos(orb_lbl_hr[i], SX(cx - 20), SY(ORB_LBL_Y));
-        orb_lbl_tmp[i] = nocLabel(orb_root, &font_text_16, NOC_TEXT, "");
-        lv_obj_set_pos(orb_lbl_tmp[i], SX(cx + 4), SY(ORB_LBL_Y - 2));
+        // hour · icon · temp, centred under the curve point.
+        lv_obj_t* col = lv_obj_create(orb_root);
+        lv_obj_remove_style_all(col);
+        lv_obj_set_size(col, SX(120), SY(40));
+        lv_obj_set_pos(col, SX(cx - 60), SY(ORB_LBL_Y));
+        lv_obj_set_flex_flow(col, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(col, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_pad_column(col, SX(6), 0);
+        orb_lbl_hr[i]  = nocLabel(col, &font_text_12, NOC_N500, "");
+        orb_lbl_ic[i]  = nocLabel(col, &lv_font_weathericons_32, NOC_N400, "");
+        orb_lbl_tmp[i] = nocLabel(col, &font_text_16, NOC_TEXT, "");
     }
     orb_curve = lv_line_create(orb_root);
     lv_line_set_points(orb_curve, orb_curve_pts, 6);
@@ -164,7 +178,7 @@ void buildOrbitFace(lv_obj_t* parent) {
 
     lv_obj_t* kick = nocLabel(orb_root, &font_text_12, NOC_N500, "NEXT 6 HOURS");
     lv_obj_set_style_text_letter_space(kick, 3, 0);
-    lv_obj_set_pos(kick, SX(ORB_PAD_X), SY(ORB_CURVE_Y - 22));
+    lv_obj_set_pos(kick, SX(ORB_PAD_X), SY(ORB_CURVE_Y - 24));
 
     // Taps must reach scr_clock so exitClockScreen() can fire.
     nocMakeInert(orb_root);
@@ -205,7 +219,6 @@ void orbitTick(const struct tm* now) {
         const int cx = ORB_ARC_CX + (int)lroundf(ORB_ARC_R * cosf(a));
         const int cy = ORB_ARC_CY - (int)lroundf(ORB_ARC_R * sinf(a));
         lv_obj_set_pos(orb_sun, SX(cx) - SMIN(ORB_DOT) / 2, SY(cy) - SMIN(ORB_DOT) / 2);
-        lv_obj_remove_flag(orb_sun, LV_OBJ_FLAG_HIDDEN);
     }
 
     // Curve: map the hourly min..max onto the band, then move the points and dots.
@@ -222,6 +235,7 @@ void orbitTick(const struct tm* now) {
         lv_obj_set_pos(orb_pt[i], (int)orb_curve_pts[i].x - SMIN(8) / 2,
                                    SY(y) - SMIN(8) / 2);
         lv_label_set_text_fmt(orb_lbl_hr[i],  "%dh", i + 1);
+        lv_label_set_text(orb_lbl_ic[i], wmoGlyph(clock_wx_hourly[i].wmo, false));
         lv_label_set_text_fmt(orb_lbl_tmp[i], "%d°", clock_wx_hourly[i].temp);
     }
     // Re-point the polyline so LVGL picks up the new Y values.

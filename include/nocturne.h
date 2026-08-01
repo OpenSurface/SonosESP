@@ -22,20 +22,30 @@
 // The clock font tier. Bitmap fonts do not scale with SX()/SY() (issue #89), so
 // each panel links its own — the same pair StandBy uses.
 #if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
-    LV_FONT_DECLARE(lv_font_clock_300);
-    LV_FONT_DECLARE(lv_font_clock_175);
+    LV_FONT_DECLARE(lv_font_clock_300);   // large
+    LV_FONT_DECLARE(lv_font_clock_215);   // mid
+    LV_FONT_DECLARE(lv_font_clock_175);   // small
     #define NOC_FONT     lv_font_clock_300
-    #define NOC_INK      218
+    #define NOC_FONT_MD  lv_font_clock_215
     #define NOC_FONT_SM  lv_font_clock_175
-    #define NOC_INK_SM   128
 #else
-    LV_FONT_DECLARE(lv_font_clock_240);
-    LV_FONT_DECLARE(lv_font_clock_140);
+    LV_FONT_DECLARE(lv_font_clock_240);   // large
+    LV_FONT_DECLARE(lv_font_clock_175);   // mid
+    LV_FONT_DECLARE(lv_font_clock_140);   // small
     #define NOC_FONT     lv_font_clock_240
-    #define NOC_INK      174
+    #define NOC_FONT_MD  lv_font_clock_175
     #define NOC_FONT_SM  lv_font_clock_140
-    #define NOC_INK_SM   103
 #endif
+
+// Ink heights in DESIGN space (800x480) — SY() converts them to real pixels.
+// These are the 4" font inks and must NOT be per-panel: the 7" fonts were
+// chosen so that SY(design_ink) lands on their real ink (103->129 vs 128,
+// 128->160 vs 157, 174->218 vs 218). Defining the 7" real ink here instead made
+// SY() scale it a second time and pushed everything below the clock ~54px too
+// low — the same trap as issue #89.
+#define NOC_INK      174
+#define NOC_INK_MD   128
+#define NOC_INK_SM   103
 
 // Orbit and Monolith use the SM tier: at full size their clocks crowded out the
 // arc, curve and forecast rail. Horizon keeps the large tier — its clock is the
