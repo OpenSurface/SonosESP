@@ -53,15 +53,28 @@ If the board doesn't appear **in recovery mode, on the correct port, with a know
 
 Symptoms: the progress bar reaches 30–50 % and stops, or the update needs many attempts.
 
-**What to do now:** retry from **Settings → Firmware Update**. If it repeatedly fails, install the latest firmware with the [web installer](https://opensurface.github.io/SonosESP/) instead — that path is much more robust than OTA. Your Wi-Fi and settings are preserved unless you tick the erase option.
+### Updates now resume instead of restarting (1.11.0 and later)
+
+The download can stall because of a known bug in the Wi-Fi co-processor link — the connection stays open but data stops arriving. It is a platform-level issue we can't prevent, so instead the update now **survives** it.
+
+From 1.11.0 the device keeps everything it has already written and asks the server to continue from that exact byte, rather than starting over. If you see
+
+> `Download stalled - resuming...` then `Resuming from 47%...`
+
+that is the recovery working — **let it run**. It will try up to 6 times, and each attempt picks up where the last one stopped. Before 1.11.0 every retry restarted from 0 %, which is why an update could fail 20 times in a row at roughly the same place.
+
+**What to do now:** retry from **Settings → Firmware Update**. If it still fails after that, install the latest firmware with the [web installer](https://opensurface.github.io/SonosESP/) instead — that path doesn't use the network at all. Your Wi-Fi and settings are preserved unless you tick the erase option.
 
 **What the messages mean** (visible on screen, and in the serial log):
 
 | Message | Meaning |
 |---|---|
-| `Download stalled - network timeout` | No data arrived for 30 s. Usually the server or Wi-Fi dropped the transfer. |
-| `Download timeout - try again` | The whole download exceeded its time limit. |
+| `Download stalled - resuming...` | No data for 30 s. The download will continue from where it stopped — not an error. |
+| `Download slow - resuming...` | This attempt hit its time limit; the next one resumes. |
+| `Resuming from N%...` | Reconnecting and continuing from N %. Normal. |
+| `Download failed - try again later` | All 6 attempts used, or the 10-minute overall limit was reached. |
 | `Download failed (HTTP …)` | The server rejected the request — check internet access. |
+| `Flash write failed: …` | Could not write to flash. Use the web installer. |
 | `Not enough space for OTA` | The firmware won't fit the OTA partition. |
 | `No firmware URL — check for updates first` | Tap *Check for Updates* before *Install*. |
 

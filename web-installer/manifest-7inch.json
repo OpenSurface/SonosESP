@@ -1,6 +1,6 @@
 {
   "name": "SonosESP — 7\" Screen (GUITION JC1060P470C) [BETA]",
-  "version": "1.10.2",
+  "version": "1.11.0",
   "new_install_prompt_erase": true,
   "_note": "BETA — firmware-7inch.bin is code-complete (JD9165 1024x600 panel driver + responsive UI) but NOT yet validated on physical 7in hardware. Built by deploy-pages.yml from the esp32_7inch env. See docs/MULTI_SCREEN_SUPPORT.md.",
   "builds": [
