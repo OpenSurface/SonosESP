@@ -185,8 +185,12 @@
 #define OTA_DMA_CRITICAL        4096    // DMA critical threshold (80ms delay)
 #define OTA_DMA_LOW             8192    // DMA low threshold (30ms delay)
 #define OTA_BASE_DELAY_MS       15      // Base per-chunk delay (~65KB/s, ~25s for 1.5MB)
-#define OTA_TLS_MAX_RETRIES     3             // Retry full connect+download on connection failure
+#define OTA_TLS_MAX_RETRIES     6             // Retry connect+download. Each attempt RESUMES via HTTP
+                                              // Range, so retries make forward progress — 6 is cheap.
 #define OTA_TLS_RETRY_DELAY_MS  5000          // Wait between retry attempts (ms per attempt)
+#define OTA_TOTAL_BUDGET_MS     600000        // 10 min wall-clock across ALL attempts. OTA_DOWNLOAD_
+                                              // TIMEOUT_MS is per-attempt, so without this the retry
+                                              // ladder (6 attempts + backoff) is unbounded in time.
 #define OTA_MIN_DMA_AFTER_TLS   (8 * 1024)   // Min total free DMA after TLS GET completes.
                                               // < 8KB → SDIO RX pool starved → assert crash.
                                               // Normal full handshake leaves ~17-21KB (safe).
