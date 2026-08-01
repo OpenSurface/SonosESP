@@ -21,7 +21,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.10.2"
+#define FIRMWARE_VERSION "1.11.0"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -109,6 +109,7 @@ extern int art_offset_x, art_offset_y;
 extern lv_img_dsc_t blur_bg_dsc;
 extern uint16_t*    blur_bg_buf;
 extern volatile bool blur_bg_ready;
+extern volatile bool blur_bg_valid;   // blur_bg_buf matches the current artwork
 extern lv_obj_t*    img_blur_bg;
 extern lv_obj_t*    lbl_linein_icon;
 extern lv_obj_t*    lbl_linein_subtitle;
