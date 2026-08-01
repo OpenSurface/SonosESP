@@ -27,3 +27,11 @@ lv_obj_t* nocLabel(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,
     lv_obj_set_style_text_color(l, col, 0);
     return l;
 }
+
+void nocMakeInert(lv_obj_t* root) {
+    if (!root) return;
+    lv_obj_clear_flag(root, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
+    uint32_t n = lv_obj_get_child_count(root);
+    for (uint32_t i = 0; i < n; i++) nocMakeInert(lv_obj_get_child(root, i));
+}

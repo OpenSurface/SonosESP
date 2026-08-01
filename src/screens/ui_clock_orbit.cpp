@@ -165,6 +165,9 @@ void buildOrbitFace(lv_obj_t* parent) {
     lv_obj_t* kick = nocLabel(orb_root, &font_text_12, NOC_N500, "NEXT 6 HOURS");
     lv_obj_set_style_text_letter_space(kick, 3, 0);
     lv_obj_set_pos(kick, SX(ORB_PAD_X), SY(ORB_CURVE_Y - 22));
+
+    // Taps must reach scr_clock so exitClockScreen() can fire.
+    nocMakeInert(orb_root);
 }
 
 lv_obj_t* orbitRoot(void) { return orb_root; }

@@ -129,6 +129,9 @@ void buildMonolithFace(lv_obj_t* parent) {
         ml_rail_icon[i] = nocLabel(cell, &lv_font_weathericons_32, NOC_N400, "");
         ml_rail_tmp[i]  = nocLabel(cell, &font_text_16, NOC_TEXT, "--");
     }
+
+    // Taps must reach scr_clock so exitClockScreen() can fire.
+    nocMakeInert(ml_root);
 }
 
 lv_obj_t* monolithRoot(void) { return ml_root; }

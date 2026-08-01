@@ -40,4 +40,13 @@ lv_obj_t* nocFaceRoot(lv_obj_t* parent);
 lv_obj_t* nocLabel(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,
                    const char* txt);
 
+// Clears LV_OBJ_FLAG_CLICKABLE across `root` and every descendant.
+// createClockScreen() makes scr_clock clickable with a handler that calls
+// exitClockScreen(), and every legacy widget clears CLICKABLE so taps fall
+// through to it. lv_obj_create() is clickable by DEFAULT, so a face root and
+// its children swallow the tap and the screensaver can never be dismissed.
+// Recursive on purpose: naming widgets is what caused the overlapping-face bug.
+// Every face MUST call this at the end of its builder.
+void nocMakeInert(lv_obj_t* root);
+
 #endif // NOCTURNE_H

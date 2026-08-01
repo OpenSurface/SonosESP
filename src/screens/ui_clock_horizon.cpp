@@ -122,6 +122,9 @@ void buildHorizonFace(lv_obj_t* parent) {
         hz_chip_icon[i] = nocLabel(chip, &lv_font_weathericons_32, NOC_N400, "");
         hz_chip_tmp[i]  = nocLabel(chip, &font_text_14, NOC_TEXT, "--");
     }
+
+    // Taps must reach scr_clock so exitClockScreen() can fire.
+    nocMakeInert(hz_root);
 }
 
 lv_obj_t* horizonRoot(void) { return hz_root; }
