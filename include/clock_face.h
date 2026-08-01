@@ -1,0 +1,62 @@
+/**
+ * Screensaver clock-face registry.
+ *
+ * Mirrors the player theme registry in ui_theme.h: a face is ONE row in
+ * CLOCK_FACES[] in clock_face.cpp. Adding one is a single entry — the settings
+ * dropdown, NVS clamping and the render path all iterate the registry, so
+ * nothing else needs editing.
+ *
+ * Two families live here:
+ *   - LEGACY faces (Classic, StandBy) are drawn by the widgets that
+ *     createClockScreen() already builds, and switched by applyClockStyle().
+ *     Their `build` is NULL and their index must stay stable — it is persisted
+ *     in NVS on deployed devices.
+ *   - NOCTURNE faces (Orbit, Monolith, Horizon) each own a builder that
+ *     constructs its whole layout, so a face can be a genuinely different
+ *     design rather than a recolour.
+ *
+ * CONTRACT FOR BUILDERS: a builder owns everything it creates and must leave
+ * clock_time_lbl / clock_date_lbl assigned (clock_tick_cb dereferences them),
+ * or set them NULL and supply its own `tick`.
+ */
+#ifndef CLOCK_FACE_H
+#define CLOCK_FACE_H
+
+#include <stdint.h>
+#include <time.h>
+#include "lvgl.h"
+
+// Builds the face into `parent` (scr_clock). NULL = legacy applyClockStyle path.
+typedef void (*ClockFaceBuildFn)(lv_obj_t* parent);
+
+// Per-second update. NULL = the shared clock_tick_cb handles it.
+typedef void (*ClockFaceTickFn)(const struct tm* now);
+
+typedef struct {
+    const char*      name;        // label in the settings dropdown
+    const char*      desc;        // one-line description under the dropdown
+    bool             photo_bg;    // true = wants the Unsplash/loremflickr backdrop.
+                                  // The Nocturne faces paint their own gradient and
+                                  // must suppress the photo fetch entirely.
+    ClockFaceBuildFn build;
+    ClockFaceTickFn  tick;
+} ClockFaceDef;
+
+extern const ClockFaceDef CLOCK_FACES[];
+extern const uint8_t      CLOCK_FACE_COUNT;
+
+const ClockFaceDef* clockFaceCurrent(void);
+
+// Newline-separated option list for lv_dropdown, built from the registry so a
+// new face appears in Settings automatically. Valid until the next call.
+const char* clockFaceOptions(void);
+
+// Clamps clock_style into range. Call after loading it from NVS — the saved
+// index may name a face that no longer exists after a downgrade.
+void clockFaceClampStyle(void);
+
+// True when the current face wants the downloaded photo backdrop. Gates the
+// background image fetch in clockBgTask().
+bool clockFaceUsesPhotoBg(void);
+
+#endif // CLOCK_FACE_H

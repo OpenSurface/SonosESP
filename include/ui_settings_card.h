@@ -20,7 +20,7 @@ lv_obj_t* addCard(lv_obj_t* parent, const char* title);
 void addSettingLabel(lv_obj_t* parent, const char* text);
 
 // Secondary description text (wraps to card width).
-void addDescLabel(lv_obj_t* parent, const char* text);
+lv_obj_t* addDescLabel(lv_obj_t* parent, const char* text);
 
 // Styled switch matching the project's accent theme.
 lv_obj_t* addSwitch(lv_obj_t* parent, bool initial);

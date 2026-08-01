@@ -22,6 +22,7 @@
 #include "ui_common.h"
 #include "config.h"
 #include "clock_screen.h"
+#include "clock_face.h"
 #include "ui_settings_card.h"  // shared card helpers: addCard, addSettingLabel, addDescLabel, addSwitch
 #include "ui_fonts.h"
 
@@ -349,13 +350,19 @@ void createClockSettingsScreen() {
             wifiPrefs.putBool(NVS_KEY_CLOCK_12H, clock_12h);
         }, LV_EVENT_VALUE_CHANGED, NULL);
 
+        // Options and description come from the CLOCK_FACES[] registry, so a new
+        // face appears here automatically (see clock_face.h).
         addSettingLabel(card, "Clock face");
-        addDescLabel(card, "Standby shows oversized overlapping digits, tinted from the album art");
-        lv_obj_t* dd_style = makeDropdown(card, "Classic\nStandby", (uint16_t)clock_style, false);
+        lv_obj_t* lbl_face_desc = addDescLabel(card, clockFaceCurrent()->desc);
+        lv_obj_t* dd_style = makeDropdown(card, clockFaceOptions(), (uint16_t)clock_style, false);
+        lv_obj_set_user_data(dd_style, lbl_face_desc);
         lv_obj_add_event_cb(dd_style, [](lv_event_t* e) {
             lv_obj_t* dd = (lv_obj_t*)lv_event_get_target(e);
             clock_style = (int)lv_dropdown_get_selected(dd);
+            clockFaceClampStyle();
             wifiPrefs.putInt(NVS_KEY_CLOCK_STYLE, clock_style);
+            lv_obj_t* desc = (lv_obj_t*)lv_obj_get_user_data(dd);
+            if (desc) lv_label_set_text(desc, clockFaceCurrent()->desc);
             clockStyleChanged();   // swap faces on the already-built clock screen
         }, LV_EVENT_VALUE_CHANGED, NULL);
     }

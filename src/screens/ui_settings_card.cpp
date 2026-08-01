@@ -51,13 +51,16 @@ void addSettingLabel(lv_obj_t* parent, const char* text) {
     lv_obj_set_style_pad_top(lbl, 6, 0);
 }
 
-void addDescLabel(lv_obj_t* parent, const char* text) {
+// Returns the label so callers can retarget its text later (the clock-face
+// selector rewrites its description when the face changes).
+lv_obj_t* addDescLabel(lv_obj_t* parent, const char* text) {
     lv_obj_t* lbl = lv_label_create(parent);
     lv_label_set_text(lbl, text);
     lv_obj_set_style_text_font(lbl, &font_text_12, 0);
     lv_obj_set_style_text_color(lbl, COL_TEXT2, 0);
     lv_obj_set_width(lbl, lv_pct(100));
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);
+    return lbl;
 }
 
 lv_obj_t* addSwitch(lv_obj_t* parent, bool initial) {
