@@ -275,11 +275,9 @@ static lv_timer_t* clock_tick_timer = nullptr;
 // Y is derived from SB_INK — sat too low. The 7" tier uses a 300px font instead.
 #if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
     LV_FONT_DECLARE(lv_font_clock_300);
-lv_obj_t* horizonRoot(void);         // ui_clock_horizon.cpp
     #define SB_FONT   lv_font_clock_300
 #else
     LV_FONT_DECLARE(lv_font_clock_240);
-lv_obj_t* horizonRoot(void);         // ui_clock_horizon.cpp
     #define SB_FONT   lv_font_clock_240
 #endif
 
@@ -436,7 +434,7 @@ static void applyClockStyle(void) {
     // overlay (which isn't stored in a variable at all) and the three weather
     // panels — so the legacy face rendered on top of the new one.
     if (scr_clock) {
-        lv_obj_t* root = horizonRoot();
+        lv_obj_t* root = clockFaceActiveRoot();
         uint32_t n = lv_obj_get_child_count(scr_clock);
         for (uint32_t i = 0; i < n; i++) {
             lv_obj_t* c = lv_obj_get_child(scr_clock, i);

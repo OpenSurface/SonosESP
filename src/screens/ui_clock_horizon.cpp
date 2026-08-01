@@ -19,25 +19,9 @@
 #include "clock_screen.h"
 #include "clock_face.h"
 #include "ui_fonts.h"
+#include "nocturne.h"
 
-// Nocturne tokens (nocturne-styles.css)
-#define NOC_BG        lv_color_hex(0x161826)
-#define NOC_TEXT      lv_color_hex(0xE9E9ED)
-#define NOC_ACCENT    lv_color_hex(0x9184D9)
-#define NOC_ACCENT_9  lv_color_hex(0x2A2545)   // deep accent for the horizon wash
-#define NOC_N400      lv_color_hex(0x9A9AA6)
-#define NOC_N500      lv_color_hex(0x7C7C8A)
 
-// The clock font tier — same one StandBy uses (see ui_clock_screen.cpp).
-#if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
-    LV_FONT_DECLARE(lv_font_clock_300);
-    #define HZ_FONT  lv_font_clock_300
-    #define HZ_INK   218
-#else
-    LV_FONT_DECLARE(lv_font_clock_240);
-    #define HZ_FONT  lv_font_clock_240
-    #define HZ_INK   174
-#endif
 
 const char* wmoCondition(int code);            // ui_clock_screen.cpp
 const char* wmoGlyph(int code, bool night);    // ui_clock_screen.cpp
@@ -48,8 +32,8 @@ LV_FONT_DECLARE(lv_font_weathericons_64);
 // Layout, 800x480 design units.
 #define HZ_PAD_X       44
 #define HZ_HEAD_Y      22
-#define HZ_CLOCK_Y     ((480 - HZ_INK) / 2 - 74)   // lifted: details + chips sit below
-#define HZ_DETAIL_Y    (HZ_CLOCK_Y + HZ_INK + 12)
+#define HZ_CLOCK_Y     ((480 - NOC_INK) / 2 - 74)   // lifted: details + chips sit below
+#define HZ_DETAIL_Y    (HZ_CLOCK_Y + NOC_INK + 12)
 #define HZ_CHIP_Y      396
 #define HZ_CHIP_H      58
 #define HZ_HORIZON_Y   360
@@ -66,34 +50,10 @@ static lv_obj_t* hz_chip_hr[6]   = {};
 static lv_obj_t* hz_chip_icon[6] = {};
 static lv_obj_t* hz_chip_tmp[6]  = {};
 
-static lv_obj_t* mkLabel(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,
-                         const char* txt) {
-    lv_obj_t* l = lv_label_create(parent);
-    lv_label_set_text(l, txt);
-    lv_obj_set_style_text_font(l, font, 0);
-    lv_obj_set_style_text_color(l, col, 0);
-    return l;
-}
-
 void buildHorizonFace(lv_obj_t* parent) {
     if (hz_root) return;                 // built once, then shown/hidden
 
-    hz_root = lv_obj_create(parent);
-    lv_obj_set_size(hz_root, SX(800), SY(480));
-    lv_obj_set_pos(hz_root, 0, 0);
-    lv_obj_set_style_border_width(hz_root, 0, 0);
-    lv_obj_set_style_pad_all(hz_root, 0, 0);
-    lv_obj_set_style_radius(hz_root, 0, 0);
-    lv_obj_clear_flag(hz_root, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(hz_root, LV_OBJ_FLAG_HIDDEN);
-
-    // Backdrop: flat Nocturne base with the accent wash rising from the bottom.
-    // A vertical linear gradient stands in for the design's radial glow — LVGL
-    // has no radial gradient in the RGB565 render path we build with.
-    lv_obj_set_style_bg_color(hz_root, NOC_BG, 0);
-    lv_obj_set_style_bg_grad_color(hz_root, NOC_ACCENT_9, 0);
-    lv_obj_set_style_bg_grad_dir(hz_root, LV_GRAD_DIR_VER, 0);
-    lv_obj_set_style_bg_opa(hz_root, LV_OPA_COVER, 0);
+    hz_root = nocFaceRoot(parent);
 
     // Horizon rule — 1px accent line the glow sits under.
     lv_obj_t* rule = lv_obj_create(hz_root);
@@ -105,16 +65,16 @@ void buildHorizonFace(lv_obj_t* parent) {
     lv_obj_set_style_radius(rule, 0, 0);
 
     // ── Header ──────────────────────────────────────────────────────────────
-    hz_city = mkLabel(hz_root, &font_text_14, NOC_N400, "");
+    hz_city = nocLabel(hz_root, &font_text_14, NOC_N400, "");
     lv_obj_set_style_text_letter_space(hz_city, 2, 0);
     lv_obj_set_pos(hz_city, SX(HZ_PAD_X), SY(HZ_HEAD_Y));
 
-    hz_date = mkLabel(hz_root, &font_text_14, NOC_N400, "");
+    hz_date = nocLabel(hz_root, &font_text_14, NOC_N400, "");
     lv_obj_set_style_text_letter_space(hz_date, 2, 0);
     lv_obj_align(hz_date, LV_ALIGN_TOP_RIGHT, -SX(HZ_PAD_X), SY(HZ_HEAD_Y));
 
     // ── Clock ───────────────────────────────────────────────────────────────
-    hz_time = mkLabel(hz_root, &HZ_FONT, NOC_TEXT, "--:--");
+    hz_time = nocLabel(hz_root, &NOC_FONT, NOC_TEXT, "--:--");
     lv_obj_set_style_text_letter_space(hz_time, -6, 0);
     lv_obj_set_y(hz_time, SY(HZ_CLOCK_Y));
     lv_obj_set_style_align(hz_time, LV_ALIGN_TOP_MID, 0);
@@ -129,10 +89,10 @@ void buildHorizonFace(lv_obj_t* parent) {
     lv_obj_set_style_pad_column(row, SX(12), 0);
     lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
-    hz_icon   = mkLabel(row, &lv_font_weathericons_32, NOC_ACCENT, "");
-    hz_temp   = mkLabel(row, &font_text_24, NOC_TEXT, "--°");
-    hz_cond   = mkLabel(row, &font_text_16, NOC_N400, "");
-    hz_detail = mkLabel(row, &font_text_14, NOC_N500, "");
+    hz_icon   = nocLabel(row, &lv_font_weathericons_32, NOC_ACCENT, "");
+    hz_temp   = nocLabel(row, &font_text_24, NOC_TEXT, "--°");
+    hz_cond   = nocLabel(row, &font_text_16, NOC_N400, "");
+    hz_detail = nocLabel(row, &font_text_14, NOC_N500, "");
 
     // ── Forecast pill chips ─────────────────────────────────────────────────
     lv_obj_t* chips = lv_obj_create(hz_root);
@@ -147,7 +107,7 @@ void buildHorizonFace(lv_obj_t* parent) {
         lv_obj_t* chip = lv_obj_create(chips);
         lv_obj_set_size(chip, SX(112), SY(HZ_CHIP_H));
         lv_obj_set_style_radius(chip, LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_bg_color(chip, NOC_ACCENT_9, 0);
+        lv_obj_set_style_bg_color(chip, NOC_ACCENT_D, 0);
         lv_obj_set_style_bg_opa(chip, 130, 0);
         lv_obj_set_style_border_color(chip, NOC_ACCENT, 0);
         lv_obj_set_style_border_opa(chip, 100, 0);
@@ -158,17 +118,13 @@ void buildHorizonFace(lv_obj_t* parent) {
         lv_obj_set_flex_align(chip, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
         lv_obj_set_style_pad_column(chip, SX(6), 0);
 
-        hz_chip_hr[i]   = mkLabel(chip, &font_text_12, NOC_N500, "--");
-        hz_chip_icon[i] = mkLabel(chip, &lv_font_weathericons_32, NOC_N400, "");
-        hz_chip_tmp[i]  = mkLabel(chip, &font_text_14, NOC_TEXT, "--");
+        hz_chip_hr[i]   = nocLabel(chip, &font_text_12, NOC_N500, "--");
+        hz_chip_icon[i] = nocLabel(chip, &lv_font_weathericons_32, NOC_N400, "");
+        hz_chip_tmp[i]  = nocLabel(chip, &font_text_14, NOC_TEXT, "--");
     }
 }
 
-// applyClockStyle() shows/hides by walking scr_clock's children, so it only
-// needs to know which one is ours.
-lv_obj_t* horizonRoot(void) {
-    return hz_root;
-}
+lv_obj_t* horizonRoot(void) { return hz_root; }
 
 void horizonTick(const struct tm* now) {
     if (!hz_root || !now) return;

@@ -89,6 +89,7 @@ void setup() {
     clock_bg_kw_idx      = wifiPrefs.getInt(NVS_KEY_CLOCK_KW,       CLOCK_DEFAULT_KW_IDX);
     clock_12h            = wifiPrefs.getBool(NVS_KEY_CLOCK_12H,     (bool)CLOCK_DEFAULT_12H);
     clock_style          = wifiPrefs.getInt(NVS_KEY_CLOCK_STYLE,   CLOCK_DEFAULT_STYLE);
+    clockFaceMigrate();      // rewrite pre-1.11 indices (Classic was removed)
     clockFaceClampStyle();   // registry-driven: survives a face being removed by a downgrade
     // Clamp indices in case lists changed between firmware versions
     if (clock_tz_idx    < 0 || clock_tz_idx    >= CLOCK_ZONES_COUNT)   clock_tz_idx    = 0;

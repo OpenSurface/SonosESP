@@ -258,9 +258,13 @@
 #define CLOCK_MODE_NOTHING     3  // Show only when nothing playing + X mins inactivity
 
 // Clock face style (independent of CLOCK_MODE_*, which controls WHEN it appears)
-#define CLOCK_STYLE_CLASSIC    0  // Centred HH:MM with date below
-#define CLOCK_STYLE_STANDBY    1  // Oversized overlapping two-tone digits
-#define CLOCK_STYLE_HORIZON    2  // Nocturne: centred clock, ambient glow, forecast chips
+// Face indices. These are persisted in NVS, so the order is fixed — see the
+// CLOCK_FACE_SCHEMA migration in clock_face.cpp, which rewrote the pre-1.11
+// numbering when the Classic face was removed.
+#define CLOCK_STYLE_STANDBY    0  // Oversized overlapping two-tone digits
+#define CLOCK_STYLE_ORBIT      1  // Nocturne: sun-path arc + temperature curve
+#define CLOCK_STYLE_MONOLITH   2  // Nocturne: stacked HH/MM, details grid, forecast rail
+#define CLOCK_STYLE_HORIZON    3  // Nocturne: centred clock, ambient glow, forecast chips
 // StandBy is the default face: existing users have no clk_style key in NVS, so
 // they pick up this default on upgrade and get the new clock without touching
 // settings. Anyone who explicitly selects Classic has the key written and keeps it.
@@ -298,6 +302,7 @@
 #define NVS_KEY_CLOCK_KW        "clk_kw"
 #define NVS_KEY_CLOCK_12H       "clk_12h"
 #define NVS_KEY_CLOCK_STYLE     "clk_style"
+#define NVS_KEY_CLOCK_FACE_VER  "clk_face_v"   // face-index schema version (<=15 chars)
 #define NVS_KEY_CLOCK_WEATHER_EN   "clk_wx_en"
 #define NVS_KEY_CLOCK_WEATHER_CITY "clk_wx_city"
 #define NVS_KEY_CLOCK_WEATHER_FAHR "clk_wx_fahr"

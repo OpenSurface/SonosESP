@@ -1,12 +1,20 @@
 #include "clock_face.h"
 #include "clock_screen.h"
 #include "config.h"
+#include "ui_common.h"   // wifiPrefs
 #include <string.h>
 #include <stdio.h>
 
 // Face builders (registry entries point at these).
 void buildHorizonFace(lv_obj_t* parent);
 void horizonTick(const struct tm* now);
+void buildOrbitFace(lv_obj_t* parent);
+void orbitTick(const struct tm* now);
+void buildMonolithFace(lv_obj_t* parent);
+void monolithTick(const struct tm* now);
+lv_obj_t* horizonRoot(void);
+lv_obj_t* orbitRoot(void);
+lv_obj_t* monolithRoot(void);
 
 // ---------------------------------------------------------------------------
 // The registry. Adding a face is one row.
@@ -17,12 +25,14 @@ void horizonTick(const struct tm* now);
 // go on the END.
 // ---------------------------------------------------------------------------
 const ClockFaceDef CLOCK_FACES[] = {
-    { "Classic", "Centred time with the date below",
-      true,  nullptr, nullptr },
-    { "StandBy", "Oversized overlapping digits, tinted from the album art",
-      true,  nullptr, nullptr },
-    { "Horizon", "Centred clock over an ambient glow, with a 6-hour forecast",
-      false, buildHorizonFace, horizonTick },
+    { "StandBy",  "Oversized overlapping digits, tinted from the album art",
+      true,  nullptr,            nullptr,       nullptr },
+    { "Orbit",    "Light clock with a live sun-path arc and temperature curve",
+      false, buildOrbitFace,     orbitTick,     orbitRoot },
+    { "Monolith", "Hours stacked over minutes, with a details column",
+      false, buildMonolithFace,  monolithTick,  monolithRoot },
+    { "Horizon",  "Centred clock over an ambient glow, with a 6-hour forecast",
+      false, buildHorizonFace,   horizonTick,   horizonRoot },
 };
 
 const uint8_t CLOCK_FACE_COUNT = (uint8_t)(sizeof(CLOCK_FACES) / sizeof(CLOCK_FACES[0]));
@@ -33,9 +43,41 @@ const ClockFaceDef* clockFaceCurrent(void) {
     return &CLOCK_FACES[idx];
 }
 
+// Bump when the meaning of a persisted index changes.
+#define CLOCK_FACE_SCHEMA 1
+
+// v0 (<=1.10) numbering was Classic=0, StandBy=1. Classic has been removed, so
+// every saved index has to be rewritten or users land on the wrong face — a
+// device set to Classic would silently become Orbit. Runs once; the marker key
+// stops it re-running and clobbering a later deliberate choice.
+void clockFaceMigrate(void) {
+    if (wifiPrefs.getInt(NVS_KEY_CLOCK_FACE_VER, 0) >= CLOCK_FACE_SCHEMA) return;
+
+    int old_idx = wifiPrefs.getInt(NVS_KEY_CLOCK_STYLE, -1);
+    if (old_idx >= 0) {
+        int mapped;
+        switch (old_idx) {
+            case 0:  mapped = CLOCK_STYLE_STANDBY;  break;  // Classic (removed) -> StandBy
+            case 1:  mapped = CLOCK_STYLE_STANDBY;  break;  // StandBy keeps its face
+            case 2:  mapped = CLOCK_STYLE_HORIZON;  break;  // pre-release Horizon
+            default: mapped = CLOCK_DEFAULT_STYLE;  break;
+        }
+        clock_style = mapped;
+        wifiPrefs.putInt(NVS_KEY_CLOCK_STYLE, mapped);
+        Serial.printf("[CLOCK] Face index migrated: %d -> %d (%s)\n",
+                      old_idx, mapped, CLOCK_FACES[mapped].name);
+    }
+    wifiPrefs.putInt(NVS_KEY_CLOCK_FACE_VER, CLOCK_FACE_SCHEMA);
+}
+
 void clockFaceClampStyle(void) {
     if (clock_style < 0 || clock_style >= (int)CLOCK_FACE_COUNT)
         clock_style = CLOCK_DEFAULT_STYLE;
+}
+
+lv_obj_t* clockFaceActiveRoot(void) {
+    const ClockFaceDef* f = clockFaceCurrent();
+    return f->root ? f->root() : nullptr;
 }
 
 bool clockFaceUsesPhotoBg(void) {

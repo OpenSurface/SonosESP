@@ -32,6 +32,11 @@ typedef void (*ClockFaceBuildFn)(lv_obj_t* parent);
 // Per-second update. NULL = the shared clock_tick_cb handles it.
 typedef void (*ClockFaceTickFn)(const struct tm* now);
 
+// Returns the face's root container. applyClockStyle() shows/hides by walking
+// scr_clock's children, so it only needs to know which child belongs to the
+// active face. NULL for legacy faces.
+typedef lv_obj_t* (*ClockFaceRootFn)(void);
+
 typedef struct {
     const char*      name;        // label in the settings dropdown
     const char*      desc;        // one-line description under the dropdown
@@ -40,6 +45,7 @@ typedef struct {
                                   // must suppress the photo fetch entirely.
     ClockFaceBuildFn build;
     ClockFaceTickFn  tick;
+    ClockFaceRootFn  root;
 } ClockFaceDef;
 
 extern const ClockFaceDef CLOCK_FACES[];
@@ -58,5 +64,11 @@ void clockFaceClampStyle(void);
 // True when the current face wants the downloaded photo backdrop. Gates the
 // background image fetch in clockBgTask().
 bool clockFaceUsesPhotoBg(void);
+
+// Root of the active face, or NULL when a legacy face is selected.
+lv_obj_t* clockFaceActiveRoot(void);
+
+// One-time rewrite of persisted face indices after the list changed.
+void clockFaceMigrate(void);
 
 #endif // CLOCK_FACE_H
