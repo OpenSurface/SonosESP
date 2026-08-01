@@ -13,6 +13,7 @@
 #include "lyrics.h"
 #include "ui_icons.h"
 #include "ui_theme.h"
+#include "ui_fonts.h"
 
 // Entry point: hands off to the active theme's builder (see ui_theme.cpp).
 // Each builder is responsible for creating scr_main and every player widget global.
@@ -80,7 +81,7 @@ void buildClassicPlayer() {
 
     lbl_linein_subtitle = lv_label_create(panel_art);
     lv_label_set_text(lbl_linein_subtitle, "LIVE AUDIO");
-    lv_obj_set_style_text_font(lbl_linein_subtitle, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_linein_subtitle, &font_text_14, 0);
     lv_obj_set_style_text_color(lbl_linein_subtitle, lv_color_hex(0x888888), 0);
     lv_obj_set_style_text_letter_space(lbl_linein_subtitle, 3, 0);  // spaced-out caps for modern look
     lv_obj_align(lbl_linein_subtitle, LV_ALIGN_CENTER, SX(15), SY(58)); // below icon (+80px icon height / 2 + gap)
@@ -96,7 +97,7 @@ void buildClassicPlayer() {
 
     lbl_tv_subtitle = lv_label_create(panel_art);
     lv_label_set_text(lbl_tv_subtitle, "TV AUDIO");
-    lv_obj_set_style_text_font(lbl_tv_subtitle, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_tv_subtitle, &font_text_14, 0);
     lv_obj_set_style_text_color(lbl_tv_subtitle, lv_color_hex(0x888888), 0);
     lv_obj_set_style_text_letter_space(lbl_tv_subtitle, 3, 0);
     lv_obj_align(lbl_tv_subtitle, LV_ALIGN_CENTER, SX(15), SY(58));
@@ -106,7 +107,7 @@ void buildClassicPlayer() {
     lbl_lyrics_status = lv_label_create(panel_art);
     lv_label_set_text(lbl_lyrics_status, "");
     lv_obj_set_style_text_color(lbl_lyrics_status, lv_color_hex(0x888888), 0);
-    lv_obj_set_style_text_font(lbl_lyrics_status, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_lyrics_status, &font_text_14, 0);
     lv_obj_align(lbl_lyrics_status, LV_ALIGN_TOP_LEFT, SX(30), SY(5));  // Aligned with art left edge (x=30), in the gap above art
 
     // Synced lyrics overlay (on top of album art)
@@ -150,7 +151,7 @@ void buildClassicPlayer() {
     lbl_device_name = lv_label_create(panel_right);
     lv_label_set_text(lbl_device_name, "Now Playing");
     lv_obj_set_style_text_color(lbl_device_name, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_device_name, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
     lv_obj_set_pos(lbl_device_name, SX(55), SY(25));
 
     // Music Sources button - scale effect
@@ -191,7 +192,7 @@ void buildClassicPlayer() {
     lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_title, "Not Playing");
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_32, 0);
 
     // Artist (gray, smaller) — below title
     lbl_artist = lv_label_create(panel_right);
@@ -200,7 +201,7 @@ void buildClassicPlayer() {
     lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);  // Scroll like title — shows full name
     lv_label_set_text(lbl_artist, "");
     lv_obj_set_style_text_color(lbl_artist, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_artist, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(lbl_artist, &font_text_16, 0);
 
     // Queue/Playlist button — aligned with artist row
     btn_queue = lv_btn_create(panel_right);
@@ -227,7 +228,7 @@ void buildClassicPlayer() {
     lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_album, "");
     lv_obj_set_style_text_color(lbl_album, lv_color_hex(0x888888), 0);
-    lv_obj_set_style_text_font(lbl_album, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_album, &font_text_14, 0);
 
     // ===== PROGRESS BAR =====
     slider_progress = lv_slider_create(panel_right);
@@ -245,14 +246,14 @@ void buildClassicPlayer() {
     lv_obj_set_pos(lbl_time, SX(15), SY(198));
     lv_label_set_text(lbl_time, "0:00");
     lv_obj_set_style_text_color(lbl_time, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_time, &font_text_14, 0);
 
     // Time remaining — shown as negative countdown (Apple Music / Spotify style)
     lbl_time_remaining = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_time_remaining, SX(280), SY(198));
     lv_label_set_text(lbl_time_remaining, "-0:00");
     lv_obj_set_style_text_color(lbl_time_remaining, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_time_remaining, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_time_remaining, &font_text_14, 0);
 
     // ===== PLAYBACK CONTROLS - PERFECTLY CENTERED =====
     // Layout: [shuffle] [prev] [PLAY] [next] [repeat]
@@ -400,14 +401,14 @@ void buildClassicPlayer() {
     lv_obj_set_pos(lbl_next_header, SX(15), SY(next_y));
     lv_label_set_text(lbl_next_header, "Next:");
     lv_obj_set_style_text_color(lbl_next_header, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_next_header, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl_next_header, &font_text_12, 0);
 
     // Next track title - clickable to play next
     lbl_next_title = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_next_title, SX(55), SY(next_y));
     lv_label_set_text(lbl_next_title, "");
     lv_obj_set_style_text_color(lbl_next_title, COL_TEXT, 0);
-    lv_obj_set_style_text_font(lbl_next_title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_next_title, &font_text_14, 0);
     lv_obj_set_width(lbl_next_title, SX(275));
     lv_label_set_long_mode(lbl_next_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
     // Make it clickable to play next track
@@ -423,7 +424,7 @@ void buildClassicPlayer() {
     lv_obj_set_pos(lbl_next_artist, SX(55), SY(next_y + 18));
     lv_label_set_text(lbl_next_artist, "");
     lv_obj_set_style_text_color(lbl_next_artist, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_next_artist, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl_next_artist, &font_text_12, 0);
     lv_obj_set_width(lbl_next_artist, SX(275));
     lv_label_set_long_mode(lbl_next_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
     // Make it clickable to play next track

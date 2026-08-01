@@ -24,6 +24,7 @@
 #include "lyrics.h"
 #include "ui_icons.h"
 #include "ui_theme.h"
+#include "ui_fonts.h"
 
 // ── Grid ────────────────────────────────────────────────────────────────────
 #define AM_L            39                  // left column origin
@@ -156,7 +157,7 @@ void buildAmbientPlayer() {
 
         *m.sub = lv_label_create(panel_art);
         lv_label_set_text(*m.sub, m.text);
-        lv_obj_set_style_text_font(*m.sub, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(*m.sub, &font_text_14, 0);
         lv_obj_set_style_text_color(*m.sub, lv_color_hex(0xAAAAAA), 0);
         lv_obj_set_style_text_letter_space(*m.sub, 3, 0);
         lv_obj_set_pos(*m.sub, SX(AM_L + AM_ART / 2 - 44), SY(AM_ART_Y + AM_ART / 2 + 40));
@@ -167,7 +168,7 @@ void buildAmbientPlayer() {
     lv_label_set_text(lbl_lyrics_status, "");
     lv_obj_set_pos(lbl_lyrics_status, SX(AM_L), SY(AM_ART_Y + AM_ART + 6));
     lv_obj_set_style_text_color(lbl_lyrics_status, lv_color_hex(0x888888), 0);
-    lv_obj_set_style_text_font(lbl_lyrics_status, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl_lyrics_status, &font_text_12, 0);
 
     // ── Left column: lyrics BELOW the artwork ───────────────────────────────
     // createLyricsOverlay() bottom-aligns itself inside its parent, so a
@@ -201,9 +202,9 @@ void buildAmbientPlayer() {
         // Only TWO lines are shown. The overlay is bottom-aligned inside its slot,
         // so with three lines the block grew upward and the "previous" line ended
         // up behind the artwork. Hiding it keeps current + next fully in the clear.
-        const lv_font_t* fonts[3] = { &lv_font_montserrat_16,   // prev (hidden)
-                                      &lv_font_montserrat_24,   // current
-                                      &lv_font_montserrat_16 }; // next
+        const lv_font_t* fonts[3] = { &font_text_16,   // prev (hidden)
+                                      &font_text_24,   // current
+                                      &font_text_16 }; // next
         for (int i = 0; i < 3; i++) {
             if (lv_obj_t* l = lv_obj_get_child(lyr, i)) {
                 lv_obj_set_style_text_font(l, fonts[i], 0);
@@ -243,7 +244,7 @@ void buildAmbientPlayer() {
     lv_obj_set_size(lbl_device_name, SX(196), SY(20));
     lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_color(lbl_device_name, COL_TEXT, 0);
-    lv_obj_set_style_text_font(lbl_device_name, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
 
     // The generated MDI font has no chevron-down glyph, so the pill uses the
     // right chevron — it still reads as "tap to change room".
@@ -267,7 +268,7 @@ void buildAmbientPlayer() {
     lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_artist, "");
     lv_obj_set_style_text_color(lbl_artist, COL_ACCENT, 0);
-    lv_obj_set_style_text_font(lbl_artist, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(lbl_artist, &font_text_20, 0);
 
     lbl_title = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_title, SX(AM_R), SY(156));
@@ -275,7 +276,7 @@ void buildAmbientPlayer() {
     lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_title, "Not Playing");
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_32, 0);
 
     lbl_album = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_album, SX(AM_R), SY(212));
@@ -283,7 +284,7 @@ void buildAmbientPlayer() {
     lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_album, "");
     lv_obj_set_style_text_color(lbl_album, lv_color_hex(0x9A9A9A), 0);
-    lv_obj_set_style_text_font(lbl_album, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_album, &font_text_14, 0);
 
     // ── Right column: progress ──────────────────────────────────────────────
     slider_progress = lv_slider_create(panel_right);
@@ -300,7 +301,7 @@ void buildAmbientPlayer() {
     lv_obj_set_pos(lbl_time, SX(AM_R), SY(284));
     lv_label_set_text(lbl_time, "0:00");
     lv_obj_set_style_text_color(lbl_time, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_time, &font_text_14, 0);
 
     lbl_time_remaining = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_time_remaining, SX(AM_RIGHT - 60), SY(284));
@@ -308,7 +309,7 @@ void buildAmbientPlayer() {
     lv_obj_set_style_text_align(lbl_time_remaining, LV_TEXT_ALIGN_RIGHT, 0);
     lv_label_set_text(lbl_time_remaining, "-0:00");
     lv_obj_set_style_text_color(lbl_time_remaining, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_time_remaining, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_time_remaining, &font_text_14, 0);
 
     // ── Right column: transport, symmetric about AM_CTRL_MID ────────────────
     btn_shuffle = circleBtn(panel_right, MDI_SHUFFLE, &lv_font_mdi_32,
@@ -356,18 +357,18 @@ void buildAmbientPlayer() {
 
     lbl_next_header = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_header, "Next:");
-    lv_obj_set_style_text_font(lbl_next_header, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl_next_header, &font_text_12, 0);
     park(lbl_next_header);
 
     lbl_next_title = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_title, "");
     lv_obj_set_width(lbl_next_title, SX(200));
-    lv_obj_set_style_text_font(lbl_next_title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_next_title, &font_text_14, 0);
     park(lbl_next_title);
 
     lbl_next_artist = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_artist, "");
     lv_obj_set_width(lbl_next_artist, SX(200));
-    lv_obj_set_style_text_font(lbl_next_artist, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl_next_artist, &font_text_12, 0);
     park(lbl_next_artist);
 }

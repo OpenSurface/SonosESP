@@ -11,6 +11,7 @@
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include <esp_heap_caps.h>
+#include "ui_fonts.h"
 
 // Lyrics data - CRITICAL: Store in PSRAM to avoid RAM exhaustion
 // 100 lines × 104 bytes = ~10.4KB - must be in PSRAM not DRAM
@@ -557,7 +558,7 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lbl_lyric_prev = lv_label_create(lyrics_container);
     lv_label_set_text(lbl_lyric_prev, "");
     lv_obj_set_width(lbl_lyric_prev, SMIN(396));
-    lv_obj_set_style_text_font(lbl_lyric_prev, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_lyric_prev, &font_text_14, 0);
     lv_obj_set_style_text_color(lbl_lyric_prev, lv_color_hex(0xAAAAAA), 0);
     lv_obj_set_style_text_align(lbl_lyric_prev, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(lbl_lyric_prev, LV_LABEL_LONG_SCROLL_CIRCULAR);
@@ -566,7 +567,7 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lbl_lyric_current = lv_label_create(lyrics_container);
     lv_label_set_text(lbl_lyric_current, "");
     lv_obj_set_width(lbl_lyric_current, SMIN(396));
-    lv_obj_set_style_text_font(lbl_lyric_current, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(lbl_lyric_current, &font_text_20, 0);
     lv_obj_set_style_text_color(lbl_lyric_current, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_align(lbl_lyric_current, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(lbl_lyric_current, LV_LABEL_LONG_SCROLL_CIRCULAR);
@@ -575,7 +576,7 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lbl_lyric_next = lv_label_create(lyrics_container);
     lv_label_set_text(lbl_lyric_next, "");
     lv_obj_set_width(lbl_lyric_next, SMIN(396));
-    lv_obj_set_style_text_font(lbl_lyric_next, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_lyric_next, &font_text_14, 0);
     lv_obj_set_style_text_color(lbl_lyric_next, lv_color_hex(0xAAAAAA), 0);
     lv_obj_set_style_text_align(lbl_lyric_next, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(lbl_lyric_next, LV_LABEL_LONG_SCROLL_CIRCULAR);

@@ -15,6 +15,8 @@
 #include "config.h"
 #include "ui_network_guard.h"
 #include "clock_screen.h"
+#include "clock_face.h"
+#include "nocturne.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_140);
 LV_FONT_DECLARE(lv_font_weathericons_80);
@@ -29,6 +31,7 @@ LV_FONT_DECLARE(lv_font_weathericons_32);
 #undef MOTOSHORT
 #undef MOTOLONG
 #include <JPEGDEC.h>
+#include "ui_fonts.h"
 
 // ============================================================================
 // JPEGDEC callback globals for clock background (file-scoped, not shared)
@@ -100,7 +103,8 @@ static lv_obj_t* clock_wx_set_t_lbl  = nullptr;  // "Set   19:45"
 // ============================================================================
 // WMO weather code → human-readable condition string
 // ============================================================================
-static const char* wmoCondition(int code) {
+// Non-static: shared with the Nocturne faces (ui_clock_horizon.cpp).
+const char* wmoCondition(int code) {
     if (code == 0)  return "Clear";
     if (code <= 2)  return "Mainly Clear";
     if (code == 3)  return "Overcast";
@@ -149,7 +153,8 @@ static bool isNightHour(int hour) {
     return (hour < rise_h || hour >= set_h);
 }
 
-static const char* wmoGlyph(int code, bool night = false) {
+// Non-static: shared with the Nocturne faces (ui_clock_horizon.cpp).
+const char* wmoGlyph(int code, bool night) {
     if (code == 0)  return night ? WI_NIGHT_CLEAR       : WI_DAY_SUNNY;
     if (code == 1)  return night ? WI_NIGHT_CLOUDY_HIGH : WI_DAY_CLOUDY_HIGH;
     if (code == 2)  return night ? WI_NIGHT_PARTLY      : WI_DAY_CLOUDY;
@@ -204,6 +209,10 @@ static const char* hourLabel(int hour) {
 }
 
 static void applyWeatherToWidgets() {
+    // A registry face with its own builder draws its own weather. This function
+    // un-hides the legacy panels whenever data arrives, so without this guard they
+    // would pop up on top of the active face the moment the first fetch landed.
+    if (clockFaceCurrent()->build) return;
     if (!clock_wx_tl_panel) return;
     if (clock_weather_enabled && clock_wx_valid) {
         char buf[64];
@@ -261,17 +270,40 @@ static lv_timer_t* clock_tick_timer = nullptr;
 // album artwork, with the colon as a pair of soft discs. Each digit is its own
 // label so it can carry its own colour and sit partly on top of its neighbour —
 // the semi-transparent text is what produces the blended overlap.
-LV_FONT_DECLARE(lv_font_clock_240);
+// Font tier by panel. Issue #89: layout coordinates scale through SX()/SY() but
+// BITMAP FONTS DO NOT. On the 7" panel the cells spread to 1.28x while the 240px
+// glyphs stayed put, so the digits stopped overlapping and the colon dots — whose
+// Y is derived from SB_INK — sat too low. The 7" tier uses a 300px font instead.
+#if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
+    LV_FONT_DECLARE(lv_font_clock_300);
+    #define SB_FONT   lv_font_clock_300
+#else
+    LV_FONT_DECLARE(lv_font_clock_240);
+    #define SB_FONT   lv_font_clock_240
+#endif
 
 // The font is PROPORTIONAL, not monospace — '0' advances 163px but '1' only 94px.
 // Positioning by advance width would therefore shuffle the whole row every time a
 // 1 appeared. Instead each digit gets a fixed-width cell and is centred inside it,
 // so the row never moves and the digits stay optically even.
-#define SB_CELL      152    // fixed cell per digit, design units
-#define SB_OVERLAP    28    // how far each cell sits over the previous one
-#define SB_COLON_W    56    // width of the colon column
-#define SB_DOT        32    // colon disc diameter
-#define SB_INK       174    // real ink height of the font (line_height in the .c)
+//
+// These are DESIGN units; SX()/SY() convert them to panel pixels. The 7" X values
+// are pre-divided by the SX factor (1.28) so that after scaling they land on the
+// font's own 1.25x growth — otherwise the cells would outrun the glyphs by 2% and
+// eat into the overlap. The Y values need no tier: SY is exactly 600/480 = 1.25,
+// which matches the font scale (300/240), and the generated line_height confirms
+// it — 174 -> 218 == 174 * 1.25.
+#if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
+    #define SB_CELL  148    // -> SX = 189px real (152 * 1.25 = 190 target)
+    #define SB_OVERLAP 27   // -> SX = 35px real
+    #define SB_COLON_W 55   // -> SX = 70px real
+#else
+    #define SB_CELL      152    // fixed cell per digit, design units
+    #define SB_OVERLAP    28    // how far each cell sits over the previous one
+    #define SB_COLON_W    56    // width of the colon column
+#endif
+#define SB_DOT        32    // colon disc diameter (SMIN-scaled: 1.25 on both panels)
+#define SB_INK       174    // real ink height at 240px; SY() carries it to 218 on 7"
 #define SB_TOP       ((480 - SB_INK) / 2 - 22)   // vertically centred, lifted for the date
 
 static lv_obj_t* sb_digit[4] = { nullptr, nullptr, nullptr, nullptr };
@@ -330,7 +362,7 @@ static void buildStandbyFace(lv_obj_t* parent) {
     auto addDigit = [&](int idx, int xpos) {
         sb_digit[idx] = lv_label_create(parent);
         lv_label_set_text(sb_digit[idx], "0");
-        lv_obj_set_style_text_font(sb_digit[idx], &lv_font_clock_240, 0);
+        lv_obj_set_style_text_font(sb_digit[idx], &SB_FONT, 0);
         // Fixed cell + centred text: the glyph floats to the middle of its cell,
         // so a narrow '1' next to a wide '0' still reads as an even row.
         lv_obj_set_width(sb_digit[idx], SX(SB_CELL));
@@ -365,7 +397,7 @@ static void buildStandbyFace(lv_obj_t* parent) {
     // bottom-aligning left it stranded ~125px below the time with a gap between.
     sb_date = lv_label_create(parent);
     lv_label_set_text(sb_date, "");
-    lv_obj_set_style_text_font(sb_date, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(sb_date, &font_text_24, 0);
     lv_obj_set_style_text_color(sb_date, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_opa(sb_date, LV_OPA_60, 0);
     lv_obj_align(sb_date, LV_ALIGN_TOP_MID, 0, SY(SB_TOP + SB_INK + 14));
@@ -391,18 +423,62 @@ static void standbyRecolour(void) {
 
 // Shows whichever face is selected and hides the other.
 static void applyClockStyle(void) {
-    const bool standby = (clock_style == CLOCK_STYLE_STANDBY);
+    // A registry face with its own builder owns the whole screen: build it on
+    // first use, then hide every legacy widget. Faces without a builder
+    // (Classic, StandBy) keep the original show/hide behaviour below.
+    const ClockFaceDef* face = clockFaceCurrent();
+    const bool own_face = (face->build != nullptr);
+    if (own_face && scr_clock) face->build(scr_clock);
+
+    // Show/hide by walking scr_clock's children rather than naming widgets.
+    // The first attempt enumerated them and missed the photo backdrop, the dark
+    // overlay (which isn't stored in a variable at all) and the three weather
+    // panels — so the legacy face rendered on top of the new one.
+    if (scr_clock) {
+        lv_obj_t* root = clockFaceActiveRoot();
+        // A face keeps the photo backdrop underneath itself when the face opts in
+        // and the user has photos enabled — the face then paints as a translucent
+        // scrim rather than an opaque gradient, so the image shows through and the
+        // Photo Background settings keep working exactly as on StandBy.
+        const bool over_photo = own_face && face->photo_bg && clock_picsum_enabled;
+        if (own_face) nocApplyBackdrop(root, over_photo);
+
+        uint32_t n = lv_obj_get_child_count(scr_clock);
+        for (uint32_t i = 0; i < n; i++) {
+            lv_obj_t* c = lv_obj_get_child(scr_clock, i);
+            bool show;
+            if (own_face) {
+                // The face itself, plus the photo beneath it when it wants one.
+                // The legacy dark overlay stays hidden — the scrim replaces it,
+                // and stacking both crushed the image to near-black.
+                show = (c == root) || (over_photo && c == clock_bg_img);
+            } else {
+                show = (c != root);
+            }
+            if (show) lv_obj_remove_flag(c, LV_OBJ_FLAG_HIDDEN);
+            else      lv_obj_add_flag(c, LV_OBJ_FLAG_HIDDEN);
+        }
+        // The face root is created before the photo can be, so make sure it is
+        // drawn on top of it rather than behind.
+        if (own_face && root) lv_obj_move_foreground(root);
+    }
+
+    const bool standby = !own_face && (clock_style == CLOCK_STYLE_STANDBY);
+    const bool classic = !own_face && !standby;
     auto vis = [](lv_obj_t* o, bool show) {
         if (!o) return;
         if (show) lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
         else      lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
     };
-    vis(clock_time_lbl, !standby);
-    vis(clock_date_lbl, !standby);
+    vis(clock_time_lbl, classic);
+    vis(clock_date_lbl, classic);
     for (int i = 0; i < 4; i++) vis(sb_digit[i], standby);
     for (int i = 0; i < 2; i++) vis(sb_dot[i],   standby);
     vis(sb_date, standby);
     if (standby) standbyRecolour();
+    // The child walk unhid the weather panels wholesale; let the weather logic
+    // decide whether they actually belong on screen.
+    if (!own_face) applyWeatherToWidgets();
 }
 
 void clockStyleChanged(void) {
@@ -425,6 +501,10 @@ static void clock_tick_cb(lv_timer_t* /*timer*/) {
         lv_label_set_text(clock_date_lbl, "Waiting for NTP...");
         return;
     }
+
+    // A face with its own tick owns all rendering from here.
+    const ClockFaceDef* face = clockFaceCurrent();
+    if (face->tick) { face->tick(&timeinfo); return; }
 
     char time_str[8];
     if (clock_12h) {
@@ -718,7 +798,7 @@ void clockBgTask(void* /*param*/) {
         uint8_t* dl_buf = nullptr;
         int dl_total = 0;
 
-        if (clock_picsum_enabled) {
+        if (clock_picsum_enabled && clockFaceUsesPhotoBg()) {
             // DMA guard: skip photo if DMA is depleted. SDIO TX copy buffer (transport_drv.c:290)
             // fails during HTTP SYN when session DMA loss ≥ -66KB — confirmed log16 crash3.
             // Photo is non-critical; weather fetch runs regardless.
@@ -946,7 +1026,7 @@ void createClockScreen() {
     // Date label — "Thu, May 16" small and dim below the time
     clock_date_lbl = lv_label_create(scr_clock);
     lv_label_set_text(clock_date_lbl, "");
-    lv_obj_set_style_text_font(clock_date_lbl, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(clock_date_lbl, &font_text_24, 0);
     lv_obj_set_style_text_color(clock_date_lbl, lv_color_hex(0xAAAAAA), 0);
     lv_obj_align(clock_date_lbl, LV_ALIGN_CENTER, 0, SY(90));
 
@@ -971,13 +1051,13 @@ void createClockScreen() {
 
     clock_wx_city_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_city_lbl, "---");
-    lv_obj_set_style_text_font(clock_wx_city_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(clock_wx_city_lbl, &font_text_20, 0);
     lv_obj_set_style_text_color(clock_wx_city_lbl, lv_color_hex(0xAAAAAA), 0);
     lv_obj_set_pos(clock_wx_city_lbl, SX(10), SY(5));
 
     clock_wx_temp_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_temp_lbl, "--°C");
-    lv_obj_set_style_text_font(clock_wx_temp_lbl, &lv_font_montserrat_48, 0);
+    lv_obj_set_style_text_font(clock_wx_temp_lbl, &font_text_48, 0);
     lv_obj_set_style_text_color(clock_wx_temp_lbl, lv_color_hex(0xAAAAAA), 0);
     lv_obj_set_pos(clock_wx_temp_lbl, SX(10), SY(32));
 
@@ -989,7 +1069,7 @@ void createClockScreen() {
 
     clock_wx_detail_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_detail_lbl, "");
-    lv_obj_set_style_text_font(clock_wx_detail_lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(clock_wx_detail_lbl, &font_text_14, 0);
     lv_obj_set_style_text_color(clock_wx_detail_lbl, lv_color_hex(0x888888), 0);
     lv_obj_set_pos(clock_wx_detail_lbl, SX(10), SY(118));
 
@@ -1022,7 +1102,7 @@ void createClockScreen() {
         lv_obj_set_width(clock_wx_fc_day[i], SX(col_w));
         lv_obj_set_pos(clock_wx_fc_day[i], SX(col_x), SY(7));
         lv_obj_set_style_text_align(clock_wx_fc_day[i], LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_style_text_font(clock_wx_fc_day[i], &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(clock_wx_fc_day[i], &font_text_14, 0);
         lv_obj_set_style_text_color(clock_wx_fc_day[i], lv_color_hex(0x999999), 0);
         lv_label_set_text(clock_wx_fc_day[i], "---");
 
@@ -1040,7 +1120,7 @@ void createClockScreen() {
         lv_obj_set_width(clock_wx_fc_temp[i], SX(col_w));
         lv_obj_set_pos(clock_wx_fc_temp[i], SX(col_x), SY(70));
         lv_obj_set_style_text_align(clock_wx_fc_temp[i], LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_style_text_font(clock_wx_fc_temp[i], &lv_font_montserrat_16, 0);
+        lv_obj_set_style_text_font(clock_wx_fc_temp[i], &font_text_16, 0);
         lv_obj_set_style_text_color(clock_wx_fc_temp[i], lv_color_hex(0xAAAAAA), 0);
         lv_label_set_text(clock_wx_fc_temp[i], "--°");
     }
@@ -1082,7 +1162,7 @@ void createClockScreen() {
     lv_label_set_text(clock_wx_rise_t_lbl, "Rise  --:--");
     lv_obj_set_width(clock_wx_rise_t_lbl, SX(300));
     lv_obj_set_style_text_align(clock_wx_rise_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_set_style_text_font(clock_wx_rise_t_lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(clock_wx_rise_t_lbl, &font_text_14, 0);
     lv_obj_set_style_text_color(clock_wx_rise_t_lbl, lv_color_hex(0x777777), 0);
     lv_obj_set_pos(clock_wx_rise_t_lbl, 0, SY(56));
 
@@ -1091,7 +1171,7 @@ void createClockScreen() {
     lv_label_set_text(clock_wx_set_t_lbl, "Set   --:--");
     lv_obj_set_width(clock_wx_set_t_lbl, SX(300));
     lv_obj_set_style_text_align(clock_wx_set_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_set_style_text_font(clock_wx_set_t_lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(clock_wx_set_t_lbl, &font_text_14, 0);
     lv_obj_set_style_text_color(clock_wx_set_t_lbl, lv_color_hex(0x777777), 0);
     lv_obj_set_pos(clock_wx_set_t_lbl, 0, SY(78));
 
@@ -1246,7 +1326,7 @@ void checkClockTrigger() {
             applyWeatherToWidgets();
 
             // Allocate and zero pixel buffer for background (800×480 RGB565 = 768 KB in PSRAM)
-            if (clock_picsum_enabled && !clock_bg_buffer) {
+            if (clock_picsum_enabled && clockFaceUsesPhotoBg() && !clock_bg_buffer) {
                 size_t buf_sz = (size_t)CLOCK_BG_WIDTH * CLOCK_BG_HEIGHT * 2;
                 clock_bg_buffer = (uint16_t*)heap_caps_malloc(
                     buf_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -1259,10 +1339,10 @@ void checkClockTrigger() {
 
             // Start background task for photo download and/or weather fetch.
             // Run if either feature is enabled (task skips photo section when picsum is off).
-            if (clock_picsum_enabled || clock_weather_enabled) {
+            if ((clock_picsum_enabled && clockFaceUsesPhotoBg()) || clock_weather_enabled) {
                 clock_bg_shutdown_requested = false;
                 clock_bg_ready              = false;
-                if (clock_picsum_enabled) memset(&clock_bg_dsc, 0, sizeof(clock_bg_dsc));
+                if (clock_picsum_enabled && clockFaceUsesPhotoBg()) memset(&clock_bg_dsc, 0, sizeof(clock_bg_dsc));
                 // Allocate stack in PSRAM to free 8KB of DMA SRAM for SDIO RX buffers.
                 // Same pattern as art task (20KB) and lyrics task (8KB).
                 // Safe: clockBgTask never calls NVS/flash write functions.

@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_fonts.h"
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -97,7 +98,7 @@ void refreshGroupsList() {
             lv_label_set_text(sub, "Standalone");
         }
         lv_obj_set_style_text_color(sub, COL_TEXT2, 0);
-        lv_obj_set_style_text_font(sub, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(sub, &font_text_14, 0);
         lv_obj_align(sub, LV_ALIGN_LEFT_MID, isPlaying ? 70 : 55, (isPlaying && hasTrack) ? 2 : 12);
 
         // Now playing info (if playing)
@@ -113,7 +114,7 @@ void refreshGroupsList() {
             }
             lv_label_set_text(nowPlaying, trackInfo.c_str());
             lv_obj_set_style_text_color(nowPlaying, lv_color_hex(0x4ECB71), 0);
-            lv_obj_set_style_text_font(nowPlaying, &lv_font_montserrat_12, 0);
+            lv_obj_set_style_text_font(nowPlaying, &font_text_12, 0);
             lv_obj_align(nowPlaying, LV_ALIGN_LEFT_MID, 70, 22);
         }
 
@@ -151,7 +152,7 @@ void refreshGroupsList() {
                 lv_obj_t* memLbl = lv_label_create(memBtn);
                 lv_label_set_text(memLbl, member->roomName.c_str());
                 lv_obj_set_style_text_color(memLbl, COL_TEXT, 0);
-                lv_obj_set_style_text_font(memLbl, &lv_font_montserrat_16, 0);
+                lv_obj_set_style_text_font(memLbl, &font_text_16, 0);
                 lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, 60, 0);
 
                 // Remove from group button
@@ -165,7 +166,7 @@ void refreshGroupsList() {
                 lv_obj_t* removeLbl = lv_label_create(removeBtn);
                 lv_label_set_text(removeLbl, "Remove");
                 lv_obj_set_style_text_color(removeLbl, COL_TEXT, 0);
-                lv_obj_set_style_text_font(removeLbl, &lv_font_montserrat_14, 0);
+                lv_obj_set_style_text_font(removeLbl, &font_text_14, 0);
                 lv_obj_center(removeLbl);
 
                 lv_obj_add_event_cb(removeBtn, [](lv_event_t* e) {
@@ -197,7 +198,7 @@ void refreshGroupsList() {
             lv_obj_t* hdrLbl = lv_label_create(hdr);
             lv_label_set_text_fmt(hdrLbl, "Add speakers to \"%s\":", coordinator->roomName.c_str());
             lv_obj_set_style_text_color(hdrLbl, COL_ACCENT, 0);
-            lv_obj_set_style_text_font(hdrLbl, &lv_font_montserrat_16, 0);
+            lv_obj_set_style_text_font(hdrLbl, &font_text_16, 0);
             lv_obj_align(hdrLbl, LV_ALIGN_LEFT_MID, 0, 0);
 
             // Show standalone speakers (not in any group except their own)
@@ -230,7 +231,7 @@ void refreshGroupsList() {
                 lv_obj_t* addLbl = lv_label_create(addBtn);
                 lv_label_set_text_fmt(addLbl, "Add %s", dev->roomName.c_str());
                 lv_obj_set_style_text_color(addLbl, COL_TEXT, 0);
-                lv_obj_set_style_text_font(addLbl, &lv_font_montserrat_16, 0);
+                lv_obj_set_style_text_font(addLbl, &font_text_16, 0);
                 lv_obj_align(addLbl, LV_ALIGN_LEFT_MID, 60, 0);
 
                 lv_obj_add_event_cb(addBtn, [](lv_event_t* e) {
@@ -268,7 +269,7 @@ void createGroupsScreen() {
 
     lv_obj_t* lbl_title = lv_label_create(title_row);
     lv_label_set_text(lbl_title, "Groups");
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, 0, 0);
 

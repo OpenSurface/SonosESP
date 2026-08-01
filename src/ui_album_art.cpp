@@ -890,6 +890,10 @@ static void displayArt(const DecodeResult& dec, const char* url) {
         art_ready      = true;
         color_ready    = true;
         blur_bg_ready  = blur_generated;  // false if blur scratch alloc failed (no stale publish)
+        // Persist the same fact for themeSet(), which republishes on theme change and
+        // cannot see this function-local. False here means the buffer still holds the
+        // PREVIOUS track's blur, so it must not be shown against the new artwork.
+        blur_bg_valid  = blur_generated;
         xSemaphoreGive(art_mutex);
     }
 

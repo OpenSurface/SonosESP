@@ -6,6 +6,7 @@
 
 #include "ui_common.h"
 #include "config.h"
+#include "ui_fonts.h"
 
 // Forward declaration for sidebar (now in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -62,7 +63,7 @@ void refreshQueueList() {
             lv_obj_set_style_text_font(num, &lv_font_mdi_16, 0);
         } else {
             lv_label_set_text_fmt(num, "%d", trackNum);
-            lv_obj_set_style_text_font(num, &lv_font_montserrat_14, 0);
+            lv_obj_set_style_text_font(num, &font_text_14, 0);
         }
         lv_obj_set_style_text_color(num, isPlaying ? COL_ACCENT : COL_TEXT2, 0);
         lv_obj_align(num, LV_ALIGN_LEFT_MID, 5, 0);
@@ -71,7 +72,7 @@ void refreshQueueList() {
         lv_obj_t* title = lv_label_create(btn);
         lv_label_set_text(title, item->title.c_str());
         lv_obj_set_style_text_color(title, isPlaying ? COL_ACCENT : COL_TEXT, 0);
-        lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
+        lv_obj_set_style_text_font(title, &font_text_16, 0);
         lv_obj_set_width(title, SX(610));
         lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
         lv_obj_align(title, LV_ALIGN_LEFT_MID, 45, -11);
@@ -80,7 +81,7 @@ void refreshQueueList() {
         lv_obj_t* artist = lv_label_create(btn);
         lv_label_set_text(artist, item->artist.c_str());
         lv_obj_set_style_text_color(artist, COL_TEXT2, 0);
-        lv_obj_set_style_text_font(artist, &lv_font_montserrat_12, 0);
+        lv_obj_set_style_text_font(artist, &font_text_12, 0);
         lv_obj_set_width(artist, SX(610));
         lv_label_set_long_mode(artist, LV_LABEL_LONG_DOT);
         lv_obj_align(artist, LV_ALIGN_LEFT_MID, 45, 11);
@@ -104,7 +105,7 @@ void createQueueScreen() {
     // Title in header
     lv_obj_t* lbl_title = lv_label_create(header);
     lv_label_set_text(lbl_title, "Playlist");
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_32, 0);
     lv_obj_set_style_text_color(lbl_title, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, 30, 0);
 
@@ -154,7 +155,7 @@ void createQueueScreen() {
     lv_obj_align(lbl_queue_status, LV_ALIGN_TOP_LEFT, SX(40), SY(85));
     lv_label_set_text(lbl_queue_status, "Loading...");
     lv_obj_set_style_text_color(lbl_queue_status, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_queue_status, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_queue_status, &font_text_14, 0);
 
     // Queue list - modern clean design
     list_queue = lv_list_create(scr_queue);
@@ -200,7 +201,7 @@ void createSourcesScreen() {
     // Title
     lv_obj_t* lbl_title = lv_label_create(content);
     lv_label_set_text(lbl_title, "Sources");
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_set_pos(lbl_title, 0, 0);
 
@@ -303,7 +304,7 @@ void createBrowseScreen() {
     // Title
     lv_obj_t* lbl_title = lv_label_create(content);
     lv_label_set_text(lbl_title, current_browse_title.c_str());
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_set_pos(lbl_title, 0, 0);
 
@@ -406,7 +407,7 @@ void createBrowseScreen() {
         lv_obj_t* lbl = lv_label_create(btn);
         lv_label_set_text(lbl, title.c_str());
         lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_16, 0);
+        lv_obj_set_style_text_font(lbl, &font_text_16, 0);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 40, 0);
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_SCROLL_CIRCULAR);
         lv_obj_set_width(lbl, lv_pct(90));

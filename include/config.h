@@ -185,8 +185,12 @@
 #define OTA_DMA_CRITICAL        4096    // DMA critical threshold (80ms delay)
 #define OTA_DMA_LOW             8192    // DMA low threshold (30ms delay)
 #define OTA_BASE_DELAY_MS       15      // Base per-chunk delay (~65KB/s, ~25s for 1.5MB)
-#define OTA_TLS_MAX_RETRIES     3             // Retry full connect+download on connection failure
+#define OTA_TLS_MAX_RETRIES     6             // Retry connect+download. Each attempt RESUMES via HTTP
+                                              // Range, so retries make forward progress — 6 is cheap.
 #define OTA_TLS_RETRY_DELAY_MS  5000          // Wait between retry attempts (ms per attempt)
+#define OTA_TOTAL_BUDGET_MS     600000        // 10 min wall-clock across ALL attempts. OTA_DOWNLOAD_
+                                              // TIMEOUT_MS is per-attempt, so without this the retry
+                                              // ladder (6 attempts + backoff) is unbounded in time.
 #define OTA_MIN_DMA_AFTER_TLS   (8 * 1024)   // Min total free DMA after TLS GET completes.
                                               // < 8KB → SDIO RX pool starved → assert crash.
                                               // Normal full handshake leaves ~17-21KB (safe).
@@ -254,12 +258,17 @@
 #define CLOCK_MODE_NOTHING     3  // Show only when nothing playing + X mins inactivity
 
 // Clock face style (independent of CLOCK_MODE_*, which controls WHEN it appears)
-#define CLOCK_STYLE_CLASSIC    0  // Centred HH:MM with date below
-#define CLOCK_STYLE_STANDBY    1  // Oversized overlapping two-tone digits
+// Face indices. These are persisted in NVS, so the order is fixed — see the
+// CLOCK_FACE_SCHEMA migration in clock_face.cpp, which rewrote the pre-1.11
+// numbering when the Classic face was removed.
+#define CLOCK_STYLE_STANDBY    0  // Oversized overlapping two-tone digits
+#define CLOCK_STYLE_ORBIT      1  // Nocturne: sun-path arc + temperature curve
+#define CLOCK_STYLE_MONOLITH   2  // Nocturne: stacked HH/MM, details grid, forecast rail
+#define CLOCK_STYLE_HORIZON    3  // Nocturne: centred clock, ambient glow, forecast chips
 // StandBy is the default face: existing users have no clk_style key in NVS, so
 // they pick up this default on upgrade and get the new clock without touching
 // settings. Anyone who explicitly selects Classic has the key written and keeps it.
-#define CLOCK_DEFAULT_STYLE    CLOCK_STYLE_STANDBY
+#define CLOCK_DEFAULT_STYLE    CLOCK_STYLE_HORIZON
 
 #define CLOCK_DEFAULT_MODE       0    // Disabled by default
 #define CLOCK_DEFAULT_TIMEOUT    5    // 5 minutes inactivity before clock
@@ -293,6 +302,7 @@
 #define NVS_KEY_CLOCK_KW        "clk_kw"
 #define NVS_KEY_CLOCK_12H       "clk_12h"
 #define NVS_KEY_CLOCK_STYLE     "clk_style"
+#define NVS_KEY_CLOCK_FACE_VER  "clk_face_v"   // face-index schema version (<=15 chars)
 #define NVS_KEY_CLOCK_WEATHER_EN   "clk_wx_en"
 #define NVS_KEY_CLOCK_WEATHER_CITY "clk_wx_city"
 #define NVS_KEY_CLOCK_WEATHER_FAHR "clk_wx_fahr"

@@ -29,6 +29,7 @@
 #include "ui_icons.h"
 #include "ui_theme.h"
 #include <esp_random.h>
+#include "ui_fonts.h"
 
 // ── Grid constants (design space) ───────────────────────────────────────────
 #define IM_MARGIN      32
@@ -374,7 +375,7 @@ void buildImmersivePlayer() {
 
         *m.sub = lv_label_create(panel_art);
         lv_label_set_text(*m.sub, m.text);
-        lv_obj_set_style_text_font(*m.sub, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(*m.sub, &font_text_14, 0);
         lv_obj_set_style_text_color(*m.sub, COL_TEXT, 0);
         lv_obj_set_style_text_letter_space(*m.sub, 3, 0);
         lv_obj_align(*m.sub, LV_ALIGN_CENTER, 0, SY(38));
@@ -391,7 +392,7 @@ void buildImmersivePlayer() {
     lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_title, "Not Playing");
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_32, 0);
 
     lbl_artist = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_artist, SX(IM_TEXT_X), SY(IM_HEAD_Y + 52));
@@ -400,14 +401,14 @@ void buildImmersivePlayer() {
     lv_label_set_text(lbl_artist, "");
     lv_obj_set_style_text_color(lbl_artist, COL_TEXT, 0);
     lv_obj_set_style_text_opa(lbl_artist, LV_OPA_80, 0);
-    lv_obj_set_style_text_font(lbl_artist, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(lbl_artist, &font_text_20, 0);
 
     lbl_device_name = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_device_name, SX(IM_TEXT_X), SY(IM_HEAD_Y + 82));
     lv_label_set_text(lbl_device_name, "Now Playing");
     lv_obj_set_style_text_color(lbl_device_name, COL_TEXT, 0);
     lv_obj_set_style_text_opa(lbl_device_name, LV_OPA_60, 0);
-    lv_obj_set_style_text_font(lbl_device_name, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
 
     // Right-aligned header buttons: settings hugs the right margin, queue sits 12 left.
     roundBtn(panel_right, MDI_COG, &lv_font_mdi_24, IM_RIGHT - 46, IM_HEAD_Y + 6, 46, ev_settings, true);
@@ -420,7 +421,7 @@ void buildImmersivePlayer() {
     lv_obj_set_pos(lbl_lyrics_status, SX(IM_TEXT_X), SY(IM_HEAD_Y + 104));
     lv_obj_set_style_text_color(lbl_lyrics_status, COL_TEXT, 0);
     lv_obj_set_style_text_opa(lbl_lyrics_status, LV_OPA_50, 0);
-    lv_obj_set_style_text_font(lbl_lyrics_status, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_lyrics_status, &font_text_14, 0);
 
     // ── Lyric stage ─────────────────────────────────────────────────────────
     im_stage = lv_label_create(panel_art);
@@ -429,7 +430,7 @@ void buildImmersivePlayer() {
     lv_label_set_long_mode(im_stage, LV_LABEL_LONG_WRAP);
     lv_label_set_text(im_stage, "");
     lv_obj_set_style_text_color(im_stage, COL_TEXT, 0);
-    lv_obj_set_style_text_font(im_stage, &lv_font_montserrat_48, 0);
+    lv_obj_set_style_text_font(im_stage, &font_text_48, 0);
     lv_obj_set_style_text_opa(im_stage, LV_OPA_90, 0);
     lv_obj_set_style_text_line_space(im_stage, 4, 0);
 
@@ -463,7 +464,7 @@ void buildImmersivePlayer() {
     lv_label_set_text(lbl_time, "0:00");
     lv_obj_set_style_text_color(lbl_time, COL_TEXT, 0);
     lv_obj_set_style_text_opa(lbl_time, LV_OPA_80, 0);
-    lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_time, &font_text_14, 0);
 
     slider_progress = lv_slider_create(bar);
     lv_obj_set_pos(slider_progress, SX(IM_ROW_X), SY(IM_BAR_MID(6)));
@@ -480,7 +481,7 @@ void buildImmersivePlayer() {
     lv_label_set_text(lbl_time_remaining, "-0:00");
     lv_obj_set_style_text_color(lbl_time_remaining, COL_TEXT, 0);
     lv_obj_set_style_text_opa(lbl_time_remaining, LV_OPA_60, 0);
-    lv_obj_set_style_text_font(lbl_time_remaining, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_time_remaining, &font_text_14, 0);
 
     // Transport: prev / play / next on a 64px pitch, centred in the space between
     // the time readout and the volume icon.
@@ -550,7 +551,7 @@ void buildImmersivePlayer() {
 
     lbl_album = lv_label_create(panel_right);
     lv_label_set_text(lbl_album, "");
-    lv_obj_set_style_text_font(lbl_album, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_album, &font_text_14, 0);
     park(lbl_album);
 
     img_next_album = lv_img_create(panel_right);
@@ -559,18 +560,18 @@ void buildImmersivePlayer() {
 
     lbl_next_header = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_header, "Next:");
-    lv_obj_set_style_text_font(lbl_next_header, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl_next_header, &font_text_12, 0);
     park(lbl_next_header);
 
     lbl_next_title = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_title, "");
     lv_obj_set_width(lbl_next_title, SX(200));
-    lv_obj_set_style_text_font(lbl_next_title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_next_title, &font_text_14, 0);
     park(lbl_next_title);
 
     lbl_next_artist = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_artist, "");
     lv_obj_set_width(lbl_next_artist, SX(200));
-    lv_obj_set_style_text_font(lbl_next_artist, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl_next_artist, &font_text_12, 0);
     park(lbl_next_artist);
 }

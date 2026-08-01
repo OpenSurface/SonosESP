@@ -11,6 +11,7 @@
 #include "lyrics.h"
 #include "clock_screen.h"
 #include <esp_task_wdt.h>
+#include "ui_fonts.h"
 
 // ============================================================================
 // Brightness Control
@@ -325,7 +326,7 @@ void ev_wifi_scan(lv_event_t* e) {
         lv_obj_t* ssid_lbl = lv_label_create(btn);
         lv_label_set_text(ssid_lbl, wifiNetworks[ui].c_str());
         lv_obj_set_style_text_color(ssid_lbl, COL_TEXT, 0);
-        lv_obj_set_style_text_font(ssid_lbl, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(ssid_lbl, &font_text_14, 0);
         lv_obj_set_width(ssid_lbl, lv_pct(80));
         lv_label_set_long_mode(ssid_lbl, LV_LABEL_LONG_DOT);
         lv_obj_align(ssid_lbl, LV_ALIGN_LEFT_MID, 36, 0);
@@ -1036,18 +1037,38 @@ static void performOTAUpdate() {
 
     WiFiClientSecure* clientPtr = nullptr;
     HTTPClient* httpPtr = nullptr;
-    int contentLength = 0;
-    size_t written = 0;
+    int contentLength = 0;          // TOTAL firmware size, learned from the first 200 response
+    size_t written = 0;             // Bytes handed to Update. NOT reset per attempt — see below.
     uint32_t download_start = 0;
     static uint8_t buff[OTA_BUFFER_SIZE];
 
+    // The Update session and the byte counter deliberately span all attempts.
+    // Root cause this addresses: esp-hosted-mcu #184 — on ESP32-P4 + C6 over SDIO,
+    // inbound TCP stalls once the C6's RX buffers fill and the host mishandles
+    // backpressure. It is a platform bug we cannot prevent, so instead we survive
+    // it: each retry reconnects and RESUMES via an HTTP Range request rather than
+    // re-downloading all ~2.4MB. Update.write() buffers into a 4KB sector buffer
+    // held inside UpdateClass, so a partially-filled sector survives the reconnect
+    // and the byte stream stays contiguous (keeping the MD5 valid) — provided we
+    // never call Update.abort() on a retryable failure.
+    bool update_begun = false;
+    const uint32_t ota_started_ms = millis();
+
     for (int attempt = 1; attempt <= OTA_TLS_MAX_RETRIES; attempt++) {
-        written = 0;
+        // Wall-clock guard: OTA_DOWNLOAD_TIMEOUT_MS is per-attempt, so the retry
+        // ladder as a whole needs its own ceiling.
+        if (millis() - ota_started_ms > OTA_TOTAL_BUDGET_MS) {
+            Serial.printf("[OTA] Total budget %lus exhausted at %u/%d bytes — giving up\n",
+                (unsigned long)(OTA_TOTAL_BUDGET_MS / 1000), (unsigned)written, contentLength);
+            break;
+        }
 
         if (attempt > 1) {
             uint32_t wait_sec = (uint32_t)(attempt - 1) * (OTA_TLS_RETRY_DELAY_MS / 1000);
             Serial.printf("[OTA] Connection failed - waiting %lus before retry %d/%d\n",
                 (unsigned long)wait_sec, attempt, OTA_TLS_MAX_RETRIES);
+
+            const int resume_pct = (contentLength > 0) ? (int)(written * 100 / contentLength) : 0;
 
             for (uint32_t s = wait_sec; s > 0; s--) {
                 if (lbl_ota_status) {
@@ -1063,8 +1084,15 @@ static void performOTAUpdate() {
             }
 
             if (lbl_ota_status) {
-                lv_label_set_text_fmt(lbl_ota_status,
-                    MDI_DOWNLOAD " Connecting (attempt %d/%d)...", attempt, OTA_TLS_MAX_RETRIES);
+                // Say "Resuming" when we actually are, so the screen matches what
+                // docs/TROUBLESHOOTING.md tells people to expect.
+                if (written > 0)
+                    lv_label_set_text_fmt(lbl_ota_status,
+                        MDI_DOWNLOAD " Resuming from %d%%... (%d/%d)",
+                        resume_pct, attempt, OTA_TLS_MAX_RETRIES);
+                else
+                    lv_label_set_text_fmt(lbl_ota_status,
+                        MDI_DOWNLOAD " Connecting (attempt %d/%d)...", attempt, OTA_TLS_MAX_RETRIES);
                 lv_obj_set_style_text_color(lbl_ota_status, COL_ACCENT, 0);
             }
             lv_tick_inc(10);
@@ -1094,15 +1122,38 @@ static void performOTAUpdate() {
         lv_tick_inc(10);
         lv_refr_now(NULL);
 
+        // Always re-request the original github.com URL — never a cached redirect
+        // target. GitHub 302s to a signed release-assets.githubusercontent.com URL
+        // whose JWT is valid for only 300s (exp - nbf), so a cached one would expire
+        // mid-retry on exactly the slow links that need resuming. Re-requesting mints
+        // a fresh signature every attempt.
         httpPtr->begin(*clientPtr, download_url);
         httpPtr->setTimeout(60000);
         httpPtr->setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+
+        // Resume request. GitHub release assets honour Range (verified: 206 with
+        // Content-Range against release-assets.githubusercontent.com). HTTPClient's
+        // setURL() -> beginInternal() does not clear _headers for an absolute
+        // redirect, so this survives the 302 — but upstream considers that a bug
+        // (arduino-esp32 #4487), so we verify the response below instead of trusting it.
+        const bool resuming = (written > 0 && contentLength > 0);
+        if (resuming) {
+            char range_hdr[40];
+            snprintf(range_hdr, sizeof(range_hdr), "bytes=%u-", (unsigned)written);
+            httpPtr->addHeader("Range", range_hdr);
+            Serial.printf("[OTA] Resuming: Range %s (of %d total)\n", range_hdr, contentLength);
+        }
 
         int httpCode = httpPtr->GET();
         size_t post_tls_total = heap_caps_get_free_size(MALLOC_CAP_DMA);
         Serial.printf("[OTA] HTTP %d - Post-TLS DMA: %d bytes\n", httpCode, post_tls_total);
 
-        if (httpCode != 200) {
+        // 200 = full body, 206 = partial (resume). A transient network/server fault
+        // (negative HTTPClient code, or 5xx) is worth retrying now that retries
+        // resume; a 4xx means the asset is genuinely wrong and never will be.
+        if (httpCode != 200 && httpCode != 206) {
+            const bool retryable = (httpCode < 0 || httpCode >= 500);
+            Serial.printf("[OTA] HTTP %d — %s\n", httpCode, retryable ? "retryable" : "fatal");
             if (lbl_ota_status) {
                 lv_label_set_text_fmt(lbl_ota_status, MDI_ALERT " Download failed (HTTP %d)", httpCode);
                 lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
@@ -1110,25 +1161,48 @@ static void performOTAUpdate() {
             httpPtr->end(); clientPtr->stop();
             delete httpPtr; delete clientPtr;
             httpPtr = nullptr; clientPtr = nullptr;
+            if (retryable && attempt < OTA_TLS_MAX_RETRIES) continue;
+            if (update_begun) Update.abort();
             otaRecovery();
             return;
         }
 
-        contentLength = httpPtr->getSize();
-        if (contentLength <= 0 || contentLength > OTA_MAX_FIRMWARE_SIZE) {
-            Serial.printf("[OTA] Invalid firmware size: %d bytes\n", contentLength);
-            if (lbl_ota_status) {
-                lv_label_set_text(lbl_ota_status, MDI_ALERT " Invalid firmware file");
-                lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+        if (resuming) {
+            // Verify the server honoured the Range rather than trusting either the
+            // server or HTTPClient's header handling. A 200 here means it sent the
+            // WHOLE file — appending that to what we already flashed would corrupt
+            // the image, so drop everything and start clean.
+            const int part_len = httpPtr->getSize();
+            const int expected = contentLength - (int)written;
+            if (httpCode != 206 || part_len != expected) {
+                Serial.printf("[OTA] Range not honoured (HTTP %d, %d bytes, expected %d) — restarting from 0\n",
+                    httpCode, part_len, expected);
+                if (update_begun) { Update.abort(); update_begun = false; }
+                written = 0;
+                httpPtr->end(); clientPtr->stop();
+                delete httpPtr; delete clientPtr;
+                httpPtr = nullptr; clientPtr = nullptr;
+                if (attempt < OTA_TLS_MAX_RETRIES) continue;
+                otaRecovery();
+                return;
             }
-            httpPtr->end(); clientPtr->stop();
-            delete httpPtr; delete clientPtr;
-            httpPtr = nullptr; clientPtr = nullptr;
-            otaRecovery();
-            return;
+            Serial.printf("[OTA] Resume accepted: %d bytes remaining\n", part_len);
+        } else {
+            contentLength = httpPtr->getSize();
+            if (contentLength <= 0 || contentLength > OTA_MAX_FIRMWARE_SIZE) {
+                Serial.printf("[OTA] Invalid firmware size: %d bytes\n", contentLength);
+                if (lbl_ota_status) {
+                    lv_label_set_text(lbl_ota_status, MDI_ALERT " Invalid firmware file");
+                    lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+                }
+                httpPtr->end(); clientPtr->stop();
+                delete httpPtr; delete clientPtr;
+                httpPtr = nullptr; clientPtr = nullptr;
+                otaRecovery();
+                return;
+            }
+            Serial.printf("[OTA] Firmware: %d bytes (%.1f KB)\n", contentLength, contentLength / 1024.0);
         }
-
-        Serial.printf("[OTA] Firmware: %d bytes (%.1f KB)\n", contentLength, contentLength / 1024.0);
 
         // Post-TLS DMA check: if total free DMA is below the threshold, SDIO RX buffers
         // will be starved during download causing an assert crash. Retry the full TLS
@@ -1136,8 +1210,8 @@ static void performOTAUpdate() {
         // Note: heap_caps_get_largest_free_block(MALLOC_CAP_DMA) always returns 0 on
         // ESP32-P4 (DMA heap is managed outside the standard allocator), so we check
         // total free only. If TLS session resumption leaves a fragmented heap and causes
-        // an mbedTLS AES failure downstream, the natural retry (written=0 → continue)
-        // will start a fresh full handshake from clean ~126KB DMA state.
+        // an mbedTLS AES failure downstream, the natural retry (continue) will start a
+        // fresh full handshake from clean ~126KB DMA state and resume where we left off.
         if (post_tls_total < OTA_MIN_DMA_AFTER_TLS) {
             Serial.printf("[OTA] Post-TLS DMA too low (%d bytes, need %d) — retrying\n",
                 post_tls_total, OTA_MIN_DMA_AFTER_TLS);
@@ -1167,34 +1241,38 @@ static void performOTAUpdate() {
         download_start = millis();
         uint32_t last_data_time = millis();
         bool fatal_abort = false;
-        bool update_begun = false;
+        // Stall and per-attempt timeout are NOT fatal any more: they are the
+        // signature of esp-hosted-mcu #184, and they are exactly what resuming
+        // exists to recover from. Only an unrecoverable flash-side error is fatal.
+        bool attempt_failed = false;
 
-        Serial.printf("[OTA] Downloading... DMA: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
+        Serial.printf("[OTA] Downloading from %u/%d... DMA: %d bytes\n",
+            (unsigned)written, contentLength, heap_caps_get_free_size(MALLOC_CAP_DMA));
 
         while (httpPtr->connected() && (written < (size_t)contentLength)) {
             if ((millis() - last_data_time) > OTA_STALL_TIMEOUT_MS) {
-                Serial.printf("[OTA] STALL: No data for %ds at %d%% - aborting\n",
-                    OTA_STALL_TIMEOUT_MS / 1000, (int)(written * 100 / contentLength));
+                Serial.printf("[OTA] STALL: No data for %ds at %d%% (%u bytes) — will resume\n",
+                    OTA_STALL_TIMEOUT_MS / 1000, (int)(written * 100 / contentLength), (unsigned)written);
                 if (lbl_ota_status) {
-                    lv_label_set_text(lbl_ota_status, MDI_ALERT " Download stalled - network timeout");
-                    lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+                    lv_label_set_text(lbl_ota_status, MDI_REFRESH " Download stalled - resuming...");
+                    lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFFA500), 0);
                 }
                 lv_tick_inc(10);
                 lv_refr_now(NULL);
-                fatal_abort = true;
+                attempt_failed = true;
                 break;
             }
 
             if ((millis() - download_start) > OTA_DOWNLOAD_TIMEOUT_MS) {
-                Serial.printf("[OTA] TIMEOUT: >%ds at %d%% - aborting\n",
-                    OTA_DOWNLOAD_TIMEOUT_MS / 1000, (int)(written * 100 / contentLength));
+                Serial.printf("[OTA] TIMEOUT: >%ds at %d%% (%u bytes) — will resume\n",
+                    OTA_DOWNLOAD_TIMEOUT_MS / 1000, (int)(written * 100 / contentLength), (unsigned)written);
                 if (lbl_ota_status) {
-                    lv_label_set_text(lbl_ota_status, MDI_ALERT " Download timeout - try again");
-                    lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+                    lv_label_set_text(lbl_ota_status, MDI_REFRESH " Download slow - resuming...");
+                    lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFFA500), 0);
                 }
                 lv_tick_inc(10);
                 lv_refr_now(NULL);
-                fatal_abort = true;
+                attempt_failed = true;
                 break;
             }
 
@@ -1225,7 +1303,27 @@ static void performOTAUpdate() {
                 size_t toRead = (available < OTA_READ_SIZE) ? available : OTA_READ_SIZE;
                 if (toRead > sizeof(buff)) toRead = sizeof(buff);
                 int bytesRead = stream->readBytes(buff, toRead);
-                written += Update.write(buff, bytesRead);
+                if (bytesRead > 0) {
+                    // A short write means bytes left the socket but never reached flash.
+                    // Resuming from `written` would then skip them and corrupt the image,
+                    // so this has to be fatal rather than retryable.
+                    size_t w = Update.write(buff, (size_t)bytesRead);
+                    if (w != (size_t)bytesRead) {
+                        Serial.printf("[OTA] Short write: %u/%d at %u bytes — %s\n",
+                            (unsigned)w, bytesRead, (unsigned)written, Update.errorString());
+                        if (lbl_ota_status) {
+                            lv_label_set_text_fmt(lbl_ota_status,
+                                MDI_ALERT " Flash write failed: %s", Update.errorString());
+                            lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
+                        }
+                        lv_tick_inc(10);
+                        lv_refr_now(NULL);
+                        written += w;
+                        fatal_abort = true;
+                        break;
+                    }
+                    written += w;
+                }
 
                 chunk_count++;
                 if (chunk_count % OTA_DMA_CHECK_INTERVAL == 0) {
@@ -1269,44 +1367,43 @@ static void performOTAUpdate() {
         }
 
         if (fatal_abort) {
-            // Stall, timeout, or Update.begin() failure — not retryable
+            // Flash-side failure (no space, short write) — retrying cannot help.
             if (update_begun) Update.abort();
             httpPtr->end(); clientPtr->stop();
             delete httpPtr; delete clientPtr;
+            httpPtr = nullptr; clientPtr = nullptr;
             otaRecovery();
             return;
         }
 
         if (written == (size_t)contentLength) {
+            httpPtr->end(); clientPtr->stop();
+            delete httpPtr; delete clientPtr;
+            httpPtr = nullptr; clientPtr = nullptr;
             break;  // SUCCESS — exit retry loop
         }
 
-        // Connection dropped before completion — retryable
-        Serial.printf("[OTA] Attempt %d/%d: %d/%d bytes — %s\n",
-            attempt, OTA_TLS_MAX_RETRIES, written, contentLength,
-            (attempt < OTA_TLS_MAX_RETRIES) ? "retrying" : "failed");
-        if (update_begun) Update.abort();
+        // Stalled or the connection dropped early. Tear down the socket but KEEP the
+        // Update session: the next attempt resumes from `written` via Range, so the
+        // bytes already flashed (and the partial sector still buffered inside
+        // UpdateClass) are preserved. This is the whole point of the rework — before
+        // it, every attempt restarted at 0 and a deterministic mid-file failure could
+        // never be beaten by retrying.
+        Serial.printf("[OTA] Attempt %d/%d ended at %u/%d bytes (%d%%) after %lus — %s\n",
+            attempt, OTA_TLS_MAX_RETRIES, (unsigned)written, contentLength,
+            contentLength > 0 ? (int)(written * 100 / contentLength) : 0,
+            (unsigned long)((millis() - download_start) / 1000),
+            attempt_failed ? "stalled, will resume" : "connection dropped, will resume");
         httpPtr->end(); clientPtr->stop();
         delete httpPtr; delete clientPtr;
         httpPtr = nullptr; clientPtr = nullptr;
-
-        if (attempt == OTA_TLS_MAX_RETRIES) {
-            if (lbl_ota_status) {
-                lv_label_set_text(lbl_ota_status, MDI_ALERT " Download failed - try again later");
-                lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
-            }
-            lv_tick_inc(10);
-            lv_refr_now(NULL);
-            otaRecovery();
-            return;
-        }
     }
 
-    // Guard: all retry attempts exhausted via DMA check (continue on last attempt
-    // exits the loop normally without hitting the return above).
+    // Reached when every attempt was used up, or the total budget expired.
     if (written != (size_t)contentLength) {
-        Serial.printf("[OTA] All %d attempts failed (written=%d, expected=%d) — recovering\n",
-            OTA_TLS_MAX_RETRIES, written, contentLength);
+        Serial.printf("[OTA] Giving up after %d attempts (written=%u, expected=%d) — recovering\n",
+            OTA_TLS_MAX_RETRIES, (unsigned)written, contentLength);
+        if (update_begun) Update.abort();
         if (lbl_ota_status) {
             lv_label_set_text(lbl_ota_status, MDI_ALERT " Download failed - try again later");
             lv_obj_set_style_text_color(lbl_ota_status, lv_color_hex(0xFF6B6B), 0);
@@ -1354,7 +1451,7 @@ static void performOTAUpdate() {
             lv_obj_t *reboot_label = lv_label_create(lv_screen_active());
             lv_label_set_text(reboot_label, "REBOOTING...");
             lv_obj_set_style_text_color(reboot_label, lv_color_hex(0xFFFFFF), 0);
-            lv_obj_set_style_text_font(reboot_label, &lv_font_montserrat_24, 0);
+            lv_obj_set_style_text_font(reboot_label, &font_text_24, 0);
             lv_obj_center(reboot_label);
 
             lv_tick_inc(10);
@@ -1378,8 +1475,11 @@ static void performOTAUpdate() {
         }
     }
 
-    httpPtr->end(); clientPtr->stop();
-    delete httpPtr; delete clientPtr;
+    // The socket is already closed and freed by the success path in the retry loop —
+    // both pointers are null here. Kept null-guarded so a future early exit can't
+    // double-free.
+    if (httpPtr)   { httpPtr->end(); delete httpPtr; httpPtr = nullptr; }
+    if (clientPtr) { clientPtr->stop(); delete clientPtr; clientPtr = nullptr; }
     otaRecovery();
 }
 

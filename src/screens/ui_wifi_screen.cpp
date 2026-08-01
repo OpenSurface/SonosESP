@@ -8,6 +8,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_fonts.h"
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -41,7 +42,7 @@ void createWiFiScreen() {
 
     lv_obj_t* lbl_title = lv_label_create(title_row);
     lv_label_set_text(lbl_title, "WiFi");
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, 0, 0);
 
@@ -101,7 +102,7 @@ void createWiFiScreen() {
     // SSID name
     lbl_pw_ssid = lv_label_create(pw_strip);
     lv_label_set_text(lbl_pw_ssid, "");
-    lv_obj_set_style_text_font(lbl_pw_ssid, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_pw_ssid, &font_text_14, 0);
     lv_obj_set_style_text_color(lbl_pw_ssid, COL_TEXT, 0);
     lv_obj_set_width(lbl_pw_ssid, 138);
     lv_label_set_long_mode(lbl_pw_ssid, LV_LABEL_LONG_DOT);

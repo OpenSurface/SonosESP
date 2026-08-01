@@ -11,6 +11,7 @@
 #include "lyrics.h"
 #include "ui_settings_card.h"
 #include "ui_theme.h"
+#include "ui_fonts.h"
 
 // Forward declaration (defined in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -29,7 +30,7 @@ void createGeneralScreen() {
     // ── Screen title ─────────────────────────────────────────────────────────
     lv_obj_t* lbl_title = lv_label_create(content);
     lv_label_set_text(lbl_title, "General");
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_set_style_pad_bottom(lbl_title, 12, 0);
 
@@ -65,7 +66,7 @@ void createGeneralScreen() {
         static lv_obj_t* lbl_theme_desc;
         lbl_theme_desc = lv_label_create(card);
         lv_label_set_text(lbl_theme_desc, THEMES[active_theme].desc);
-        lv_obj_set_style_text_font(lbl_theme_desc, &lv_font_montserrat_12, 0);
+        lv_obj_set_style_text_font(lbl_theme_desc, &font_text_12, 0);
         lv_obj_set_style_text_color(lbl_theme_desc, COL_TEXT2, 0);
         lv_obj_set_width(lbl_theme_desc, lv_pct(100));
         lv_label_set_long_mode(lbl_theme_desc, LV_LABEL_LONG_WRAP);
@@ -84,7 +85,7 @@ void createGeneralScreen() {
         lv_obj_set_width(dd, lv_pct(100));
         lv_obj_set_style_bg_color(dd, lv_color_hex(0x2A2A2A), 0);
         lv_obj_set_style_text_color(dd, COL_TEXT, 0);
-        lv_obj_set_style_text_font(dd, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(dd, &font_text_14, 0);
         lv_obj_set_style_border_color(dd, lv_color_hex(0x3A3A3A), 0);
         lv_obj_set_style_radius(dd, 8, 0);
         lv_obj_set_style_pad_all(dd, 10, 0);
@@ -92,7 +93,7 @@ void createGeneralScreen() {
         if (lv_obj_t* list = lv_dropdown_get_list(dd)) {
             lv_obj_set_style_bg_color(list, lv_color_hex(0x1F1F1F), 0);
             lv_obj_set_style_text_color(list, COL_TEXT, 0);
-            lv_obj_set_style_text_font(list, &lv_font_montserrat_14, 0);
+            lv_obj_set_style_text_font(list, &font_text_14, 0);
             lv_obj_set_style_border_color(list, lv_color_hex(0x3A3A3A), 0);
         }
         lv_obj_add_event_cb(dd, [](lv_event_t* e) {

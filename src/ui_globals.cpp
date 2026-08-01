@@ -135,6 +135,12 @@ bool pending_is_station_logo = false;
 lv_img_dsc_t blur_bg_dsc;
 uint16_t*    blur_bg_buf   = nullptr;
 volatile bool blur_bg_ready = false;
+// True only while blur_bg_buf holds the blur for the CURRENTLY loaded artwork.
+// blur_bg_buf is allocated once and lives for the session, so a non-null pointer
+// says nothing about whether the pixels are valid (or even initialised — it comes
+// from heap_caps_malloc). themeSet() needs this to avoid republishing a previous
+// track's blur, or raw uninitialised PSRAM, when the theme changes.
+volatile bool blur_bg_valid = false;
 lv_obj_t*    img_blur_bg   = nullptr;
 
 // Line-in mode widgets (created hidden in createMainScreen, shown by setLineInMode)

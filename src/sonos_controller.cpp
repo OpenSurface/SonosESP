@@ -429,31 +429,37 @@ String SonosController::decodeHTML(String text) {
         {"%3a", ":"}, {"%3A", ":"}, {"%2f", "/"}, {"%2F", "/"}, {"%3f", "?"}, {"%3F", "?"},
         {"%3d", "="}, {"%3D", "="}, {"%26", "&"},
 
-        // Numeric HTML entities (hex)
-        {"&#xe9;", "e"}, {"&#xE9;", "e"}, {"&#xe8;", "e"}, {"&#xE8;", "e"},
-        {"&#xea;", "e"}, {"&#xEA;", "e"}, {"&#xe0;", "a"}, {"&#xE0;", "a"},
-        {"&#xe2;", "a"}, {"&#xE2;", "a"}, {"&#xf4;", "o"}, {"&#xF4;", "o"},
-        {"&#xf9;", "u"}, {"&#xF9;", "u"}, {"&#xfb;", "u"}, {"&#xFB;", "u"},
-        {"&#xee;", "i"}, {"&#xEE;", "i"}, {"&#xe7;", "c"}, {"&#xE7;", "c"},
-        {"&#xf1;", "n"}, {"&#xF1;", "n"},
+        // Numeric HTML entities -> the real UTF-8 character.
+        // These used to transliterate accents away (é -> e) because LVGL's built-in
+        // Montserrat is ASCII-only and anything else drew a tofu box. The text fonts
+        // now carry a Latin-1 / Latin-Ext-A fallback (see ui_fonts.h), so decode
+        // properly instead of destroying the spelling — "Beyoncé" not "Beyonce".
+        {"&#xe9;", "\xC3\xA9"}, {"&#xE9;", "\xC3\xA9"}, {"&#xe8;", "\xC3\xA8"}, {"&#xE8;", "\xC3\xA8"},
+        {"&#xea;", "\xC3\xAA"}, {"&#xEA;", "\xC3\xAA"}, {"&#xe0;", "\xC3\xA0"}, {"&#xE0;", "\xC3\xA0"},
+        {"&#xe2;", "\xC3\xA2"}, {"&#xE2;", "\xC3\xA2"}, {"&#xf4;", "\xC3\xB4"}, {"&#xF4;", "\xC3\xB4"},
+        {"&#xf9;", "\xC3\xB9"}, {"&#xF9;", "\xC3\xB9"}, {"&#xfb;", "\xC3\xBB"}, {"&#xFB;", "\xC3\xBB"},
+        {"&#xee;", "\xC3\xAE"}, {"&#xEE;", "\xC3\xAE"}, {"&#xe7;", "\xC3\xA7"}, {"&#xE7;", "\xC3\xA7"},
+        {"&#xf1;", "\xC3\xB1"}, {"&#xF1;", "\xC3\xB1"},
 
         // Numeric HTML entities (decimal)
-        {"&#233;", "e"}, {"&#232;", "e"}, {"&#234;", "e"}, {"&#224;", "a"},
-        {"&#226;", "a"}, {"&#244;", "o"}, {"&#249;", "u"}, {"&#251;", "u"},
-        {"&#238;", "i"}, {"&#231;", "c"}, {"&#241;", "n"},
+        {"&#233;", "\xC3\xA9"}, {"&#232;", "\xC3\xA8"}, {"&#234;", "\xC3\xAA"}, {"&#224;", "\xC3\xA0"},
+        {"&#226;", "\xC3\xA2"}, {"&#244;", "\xC3\xB4"}, {"&#249;", "\xC3\xB9"}, {"&#251;", "\xC3\xBB"},
+        {"&#238;", "\xC3\xAE"}, {"&#231;", "\xC3\xA7"}, {"&#241;", "\xC3\xB1"},
 
-        // UTF-8 sequences (2-byte accented)
-        {"\xC3\xA9", "e"}, {"\xC3\xA8", "e"}, {"\xC3\xAA", "e"}, {"\xC3\xAB", "e"},
-        {"\xC3\xA0", "a"}, {"\xC3\xA1", "a"}, {"\xC3\xA2", "a"}, {"\xC3\xA4", "a"},
-        {"\xC3\xB2", "o"}, {"\xC3\xB3", "o"}, {"\xC3\xB4", "o"}, {"\xC3\xB6", "o"},
-        {"\xC3\xB9", "u"}, {"\xC3\xBA", "u"}, {"\xC3\xBB", "u"}, {"\xC3\xBC", "u"},
-        {"\xC3\xAC", "i"}, {"\xC3\xAD", "i"}, {"\xC3\xAE", "i"}, {"\xC3\xAF", "i"},
-        {"\xC3\xA7", "c"}, {"\xC3\xB1", "n"}, {"\xC3\x89", "E"}, {"\xC3\x88", "E"},
+        // NOTE: raw 2-byte UTF-8 accented characters are deliberately NOT rewritten
+        // any more — they pass straight through to the font, which can now draw them.
 
-        // UTF-8 smart punctuation (3-byte)
+        // UTF-8 smart punctuation (3-byte). Still folded to ASCII: these live in the
+        // General Punctuation block (U+2000-206F), outside the fallback font's range.
         {"\xE2\x80\x98", "'"}, {"\xE2\x80\x99", "'"}, {"\xE2\x80\x9C", "\""},
         {"\xE2\x80\x9D", "\""}, {"\xE2\x80\x93", "-"}, {"\xE2\x80\x94", "--"},
         {"\xE2\x80\xA6", "..."},
+        {"\xE2\x80\x9A", "'"},  {"\xE2\x80\x9B", "'"},   // low / reversed single quote
+        {"\xE2\x80\x9E", "\""}, {"\xE2\x80\x9F", "\""},  // low / reversed double quote
+        {"\xE2\x80\xB2", "'"},  {"\xE2\x80\xB3", "\""},  // prime, double prime
+        {"\xE2\x80\x90", "-"},  {"\xE2\x80\x91", "-"},   // hyphen, non-breaking hyphen
+        {"\xE2\x80\x92", "-"},  {"\xE2\x80\x95", "-"},   // figure dash, horizontal bar
+        {"\xE2\x88\x92", "-"},                            // U+2212 minus sign
 
         // Special spaces and separators (Apple Music uses these in station names)
         {"\xC2\xA0", " "},       // Non-breaking space (U+00A0)
