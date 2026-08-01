@@ -2,7 +2,7 @@
 
 # SonosESP — Touchscreen Sonos Controller for ESP32-P4
 
-**A DIY wall-mount / desktop remote for Sonos speakers.** Album art, synced lyrics, multi-room control, weather and a StandBy clock — on a 4″ or 7″ touchscreen, with over-the-air updates.
+**A DIY wall-mount / desktop remote for Sonos speakers.** Album art, synced lyrics, multi-room control, weather and four screensaver clock faces — on a 4″ or 7″ touchscreen, with over-the-air updates.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-Ready-blue.svg)](https://platformio.org/)
@@ -12,7 +12,7 @@
 
 ### [⚡ Install in your browser — no toolchain needed](https://opensurface.github.io/SonosESP/)
 
-[Features](#-features) • [Themes](#-player-themes) • [Hardware](#-hardware) • [Install](#-installation) • [Setup](#-first-time-setup) • [Troubleshooting](docs/TROUBLESHOOTING.md) • [Contributing](#-contributing)
+[Features](#-features) • [Themes](#-player-themes) • [Screensaver](#-screensaver-themes) • [Hardware](#-hardware) • [Install](#-installation) • [Setup](#-first-time-setup) • [Troubleshooting](docs/TROUBLESHOOTING.md) • [Contributing](#-contributing)
 
 ## ☕ Support
 
@@ -38,8 +38,9 @@ If you find this project helpful, consider supporting me on Ko-fi!
 **Display**
 - **Album art** — ESP32-P4 hardware JPEG decoder, plus PNG and progressive-JPEG support, bilinear scaling and automatic dominant-colour extraction
 - **Synced lyrics** — time-synced from [LRCLIB](https://lrclib.net/), with auto-hide and colour matching
+- **Full accent support** — titles, artists and lyrics render accented characters correctly (Beyoncé, Björk, Sigur Rós) instead of substituting plain letters
 - **Three player themes** — see [below](#-player-themes)
-- **StandBy clock screensaver** — oversized overlapping digits tinted from the album art, with optional photo backgrounds
+- **Four screensaver themes** — see [below](#-screensaver-themes)
 - **Weather** — current conditions plus a 6-hour forecast from [Open-Meteo](https://open-meteo.com/) (no API key)
 - **Auto-dim** — configurable idle timeout and dimmed brightness level
 
@@ -57,6 +58,22 @@ Switch anytime in **Settings → General → Theme**. Adding another is a single
 | **SonosESP** *(default)* | The original — blurred album art fills the screen behind the player |
 | **Ambient** | Backdrop tinted from the artwork, artwork left with lyrics beneath it, pill-shaped room selector |
 | **Immersive** | Full-bleed colour, compact header, and a large animated lyric stage where each line fades in |
+
+## 🌙 Screensaver Themes
+
+The panel falls back to a clock after an idle timeout. Switch faces in
+**Settings → Clock → Theme**; each supports the optional photo background and the
+weather overlay. Adding another is a single registry entry — see
+[`src/clock_face.cpp`](src/clock_face.cpp).
+
+| Theme | Look |
+|---|---|
+| **Horizon** *(default)* | Centred clock over an ambient glow, one-line weather summary, 6-hour forecast as pill chips |
+| **Orbit** | Clock alongside a live sun-path arc that tracks the real sunrise/sunset, with the forecast drawn as a temperature curve |
+| **Monolith** | Hours stacked over minutes, a details column for humidity, wind, UV and sun times, and a forecast rail |
+| **StandBy** | Oversized overlapping digits tinted from the current album art |
+
+Tap the screen at any time to return to the player.
 
 ## 🖥 Hardware
 
@@ -102,6 +119,11 @@ pio run -e esp32_7inch -t upload      # 7" board
 ### OTA updates
 
 Once installed, the panel updates itself: **Settings → Firmware Update → Check for Updates**. Pick **Stable** or **Nightly** in the channel dropdown. The device chooses the correct build for its own screen size.
+
+Interrupted downloads **resume** rather than restarting: if the transfer stalls, the
+panel reconnects and continues from the byte it reached, so a flaky connection no
+longer means starting the whole image again. Seeing `Resuming from 47%…` is the
+recovery working — let it run. See [Troubleshooting](docs/TROUBLESHOOTING.md#updates-fail-or-stop-partway) if it still fails.
 
 ## 🚀 First-time setup
 
