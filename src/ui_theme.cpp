@@ -115,9 +115,16 @@ void themeApplyArtGeometry(lv_obj_t* img) {
 
     if (t->art_x == THEME_ART_CENTRED && t->art_y == THEME_ART_CENTRED &&
         t->art_size == ART_SIZE) {
-        // Unchanged Classic behaviour — full size, centred in the art panel.
-        lv_image_set_scale(img, 256);
-        lv_obj_set_size(img, ART_SIZE, ART_SIZE);
+        // Classic: full size, centred in the art panel.
+        // Issue #89 — this used a raw ART_SIZE while ui_main_screen.cpp builds the
+        // widget at SMIN(ART_SIZE), so on the 7" panel the 420px image sat inside a
+        // 525px square and visibly failed to fill it. The source bitmap is always
+        // decoded at ART_SIZE, so scale it up to match the panel-relative box.
+        // On 4" SMIN(ART_SIZE) == ART_SIZE and the scale is 256 (1:1) — byte-for-byte
+        // the previous behaviour for the deployed fleet.
+        const int box = SMIN(ART_SIZE);
+        lv_image_set_scale(img, (256 * box) / ART_SIZE);
+        lv_obj_set_size(img, box, box);
         lv_obj_center(img);
         return;
     }
@@ -179,7 +186,10 @@ void themeSet(uint8_t idx) {
     // the image descriptors, so we don't duplicate that logic here.
     if (art_mutex && xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
         if (art_buffer)     art_ready     = true;
-        if (blur_bg_buf)    blur_bg_ready = true;
+        // Gate on validity, not on the pointer: blur_bg_buf is allocated once and
+        // never freed, so a pointer check would republish the previous track's blur
+        // (or uninitialised PSRAM, if no blur has ever been generated).
+        if (blur_bg_valid)  blur_bg_ready = true;
         color_ready = true;
         xSemaphoreGive(art_mutex);
     }
