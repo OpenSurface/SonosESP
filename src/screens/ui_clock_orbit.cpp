@@ -30,11 +30,11 @@ LV_FONT_DECLARE(lv_font_weathericons_32);
 // Layout, 800x480 design units.
 #define ORB_PAD_X    46
 #define ORB_HEAD_Y   20
-#define ORB_CLOCK_Y  70
-#define ORB_META_Y   (ORB_CLOCK_Y + NOC_INK + 6)
+#define ORB_CLOCK_Y  96
+#define ORB_META_Y   (ORB_CLOCK_Y + NOC_INK_SM + 10)
 #define ORB_ARC_CX   612          // arc centre
-#define ORB_ARC_CY   210
-#define ORB_ARC_R    92
+#define ORB_ARC_CY   214
+#define ORB_ARC_R    104
 #define ORB_ARC_SEG  24           // polyline segments across the half arc
 #define ORB_DOT      15
 #define ORB_CURVE_Y  366
@@ -80,7 +80,7 @@ void buildOrbitFace(lv_obj_t* parent) {
     lv_obj_align(orb_date, LV_ALIGN_TOP_RIGHT, -SX(ORB_PAD_X), SY(ORB_HEAD_Y));
 
     // ── Clock + one-line summary (left) ─────────────────────────────────────
-    orb_time = nocLabel(orb_root, &NOC_FONT, NOC_TEXT, "--:--");
+    orb_time = nocLabel(orb_root, &NOC_FONT_SM, NOC_TEXT, "--:--");
     lv_obj_set_style_text_letter_space(orb_time, -7, 0);
     lv_obj_set_pos(orb_time, SX(ORB_PAD_X - 6), SY(ORB_CLOCK_Y));
 

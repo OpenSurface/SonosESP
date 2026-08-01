@@ -10,13 +10,20 @@ lv_obj_t* nocFaceRoot(lv_obj_t* parent) {
     lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(root, LV_OBJ_FLAG_HIDDEN);
 
+    nocApplyBackdrop(root, false);
+    return root;
+}
+
+void nocApplyBackdrop(lv_obj_t* root, bool over_photo) {
+    if (!root) return;
     // A vertical linear gradient stands in for the design's radial glow — LVGL
     // has no radial gradient in the RGB565 path this project renders with.
     lv_obj_set_style_bg_color(root, NOC_BG, 0);
     lv_obj_set_style_bg_grad_color(root, NOC_ACCENT_D, 0);
     lv_obj_set_style_bg_grad_dir(root, LV_GRAD_DIR_VER, 0);
-    lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-    return root;
+    // Over a photo the face must not be opaque or the image is invisible; 60%
+    // is dark enough to keep the light Nocturne text readable on a bright shot.
+    lv_obj_set_style_bg_opa(root, over_photo ? 152 : LV_OPA_COVER, 0);
 }
 
 lv_obj_t* nocLabel(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,

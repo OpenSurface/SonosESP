@@ -16,6 +16,7 @@
 #include "ui_network_guard.h"
 #include "clock_screen.h"
 #include "clock_face.h"
+#include "nocturne.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_140);
 LV_FONT_DECLARE(lv_font_weathericons_80);
@@ -435,13 +436,31 @@ static void applyClockStyle(void) {
     // panels — so the legacy face rendered on top of the new one.
     if (scr_clock) {
         lv_obj_t* root = clockFaceActiveRoot();
+        // A face keeps the photo backdrop underneath itself when the face opts in
+        // and the user has photos enabled — the face then paints as a translucent
+        // scrim rather than an opaque gradient, so the image shows through and the
+        // Photo Background settings keep working exactly as on StandBy.
+        const bool over_photo = own_face && face->photo_bg && clock_picsum_enabled;
+        if (own_face) nocApplyBackdrop(root, over_photo);
+
         uint32_t n = lv_obj_get_child_count(scr_clock);
         for (uint32_t i = 0; i < n; i++) {
             lv_obj_t* c = lv_obj_get_child(scr_clock, i);
-            const bool show = own_face ? (c == root) : (c != root);
+            bool show;
+            if (own_face) {
+                // The face itself, plus the photo beneath it when it wants one.
+                // The legacy dark overlay stays hidden — the scrim replaces it,
+                // and stacking both crushed the image to near-black.
+                show = (c == root) || (over_photo && c == clock_bg_img);
+            } else {
+                show = (c != root);
+            }
             if (show) lv_obj_remove_flag(c, LV_OBJ_FLAG_HIDDEN);
             else      lv_obj_add_flag(c, LV_OBJ_FLAG_HIDDEN);
         }
+        // The face root is created before the photo can be, so make sure it is
+        // drawn on top of it rather than behind.
+        if (own_face && root) lv_obj_move_foreground(root);
     }
 
     const bool standby = !own_face && (clock_style == CLOCK_STYLE_STANDBY);

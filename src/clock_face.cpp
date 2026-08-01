@@ -28,11 +28,11 @@ const ClockFaceDef CLOCK_FACES[] = {
     { "StandBy",  "Oversized overlapping digits, tinted from the album art",
       true,  nullptr,            nullptr,       nullptr },
     { "Orbit",    "Light clock with a live sun-path arc and temperature curve",
-      false, buildOrbitFace,     orbitTick,     orbitRoot },
+      true,  buildOrbitFace,     orbitTick,     orbitRoot },
     { "Monolith", "Hours stacked over minutes, with a details column",
-      false, buildMonolithFace,  monolithTick,  monolithRoot },
+      true,  buildMonolithFace,  monolithTick,  monolithRoot },
     { "Horizon",  "Centred clock over an ambient glow, with a 6-hour forecast",
-      false, buildHorizonFace,   horizonTick,   horizonRoot },
+      true,  buildHorizonFace,   horizonTick,   horizonRoot },
 };
 
 const uint8_t CLOCK_FACE_COUNT = (uint8_t)(sizeof(CLOCK_FACES) / sizeof(CLOCK_FACES[0]));

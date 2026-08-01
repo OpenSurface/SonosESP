@@ -23,18 +23,35 @@
 // each panel links its own — the same pair StandBy uses.
 #if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
     LV_FONT_DECLARE(lv_font_clock_300);
-    #define NOC_FONT  lv_font_clock_300
-    #define NOC_INK   218
+    LV_FONT_DECLARE(lv_font_clock_175);
+    #define NOC_FONT     lv_font_clock_300
+    #define NOC_INK      218
+    #define NOC_FONT_SM  lv_font_clock_175
+    #define NOC_INK_SM   128
 #else
     LV_FONT_DECLARE(lv_font_clock_240);
-    #define NOC_FONT  lv_font_clock_240
-    #define NOC_INK   174
+    LV_FONT_DECLARE(lv_font_clock_140);
+    #define NOC_FONT     lv_font_clock_240
+    #define NOC_INK      174
+    #define NOC_FONT_SM  lv_font_clock_140
+    #define NOC_INK_SM   103
 #endif
+
+// Orbit and Monolith use the SM tier: at full size their clocks crowded out the
+// arc, curve and forecast rail. Horizon keeps the large tier — its clock is the
+// whole composition. Ink ratio 128/103 == 1.24 matches the SY factor, so the
+// same design-space constants hold on both panels.
 
 // Full-screen face container: Nocturne base with the accent wash rising from the
 // bottom edge, created hidden. applyClockStyle() reveals it by walking
 // scr_clock's children, so a face only has to expose its root.
 lv_obj_t* nocFaceRoot(lv_obj_t* parent);
+
+// Repaints a face root for the current backdrop mode. With the photo background
+// on, the root becomes a translucent scrim so the image shows through and stays
+// legible; with it off, the Nocturne gradient. Called from applyClockStyle() so
+// toggling the setting takes effect without a rebuild.
+void nocApplyBackdrop(lv_obj_t* root, bool over_photo);
 
 // Label helper — the faces create a lot of these.
 lv_obj_t* nocLabel(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,

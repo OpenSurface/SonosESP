@@ -27,8 +27,8 @@ LV_FONT_DECLARE(lv_font_weathericons_64);
 // Layout, 800x480 design units.
 #define ML_PAD_X     46
 #define ML_HEAD_Y    20
-#define ML_STACK_Y   54
-#define ML_LINE      (NOC_INK - 46)     // deliberate overlap: design line-height 0.82
+#define ML_STACK_Y   84
+#define ML_LINE      (NOC_INK_SM - 18)    // deliberate overlap: design line-height 0.82
 #define ML_COL_X     430
 #define ML_RAIL_Y    396
 #define ML_RULE_Y    380
@@ -61,18 +61,18 @@ void buildMonolithFace(lv_obj_t* parent) {
     lv_obj_align(ml_date, LV_ALIGN_TOP_RIGHT, -SX(ML_PAD_X), SY(ML_HEAD_Y));
 
     // ── Stacked clock — hours neutral, minutes accent ───────────────────────
-    ml_hh = nocLabel(ml_root, &NOC_FONT, NOC_TEXT, "--");
-    lv_obj_set_style_text_letter_space(ml_hh, -8, 0);
+    ml_hh = nocLabel(ml_root, &NOC_FONT_SM, NOC_TEXT, "--");
+    lv_obj_set_style_text_letter_space(ml_hh, -5, 0);
     lv_obj_set_pos(ml_hh, SX(ML_PAD_X - 6), SY(ML_STACK_Y));
 
-    ml_mm = nocLabel(ml_root, &NOC_FONT, NOC_ACCENT, "--");
-    lv_obj_set_style_text_letter_space(ml_mm, -8, 0);
+    ml_mm = nocLabel(ml_root, &NOC_FONT_SM, NOC_ACCENT, "--");
+    lv_obj_set_style_text_letter_space(ml_mm, -5, 0);
     lv_obj_set_pos(ml_mm, SX(ML_PAD_X - 6), SY(ML_STACK_Y + ML_LINE));
 
     // Vertical divider between the stack and the details column.
     lv_obj_t* div = lv_obj_create(ml_root);
-    lv_obj_set_size(div, 1, SY(230));
-    lv_obj_set_pos(div, SX(ML_COL_X - 34), SY(70));
+    lv_obj_set_size(div, 1, SY(200));
+    lv_obj_set_pos(div, SX(ML_COL_X - 34), SY(92));
     lv_obj_set_style_bg_color(div, NOC_N500, 0);
     lv_obj_set_style_bg_opa(div, 90, 0);
     lv_obj_set_style_border_width(div, 0, 0);
