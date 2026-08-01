@@ -21,8 +21,14 @@
 #include "lvgl/lvgl.h"
 #endif
 
+/* 716KB of glyph data — the 7" panel uses the 300px tier instead, so keep this
+ * out of that image (see lv_font_clock_300.c). */
 #ifndef LV_FONT_CLOCK_240
-#define LV_FONT_CLOCK_240 1
+    #if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
+        #define LV_FONT_CLOCK_240 0
+    #else
+        #define LV_FONT_CLOCK_240 1
+    #endif
 #endif
 
 #if LV_FONT_CLOCK_240

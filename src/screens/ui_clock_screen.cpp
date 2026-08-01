@@ -29,6 +29,7 @@ LV_FONT_DECLARE(lv_font_weathericons_32);
 #undef MOTOSHORT
 #undef MOTOLONG
 #include <JPEGDEC.h>
+#include "ui_fonts.h"
 
 // ============================================================================
 // JPEGDEC callback globals for clock background (file-scoped, not shared)
@@ -261,17 +262,40 @@ static lv_timer_t* clock_tick_timer = nullptr;
 // album artwork, with the colon as a pair of soft discs. Each digit is its own
 // label so it can carry its own colour and sit partly on top of its neighbour —
 // the semi-transparent text is what produces the blended overlap.
-LV_FONT_DECLARE(lv_font_clock_240);
+// Font tier by panel. Issue #89: layout coordinates scale through SX()/SY() but
+// BITMAP FONTS DO NOT. On the 7" panel the cells spread to 1.28x while the 240px
+// glyphs stayed put, so the digits stopped overlapping and the colon dots — whose
+// Y is derived from SB_INK — sat too low. The 7" tier uses a 300px font instead.
+#if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
+    LV_FONT_DECLARE(lv_font_clock_300);
+    #define SB_FONT   lv_font_clock_300
+#else
+    LV_FONT_DECLARE(lv_font_clock_240);
+    #define SB_FONT   lv_font_clock_240
+#endif
 
 // The font is PROPORTIONAL, not monospace — '0' advances 163px but '1' only 94px.
 // Positioning by advance width would therefore shuffle the whole row every time a
 // 1 appeared. Instead each digit gets a fixed-width cell and is centred inside it,
 // so the row never moves and the digits stay optically even.
-#define SB_CELL      152    // fixed cell per digit, design units
-#define SB_OVERLAP    28    // how far each cell sits over the previous one
-#define SB_COLON_W    56    // width of the colon column
-#define SB_DOT        32    // colon disc diameter
-#define SB_INK       174    // real ink height of the font (line_height in the .c)
+//
+// These are DESIGN units; SX()/SY() convert them to panel pixels. The 7" X values
+// are pre-divided by the SX factor (1.28) so that after scaling they land on the
+// font's own 1.25x growth — otherwise the cells would outrun the glyphs by 2% and
+// eat into the overlap. The Y values need no tier: SY is exactly 600/480 = 1.25,
+// which matches the font scale (300/240), and the generated line_height confirms
+// it — 174 -> 218 == 174 * 1.25.
+#if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
+    #define SB_CELL  148    // -> SX = 189px real (152 * 1.25 = 190 target)
+    #define SB_OVERLAP 27   // -> SX = 35px real
+    #define SB_COLON_W 55   // -> SX = 70px real
+#else
+    #define SB_CELL      152    // fixed cell per digit, design units
+    #define SB_OVERLAP    28    // how far each cell sits over the previous one
+    #define SB_COLON_W    56    // width of the colon column
+#endif
+#define SB_DOT        32    // colon disc diameter (SMIN-scaled: 1.25 on both panels)
+#define SB_INK       174    // real ink height at 240px; SY() carries it to 218 on 7"
 #define SB_TOP       ((480 - SB_INK) / 2 - 22)   // vertically centred, lifted for the date
 
 static lv_obj_t* sb_digit[4] = { nullptr, nullptr, nullptr, nullptr };
@@ -330,7 +354,7 @@ static void buildStandbyFace(lv_obj_t* parent) {
     auto addDigit = [&](int idx, int xpos) {
         sb_digit[idx] = lv_label_create(parent);
         lv_label_set_text(sb_digit[idx], "0");
-        lv_obj_set_style_text_font(sb_digit[idx], &lv_font_clock_240, 0);
+        lv_obj_set_style_text_font(sb_digit[idx], &SB_FONT, 0);
         // Fixed cell + centred text: the glyph floats to the middle of its cell,
         // so a narrow '1' next to a wide '0' still reads as an even row.
         lv_obj_set_width(sb_digit[idx], SX(SB_CELL));
@@ -365,7 +389,7 @@ static void buildStandbyFace(lv_obj_t* parent) {
     // bottom-aligning left it stranded ~125px below the time with a gap between.
     sb_date = lv_label_create(parent);
     lv_label_set_text(sb_date, "");
-    lv_obj_set_style_text_font(sb_date, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(sb_date, &font_text_24, 0);
     lv_obj_set_style_text_color(sb_date, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_opa(sb_date, LV_OPA_60, 0);
     lv_obj_align(sb_date, LV_ALIGN_TOP_MID, 0, SY(SB_TOP + SB_INK + 14));
@@ -946,7 +970,7 @@ void createClockScreen() {
     // Date label — "Thu, May 16" small and dim below the time
     clock_date_lbl = lv_label_create(scr_clock);
     lv_label_set_text(clock_date_lbl, "");
-    lv_obj_set_style_text_font(clock_date_lbl, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(clock_date_lbl, &font_text_24, 0);
     lv_obj_set_style_text_color(clock_date_lbl, lv_color_hex(0xAAAAAA), 0);
     lv_obj_align(clock_date_lbl, LV_ALIGN_CENTER, 0, SY(90));
 
@@ -971,13 +995,13 @@ void createClockScreen() {
 
     clock_wx_city_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_city_lbl, "---");
-    lv_obj_set_style_text_font(clock_wx_city_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(clock_wx_city_lbl, &font_text_20, 0);
     lv_obj_set_style_text_color(clock_wx_city_lbl, lv_color_hex(0xAAAAAA), 0);
     lv_obj_set_pos(clock_wx_city_lbl, SX(10), SY(5));
 
     clock_wx_temp_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_temp_lbl, "--°C");
-    lv_obj_set_style_text_font(clock_wx_temp_lbl, &lv_font_montserrat_48, 0);
+    lv_obj_set_style_text_font(clock_wx_temp_lbl, &font_text_48, 0);
     lv_obj_set_style_text_color(clock_wx_temp_lbl, lv_color_hex(0xAAAAAA), 0);
     lv_obj_set_pos(clock_wx_temp_lbl, SX(10), SY(32));
 
@@ -989,7 +1013,7 @@ void createClockScreen() {
 
     clock_wx_detail_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_detail_lbl, "");
-    lv_obj_set_style_text_font(clock_wx_detail_lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(clock_wx_detail_lbl, &font_text_14, 0);
     lv_obj_set_style_text_color(clock_wx_detail_lbl, lv_color_hex(0x888888), 0);
     lv_obj_set_pos(clock_wx_detail_lbl, SX(10), SY(118));
 
@@ -1022,7 +1046,7 @@ void createClockScreen() {
         lv_obj_set_width(clock_wx_fc_day[i], SX(col_w));
         lv_obj_set_pos(clock_wx_fc_day[i], SX(col_x), SY(7));
         lv_obj_set_style_text_align(clock_wx_fc_day[i], LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_style_text_font(clock_wx_fc_day[i], &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(clock_wx_fc_day[i], &font_text_14, 0);
         lv_obj_set_style_text_color(clock_wx_fc_day[i], lv_color_hex(0x999999), 0);
         lv_label_set_text(clock_wx_fc_day[i], "---");
 
@@ -1040,7 +1064,7 @@ void createClockScreen() {
         lv_obj_set_width(clock_wx_fc_temp[i], SX(col_w));
         lv_obj_set_pos(clock_wx_fc_temp[i], SX(col_x), SY(70));
         lv_obj_set_style_text_align(clock_wx_fc_temp[i], LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_style_text_font(clock_wx_fc_temp[i], &lv_font_montserrat_16, 0);
+        lv_obj_set_style_text_font(clock_wx_fc_temp[i], &font_text_16, 0);
         lv_obj_set_style_text_color(clock_wx_fc_temp[i], lv_color_hex(0xAAAAAA), 0);
         lv_label_set_text(clock_wx_fc_temp[i], "--°");
     }
@@ -1082,7 +1106,7 @@ void createClockScreen() {
     lv_label_set_text(clock_wx_rise_t_lbl, "Rise  --:--");
     lv_obj_set_width(clock_wx_rise_t_lbl, SX(300));
     lv_obj_set_style_text_align(clock_wx_rise_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_set_style_text_font(clock_wx_rise_t_lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(clock_wx_rise_t_lbl, &font_text_14, 0);
     lv_obj_set_style_text_color(clock_wx_rise_t_lbl, lv_color_hex(0x777777), 0);
     lv_obj_set_pos(clock_wx_rise_t_lbl, 0, SY(56));
 
@@ -1091,7 +1115,7 @@ void createClockScreen() {
     lv_label_set_text(clock_wx_set_t_lbl, "Set   --:--");
     lv_obj_set_width(clock_wx_set_t_lbl, SX(300));
     lv_obj_set_style_text_align(clock_wx_set_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_set_style_text_font(clock_wx_set_t_lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(clock_wx_set_t_lbl, &font_text_14, 0);
     lv_obj_set_style_text_color(clock_wx_set_t_lbl, lv_color_hex(0x777777), 0);
     lv_obj_set_pos(clock_wx_set_t_lbl, 0, SY(78));
 
