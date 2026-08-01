@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_fonts.h"
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -22,7 +23,7 @@ void createOTAScreen() {
     // Title
     lv_obj_t* lbl_title = lv_label_create(content);
     lv_label_set_text(lbl_title, "Firmware Update");
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_set_pos(lbl_title, 0, 0);
 
@@ -60,7 +61,7 @@ void createOTAScreen() {
 
     lv_obj_t* lbl_channel = lv_label_create(card_channel);
     lv_label_set_text(lbl_channel, "Release Channel:");
-    lv_obj_set_style_text_font(lbl_channel, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_channel, &font_text_14, 0);
     lv_obj_set_style_text_color(lbl_channel, COL_TEXT2, 0);
     lv_obj_align(lbl_channel, LV_ALIGN_LEFT_MID, 0, 0);
 
@@ -118,7 +119,7 @@ void createOTAScreen() {
     lv_obj_set_pos(lbl_ota_progress, 0, SY(260));
     lv_label_set_text(lbl_ota_progress, "");
     lv_obj_set_style_text_color(lbl_ota_progress, COL_ACCENT, 0);
-    lv_obj_set_style_text_font(lbl_ota_progress, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(lbl_ota_progress, &font_text_16, 0);
 
     // Visual progress bar (hidden by default)
     bar_ota_progress = lv_bar_create(content);

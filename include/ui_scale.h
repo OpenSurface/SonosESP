@@ -3,6 +3,7 @@
 
 #include "lvgl.h"
 #include "config.h"   // DISPLAY_WIDTH / DISPLAY_HEIGHT (resolved from SCREEN_SIZE)
+#include "ui_fonts.h"
 
 // ---------------------------------------------------------------------------
 // Resolution-relative UI scaling
@@ -34,13 +35,13 @@
 // (4" uses the existing fonts; the >=1024 tier is wired for the future 7" and
 //  must have those font sizes enabled in lv_conf.h when that variant is built.)
 #if DISPLAY_WIDTH >= 1024
-    #define FONT_TITLE  &lv_font_montserrat_32
-    #define FONT_BODY   &lv_font_montserrat_20
-    #define FONT_SMALL  &lv_font_montserrat_16
+    #define FONT_TITLE  &font_text_32
+    #define FONT_BODY   &font_text_20
+    #define FONT_SMALL  &font_text_16
 #else
-    #define FONT_TITLE  &lv_font_montserrat_24
-    #define FONT_BODY   &lv_font_montserrat_16
-    #define FONT_SMALL  &lv_font_montserrat_14
+    #define FONT_TITLE  &font_text_24
+    #define FONT_BODY   &font_text_16
+    #define FONT_SMALL  &font_text_14
 #endif
 
 #endif // UI_SCALE_H

@@ -10,6 +10,7 @@
 
 #include "ui_common.h"
 #include "clock_screen.h"
+#include "ui_fonts.h"
 
 // ============================================================================
 // Settings sidebar - creates sidebar and returns content area
@@ -38,7 +39,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
 
     lv_obj_t* lbl_title = lv_label_create(title_row);
     lv_label_set_text(lbl_title, "Settings");
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_set_pos(lbl_title, SX(12), SY(14));
 
@@ -82,7 +83,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
         lv_obj_t* lbl = lv_label_create(btn);
         lv_label_set_text(lbl, labels[i]);
         lv_obj_set_style_text_color(lbl, active ? lv_color_hex(0x000000) : COL_TEXT, 0);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(lbl, &font_text_14, 0);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, SX(26), 0);
 
         // Navigation callbacks
@@ -106,7 +107,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     // Version at bottom
     lv_obj_t* ver = lv_label_create(sidebar);
     lv_label_set_text_fmt(ver, "v%s", FIRMWARE_VERSION);
-    lv_obj_set_style_text_font(ver, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(ver, &font_text_12, 0);
     lv_obj_set_style_text_color(ver, COL_TEXT2, 0);
     lv_obj_set_pos(ver, SX(12), SY(455));
 

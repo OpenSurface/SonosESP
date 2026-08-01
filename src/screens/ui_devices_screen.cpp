@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_fonts.h"
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -130,14 +131,14 @@ void refreshDeviceList() {
                 lv_obj_t* memLbl = lv_label_create(memBtn);
                 lv_label_set_text(memLbl, member->roomName.c_str());
                 lv_obj_set_style_text_color(memLbl, COL_TEXT, 0);
-                lv_obj_set_style_text_font(memLbl, &lv_font_montserrat_16, 0);
+                lv_obj_set_style_text_font(memLbl, &font_text_16, 0);
                 lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, 55, 0);
 
                 // "Grouped" badge
                 lv_obj_t* badge = lv_label_create(memBtn);
                 lv_label_set_text(badge, "Grouped");
                 lv_obj_set_style_text_color(badge, COL_TEXT2, 0);
-                lv_obj_set_style_text_font(badge, &lv_font_montserrat_12, 0);
+                lv_obj_set_style_text_font(badge, &font_text_12, 0);
                 lv_obj_align(badge, LV_ALIGN_RIGHT_MID, -10, 0);
 
                 // Click to select this member directly
@@ -219,7 +220,7 @@ void createDevicesScreen() {
 
     lv_obj_t* lbl_title = lv_label_create(title_row);
     lv_label_set_text(lbl_title, "Speakers");
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, 0, 0);
 

@@ -11,6 +11,7 @@
 #include "ui_theme.h"
 #include <esp_flash.h>
 #include <esp_task_wdt.h>
+#include "ui_fonts.h"
 // Sonos logo
 LV_IMG_DECLARE(Sonos_idnu60bqes_1);
 
@@ -184,6 +185,9 @@ void setup() {
     }
 
     lv_init();
+    // Wire the Latin-1 / Latin-Ext-A fallbacks onto the text fonts. Must run before
+    // any screen is built, since builders capture &font_text_* at creation time.
+    uiFontsInit();
     if (!display_init()) { Serial.println("Display FAIL"); while(1) delay(1000); }
     if (!touch_init()) { Serial.println("Touch FAIL"); while(1) delay(1000); }
 
@@ -229,7 +233,7 @@ void setup() {
     lv_obj_t* lbl_boot_version = lv_label_create(boot_scr);
     lv_label_set_text(lbl_boot_version, "v" FIRMWARE_VERSION);
     lv_obj_set_style_text_color(lbl_boot_version, lv_color_hex(0x888888), 0);
-    lv_obj_set_style_text_font(lbl_boot_version, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl_boot_version, &font_text_12, 0);
     lv_obj_align(lbl_boot_version, LV_ALIGN_BOTTOM_RIGHT, SX(-10), SY(-10));
 
     // Helper to update boot progress
@@ -301,7 +305,7 @@ void setup() {
         Serial.println("[OTA] Boot OTA pending — waiting for WiFi...");
         lv_obj_t* lbl_ota_wifi = lv_label_create(boot_scr);
         lv_obj_set_style_text_color(lbl_ota_wifi, lv_color_hex(0xD4A84B), 0);
-        lv_obj_set_style_text_font(lbl_ota_wifi, &lv_font_montserrat_16, 0);
+        lv_obj_set_style_text_font(lbl_ota_wifi, &font_text_16, 0);
         lv_obj_align(lbl_ota_wifi, LV_ALIGN_CENTER, 0, SY(50));
         lv_label_set_text_fmt(lbl_ota_wifi, "Waiting for WiFi: %s ...", ssid.c_str());
         lv_refr_now(NULL);

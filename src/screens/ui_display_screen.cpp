@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_fonts.h"
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -24,7 +25,7 @@ void createDisplaySettingsScreen() {
     // Title
     lv_obj_t* lbl_title = lv_label_create(content);
     lv_label_set_text(lbl_title, "Display");
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_set_style_pad_bottom(lbl_title, 16, 0);
 
@@ -32,14 +33,14 @@ void createDisplaySettingsScreen() {
     lv_obj_t* lbl_brightness = lv_label_create(content);
     lv_label_set_text(lbl_brightness, "Brightness:");
     lv_obj_set_style_text_color(lbl_brightness, COL_TEXT, 0);
-    lv_obj_set_style_text_font(lbl_brightness, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(lbl_brightness, &font_text_16, 0);
     lv_obj_set_style_pad_top(lbl_brightness, 8, 0);
 
     static lv_obj_t* lbl_brightness_val;
     lbl_brightness_val = lv_label_create(content);
     lv_label_set_text_fmt(lbl_brightness_val, "%d%%", brightness_level);
     lv_obj_set_style_text_color(lbl_brightness_val, COL_ACCENT, 0);
-    lv_obj_set_style_text_font(lbl_brightness_val, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_brightness_val, &font_text_14, 0);
 
     lv_obj_t* slider_brightness = lv_slider_create(content);
     lv_obj_set_width(slider_brightness, lv_pct(100));
@@ -65,13 +66,13 @@ void createDisplaySettingsScreen() {
     lv_obj_t* lbl_dim_timeout = lv_label_create(content);
     lv_label_set_text(lbl_dim_timeout, "Auto-dim after:");
     lv_obj_set_style_text_color(lbl_dim_timeout, COL_TEXT, 0);
-    lv_obj_set_style_text_font(lbl_dim_timeout, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(lbl_dim_timeout, &font_text_16, 0);
 
     static lv_obj_t* lbl_dim_timeout_val;
     lbl_dim_timeout_val = lv_label_create(content);
     lv_label_set_text_fmt(lbl_dim_timeout_val, "%d sec", autodim_timeout);
     lv_obj_set_style_text_color(lbl_dim_timeout_val, COL_ACCENT, 0);
-    lv_obj_set_style_text_font(lbl_dim_timeout_val, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_dim_timeout_val, &font_text_14, 0);
 
     lv_obj_t* slider_dim_timeout = lv_slider_create(content);
     lv_obj_set_width(slider_dim_timeout, lv_pct(100));
@@ -97,13 +98,13 @@ void createDisplaySettingsScreen() {
     lv_obj_t* lbl_dimmed = lv_label_create(content);
     lv_label_set_text(lbl_dimmed, "Dimmed brightness:");
     lv_obj_set_style_text_color(lbl_dimmed, COL_TEXT, 0);
-    lv_obj_set_style_text_font(lbl_dimmed, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(lbl_dimmed, &font_text_16, 0);
 
     static lv_obj_t* lbl_dimmed_brightness_val;
     lbl_dimmed_brightness_val = lv_label_create(content);
     lv_label_set_text_fmt(lbl_dimmed_brightness_val, "%d%%", brightness_dimmed);
     lv_obj_set_style_text_color(lbl_dimmed_brightness_val, COL_ACCENT, 0);
-    lv_obj_set_style_text_font(lbl_dimmed_brightness_val, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_dimmed_brightness_val, &font_text_14, 0);
 
     lv_obj_t* slider_dimmed_brightness = lv_slider_create(content);
     lv_obj_set_width(slider_dimmed_brightness, lv_pct(100));

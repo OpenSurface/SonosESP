@@ -23,6 +23,7 @@
 #include "config.h"
 #include "clock_screen.h"
 #include "ui_settings_card.h"  // shared card helpers: addCard, addSettingLabel, addDescLabel, addSwitch
+#include "ui_fonts.h"
 
 // Forward declaration (defined in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -50,7 +51,7 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
     lv_obj_set_width(dd, lv_pct(100));
     lv_obj_set_style_bg_color(dd, CLK_INPUT_BG, 0);
     lv_obj_set_style_text_color(dd, COL_TEXT, 0);
-    lv_obj_set_style_text_font(dd, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(dd, &font_text_14, 0);
     lv_obj_set_style_border_color(dd, CLK_INPUT_BORD, 0);
     lv_obj_set_style_radius(dd, 8, 0);
     lv_obj_set_style_pad_all(dd, 10, 0);
@@ -60,7 +61,7 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
         lv_obj_set_height(list, SY(260));
         lv_obj_set_style_bg_color(list, lv_color_hex(0x222222), 0);
         lv_obj_set_style_text_color(list, COL_TEXT, 0);
-        lv_obj_set_style_text_font(list, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(list, &font_text_14, 0);
         lv_obj_set_style_border_color(list, CLK_INPUT_BORD, 0);
     }
     return dd;
@@ -93,7 +94,7 @@ static lv_obj_t* makeTextarea(lv_obj_t* parent, const char* initial,
     lv_obj_set_width(ta, lv_pct(100));
     lv_obj_set_style_bg_color(ta, CLK_INPUT_BG, 0);
     lv_obj_set_style_text_color(ta, COL_TEXT, 0);
-    lv_obj_set_style_text_font(ta, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(ta, &font_text_14, 0);
     lv_obj_set_style_border_color(ta, CLK_INPUT_BORD, 0);
     lv_obj_set_style_border_width(ta, 1, 0);
     lv_obj_set_style_radius(ta, 8, 0);
@@ -299,7 +300,7 @@ void createClockSettingsScreen() {
     // ── Screen title ─────────────────────────────────────────────────────────
     lv_obj_t* lbl_title = lv_label_create(content);
     lv_label_set_text(lbl_title, "Clock");
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_set_style_pad_bottom(lbl_title, 12, 0);
 
@@ -328,7 +329,7 @@ void createClockSettingsScreen() {
         lbl_timeout_val = lv_label_create(card);
         lv_label_set_text_fmt(lbl_timeout_val, "%d min", clock_timeout_min);
         lv_obj_set_style_text_color(lbl_timeout_val, COL_ACCENT, 0);
-        lv_obj_set_style_text_font(lbl_timeout_val, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(lbl_timeout_val, &font_text_14, 0);
 
         lv_obj_t* sl_timeout = makeSlider(card, 1, 60, clock_timeout_min);
         lv_obj_add_event_cb(sl_timeout, [](lv_event_t* e) {
@@ -394,7 +395,7 @@ void createClockSettingsScreen() {
         lbl_refresh_val = lv_label_create(card);
         lv_label_set_text_fmt(lbl_refresh_val, "%d min", clock_refresh_min);
         lv_obj_set_style_text_color(lbl_refresh_val, COL_ACCENT, 0);
-        lv_obj_set_style_text_font(lbl_refresh_val, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(lbl_refresh_val, &font_text_14, 0);
 
         lv_obj_t* sl_refresh = makeSlider(card, 1, 60, clock_refresh_min);
         lv_obj_add_event_cb(sl_refresh, [](lv_event_t* e) {
@@ -518,7 +519,7 @@ void createClockSettingsScreen() {
 
         lv_obj_t* sub_title = lv_label_create(custom_loc_card);
         lv_label_set_text(sub_title, "Custom coordinates");
-        lv_obj_set_style_text_font(sub_title, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(sub_title, &font_text_14, 0);
         lv_obj_set_style_text_color(sub_title, COL_ACCENT, 0);
 
         addSettingLabel(custom_loc_card, "Latitude (-90 to 90)");
