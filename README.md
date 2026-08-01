@@ -12,7 +12,7 @@
 
 ### [⚡ Install in your browser — no toolchain needed](https://opensurface.github.io/SonosESP/)
 
-[Features](#-features) • [Themes](#-player-themes) • [Hardware](#-hardware) • [Install](#-installation) • [Setup](#-first-time-setup) • [Architecture](#-architecture) • [Contributing](#-contributing)
+[Features](#-features) • [Themes](#-player-themes) • [Hardware](#-hardware) • [Install](#-installation) • [Setup](#-first-time-setup) • [Troubleshooting](docs/TROUBLESHOOTING.md) • [Contributing](#-contributing)
 
 ## ☕ Support
 
@@ -112,6 +112,16 @@ Once installed, the panel updates itself: **Settings → Firmware Update → Che
 
 Wi-Fi credentials and all settings are stored in NVS and survive reboots and firmware updates.
 
+## 🔧 Troubleshooting
+
+Device not showing up over USB? Update stopping partway? Blank screen after an update?
+
+**→ [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**
+
+Two that catch people out most often:
+- **The board has two USB-C ports** and only one talks to a computer — if nothing appears on your PC, try the other port first.
+- **Wi-Fi is 2.4 GHz only.** A combined 2.4/5 GHz network name is a common reason setup fails.
+
 ## 🏗 Architecture
 
 - **UI framework** — LVGL 9.5, with resolution-relative scaling (`ui_scale.h`) so one layout serves both panels
@@ -198,7 +208,7 @@ MIT — see [LICENSE](LICENSE).
 
 <div align="center">
 
-**Built with ❤️ and vibes** • [Report a bug](https://github.com/OpenSurface/SonosESP/issues) • [Request a feature](https://github.com/OpenSurface/SonosESP/issues) • [Install now](https://opensurface.github.io/SonosESP/)
+**Built with ❤️ and vibes** • [Troubleshooting](docs/TROUBLESHOOTING.md) • [Report a bug](https://github.com/OpenSurface/SonosESP/issues) • [Request a feature](https://github.com/OpenSurface/SonosESP/issues) • [Install now](https://opensurface.github.io/SonosESP/)
 
 <sub>Keywords: Sonos controller · ESP32-P4 touchscreen · DIY Sonos remote · smart home wall panel · LVGL · ESP32 music controller · Sonos display · album art · synced lyrics</sub>
 
