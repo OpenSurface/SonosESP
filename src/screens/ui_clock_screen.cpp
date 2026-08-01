@@ -208,6 +208,10 @@ static const char* hourLabel(int hour) {
 }
 
 static void applyWeatherToWidgets() {
+    // A registry face with its own builder draws its own weather. This function
+    // un-hides the legacy panels whenever data arrives, so without this guard they
+    // would pop up on top of the active face the moment the first fetch landed.
+    if (clockFaceCurrent()->build) return;
     if (!clock_wx_tl_panel) return;
     if (clock_weather_enabled && clock_wx_valid) {
         char buf[64];
@@ -271,11 +275,11 @@ static lv_timer_t* clock_tick_timer = nullptr;
 // Y is derived from SB_INK — sat too low. The 7" tier uses a 300px font instead.
 #if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
     LV_FONT_DECLARE(lv_font_clock_300);
-void horizonSetVisible(bool show);   // ui_clock_horizon.cpp
+lv_obj_t* horizonRoot(void);         // ui_clock_horizon.cpp
     #define SB_FONT   lv_font_clock_300
 #else
     LV_FONT_DECLARE(lv_font_clock_240);
-void horizonSetVisible(bool show);   // ui_clock_horizon.cpp
+lv_obj_t* horizonRoot(void);         // ui_clock_horizon.cpp
     #define SB_FONT   lv_font_clock_240
 #endif
 
@@ -426,7 +430,21 @@ static void applyClockStyle(void) {
     const ClockFaceDef* face = clockFaceCurrent();
     const bool own_face = (face->build != nullptr);
     if (own_face && scr_clock) face->build(scr_clock);
-    horizonSetVisible(own_face);
+
+    // Show/hide by walking scr_clock's children rather than naming widgets.
+    // The first attempt enumerated them and missed the photo backdrop, the dark
+    // overlay (which isn't stored in a variable at all) and the three weather
+    // panels — so the legacy face rendered on top of the new one.
+    if (scr_clock) {
+        lv_obj_t* root = horizonRoot();
+        uint32_t n = lv_obj_get_child_count(scr_clock);
+        for (uint32_t i = 0; i < n; i++) {
+            lv_obj_t* c = lv_obj_get_child(scr_clock, i);
+            const bool show = own_face ? (c == root) : (c != root);
+            if (show) lv_obj_remove_flag(c, LV_OBJ_FLAG_HIDDEN);
+            else      lv_obj_add_flag(c, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
 
     const bool standby = !own_face && (clock_style == CLOCK_STYLE_STANDBY);
     const bool classic = !own_face && !standby;
@@ -441,6 +459,9 @@ static void applyClockStyle(void) {
     for (int i = 0; i < 2; i++) vis(sb_dot[i],   standby);
     vis(sb_date, standby);
     if (standby) standbyRecolour();
+    // The child walk unhid the weather panels wholesale; let the weather logic
+    // decide whether they actually belong on screen.
+    if (!own_face) applyWeatherToWidgets();
 }
 
 void clockStyleChanged(void) {

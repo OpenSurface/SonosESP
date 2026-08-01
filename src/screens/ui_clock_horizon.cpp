@@ -164,11 +164,10 @@ void buildHorizonFace(lv_obj_t* parent) {
     }
 }
 
-// Shown/hidden by applyClockStyle().
-void horizonSetVisible(bool show) {
-    if (!hz_root) return;
-    if (show) lv_obj_remove_flag(hz_root, LV_OBJ_FLAG_HIDDEN);
-    else      lv_obj_add_flag(hz_root, LV_OBJ_FLAG_HIDDEN);
+// applyClockStyle() shows/hides by walking scr_clock's children, so it only
+// needs to know which one is ours.
+lv_obj_t* horizonRoot(void) {
+    return hz_root;
 }
 
 void horizonTick(const struct tm* now) {
