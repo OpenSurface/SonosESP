@@ -112,13 +112,49 @@ jobs:
         # otadata initialiser. Without this the web installer leaves otadata
         # untouched, so a device that last OTA'd into app1 keeps booting app1
         # (stale firmware) even though the new image landed in app0.
-        cp "$(find ~/.platformio/packages/framework-arduinoespressif32 -name boot_app0.bin | head -1)" web-installer/
+        BOOT_APP0="$(find ~/.platformio/packages -name boot_app0.bin -print -quit)"
+        if [ -z "$BOOT_APP0" ]; then
+          echo "::error::boot_app0.bin not found under ~/.platformio/packages."
+          echo "Without it the installer leaves otadata untouched and devices boot stale firmware."
+          exit 1
+        fi
+        echo "boot_app0.bin: $BOOT_APP0"
+        cp "$BOOT_APP0" web-installer/
         # canonical per-screen app binaries
         cp .pio/build/esp32_4inch/firmware.bin web-installer/firmware-4inch.bin
         cp .pio/build/esp32_7inch/firmware.bin web-installer/firmware-7inch.bin
         # legacy alias (manifest.json) — kept during the ~1-month transition, then remove
         cp .pio/build/esp32_4inch/firmware.bin web-installer/firmware.bin
         ls -la web-installer/
+
+    - name: Verify manifests against published files
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
+      run: |
+        python - <<'EOF'
+        import json, os, sys, glob
+        # The original bug this guards: manifest.json omitted boot_app0.bin entirely,
+        # so devices that had OTA'd into app1 kept booting app1 after a web install.
+        # A missing/renamed binary fails just as silently, so check both directions.
+        failed = False
+        for mf in sorted(glob.glob('web-installer/manifest*.json')):
+            m = json.load(open(mf))
+            for build in m.get('builds', []):
+                offsets = []
+                for part in build.get('parts', []):
+                    p = os.path.join('web-installer', part['path'])
+                    ok = os.path.isfile(p)
+                    size = os.path.getsize(p) if ok else 0
+                    print(f"{'ok ' if ok and size else 'MISSING'}  {mf} -> {part['path']} @ {hex(part['offset'])} ({size} B)")
+                    if not ok or not size:
+                        failed = True
+                    offsets.append(part['offset'])
+                if 0xe000 not in offsets:
+                    print(f"MISSING  {mf}: no part at 0xe000 (boot_app0.bin / otadata init)")
+                    failed = True
+                if sorted(offsets) != offsets:
+                    print(f"WARN     {mf}: parts are not in ascending offset order")
+        sys.exit(1 if failed else 0)
+        EOF
 
     - name: Setup Pages
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
