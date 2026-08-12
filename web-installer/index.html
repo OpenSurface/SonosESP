@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <!-- ── SEO / discovery metadata ─────────────────────────────────────────── -->
     <title>SonosESP — DIY ESP32-P4 Touchscreen Sonos Controller | Web Installer</title>
     <meta name="description" content="Open-source touchscreen controller for Sonos speakers built on ESP32-P4. Album art, time-synced lyrics, queue control, multi-room, weather clock, and OTA firmware updates. Flash directly from your browser — no IDE required.">
     <meta name="keywords" content="Sonos, ESP32, ESP32-P4, Arduino, PlatformIO, LVGL, touchscreen, music player, Sonos controller, smart home, home automation, DIY, IoT, MIPI DSI, UPnP, SOAP, OTA, web installer, esp-web-tools, GUITION JC4880P433C">
     <meta name="author" content="OpenSurface">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="#161826">
     <link rel="canonical" href="https://opensurface.github.io/SonosESP/">
-
     <!-- OpenGraph (Facebook, Discord, LinkedIn, iMessage, Mastodon, Bluesky, …) -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="SonosESP">
@@ -20,13 +18,11 @@
     <meta property="og:description" content="Open-source touchscreen controller for Sonos speakers built on ESP32-P4. Album art, lyrics, queue, multi-room, OTA. Flash from your browser.">
     <meta property="og:image" content="https://raw.githubusercontent.com/OpenSurface/SonosESP/main/assets/image1.gif">
     <meta property="og:image:alt" content="SonosESP touchscreen showing now-playing album art with live lyrics">
-
     <!-- Twitter / X card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="SonosESP — DIY ESP32-P4 Touchscreen Sonos Controller">
     <meta name="twitter:description" content="Open-source touchscreen Sonos controller on ESP32-P4. Album art, lyrics, queue, OTA. Flash from your browser.">
     <meta name="twitter:image" content="https://raw.githubusercontent.com/OpenSurface/SonosESP/main/assets/image1.gif">
-
     <!-- Schema.org structured data — helps Google show app-style results -->
     <script type="application/ld+json">
     {
@@ -54,562 +50,338 @@
     }
     </script>
     <!-- ────────────────────────────────────────────────────────────────────── -->
-
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+
+    <!-- ── Nocturne design system ───────────────────────────────────────────── -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root{
+            --bg:#161826; --text:#e9e9ed;
+            --accent:#9184d9; --accent-200:#e7e5fe; --accent-300:#d2cefd;
+            --n-300:#cfd3e5; --n-400:#b2b6ca; --n-500:#9397ab;
+            --n-700:#595d6c; --n-800:#3f424d; --n-900:#292b31;
+            --section:#262a60;
+            --radius:8px;
         }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #000000;
-            color: #ffffff;
-            line-height: 1.6;
+        *{box-sizing:border-box;}
+        html{scroll-behavior:smooth;}
+        body{
+            margin:0; background:var(--bg); color:var(--text);
+            font-family:"Inter",system-ui,sans-serif; font-weight:400;
+            font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased;
         }
+        h1,h2,h3{font-weight:500; margin:0; line-height:1.2;}
+        a{color:var(--accent-300); text-decoration:none;}
+        a:hover{color:var(--accent-200);}
+        :focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+        .wrap{max-width:960px; margin:0 auto; padding:0 32px;}
+        /* Hairlines fade to transparent at both ends over 48px */
+        .rule{height:1px; border:0; margin:0;
+            background:linear-gradient(90deg,transparent,var(--n-800) 48px,var(--n-800) calc(100% - 48px),transparent);}
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 4rem 2rem;
-        }
+        header{padding:20px 0;}
+        .hdr{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;}
+        .brand{font-size:17px; font-weight:500;}
+        .brand span{color:var(--n-500); font-weight:400; margin-left:8px;}
+        .nav{display:flex; gap:20px; font-size:13px;}
 
-        /* Header */
-        header {
-            text-align: center;
-            margin-bottom: 4rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
+        .hero{display:grid; grid-template-columns:1.15fr 1fr; gap:56px; align-items:center; padding:56px 0;}
+        .kicker{display:flex; align-items:center; gap:8px; font-size:12px; letter-spacing:.14em;
+            text-transform:uppercase; color:var(--accent-300); margin-bottom:18px;}
+        .kicker::before{content:""; width:14px; height:1px; background:var(--accent);}
+        h1{font-size:46px; letter-spacing:-.02em; margin-bottom:18px;}
+        .lede{font-size:15px; color:var(--n-300); max-width:460px; margin-bottom:26px;}
+        .cta{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+        .btn{display:inline-block; padding:11px 22px; border:1px solid var(--accent);
+            border-radius:var(--radius); color:var(--accent-200); background:transparent;
+            font-size:14px; font-weight:500; font-family:inherit; cursor:pointer;
+            transition:background .18s ease;}
+        .btn:hover{background:color-mix(in srgb, var(--accent) 12%, transparent); color:var(--accent-200);}
+        .kofi img{height:40px; display:block;}
+        .vtag{font-size:12px; padding:5px 11px; border-radius:999px; color:var(--accent-300);
+            background:color-mix(in srgb, var(--accent) 12%, transparent);}
+        .shot{position:relative;}
+        .shot::before{content:""; position:absolute; inset:-18%;
+            background:radial-gradient(circle, color-mix(in srgb,var(--accent) 45%, transparent) 0%, transparent 65%);
+            animation:pulse 5s ease-in-out infinite; z-index:0;}
+        @keyframes pulse{0%,100%{opacity:.35;} 50%{opacity:.8;}}
+        .shot figure{position:relative; z-index:1; margin:0; mix-blend-mode:lighten;}
+        .shot img{width:100%; border-radius:12px; display:block;}
+        .shot figcaption{font-size:11px; color:var(--n-500); margin-top:10px; text-align:center;}
 
-        h1 {
-            font-size: 2.5rem;
-            font-weight: 300;
-            letter-spacing: -0.5px;
-            margin-bottom: 0.5rem;
-        }
+        /* The one saturated flood the system allows */
+        .band{background:var(--section); padding:40px 0;}
+        .band-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:28px;}
+        .band i{font-size:22px; color:var(--accent-200); display:block; margin-bottom:10px;}
+        .band h3{font-size:15px; margin-bottom:5px;}
+        .band p{font-size:12.5px; color:var(--n-300); margin:0;}
 
-        .subtitle {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 1rem;
-            font-weight: 400;
-        }
-
-        .version {
-            display: inline-block;
-            margin-top: 1rem;
-            padding: 0.35rem 1rem;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            font-size: 0.85rem;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        /* Notice */
-        .notice {
-            background: rgba(255, 255, 255, 0.03);
-            border-left: 2px solid rgba(255, 255, 255, 0.3);
-            padding: 1.5rem;
-            margin-bottom: 3rem;
-            font-size: 0.95rem;
-        }
-
-        .notice strong {
-            color: #ffffff;
-        }
-
-        .notice p {
-            color: rgba(255, 255, 255, 0.7);
-            margin: 0;
-        }
-
-        /* Main Grid */
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        @media (max-width: 768px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Card */
-        .card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .card h2 {
-            font-size: 1.1rem;
-            font-weight: 500;
-            margin-bottom: 1.5rem;
-            color: #ffffff;
-        }
-
-        .card-content {
-            flex: 1;
-        }
-
-        /* Specs Table */
-        .specs {
-            margin-bottom: 0;
-        }
-
-        .spec-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            font-size: 0.9rem;
-        }
-
-        .spec-row:last-child {
-            border-bottom: none;
-        }
-
-        .spec-label {
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .spec-value {
-            color: #ffffff;
-            font-weight: 500;
-        }
-
-        .card-section {
-            margin-bottom: 2rem;
-        }
-
-        .card-section:last-child {
-            margin-bottom: 0;
-        }
-
-        /* Steps */
-        .steps {
-            list-style: none;
-            counter-reset: step;
-        }
-
-        .steps li {
-            counter-increment: step;
-            margin-bottom: 1.5rem;
-            padding-left: 2.5rem;
-            position: relative;
-            font-size: 0.95rem;
-        }
-
-        .steps li::before {
-            content: counter(step);
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 1.5rem;
-            height: 1.5rem;
-            background: rgba(255, 255, 255, 0.1);
-            color: #ffffff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .steps li strong {
-            display: block;
-            margin-bottom: 0.25rem;
-            color: #ffffff;
-        }
-
-        .steps li span {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-        }
-
-        /* Flash Button */
-        .flash-section {
-            margin: 2rem 0;
-        }
-
-        esp-web-install-button {
-            display: block;
-            margin: 2rem 0;
-        }
-
-        esp-web-install-button button {
-            width: 100%;
-            padding: 1rem 2rem;
-            background: #ffffff !important;
-            color: #000000 !important;
-            border: none;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: opacity 0.2s;
-            font-family: 'Inter', sans-serif;
-        }
-
-        esp-web-install-button button:hover {
-            opacity: 0.9;
-        }
-
-        .browser-info {
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 0.85rem;
-            text-align: center;
-        }
-
-        /* Console */
-        .console-wrapper {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            grid-column: 1 / -1;
-        }
-
-        .console-header {
-            padding: 1rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        .console {
-            background: #000000;
-            padding: 1.5rem;
-            height: 400px;
-            overflow-y: auto;
-            font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
-            font-size: 0.85rem;
-            line-height: 1.6;
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .console::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .console::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .console::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-        }
-
-        .console::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .log-line {
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: flex-start;
-        }
-
-        .log-time {
-            color: rgba(255, 255, 255, 0.4);
-            margin-right: 1rem;
-            font-size: 0.75rem;
-            min-width: 60px;
-        }
-
-        .log-icon {
-            margin-right: 0.5rem;
-            min-width: 20px;
-        }
-
-        .log-message {
-            flex: 1;
-            white-space: pre-wrap;
-        }
-
-        .log-info .log-icon { color: #4a9eff; }
-        .log-success .log-icon { color: #00ff88; }
-        .log-warning .log-icon { color: #ffaa00; }
-        .log-error .log-icon { color: #ff4444; }
-        .log-progress .log-icon { color: #aa88ff; }
-
-        /* Screen selector */
-        .screen-selector { margin-bottom: 2.5rem; }
-        .screen-selector h2 { font-size: 1.1rem; font-weight: 500; margin-bottom: 1rem; color: #fff; }
-        .screen-options { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-        @media (max-width: 768px) { .screen-options { grid-template-columns: 1fr; } }
-        .screen-option {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 10px;
-            padding: 1.25rem;
-            color: #fff; cursor: pointer; text-align: left;
-            font-family: inherit;
-            transition: border-color 0.2s, background 0.2s;
-        }
-        .screen-option:hover { border-color: rgba(255,255,255,0.35); }
-        .screen-option.selected { border-color: #fff; background: rgba(255,255,255,0.06); }
-        .screen-option .so-size { font-size: 1.35rem; font-weight: 600; display: block; }
-        .screen-option .so-model { color: rgba(255,255,255,0.5); font-size: 0.85rem; }
-        .screen-option .so-badge {
-            display: inline-block; margin-top: 0.75rem; font-size: 0.7rem;
-            padding: 0.15rem 0.6rem; border-radius: 10px; letter-spacing: 0.5px;
-        }
-        .so-badge.available { background: rgba(0,255,136,0.15); color: #00ff88; }
-        .so-badge.soon { background: rgba(255,170,0,0.15); color: #ffaa00; }
-        .so-badge.beta { background: rgba(255,170,0,0.15); color: #ffaa00; }
-        .coming-soon-note {
-            color: #ffaa00; font-size: 0.92rem; text-align: center;
-            padding: 1.25rem; border: 1px dashed rgba(255,170,0,0.4); border-radius: 8px;
-        }
-
-        /* Requirements / References lists */
-        .reqs { list-style: none; }
-        .reqs li { padding: 0.6rem 0 0.6rem 1.5rem; position: relative; font-size: 0.92rem; color: rgba(255,255,255,0.75); border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .reqs li:last-child { border-bottom: none; }
-        .reqs li::before { content: "›"; position: absolute; left: 0; color: rgba(255,255,255,0.4); }
-        .reqs a { color: #fff; border-bottom: 1px solid rgba(255,255,255,0.3); text-decoration: none; }
-        .reqs a:hover { border-bottom-color: #fff; }
-
-        /* Footer */
-        footer {
-            margin-top: 4rem;
-            padding-top: 2rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 0.85rem;
-        }
-
-        footer a {
-            color: #ffffff;
-            text-decoration: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        footer a:hover {
-            border-bottom-color: #ffffff;
+        section{padding:52px 0;}
+        .step-label{font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+            color:var(--accent-300); margin-bottom:12px;}
+        h2{font-size:24px; margin-bottom:22px;}
+        .boards{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+        .board{border:1px solid var(--n-700); border-radius:var(--radius); padding:18px 20px;
+            cursor:pointer; background:transparent; text-align:left; color:inherit;
+            font-family:inherit; transition:border-color .18s ease, background .18s ease;}
+        .board[aria-checked="true"]{border-color:var(--accent);
+            background:color-mix(in srgb, var(--accent) 7%, transparent);}
+        .board-top{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+        .board strong{font-size:16px; font-weight:500;}
+        .board small{display:block; font-size:12.5px; color:var(--n-400); margin-top:5px;}
+        .pill{font-size:11px; padding:3px 9px; border-radius:999px; border:1px solid var(--n-700); color:var(--n-400);}
+        .pill.beta{border-color:var(--accent); color:var(--accent-300);}
+        .cols{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px;}
+        .card{border:1px solid var(--n-800); border-radius:var(--radius); padding:22px 24px;}
+        .card h3{font-size:15px; margin-bottom:14px;}
+        .spec{display:flex; justify-content:space-between; gap:12px; padding:9px 0;
+            border-bottom:1px solid var(--n-900); font-size:13.5px;}
+        .spec:last-child{border-bottom:0;}
+        .spec .k{color:var(--n-400);}
+        .spec .v{font-weight:500; text-align:right;}
+        ol.steps{margin:0 0 18px; padding-left:0; list-style:none; counter-reset:s;}
+        ol.steps li{counter-increment:s; position:relative; padding-left:30px; margin-bottom:11px; font-size:13.5px;}
+        ol.steps li::before{content:counter(s); position:absolute; left:0; top:1px;
+            width:20px; height:20px; border-radius:50%; border:1px solid var(--accent);
+            color:var(--accent-300); font-size:11px; display:grid; place-items:center;}
+        ol.steps span{color:var(--n-400); display:block; font-size:12.5px;}
+        .beta-note{border:1px dashed var(--accent); border-radius:var(--radius);
+            padding:11px 14px; font-size:12.5px; color:var(--accent-300); margin-bottom:16px;}
+        .fine{font-size:11.5px; color:var(--n-500); margin-top:11px; text-align:center;}
+        ul.bul{list-style:none; padding:0; margin:0;}
+        ul.bul li{position:relative; padding-left:18px; margin-bottom:9px; font-size:13.5px; color:var(--n-300);}
+        ul.bul li::before{content:"\203A"; position:absolute; left:0; color:var(--accent);}
+        footer{padding:26px 0 40px; display:flex; justify-content:space-between;
+            gap:14px; flex-wrap:wrap; font-size:12px; color:var(--n-500);}
+        esp-web-install-button{display:block;}
+        @media (max-width:820px){
+            .hero{grid-template-columns:1fr; gap:36px; padding:36px 0;}
+            h1{font-size:34px;}
+            .band-grid{grid-template-columns:1fr 1fr; gap:22px;}
+            .boards,.cols{grid-template-columns:1fr;}
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1 id="project-title">SonosESP Controller</h1>
-            <p class="subtitle">Web Firmware Installer</p>
-            <span class="version" id="project-version">v0.1.0</span>
-        </header>
 
-        <div style="text-align: center; margin: 2rem 0;">
-            <a href="https://ko-fi.com/pizzapasta" target="_blank">
-                <img src="https://storage.ko-fi.com/cdn/kofi2.png?v=3" alt="Support me on Ko-fi" style="height: 50px;">
-            </a>
+<div class="wrap">
+    <header>
+        <div class="hdr">
+            <div class="brand">SonosESP<span>Web Installer</span></div>
+            <nav class="nav">
+                <a href="https://github.com/OpenSurface/SonosESP" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://github.com/OpenSurface/SonosESP/releases" target="_blank" rel="noopener">Releases</a>
+                <a href="https://ko-fi.com/opensurface" target="_blank" rel="noopener">Ko-fi &hearts;</a>
+            </nav>
         </div>
+    </header>
+</div>
+<hr class="rule">
 
-        <!-- 1. Screen selector -->
-        <div class="screen-selector">
-            <h2>1 · Choose your screen</h2>
-            <div class="screen-options" id="screen-options">
-                <button class="screen-option selected" data-screen="4inch" type="button">
-                    <span class="so-size">4&quot;</span>
-                    <span class="so-model">GUITION JC4880P433C · 800×480</span>
-                    <span class="so-badge available">AVAILABLE</span>
-                </button>
-                <button class="screen-option" data-screen="7inch" type="button">
-                    <span class="so-size">7&quot;</span>
-                    <span class="so-model">GUITION JC1060P470C · 1024×600</span>
-                    <span class="so-badge beta">BETA</span>
-                </button>
+<div class="wrap">
+    <div class="hero">
+        <div>
+            <div class="kicker">Open source &middot; MIT &middot; ESP32-P4</div>
+            <h1>A touchscreen for your Sonos, flashed from the browser</h1>
+            <p class="lede">Album art, time-synced lyrics, queue and multi-room control, a weather clock
+               and over-the-air updates &mdash; on a 4&Prime; or 7&Prime; panel. No IDE, no toolchain.</p>
+            <div class="cta">
+                <a class="btn" href="#install">Flash it now</a>
+                <a class="kofi" href="https://ko-fi.com/opensurface" target="_blank" rel="noopener">
+                    <img src="https://storage.ko-fi.com/cdn/kofi2.png?v=3" alt="Buy me a coffee at ko-fi.com">
+                </a>
+                <span class="vtag" id="version-tag">v0.1.0</span>
             </div>
         </div>
-
-        <div class="notice" id="board-notice"></div>
-
-        <div class="grid">
-            <div class="card">
-                <div class="card-content">
-                    <div class="card-section">
-                        <h2>Hardware Specifications</h2>
-                        <div class="specs" id="specs-table"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-content">
-                    <div class="card-section">
-                        <h2>2 · Install</h2>
-                        <ol class="steps">
-                            <li><strong>Connect</strong><span>Plug the board in via USB-C</span></li>
-                            <li><strong>Flash</strong><span>Click below, then pick the serial port</span></li>
-                            <li><strong>Wait</strong><span>Do not disconnect during flashing</span></li>
-                            <li><strong>Set up WiFi</strong><span>On-screen keyboard after reboot</span></li>
-                        </ol>
-                    </div>
-                    <div class="flash-section" id="flash-section"></div>
-                </div>
-            </div>
+        <div class="shot">
+            <figure>
+                <img src="https://raw.githubusercontent.com/OpenSurface/SonosESP/main/assets/image1.gif"
+                     alt="SonosESP touchscreen showing now-playing album art with live lyrics">
+            </figure>
+            <figcaption>Live capture &mdash; actual firmware on the 4&Prime; board</figcaption>
         </div>
-
-        <!-- Requirements -->
-        <div class="card" style="margin-bottom: 2rem;">
-            <h2>Requirements</h2>
-            <ul class="reqs">
-                <li>A supported board — the one selected above.</li>
-                <li>A <strong>data-capable USB-C cable</strong> (charge-only cables won't work).</li>
-                <li><strong>Chrome, Edge, or Opera</strong> on desktop — needs the Web Serial API (Safari / Firefox / mobile are not supported).</li>
-                <li>A <strong>2.4 GHz WiFi</strong> network and at least one <strong>Sonos</strong> speaker on the same LAN.</li>
-            </ul>
-        </div>
-
-        <!-- References -->
-        <div class="card" style="margin-bottom: 2rem;">
-            <h2>References</h2>
-            <ul class="reqs">
-                <li><a href="https://github.com/OpenSurface/SonosESP" target="_blank">Project repository &amp; documentation</a></li>
-                <li><a href="https://github.com/OpenSurface/SonosESP/releases" target="_blank">Releases &amp; changelog</a></li>
-                <li><a href="https://github.com/OpenSurface/SonosESP/issues" target="_blank">Report an issue / request a feature</a></li>
-                <li>After the first install, future updates arrive <strong>over-the-air</strong> from the device's <em>Settings → Update</em> — no re-flashing needed.</li>
-            </ul>
-        </div>
-
-        <!-- Installer log removed: it only echoed generic state-changed events, while
-             esp-web-tools already shows the real flash output in its own dialog.
-             logMessage() is guarded on the element existing, so it now no-ops. -->
-
-        <footer>
-            <p>SonosESP Controller | <a href="https://github.com/OpenSurface/SonosESP" target="_blank">GitHub</a> | Future updates via OTA from device settings</p>
-        </footer>
     </div>
+</div>
 
-    <script>
-        // ── Board definitions (one entry per screen variant) ─────────────────
-        const BOARDS = {
-            '4inch': {
-                notice: '<strong>Hardware:</strong> GUITION JC4880P433C — 800×480 RGB, GT911 touch, ESP32-P4 + ESP32-C6',
-                specs: [
-                    ['Microcontroller', 'ESP32-P4 + C6'],
-                    ['Display', '800×480 (ST7701)'],
-                    ['Touch', 'GT911 I²C'],
-                    ['Flash', '16 MB'],
-                    ['PSRAM', '32 MB OPI'],
-                ],
-                manifest: './manifest-4inch.json',
-                available: true,
-            },
-            '7inch': {
-                notice: '<strong>Hardware:</strong> GUITION JC1060P470C — 1024×600 RGB, GT911 touch, ESP32-P4 + ESP32-C6, Ethernet',
-                specs: [
-                    ['Microcontroller', 'ESP32-P4 + C6'],
-                    ['Display', '1024×600 (JD9165)'],
-                    ['Touch', 'GT911 I²C'],
-                    ['Flash', '16 MB'],
-                    ['PSRAM', '32 MB OPI'],
-                    ['Extra', 'Ethernet'],
-                ],
-                manifest: './manifest-7inch.json',
-                available: true,
-                beta: true,   // code-complete port, not yet validated on physical 7" hardware
-            },
-        };
+<div class="band">
+    <div class="wrap band-grid">
+        <div><i class="ph ph-music-notes"></i><h3>Album art &amp; lyrics</h3><p>Cover art with time-synced lyrics.</p></div>
+        <div><i class="ph ph-queue"></i><h3>Queue &amp; multi-room</h3><p>Browse the queue, group your speakers.</p></div>
+        <div><i class="ph ph-cloud-sun"></i><h3>Weather clock</h3><p>Four screensaver faces with a live forecast.</p></div>
+        <div><i class="ph ph-arrow-circle-up"></i><h3>OTA updates</h3><p>Update from the panel, resumable.</p></div>
+    </div>
+</div>
 
-        // ── Console logging (guarded so it never throws if the element is absent) ──
-        const console_elem = document.getElementById('console');
-        const ts = () => new Date().toTimeString().split(' ')[0];
-        function logMessage(type, icon, message) {
-            if (!console_elem) return;
-            const line = document.createElement('div');
-            line.className = `log-line log-${type}`;
-            const t = document.createElement('span'); t.className = 'log-time'; t.textContent = ts();
-            const i = document.createElement('span'); i.className = 'log-icon'; i.textContent = icon;
-            const m = document.createElement('span'); m.className = 'log-message'; m.textContent = message;
-            line.append(t, i, m);
-            console_elem.appendChild(line);
-            console_elem.scrollTop = console_elem.scrollHeight;
+<div class="wrap">
+    <section id="install">
+        <div class="step-label">Step 1</div>
+        <h2>Choose your screen</h2>
+        <div class="boards" role="radiogroup" aria-label="Choose your screen">
+            <button class="board" type="button" role="radio" aria-checked="true" data-board="4inch">
+                <div class="board-top"><strong>4&Prime; display</strong><span class="pill">Available</span></div>
+                <small>GUITION JC4880P433C &middot; 800&times;480</small>
+            </button>
+            <button class="board" type="button" role="radio" aria-checked="false" data-board="7inch">
+                <div class="board-top"><strong>7&Prime; display</strong><span class="pill beta">Beta</span></div>
+                <small>GUITION JC1060P470C &middot; 1024&times;600</small>
+            </button>
+        </div>
+
+        <div class="cols">
+            <div class="card">
+                <h3>Hardware</h3>
+                <div id="specs"></div>
+            </div>
+            <div class="card">
+                <div class="step-label">Step 2</div>
+                <h3>Install</h3>
+                <ol class="steps">
+                    <li>Connect<span>Plug the board in via USB-C</span></li>
+                    <li>Flash<span>Click below, then pick the serial port</span></li>
+                    <li>Wait<span>Do not disconnect during flashing</span></li>
+                    <li>Set up WiFi<span>On-screen keyboard after reboot</span></li>
+                </ol>
+                <div class="beta-note" id="beta-note" hidden>
+                    Beta &mdash; the 7&Prime; build is newer and less widely tested. Please report anything odd on GitHub.
+                </div>
+                <div id="install-slot"></div>
+                <p class="fine">Chrome, Edge or Opera on desktop &middot; unplug &amp; replug after flashing</p>
+            </div>
+        </div>
+    </section>
+
+    <hr class="rule">
+
+    <section>
+        <div class="cols">
+            <div class="card">
+                <h3>Requirements</h3>
+                <ul class="bul">
+                    <li>A supported board &mdash; the one selected above.</li>
+                    <li>A data-capable USB-C cable (charge-only cables won&rsquo;t work).</li>
+                    <li>Chrome, Edge, or Opera on desktop &mdash; needs the Web Serial API (Safari / Firefox / mobile are not supported).</li>
+                    <li>A 2.4&nbsp;GHz WiFi network and at least one Sonos speaker on the same LAN.</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>References</h3>
+                <ul class="bul">
+                    <li><a href="https://github.com/OpenSurface/SonosESP" target="_blank" rel="noopener">Project repository &amp; documentation</a></li>
+                    <li><a href="https://github.com/OpenSurface/SonosESP/releases" target="_blank" rel="noopener">Releases &amp; changelog</a></li>
+                    <li><a href="https://github.com/OpenSurface/SonosESP/blob/main/docs/TROUBLESHOOTING.md" target="_blank" rel="noopener">Troubleshooting guide</a></li>
+                    <li><a href="https://github.com/OpenSurface/SonosESP/issues" target="_blank" rel="noopener">Report an issue / request a feature</a></li>
+                    <li>After the first install, future updates arrive <strong>over-the-air</strong> from the device&rsquo;s <em>Settings &rarr; Update</em> &mdash; no re-flashing needed.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+</div>
+
+<hr class="rule">
+<div class="wrap">
+    <footer>
+        <div>SonosESP Controller &middot; <a href="https://github.com/OpenSurface/SonosESP" target="_blank" rel="noopener">GitHub</a></div>
+        <div>Built by OpenSurface &middot; <a href="https://ko-fi.com/opensurface" target="_blank" rel="noopener">Support on Ko-fi</a></div>
+    </footer>
+</div>
+
+<script>
+    const BOARDS = {
+        '4inch': {
+            manifest: './manifest-4inch.json',
+            label: 'Install 4″ firmware',
+            beta: false,
+            specs: [
+                ['Controller', 'ESP32-P4 + ESP32-C6'],
+                ['Display',    '800×480 (ST7701)'],
+                ['Touch',      'GT911 I²C'],
+                ['Flash',      '16 MB'],
+                ['PSRAM',      '32 MB OPI']
+            ]
+        },
+        '7inch': {
+            manifest: './manifest-7inch.json',
+            label: 'Install 7″ firmware (beta)',
+            beta: true,
+            specs: [
+                ['Controller', 'ESP32-P4 + ESP32-C6'],
+                ['Display',    '1024×600 (JD9165)'],
+                ['Touch',      'GT911 I²C'],
+                ['Flash',      '16 MB'],
+                ['PSRAM',      '32 MB OPI'],
+                ['Extra',      'Ethernet']
+            ]
         }
+    };
 
-        // ── Wire esp-web-install-button events (called after each (re)create) ──
-        function wireInstallButton(btn) {
-            btn.addEventListener('state-changed', (e) => {
-                const map = {
-                    CONNECTED: ['success', '✓', 'Device connected'],
-                    PREPARING: ['progress', '◆', 'Preparing flash…'],
-                    WRITING:   ['progress', '▶', 'Writing firmware…'],
-                    FINISHED:  ['success', '✓', 'Installation complete — device will reboot'],
-                    ERROR:     ['error', '✖', 'Installation failed — check the cable/port'],
-                    MANIFEST:  ['info', '●', 'Loading firmware manifest…'],
-                    ASK_ERASE: ['warning', '!', 'Confirmation required'],
-                };
-                logMessage(...(map[e.detail] || ['info', '●', `State: ${e.detail}`]));
-            });
-            btn.addEventListener('progress', (e) => {
-                if (e.detail && e.detail.percentage !== undefined) {
-                    const pct = Math.round(e.detail.percentage);
-                    if (pct % 10 === 0) logMessage('progress', '▶', `Progress: ${pct}%`);
-                }
-            });
-            btn.addEventListener('error', (e) =>
-                logMessage('error', '✖', `Error: ${e.detail?.message || 'Unknown error'}`));
-        }
+    let selectedBoard = '4inch';
+    const specsEl = document.getElementById('specs');
+    const betaEl  = document.getElementById('beta-note');
+    const slotEl  = document.getElementById('install-slot');
 
-        // ── Render a board selection ──────────────────────────────────────────
-        const flashSection = document.getElementById('flash-section');
-        const boardNotice  = document.getElementById('board-notice');
-        const specsTable   = document.getElementById('specs-table');
+    function render() {
+        const b = BOARDS[selectedBoard];
 
-        function selectBoard(key) {
-            const b = BOARDS[key];
-            if (!b) return;
+        specsEl.innerHTML = b.specs
+            .map(function (row) {
+                return '<div class="spec"><span class="k">' + row[0] +
+                       '</span><span class="v">' + row[1] + '</span></div>';
+            })
+            .join('');
 
-            document.querySelectorAll('.screen-option').forEach(el =>
-                el.classList.toggle('selected', el.dataset.screen === key));
+        betaEl.hidden = !b.beta;
 
-            boardNotice.innerHTML = b.notice;
-            specsTable.innerHTML = b.specs.map(([k, v]) =>
-                `<div class="spec-row"><span class="spec-label">${k}</span><span class="spec-value">${v}</span></div>`).join('');
+        document.querySelectorAll('.board').forEach(function (el) {
+            el.setAttribute('aria-checked', String(el.dataset.board === selectedBoard));
+        });
 
-            flashSection.innerHTML = '';
-            if (b.available) {
-                if (b.beta) {
-                    const beta = document.createElement('div');
-                    beta.className = 'coming-soon-note';
-                    beta.innerHTML = '⚠ <strong>BETA — untested on hardware.</strong> The 7&quot; build is code-complete (JD9165 panel + responsive UI) but has not yet been validated on a physical 7&quot; unit. Flash only if you own this board and can report back. The 4&quot; firmware is unaffected.';
-                    flashSection.appendChild(beta);
-                }
-                const btn = document.createElement('esp-web-install-button');
-                btn.setAttribute('manifest', b.manifest);
-                btn.innerHTML = `<button slot="activate">INSTALL ${key === '7inch' ? '7&quot;' : '4&quot;'} FIRMWARE</button>`;
-                flashSection.appendChild(btn);
-                const i1 = document.createElement('p'); i1.className = 'browser-info'; i1.textContent = 'Requires Chrome, Edge, or Opera (desktop).';
-                const i2 = document.createElement('p'); i2.className = 'browser-info'; i2.style.cssText = 'margin-top:0.5rem;color:#ffaa00;'; i2.textContent = 'After flashing completes, unplug and replug to reboot.';
-                flashSection.append(i1, i2);
-                wireInstallButton(btn);
-                logMessage('info', '●', `Selected ${key} — ready to flash${b.beta ? ' (BETA)' : ''}`);
-            } else {
-                flashSection.innerHTML = `<div class="coming-soon-note">⚠ The 7&quot; firmware is still in development (JD9165 panel + responsive UI), so it can't be flashed yet. Watch the repo for updates.</div>`;
-                logMessage('warning', '!', `${key} firmware not available yet`);
+        // esp-web-tools parses and caches the manifest on the element, so switching
+        // boards has to REPLACE the element rather than just retarget the attribute
+        // — otherwise the button keeps flashing the previously selected build.
+        slotEl.innerHTML = '';
+        const btn = document.createElement('esp-web-install-button');
+        btn.setAttribute('manifest', b.manifest);
+
+        const activate = document.createElement('button');
+        activate.className = 'btn';
+        activate.type = 'button';
+        activate.style.width = '100%';
+        activate.setAttribute('slot', 'activate');
+        activate.textContent = b.label;
+
+        const unsupported = document.createElement('span');
+        unsupported.setAttribute('slot', 'unsupported');
+        unsupported.style.color = 'var(--n-400)';
+        unsupported.style.fontSize = '13px';
+        unsupported.textContent = 'This browser cannot flash over USB. Use Chrome, Edge or Opera on desktop.';
+
+        btn.appendChild(activate);
+        btn.appendChild(unsupported);
+        slotEl.appendChild(btn);
+    }
+
+    document.querySelectorAll('.board').forEach(function (el) {
+        el.addEventListener('click', function () {
+            selectedBoard = el.dataset.board;
+            render();
+        });
+    });
+
+    // Version pill. Failure is silent on purpose — a stale or unreachable manifest
+    // should not put an error in the hero; the fallback text just stays.
+    fetch('./manifest-4inch.json')
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function (m) {
+            if (m && m.version) {
+                document.getElementById('version-tag').textContent = 'v' + m.version;
             }
-        }
+        })
+        .catch(function () {});
 
-        document.querySelectorAll('.screen-option').forEach(el =>
-            el.addEventListener('click', () => selectBoard(el.dataset.screen)));
-
-        // version label from the canonical (4") manifest
-        fetch('./manifest-4inch.json').then(r => r.json())
-            .then(d => { document.getElementById('project-version').textContent = `v${d.version}`; })
-            .catch(() => {});
-
-        logMessage('info', '●', 'Web installer ready');
-        selectBoard('4inch');
-    </script>
+    render();
+</script>
 </body>
 </html>
