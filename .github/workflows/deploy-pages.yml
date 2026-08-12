@@ -109,6 +109,10 @@ jobs:
         # both manifests reference these shared names.
         cp .pio/build/esp32_4inch/bootloader.bin web-installer/
         cp .pio/build/esp32_4inch/partitions.bin web-installer/
+        # otadata initialiser. Without this the web installer leaves otadata
+        # untouched, so a device that last OTA'd into app1 keeps booting app1
+        # (stale firmware) even though the new image landed in app0.
+        cp "$(find ~/.platformio/packages/framework-arduinoespressif32 -name boot_app0.bin | head -1)" web-installer/
         # canonical per-screen app binaries
         cp .pio/build/esp32_4inch/firmware.bin web-installer/firmware-4inch.bin
         cp .pio/build/esp32_7inch/firmware.bin web-installer/firmware-7inch.bin
