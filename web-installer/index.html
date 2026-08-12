@@ -482,11 +482,9 @@
             </ul>
         </div>
 
-        <!-- Installer log -->
-        <div class="console-wrapper" style="margin-bottom: 2rem;">
-            <div class="console-header">Installer Log</div>
-            <div class="console" id="console"></div>
-        </div>
+        <!-- Installer log removed: it only echoed generic state-changed events, while
+             esp-web-tools already shows the real flash output in its own dialog.
+             logMessage() is guarded on the element existing, so it now no-ops. -->
 
         <footer>
             <p>SonosESP Controller | <a href="https://github.com/OpenSurface/SonosESP" target="_blank">GitHub</a> | Future updates via OTA from device settings</p>
