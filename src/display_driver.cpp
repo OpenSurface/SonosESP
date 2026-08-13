@@ -1,5 +1,10 @@
 #include "display_driver.h"
 #include "config.h"
+
+// Defined in ui_globals.cpp, loaded from NVS in setup() before display_init().
+// Declared here rather than pulling in ui_common.h, which would drag the whole
+// UI/Sonos surface into the display layer.
+extern int panel_variant;
 #if SCREEN_SIZE == 7
 #include "../lib/jd9165_lcd/jd9165_lcd.h"
 typedef jd9165_lcd panel_lcd_t;
@@ -119,7 +124,8 @@ bool display_init(void) {
         return false;
     }
 
-    // Initialize the LCD
+    // Initialize the LCD. The 4" ST7701 has only ever shipped with one panel,
+    // so there is no variant to select here.
     lcd->begin();
     lcd->get_handle(&lcd_handles);
 
@@ -230,7 +236,7 @@ bool display_init(void) {
         return false;
     }
 
-    lcd->begin();
+    lcd->begin(panel_variant == PANEL_VARIANT_OLD);
     lcd->get_handle(&lcd_handles);
 
     Serial.printf("[Display] %s LCD initialized successfully\n", DISPLAY_MODEL);

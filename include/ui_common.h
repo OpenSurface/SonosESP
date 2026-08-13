@@ -21,7 +21,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.12.4"
+#define FIRMWARE_VERSION "1.12.5"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -60,6 +60,7 @@ extern Preferences wifiPrefs;
 extern int brightness_level;
 extern int brightness_dimmed;
 extern int autodim_timeout;
+extern int panel_variant;   // PANEL_VARIANT_* — which 7" LCD panel is fitted
 extern bool lyrics_enabled;
 extern String pending_wifi_ssid;        // issue #85: creds awaiting persistence
 extern String pending_wifi_pass;

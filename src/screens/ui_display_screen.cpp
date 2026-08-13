@@ -126,4 +126,51 @@ void createDisplaySettingsScreen() {
         wifiPrefs.putInt(NVS_KEY_BRIGHTNESS_DIM, brightness_dimmed);
         if (screen_dimmed) setBrightness(brightness_dimmed);
     }, LV_EVENT_VALUE_CHANGED, lbl_dimmed_brightness_val);
+
+#if SCREEN_SIZE == 7
+    // ── Panel type (7" only) ────────────────────────────────────────────────
+    // GUITION ship two different LCD panels under the same JC1060P470C_I_W_Y
+    // SKU. Nothing in the firmware can tell them apart — same JD9165 controller,
+    // same 1024x600, same chip ID — so the user picks. Wrong choice shows as
+    // vertical white stripes or a blank/flashing screen (#113).
+    lv_obj_t* lbl_panel = lv_label_create(content);
+    lv_label_set_text(lbl_panel, "Panel type:");
+    lv_obj_set_style_text_color(lbl_panel, COL_TEXT, 0);
+    lv_obj_set_style_text_font(lbl_panel, &font_text_16, 0);
+    lv_obj_set_style_pad_top(lbl_panel, SY(8), 0);
+
+    lv_obj_t* lbl_panel_hint = lv_label_create(content);
+    lv_label_set_text(lbl_panel_hint,
+        "If the screen shows white stripes or stays blank, switch this. Restarts the device.");
+    lv_obj_set_style_text_color(lbl_panel_hint, COL_TEXT2, 0);
+    lv_obj_set_style_text_font(lbl_panel_hint, &font_text_12, 0);
+    lv_obj_set_width(lbl_panel_hint, lv_pct(100));
+    lv_label_set_long_mode(lbl_panel_hint, LV_LABEL_LONG_WRAP);
+
+    lv_obj_t* dd_panel = lv_dropdown_create(content);
+    lv_dropdown_set_options(dd_panel, "Newer screen\nOlder screen");
+    lv_dropdown_set_selected(dd_panel, panel_variant == PANEL_VARIANT_OLD ? 1 : 0);
+    lv_obj_set_width(dd_panel, lv_pct(100));
+    lv_obj_set_style_bg_color(dd_panel, lv_color_hex(0x222222), 0);
+    lv_obj_set_style_text_color(dd_panel, COL_TEXT, 0);
+    lv_obj_set_style_text_font(dd_panel, &font_text_14, 0);
+    lv_obj_set_style_radius(dd_panel, 8, 0);
+    lv_obj_set_style_pad_all(dd_panel, 10, 0);
+    lv_obj_set_style_margin_top(dd_panel, SY(6), 0);
+    lv_obj_add_event_cb(dd_panel, [](lv_event_t* e) {
+        lv_obj_t* dd = (lv_obj_t*)lv_event_get_target(e);
+        int sel = lv_dropdown_get_selected(dd) == 1 ? PANEL_VARIANT_OLD : PANEL_VARIANT_NEW;
+        if (sel == panel_variant) return;
+        panel_variant = sel;
+        wifiPrefs.putInt(NVS_KEY_PANEL_VAR, panel_variant);
+        // The panel init sequence and DSI timings are applied once at boot, so
+        // the only way to switch is to restart. Blank the backlight first so a
+        // mis-set panel doesn't flash garbage on the way down.
+        Serial.printf("[Display] Panel variant -> %s, restarting\n",
+                      panel_variant == PANEL_VARIANT_OLD ? "Old" : "New");
+        display_set_brightness(0);
+        vTaskDelay(pdMS_TO_TICKS(150));
+        ESP.restart();
+    }, LV_EVENT_VALUE_CHANGED, NULL);
+#endif
 }

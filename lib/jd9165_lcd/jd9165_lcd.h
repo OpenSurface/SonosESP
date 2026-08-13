@@ -17,7 +17,10 @@ class jd9165_lcd
 public:
     jd9165_lcd(int8_t lcd_rst);
 
-    void begin();
+    // old_panel: GUITION ship two different LCD panels under the same
+    // JC1060P470C_I_W_Y SKU, needing different init sequences and DSI timings.
+    // false = New_Panel (driver's built-in table), true = Old_Panel override.
+    void begin(bool old_panel = false);
     void example_bsp_enable_dsi_phy_power();
     void example_bsp_init_lcd_backlight();
     void example_bsp_set_lcd_backlight(uint32_t level);

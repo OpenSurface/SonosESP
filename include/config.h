@@ -219,6 +219,19 @@
 // =============================================================================
 // NVS PREFERENCES
 // =============================================================================
+// 7" PANEL VARIANT
+// -----------------------------------------------------------------------------
+// GUITION ship TWO different LCD panels under the same JC1060P470C_I_W_Y SKU -
+// their own demo package has separate "New_Panel" and "Old_Panel" projects with
+// different init sequences AND different DSI timings. Nothing in the firmware
+// can tell them apart: same JD9165 controller, same 1024x600, same chip ID. So
+// the user picks it in Settings > Display. Newer stock is the New panel.
+// =============================================================================
+#define PANEL_VARIANT_NEW      0
+#define PANEL_VARIANT_OLD      1
+#define PANEL_VARIANT_DEFAULT  PANEL_VARIANT_NEW
+
+// =============================================================================
 #define NVS_NAMESPACE           "sonos_wifi"
 #define NVS_KEY_SSID            "ssid"
 #define NVS_KEY_PASSWORD        "pass"
@@ -229,6 +242,7 @@
 // "brightness_dimmed" was 17 chars, so dimmed brightness never persisted across reboots.
 // (No migration needed: the old key could never be written, so there is nothing to read.)
 #define NVS_KEY_BRIGHTNESS_DIM  "bright_dim"
+#define NVS_KEY_PANEL_VAR       "panel_var"      // 7" LCD panel variant (<=15 chars)
 #define NVS_KEY_AUTODIM         "autodim_sec"
 #define NVS_KEY_THEME           "theme"         // player theme index (see ui_theme.h)
 #define DEFAULT_THEME           0               // 0 = Classic (unchanged original look)
