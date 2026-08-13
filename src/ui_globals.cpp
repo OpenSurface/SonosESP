@@ -233,6 +233,9 @@ int  clock_refresh_min    = CLOCK_DEFAULT_REFRESH;
 int  clock_bg_kw_idx      = CLOCK_DEFAULT_KW_IDX;
 bool clock_12h            = (bool)CLOCK_DEFAULT_12H;
 int  clock_style          = CLOCK_DEFAULT_STYLE;
+// 7" LCD panel variant (PANEL_VARIANT_*). Read from NVS in setup() BEFORE
+// display_init(), because the panel init sequence depends on it.
+int  panel_variant        = PANEL_VARIANT_DEFAULT;
 bool clock_weather_enabled  = (bool)CLOCK_DEFAULT_WEATHER_EN;
 int  clock_weather_city_idx = CLOCK_DEFAULT_WEATHER_CITY;
 bool clock_wx_fahrenheit    = (bool)CLOCK_DEFAULT_WEATHER_FAHR;
