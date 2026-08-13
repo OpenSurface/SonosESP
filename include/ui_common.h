@@ -21,7 +21,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.12.5"
+#define FIRMWARE_VERSION "1.12.6"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -230,6 +230,7 @@ void ev_ota_settings(lv_event_t *e);
 // Function Declarations - Utilities
 // ============================================================================
 void setBackgroundColor(uint32_t hex_color);
+void runPanelWizard();   // 7": confirm-or-advance panel selection (no-op on 4")
 void setBrightness(int level);
 void resetScreenTimeout();
 void checkAutoDim();

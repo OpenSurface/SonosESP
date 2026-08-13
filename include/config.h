@@ -227,9 +227,11 @@
 // can tell them apart: same JD9165 controller, same 1024x600, same chip ID. So
 // the user picks it in Settings > Display. Newer stock is the New panel.
 // =============================================================================
-#define PANEL_VARIANT_NEW      0
-#define PANEL_VARIANT_OLD      1
-#define PANEL_VARIANT_DEFAULT  PANEL_VARIANT_NEW
+#define PANEL_VARIANT_DEFAULT  0     // index into JD9165_PANELS[] (jd9165_panels.h)
+
+// Boot wizard: how long to wait for the user to confirm the picture is good
+// before moving on to the next panel variant and restarting.
+#define PANEL_WIZARD_TIMEOUT_MS  20000
 
 // =============================================================================
 #define NVS_NAMESPACE           "sonos_wifi"
@@ -242,7 +244,8 @@
 // "brightness_dimmed" was 17 chars, so dimmed brightness never persisted across reboots.
 // (No migration needed: the old key could never be written, so there is nothing to read.)
 #define NVS_KEY_BRIGHTNESS_DIM  "bright_dim"
-#define NVS_KEY_PANEL_VAR       "panel_var"      // 7" LCD panel variant (<=15 chars)
+#define NVS_KEY_PANEL_VAR       "panel_var"      // 7" LCD panel variant index (<=15 chars)
+#define NVS_KEY_PANEL_OK        "panel_ok"       // 1 = user confirmed the picture
 #define NVS_KEY_AUTODIM         "autodim_sec"
 #define NVS_KEY_THEME           "theme"         // player theme index (see ui_theme.h)
 #define DEFAULT_THEME           0               // 0 = Classic (unchanged original look)
