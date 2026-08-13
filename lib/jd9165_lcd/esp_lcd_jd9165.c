@@ -185,7 +185,13 @@ static const jd9165_lcd_init_cmd_t vendor_specific_init_default[] = {
     {0x13, (uint8_t[]){0x0C}, 1, 0},
     {0x30, (uint8_t[]){0x00}, 1, 0},
 
-    // {0X3A, (uint8_t[]){0x55}, 1, 0},
+    /* COLMOD - tell the panel which pixel format we are sending. 0x55 = 16bpp
+     * RGB565, matching MIPI_DPI_PX_FORMAT / LCD_BIT_PER_PIXEL in jd9165_lcd.cpp.
+     * This was commented out, so the panel used its power-on default. The older
+     * panel batch defaulted to RGB565 and worked by luck; the 10153004-v2 batch
+     * does not, so it consumed our 2-byte pixels as 3-byte ones and ran out of
+     * data partway across every line - the vertical split in #113. */
+    {0x3A, (uint8_t[]){0x55}, 1, 0},
     {0x11, (uint8_t[]){0x00}, 1, 120},
     {0x29, (uint8_t[]){0x00}, 1, 50},
 };
