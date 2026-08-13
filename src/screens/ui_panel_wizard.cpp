@@ -42,11 +42,29 @@ static bool wizardAsk(uint8_t variant) {
     lv_obj_set_style_bg_color(wiz_screen, lv_color_hex(0x101010), 0);
     lv_obj_clear_flag(wiz_screen, LV_OBJ_FLAG_SCROLLABLE);
 
+    // Full-width reference bars. A wrong panel corrupts part of every scanline,
+    // and the reported failures rendered the LEFT portion correctly - so a
+    // centred button alone could sit in the readable half and get tapped by
+    // mistake. These bars span edge to edge: if any of them is broken, striped
+    // or missing, the picture is wrong and the user is told to wait.
+    static const uint32_t bar_col[6] = {
+        0xFFFFFF, 0xFF3B30, 0x34C759, 0x0A84FF, 0xFFD60A, 0xFFFFFF
+    };
+    for (int i = 0; i < 6; i++) {
+        lv_obj_t* bar = lv_obj_create(wiz_screen);
+        lv_obj_set_size(bar, SX(800 / 6), SY(26));
+        lv_obj_set_pos(bar, SX((800 / 6) * i), SY(16));
+        lv_obj_set_style_bg_color(bar, lv_color_hex(bar_col[i]), 0);
+        lv_obj_set_style_border_width(bar, 0, 0);
+        lv_obj_set_style_radius(bar, 0, 0);
+        lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
+    }
+
     lv_obj_t* title = lv_label_create(wiz_screen);
     lv_label_set_text(title, "Can you read this?");
     lv_obj_set_style_text_font(title, &font_text_32, 0);
     lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, SY(70));
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, SY(62));
 
     lv_obj_t* sub = lv_label_create(wiz_screen);
     lv_label_set_text(sub, "Tap the button to keep this display setting.\n"
@@ -54,7 +72,7 @@ static bool wizardAsk(uint8_t variant) {
     lv_obj_set_style_text_font(sub, &font_text_16, 0);
     lv_obj_set_style_text_color(sub, lv_color_hex(0xB0B0B0), 0);
     lv_obj_set_style_text_align(sub, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(sub, LV_ALIGN_TOP_MID, 0, SY(130));
+    lv_obj_align(sub, LV_ALIGN_TOP_MID, 0, SY(118));
 
     // Big target: this must be hittable, but not so easy to hit by accident
     // that a garbled screen gets confirmed by a stray touch.

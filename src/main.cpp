@@ -204,11 +204,6 @@ void setup() {
     if (!display_init()) { Serial.println("Display FAIL"); while(1) delay(1000); }
     if (!touch_init()) { Serial.println("Touch FAIL"); while(1) delay(1000); }
 
-    // Panel confirmation. Must run AFTER touch is up (touch is I2C and works
-    // regardless of what the LCD is doing - that is what makes a blind
-    // confirmation possible) and BEFORE the UI is built.
-    runPanelWizard();
-
     // Initialize hardware watchdog timer - auto-reboot if system hangs
     esp_task_wdt_config_t wdt_config = {
         .timeout_ms = WATCHDOG_TIMEOUT_SEC * 1000,
@@ -218,6 +213,12 @@ void setup() {
     esp_task_wdt_reconfigure(&wdt_config);
     // mainAppTask registers itself with the watchdog on startup (not loopTask — it becomes idle)
     Serial.printf("[WDT] Watchdog configured: %d sec timeout\n", WATCHDOG_TIMEOUT_SEC);
+
+    // Panel confirmation. After touch (I2C, so it works regardless of what the
+    // LCD is doing - that is what makes a blind confirmation possible) and after
+    // the watchdog is configured, since this can block setup() for ~20s. Runs
+    // before the UI is built.
+    runPanelWizard();
 
     // Set initial brightness
     setBrightness(brightness_level);

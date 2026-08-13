@@ -85,6 +85,27 @@ that is the recovery working — **let it run**. It will try up to 6 times, and 
 
 ---
 
+## 7-inch screen: stripes, or blank after flashing
+
+Guition changed the LCD panel partway through production without changing the
+product code, so two different panels ship as the same model. They need
+different settings, and nothing in the firmware can tell them apart.
+
+**You do not need to know which one you have.** After flashing, the screen shows
+colour bars and asks *"Can you read this?"*
+
+- **Picture looks clean** (bars run edge to edge) -> tap **Looks good**. Done, it
+  never asks again.
+- **Screen is striped, blank, or the bars are broken** -> **do nothing**. After
+  20 seconds it restarts and tries the other panel setting, then asks again.
+
+That is the whole fix. Just wait when it looks wrong.
+
+To change it later: **Settings -> Display -> Panel type**. The device restarts
+when you switch.
+
+---
+
 ## Blank screen after an update
 
 **Most likely cause: the wrong screen variant was installed.** A 4″ build on a 7″ panel (or the reverse) initialises the wrong display driver, so the panel stays dark even though the device is running normally.
