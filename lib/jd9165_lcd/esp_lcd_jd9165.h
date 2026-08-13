@@ -112,18 +112,18 @@ esp_err_t esp_lcd_new_panel_jd9165(const esp_lcd_panel_io_handle_t io, const esp
     {                                                    \
         .virtual_channel = 0,                            \
         .dpi_clk_src = MIPI_DSI_DPI_CLK_SRC_DEFAULT,     \
-        .dpi_clock_freq_mhz = 50,                        \
+        .dpi_clock_freq_mhz = 52,                        \
         .pixel_format = px_format,                       \
         .num_fbs = 1,                                    \
         .video_timing = {                                \
             .h_size = 1024,                              \
             .v_size = 600,                               \
-            .hsync_pulse_width = 20,                     \
+            .hsync_pulse_width = 24,                     \
             .hsync_back_porch = 136,                     \
             .hsync_front_porch = 160,                    \
             .vsync_pulse_width = 2,                      \
-            .vsync_back_porch = 12,                      \
-            .vsync_front_porch = 20,                     \
+            .vsync_back_porch = 21,                      \
+            .vsync_front_porch = 12,                     \
         },                                               \
         .flags = {                                       \
             .use_dma2d = true,                           \
@@ -144,18 +144,18 @@ esp_err_t esp_lcd_new_panel_jd9165(const esp_lcd_panel_io_handle_t io, const esp
     {                                                    \
         .virtual_channel = 0,                            \
         .dpi_clk_src = MIPI_DSI_DPI_CLK_SRC_DEFAULT,     \
-        .dpi_clock_freq_mhz = 50,                        \
+        .dpi_clock_freq_mhz = 52,                        \
         .in_color_format = color_format,                 \
         .num_fbs = 1,                                    \
         .video_timing = {                                \
             .h_size = 1024,                              \
             .v_size = 600,                               \
-            .hsync_pulse_width = 20,                     \
+            .hsync_pulse_width = 24,                     \
             .hsync_back_porch = 136,                     \
             .hsync_front_porch = 160,                    \
             .vsync_pulse_width = 2,                      \
-            .vsync_back_porch = 12,                      \
-            .vsync_front_porch = 20,                     \
+            .vsync_back_porch = 21,                      \
+            .vsync_front_porch = 12,                     \
         },                                               \
     }
 
