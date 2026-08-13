@@ -236,7 +236,7 @@ bool display_init(void) {
         return false;
     }
 
-    lcd->begin(panel_variant == PANEL_VARIANT_OLD);
+    lcd->begin((uint8_t)panel_variant);
     lcd->get_handle(&lcd_handles);
 
     Serial.printf("[Display] %s LCD initialized successfully\n", DISPLAY_MODEL);

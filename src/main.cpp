@@ -13,6 +13,9 @@
 #include <esp_flash.h>
 #include <esp_task_wdt.h>
 #include "ui_fonts.h"
+#if SCREEN_SIZE == 7
+#include "../lib/jd9165_lcd/jd9165_panels.h"
+#endif
 // Sonos logo
 LV_IMG_DECLARE(Sonos_idnu60bqes_1);
 
@@ -80,7 +83,11 @@ void setup() {
     // 7" panel variant. MUST be loaded before display_init() — it selects the
     // panel init sequence and DSI timings.
     panel_variant = wifiPrefs.getInt(NVS_KEY_PANEL_VAR, PANEL_VARIANT_DEFAULT);
-    if (panel_variant != PANEL_VARIANT_OLD) panel_variant = PANEL_VARIANT_NEW;
+#if SCREEN_SIZE == 7
+    panel_variant = jd9165PanelClamp(panel_variant);   // survives a shrunk registry
+#else
+    panel_variant = PANEL_VARIANT_DEFAULT;
+#endif
     Serial.printf("[DISPLAY] Loaded settings from NVS: brightness=%d%%, dimmed=%d%%, autodim=%dsec, lyrics=%s\n",
                   brightness_level, brightness_dimmed, autodim_timeout, lyrics_enabled ? "on" : "off");
 
@@ -206,6 +213,12 @@ void setup() {
     esp_task_wdt_reconfigure(&wdt_config);
     // mainAppTask registers itself with the watchdog on startup (not loopTask — it becomes idle)
     Serial.printf("[WDT] Watchdog configured: %d sec timeout\n", WATCHDOG_TIMEOUT_SEC);
+
+    // Panel confirmation. After touch (I2C, so it works regardless of what the
+    // LCD is doing - that is what makes a blind confirmation possible) and after
+    // the watchdog is configured, since this can block setup() for ~20s. Runs
+    // before the UI is built.
+    runPanelWizard();
 
     // Set initial brightness
     setBrightness(brightness_level);
