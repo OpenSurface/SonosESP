@@ -122,6 +122,24 @@
  * THEMES
  *********************/
 #define LV_USE_THEME_DEFAULT 1
+#if LV_USE_THEME_DEFAULT
+    /* 0: light mode, 1: dark mode.
+     *
+     * This was never set, so it defaulted to 0 and LVGL painted every widget
+     * from a LIGHT palette. The UI is dark, so each screen repainted those
+     * defaults one part at a time — and any part nobody remembered stayed
+     * light. That is exactly how the dropdown selection ended up white on a
+     * dark list, and how three settings screens shipped a light scrollbar.
+     *
+     * Setting it to 1 makes dark the starting point instead of the exception.
+     * It changes nothing that is already styled explicitly (an explicit style
+     * always wins over the theme); it only affects parts we never touched —
+     * message boxes, the on-screen keyboard, roller options, textarea cursors
+     * and placeholders — which is precisely the set that was wrong. */
+    #define LV_THEME_DEFAULT_DARK 1
+    #define LV_THEME_DEFAULT_GROW 1
+    #define LV_THEME_DEFAULT_TRANSITION_TIME 80
+#endif
 #define LV_USE_THEME_SIMPLE 1
 #define LV_USE_THEME_MONO 0
 
