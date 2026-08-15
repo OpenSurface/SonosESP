@@ -411,7 +411,7 @@ void buildImmersivePlayer() {
     // it so the header block stays a clean column, ellipsised rather than
     // scrolled — it is a static label, not track metadata worth animating.
     lv_obj_set_size(lbl_device_name, SX(head_text_w), SY(20));
-    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_DOT);
+    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_SCROLL);
     lv_label_set_text(lbl_device_name, "Now Playing");
     lv_obj_set_style_text_color(lbl_device_name, COL_TEXT, 0);
     lv_obj_set_style_text_opa(lbl_device_name, LV_OPA_60, 0);
@@ -459,7 +459,12 @@ void buildImmersivePlayer() {
     lv_obj_set_size(bar, SX(800), SY(IM_BAR_H));
     lv_obj_set_pos(bar, 0, SY(IM_BAR_Y));
     lv_obj_set_style_bg_color(bar, lv_color_hex(0x0C0C0C), 0);
-    lv_obj_set_style_bg_opa(bar, 232, 0);
+    // Opaque, not 232/255. At 91% the difference is barely visible, but it forced
+    // an 800x94 alpha blend against the saturated backdrop on every frame that
+    // touched this region — and the transport buttons live inside it. Frame time
+    // here is not cosmetic: the touch driver is polled from the same loop that
+    // renders, so a slow frame means fewer input samples.
+    lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(bar, 0, 0);          // square: a rounded bottom edge looked wrong
     lv_obj_set_style_border_width(bar, 0, 0);
     lv_obj_set_style_pad_all(bar, 0, 0);

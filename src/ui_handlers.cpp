@@ -2026,8 +2026,13 @@ void updateUI() {
     // Device name in header
     static String ui_device_name = "";
     if (s_room != ui_device_name || ui_force_refresh) {
-        String np = "Now Playing - " + s_room;
-        lv_label_set_text(lbl_device_name, np.c_str());
+        // Just the room. "Now Playing - " was 14 characters of prefix on the
+        // now-playing screen, which pushed the only useful part of the string
+        // ("Living Room") out of the box and into an ellipsis. Dropping it means
+        // almost every room name now fits outright — which matters beyond
+        // tidiness, because a label that fits does not run a scroll animation,
+        // and animations on this screen cost frames.
+        lv_label_set_text(lbl_device_name, s_room.c_str());
         ui_device_name = s_room;
     }
 

@@ -171,7 +171,10 @@ void buildClassicPlayer() {
     // the sources and settings buttons at x=255. Stops 8px short of them and
     // ellipsises instead.
     lv_obj_set_size(lbl_device_name, SX(192), SY(20));
-    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_DOT);
+    // SCROLL, not SCROLL_CIRCULAR: this pauses, runs to the end, pauses again and
+    // returns, rather than looping a room name past you forever. It only animates
+    // when the text actually overflows, so a name that fits stays perfectly still.
+    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_SCROLL);
 
     // Music Sources button - scale effect
     lv_obj_t* btn_sources = lv_btn_create(panel_right);

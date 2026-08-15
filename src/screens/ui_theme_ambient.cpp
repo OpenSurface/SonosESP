@@ -244,7 +244,7 @@ void buildAmbientPlayer() {
     lv_label_set_text(lbl_device_name, "Now Playing");
     lv_obj_set_pos(lbl_device_name, SX(30), SY(10));
     lv_obj_set_size(lbl_device_name, SX(196), SY(20));
-    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_DOT);
+    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_SCROLL);
     lv_obj_set_style_text_color(lbl_device_name, COL_TEXT, 0);
     lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
 
