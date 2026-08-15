@@ -101,8 +101,9 @@ colour bars and asks *"Can you read this?"*
 
 That is the whole fix. Just wait when it looks wrong.
 
-To change it later: **Settings -> Display -> Panel type**. The device restarts
-when you switch.
+There is no setting to change afterwards, and that is deliberate: if the
+picture is good you have nothing to change, and if it is bad you could not reach
+the setting anyway. The check runs itself.
 
 ---
 
