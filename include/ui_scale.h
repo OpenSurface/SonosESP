@@ -16,7 +16,10 @@
 // SY(v)==v → ZERO visual change versus the original hardcoded layout. This is
 // what protects the deployed 4" fleet while we make the UI dynamic.
 //
-// Fonts cannot scale continuously, so FONT_* selects a size tier by width.
+// Type scales too, but not here — see uiFontsInit() in ui_fonts.cpp. The
+// font_text_* names are DESIGN-SPACE sizes, exactly like the numbers passed to
+// SX()/SY(): font_text_14 means "the face for design size 14", which resolves to
+// Montserrat 14 on the 4" and 16 on the 7". Call sites never choose a tier.
 // See docs/MULTI_SCREEN_SUPPORT.md.
 // ---------------------------------------------------------------------------
 
@@ -31,17 +34,11 @@
 // uses the smaller axis factor so circles stay circular on non-matching aspects.
 #define SMIN(v) (SX(v) < SY(v) ? SX(v) : SY(v))
 
-// Font tiers by display width. Only the active SCREEN_SIZE's branch is compiled.
-// (4" uses the existing fonts; the >=1024 tier is wired for the future 7" and
-//  must have those font sizes enabled in lv_conf.h when that variant is built.)
-#if DISPLAY_WIDTH >= 1024
-    #define FONT_TITLE  &font_text_32
-    #define FONT_BODY   &font_text_20
-    #define FONT_SMALL  &font_text_16
-#else
-    #define FONT_TITLE  &font_text_24
-    #define FONT_BODY   &font_text_16
-    #define FONT_SMALL  &font_text_14
-#endif
+// NOTE: FONT_TITLE / FONT_BODY / FONT_SMALL used to live here. They were never
+// called from anywhere (0 uses against 130 direct font_text_* references) and
+// are deliberately NOT reinstated: now that uiFontsInit() resolves each name per
+// panel, a second tier layer on top would scale the same text twice — FONT_TITLE
+// on the 7" would have picked font_text_32, which itself already resolves to a
+// larger face. One scaling step, in one place.
 
 #endif // UI_SCALE_H
