@@ -80,6 +80,7 @@ void setup() {
     brightness_dimmed = wifiPrefs.getInt(NVS_KEY_BRIGHTNESS_DIM, DEFAULT_BRIGHTNESS_DIM);
     autodim_timeout = wifiPrefs.getInt(NVS_KEY_AUTODIM, DEFAULT_AUTODIM_SEC);
     lyrics_enabled = wifiPrefs.getBool(NVS_KEY_LYRICS, true);
+    blur_bg_enabled = wifiPrefs.getBool(NVS_KEY_BLUR_BG, true);   // #49, defaults on
     // 7" panel variant. MUST be loaded before display_init() — it selects the
     // panel init sequence and DSI timings.
     panel_variant = wifiPrefs.getInt(NVS_KEY_PANEL_VAR, PANEL_VARIANT_DEFAULT);

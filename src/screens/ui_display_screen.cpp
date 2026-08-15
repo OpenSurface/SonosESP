@@ -5,6 +5,8 @@
 
 #include "ui_common.h"
 #include "ui_fonts.h"
+#include "ui_settings_card.h"   // addSwitch() — shared styling
+#include "ui_theme.h"
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -126,6 +128,44 @@ void createDisplaySettingsScreen() {
         wifiPrefs.putInt(NVS_KEY_BRIGHTNESS_DIM, brightness_dimmed);
         if (screen_dimmed) setBrightness(brightness_dimmed);
     }, LV_EVENT_VALUE_CHANGED, lbl_dimmed_brightness_val);
+
+    // Blurred album-art background (issue #49)
+    lv_obj_t* lbl_blur = lv_label_create(content);
+    lv_label_set_text(lbl_blur, "Blurred album art background:");
+    lv_obj_set_style_text_color(lbl_blur, COL_TEXT, 0);
+    lv_obj_set_style_text_font(lbl_blur, &font_text_16, 0);
+    lv_obj_set_style_pad_top(lbl_blur, SY(8), 0);
+
+    lv_obj_t* lbl_blur_desc = lv_label_create(content);
+    lv_label_set_text(lbl_blur_desc,
+                      "Fills the screen behind the player with a blurred copy of "
+                      "the artwork. Used by the Classic theme; the others paint "
+                      "their own backdrop.");
+    lv_obj_set_style_text_color(lbl_blur_desc, COL_TEXT2, 0);
+    lv_obj_set_style_text_font(lbl_blur_desc, &font_text_12, 0);
+    lv_obj_set_width(lbl_blur_desc, lv_pct(100));
+    lv_label_set_long_mode(lbl_blur_desc, LV_LABEL_LONG_WRAP);
+
+    lv_obj_t* sw_blur = addSwitch(content, blur_bg_enabled);
+    lv_obj_set_style_pad_bottom(sw_blur, SY(16), 0);
+    lv_obj_add_event_cb(sw_blur, [](lv_event_t* e) {
+        lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
+        blur_bg_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
+        wifiPrefs.putBool(NVS_KEY_BLUR_BG, blur_bg_enabled);
+
+        if (!blur_bg_enabled) {
+            // Hide immediately rather than waiting for the next track — the
+            // backdrop is already on screen behind this settings page.
+            if (img_blur_bg) lv_obj_add_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
+        } else if (art_mutex && xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
+            // Re-publish the artwork we already hold so it comes straight back.
+            // Gated on blur_bg_valid, not on the buffer pointer: blur_bg_buf is
+            // allocated once and never freed, so a pointer check would republish
+            // the previous track's blur (or uninitialised PSRAM).
+            if (blur_bg_valid) blur_bg_ready = true;
+            xSemaphoreGive(art_mutex);
+        }
+    }, LV_EVENT_VALUE_CHANGED, NULL);
 
 // No panel-type control here on purpose. If the picture is good you can read
 // this screen, so there is nothing to change; if it is bad you cannot reach it

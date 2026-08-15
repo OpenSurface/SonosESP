@@ -42,6 +42,9 @@ int brightness_level = 100;
 int brightness_dimmed = 20;
 int autodim_timeout = 30;
 bool lyrics_enabled = true;
+// Defaults on: this shipped as always-on for the Classic theme, so an existing
+// device must look identical until its owner decides otherwise.
+bool blur_bg_enabled = true;
 // Issue #85: WiFi creds entered in the setup dialog, awaiting persistence. On a flaky
 // radio the dialog's connect loop can time out before WL_CONNECTED, so its immediate save
 // never runs. checkWiFiReconnect() persists these to NVS once the link is actually up.

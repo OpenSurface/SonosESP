@@ -79,6 +79,7 @@ extern int brightness_dimmed;
 extern int autodim_timeout;
 extern int panel_variant;   // PANEL_VARIANT_* — which 7" LCD panel is fitted
 extern bool lyrics_enabled;
+extern bool blur_bg_enabled;
 extern String pending_wifi_ssid;        // issue #85: creds awaiting persistence
 extern String pending_wifi_pass;
 extern volatile bool wifi_creds_need_save;
