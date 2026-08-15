@@ -14,7 +14,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // ============================================================================
 void createOTAScreen() {
     scr_ota = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_ota, lv_color_hex(0x121212), 0);
+    lv_obj_set_style_bg_color(scr_ota, COL_SCREEN, 0);
 
     // Create sidebar and get content area (Update is index 7 — Clock added at 6)
     lv_obj_t* content = createSettingsSidebar(scr_ota, 7);
@@ -31,7 +31,7 @@ void createOTAScreen() {
     lv_obj_t* card_version = lv_obj_create(content);
     lv_obj_set_size(card_version, lv_pct(100), SY(100));
     lv_obj_set_pos(card_version, 0, SY(40));
-    lv_obj_set_style_bg_color(card_version, lv_color_hex(0x2A2A2A), 0);
+    lv_obj_set_style_bg_color(card_version, COL_CARD, 0);
     lv_obj_set_style_radius(card_version, 12, 0);
     lv_obj_set_style_border_width(card_version, 0, 0);
     lv_obj_set_style_pad_all(card_version, SMIN(16), 0);
@@ -53,7 +53,7 @@ void createOTAScreen() {
     lv_obj_t* card_channel = lv_obj_create(content);
     lv_obj_set_size(card_channel, lv_pct(100), SY(60));
     lv_obj_set_pos(card_channel, 0, SY(155));
-    lv_obj_set_style_bg_color(card_channel, lv_color_hex(0x2A2A2A), 0);
+    lv_obj_set_style_bg_color(card_channel, COL_CARD, 0);
     lv_obj_set_style_radius(card_channel, 12, 0);
     lv_obj_set_style_border_width(card_channel, 0, 0);
     lv_obj_set_style_pad_all(card_channel, SMIN(16), 0);
@@ -76,21 +76,21 @@ void createOTAScreen() {
     lv_obj_set_style_text_color(dd_ota_channel, COL_TEXT, LV_PART_MAIN);
     lv_obj_set_style_radius(dd_ota_channel, 8, LV_PART_MAIN);
     lv_obj_set_style_border_width(dd_ota_channel, 1, LV_PART_MAIN);
-    lv_obj_set_style_border_color(dd_ota_channel, lv_color_hex(0x555555), LV_PART_MAIN);
+    lv_obj_set_style_border_color(dd_ota_channel, COL_BORDER, LV_PART_MAIN);
     lv_obj_set_style_pad_left(dd_ota_channel, SX(12), LV_PART_MAIN);
     lv_obj_set_style_pad_right(dd_ota_channel, SX(12), LV_PART_MAIN);
 
     // Style the dropdown list (opened state) - this is the key for dark theme!
-    lv_obj_set_style_bg_color(dd_ota_channel, lv_color_hex(0x2A2A2A), LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(dd_ota_channel, COL_CARD, LV_PART_SELECTED);
     lv_obj_set_style_bg_color(dd_ota_channel, COL_ACCENT, (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
     lv_obj_set_style_text_color(dd_ota_channel, COL_TEXT, LV_PART_SELECTED);
 
     // Get the list object and style it for dark theme
     lv_obj_t* list = lv_dropdown_get_list(dd_ota_channel);
     if (list) {
-        lv_obj_set_style_bg_color(list, lv_color_hex(0x2A2A2A), 0);
+        lv_obj_set_style_bg_color(list, COL_CARD, 0);
         lv_obj_set_style_text_color(list, COL_TEXT, 0);
-        lv_obj_set_style_border_color(list, lv_color_hex(0x555555), 0);
+        lv_obj_set_style_border_color(list, COL_BORDER, 0);
         lv_obj_set_style_border_width(list, 1, 0);
     }
 
@@ -127,7 +127,7 @@ void createOTAScreen() {
     lv_obj_set_pos(bar_ota_progress, 0, SY(290));
     lv_bar_set_range(bar_ota_progress, 0, 100);
     lv_bar_set_value(bar_ota_progress, 0, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(bar_ota_progress, lv_color_hex(0x333333), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(bar_ota_progress, COL_SELECTED, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(bar_ota_progress, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_radius(bar_ota_progress, 8, LV_PART_MAIN);
     lv_obj_set_style_bg_color(bar_ota_progress, COL_ACCENT, LV_PART_INDICATOR);
@@ -152,7 +152,7 @@ void createOTAScreen() {
     btn_install_update = lv_btn_create(content);
     lv_obj_set_size(btn_install_update, SX(280), SY(50));
     lv_obj_set_pos(btn_install_update, SX(310), SY(330));
-    lv_obj_set_style_bg_color(btn_install_update, lv_color_hex(0x4ECB71), 0);
+    lv_obj_set_style_bg_color(btn_install_update, COL_OK, 0);
     lv_obj_set_style_radius(btn_install_update, 12, 0);
     lv_obj_add_event_cb(btn_install_update, ev_install_update, LV_EVENT_CLICKED, NULL);
     lv_obj_t* lbl_install = lv_label_create(btn_install_update);

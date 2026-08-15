@@ -242,8 +242,8 @@ void setup() {
     lv_obj_t* boot_bar = lv_bar_create(boot_scr);
     lv_obj_set_size(boot_bar, SX(300), SY(8));
     lv_obj_align(boot_bar, LV_ALIGN_CENTER, 0, SY(80));
-    lv_obj_set_style_bg_color(boot_bar, lv_color_hex(0x333333), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(boot_bar, lv_color_hex(0xD4A84B), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(boot_bar, COL_SELECTED, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(boot_bar, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_border_width(boot_bar, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(boot_bar, 4, LV_PART_MAIN);
     lv_obj_set_style_radius(boot_bar, 4, LV_PART_INDICATOR);
@@ -253,7 +253,7 @@ void setup() {
     // Version number in bottom right corner
     lv_obj_t* lbl_boot_version = lv_label_create(boot_scr);
     lv_label_set_text(lbl_boot_version, "v" FIRMWARE_VERSION);
-    lv_obj_set_style_text_color(lbl_boot_version, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(lbl_boot_version, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_boot_version, &font_text_12, 0);
     lv_obj_align(lbl_boot_version, LV_ALIGN_BOTTOM_RIGHT, SX(-10), SY(-10));
 
@@ -325,7 +325,7 @@ void setup() {
     if (wifiPrefs.getBool(NVS_KEY_OTA_PENDING, false) && WiFi.status() != WL_CONNECTED) {
         Serial.println("[OTA] Boot OTA pending — waiting for WiFi...");
         lv_obj_t* lbl_ota_wifi = lv_label_create(boot_scr);
-        lv_obj_set_style_text_color(lbl_ota_wifi, lv_color_hex(0xD4A84B), 0);
+        lv_obj_set_style_text_color(lbl_ota_wifi, COL_ACCENT, 0);
         lv_obj_set_style_text_font(lbl_ota_wifi, &font_text_16, 0);
         lv_obj_align(lbl_ota_wifi, LV_ALIGN_CENTER, 0, SY(50));
         lv_label_set_text_fmt(lbl_ota_wifi, "Waiting for WiFi: %s ...", ssid.c_str());

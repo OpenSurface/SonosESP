@@ -67,7 +67,7 @@ void refreshGroupsList() {
             lv_obj_set_style_border_color(btn, COL_ACCENT, 0);
         } else if (isPlaying) {
             lv_obj_set_style_border_width(btn, 2, 0);
-            lv_obj_set_style_border_color(btn, lv_color_hex(0x4ECB71), 0);
+            lv_obj_set_style_border_color(btn, COL_OK, 0);
         } else {
             lv_obj_set_style_border_width(btn, 0, 0);
         }
@@ -79,7 +79,7 @@ void refreshGroupsList() {
         } else {
             lv_label_set_text(icon, memberCount > 1 ? MDI_SPEAKER_MULTIPLE : MDI_SPEAKER);
         }
-        lv_obj_set_style_text_color(icon, isPlaying ? lv_color_hex(0x4ECB71) : (memberCount > 1 ? COL_ACCENT : COL_TEXT2), 0);
+        lv_obj_set_style_text_color(icon, isPlaying ? COL_OK : (memberCount > 1 ? COL_ACCENT : COL_TEXT2), 0);
         lv_obj_set_style_text_font(icon, &lv_font_mdi_24, 0);
         lv_obj_align(icon, LV_ALIGN_LEFT_MID, 5, (isPlaying && hasTrack) ? -18 : -8);
 
@@ -113,7 +113,7 @@ void refreshGroupsList() {
                 trackInfo = trackInfo.substring(0, 42) + "...";
             }
             lv_label_set_text(nowPlaying, trackInfo.c_str());
-            lv_obj_set_style_text_color(nowPlaying, lv_color_hex(0x4ECB71), 0);
+            lv_obj_set_style_text_color(nowPlaying, COL_OK, 0);
             lv_obj_set_style_text_font(nowPlaying, &font_text_12, 0);
             lv_obj_align(nowPlaying, LV_ALIGN_LEFT_MID, SX(70), SY(22));
         }
@@ -139,7 +139,7 @@ void refreshGroupsList() {
                 lv_obj_set_style_radius(memBtn, 8, 0);
                 lv_obj_set_style_shadow_width(memBtn, 0, 0);
                 lv_obj_set_style_pad_all(memBtn, SMIN(10), 0);
-                lv_obj_set_style_bg_color(memBtn, lv_color_hex(0x252525), 0);
+                lv_obj_set_style_bg_color(memBtn, COL_CARD2, 0);
                 lv_obj_set_style_bg_color(memBtn, COL_BTN_PRESSED, LV_STATE_PRESSED);
                 lv_obj_set_style_margin_left(memBtn, 40, 0);
 
@@ -190,7 +190,7 @@ void refreshGroupsList() {
             // Header for available speakers
             lv_obj_t* hdr = lv_obj_create(list_groups);
             lv_obj_set_size(hdr, SX(720), SY(40));
-            lv_obj_set_style_bg_color(hdr, lv_color_hex(0x1A1A1A), 0);
+            lv_obj_set_style_bg_color(hdr, COL_BG, 0);
             lv_obj_set_style_border_width(hdr, 0, 0);
             lv_obj_set_style_pad_all(hdr, SMIN(10), 0);
             lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
@@ -224,7 +224,7 @@ void refreshGroupsList() {
 
                 lv_obj_t* addIcon = lv_label_create(addBtn);
                 lv_label_set_text(addIcon, MDI_PLUS " " MDI_SPEAKER);
-                lv_obj_set_style_text_color(addIcon, lv_color_hex(0x4ECB71), 0);
+                lv_obj_set_style_text_color(addIcon, COL_OK, 0);
                 lv_obj_set_style_text_font(addIcon, &lv_font_mdi_24, 0);
                 lv_obj_align(addIcon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
@@ -252,7 +252,7 @@ void refreshGroupsList() {
 
 void createGroupsScreen() {
     scr_groups = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_groups, lv_color_hex(0x121212), 0);
+    lv_obj_set_style_bg_color(scr_groups, COL_SCREEN, 0);
 
     // Create sidebar and get content area (Groups is index 2)
     lv_obj_t* content = createSettingsSidebar(scr_groups, 2);
@@ -282,7 +282,7 @@ void createGroupsScreen() {
     lv_obj_add_event_cb(btn_groups_scan, [](lv_event_t* e) {
         // Disable button during scan
         lv_obj_add_state(btn_groups_scan, LV_STATE_DISABLED);
-        lv_obj_set_style_bg_color(btn_groups_scan, lv_color_hex(0x555555), LV_STATE_DISABLED);
+        lv_obj_set_style_bg_color(btn_groups_scan, COL_BORDER, LV_STATE_DISABLED);
 
         // Show spinner
         if (spinner_groups_scan) {
@@ -335,7 +335,7 @@ void createGroupsScreen() {
     list_groups = lv_obj_create(content);
     lv_obj_set_size(list_groups, lv_pct(100), SY(380));
     lv_obj_set_pos(list_groups, 0, SY(75));
-    lv_obj_set_style_bg_color(list_groups, lv_color_hex(0x1A1A1A), 0);
+    lv_obj_set_style_bg_color(list_groups, COL_BG, 0);
     lv_obj_set_style_border_width(list_groups, 0, 0);
     lv_obj_set_style_radius(list_groups, 0, 0);
     lv_obj_set_style_pad_all(list_groups, 0, 0);
@@ -354,7 +354,7 @@ void createGroupsScreen() {
     lv_obj_set_size(spinner_groups_scan, SMIN(100), SMIN(100));
     lv_obj_center(spinner_groups_scan);
     lv_obj_set_style_arc_color(spinner_groups_scan, COL_ACCENT, LV_PART_INDICATOR);
-    lv_obj_set_style_arc_color(spinner_groups_scan, lv_color_hex(0x555555), LV_PART_MAIN);
+    lv_obj_set_style_arc_color(spinner_groups_scan, COL_BORDER, LV_PART_MAIN);
     lv_obj_set_style_arc_width(spinner_groups_scan, 10, LV_PART_INDICATOR);
     lv_obj_set_style_arc_width(spinner_groups_scan, 10, LV_PART_MAIN);
     lv_obj_set_style_arc_rounded(spinner_groups_scan, true, LV_PART_INDICATOR);

@@ -38,8 +38,8 @@ void refreshQueueList() {
 
         lv_obj_t* btn = lv_btn_create(list_queue);
         lv_obj_set_size(btn, SX(727), SY(60));  // Full width, uniform height
-        lv_obj_set_style_bg_color(btn, isPlaying ? lv_color_hex(0x252525) : lv_color_hex(0x1A1A1A), 0);
-        lv_obj_set_style_bg_color(btn, lv_color_hex(0x2A2A2A), LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(btn, isPlaying ? COL_CARD2 : COL_BG, 0);
+        lv_obj_set_style_bg_color(btn, COL_CARD, LV_STATE_PRESSED);
         lv_obj_set_style_radius(btn, 0, 0);  // No rounded corners - clean list
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_pad_all(btn, SMIN(12), 0);
@@ -90,13 +90,13 @@ void refreshQueueList() {
 
 void createQueueScreen() {
     scr_queue = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_queue, lv_color_hex(0x1A1A1A), 0);
+    lv_obj_set_style_bg_color(scr_queue, COL_BG, 0);
 
     // Professional header
     lv_obj_t* header = lv_obj_create(scr_queue);
     lv_obj_set_size(header, SX(800), SY(70));
     lv_obj_set_pos(header, 0, 0);
-    lv_obj_set_style_bg_color(header, lv_color_hex(0x252525), 0);
+    lv_obj_set_style_bg_color(header, COL_CARD2, 0);
     lv_obj_set_style_border_width(header, 0, 0);
     lv_obj_set_style_radius(header, 0, 0);
     lv_obj_set_style_pad_all(header, 0, 0);
@@ -106,14 +106,14 @@ void createQueueScreen() {
     lv_obj_t* lbl_title = lv_label_create(header);
     lv_label_set_text(lbl_title, "Playlist");
     lv_obj_set_style_text_font(lbl_title, &font_text_32, 0);
-    lv_obj_set_style_text_color(lbl_title, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, SX(30), 0);
 
     // Refresh button in header
     lv_obj_t* btn_refresh = lv_button_create(header);
     lv_obj_set_size(btn_refresh, SMIN(50), SMIN(50));
     lv_obj_align(btn_refresh, LV_ALIGN_RIGHT_MID, SX(-80), 0);
-    lv_obj_set_style_bg_color(btn_refresh, lv_color_hex(0x333333), 0);
+    lv_obj_set_style_bg_color(btn_refresh, COL_SELECTED, 0);
     lv_obj_set_style_radius(btn_refresh, 25, 0);
     lv_obj_set_style_shadow_width(btn_refresh, 0, 0);
     lv_obj_add_event_cb(btn_refresh, [](lv_event_t* e) {
@@ -132,7 +132,7 @@ void createQueueScreen() {
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_refresh = lv_label_create(btn_refresh);
     lv_label_set_text(ico_refresh, MDI_REFRESH);
-    lv_obj_set_style_text_color(ico_refresh, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(ico_refresh, COL_TEXT, 0);
     lv_obj_set_style_text_font(ico_refresh, &lv_font_mdi_24, 0);
     lv_obj_center(ico_refresh);
 
@@ -140,13 +140,13 @@ void createQueueScreen() {
     lv_obj_t* btn_close = lv_button_create(header);
     lv_obj_set_size(btn_close, SMIN(50), SMIN(50));
     lv_obj_align(btn_close, LV_ALIGN_RIGHT_MID, SX(-20), 0);
-    lv_obj_set_style_bg_color(btn_close, lv_color_hex(0x333333), 0);
+    lv_obj_set_style_bg_color(btn_close, COL_SELECTED, 0);
     lv_obj_set_style_radius(btn_close, 25, 0);
     lv_obj_set_style_shadow_width(btn_close, 0, 0);
     lv_obj_add_event_cb(btn_close, ev_back_main, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_close = lv_label_create(btn_close);
     lv_label_set_text(ico_close, MDI_CLOSE);
-    lv_obj_set_style_text_color(ico_close, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(ico_close, COL_TEXT, 0);
     lv_obj_set_style_text_font(ico_close, &lv_font_mdi_24, 0);
     lv_obj_center(ico_close);
 
@@ -161,7 +161,7 @@ void createQueueScreen() {
     list_queue = lv_list_create(scr_queue);
     lv_obj_set_size(list_queue, SX(730), SY(360));
     lv_obj_set_pos(list_queue, SX(35), SY(115));
-    lv_obj_set_style_bg_color(list_queue, lv_color_hex(0x1A1A1A), 0);
+    lv_obj_set_style_bg_color(list_queue, COL_BG, 0);
     lv_obj_set_style_border_width(list_queue, 0, 0);
     lv_obj_set_style_radius(list_queue, 0, 0);
     lv_obj_set_style_pad_all(list_queue, 0, 0);
@@ -192,7 +192,7 @@ void createSettingsScreen() {
 // ============================================================================
 void createSourcesScreen() {
     scr_sources = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_sources, lv_color_hex(0x121212), 0);
+    lv_obj_set_style_bg_color(scr_sources, COL_SCREEN, 0);
 
     // Create sidebar and get content area (Sources is index 3)
     lv_obj_t* content = createSettingsSidebar(scr_sources, 3);
@@ -295,7 +295,7 @@ void createBrowseScreen() {
     }
 
     scr_browse = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_browse, lv_color_hex(0x121212), 0);
+    lv_obj_set_style_bg_color(scr_browse, COL_SCREEN, 0);
 
     // Create sidebar and get content area (Sources is index 3)
     lv_obj_t* content = createSettingsSidebar(scr_browse, 3);

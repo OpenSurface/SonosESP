@@ -281,7 +281,7 @@ static lv_obj_t* roundBtn(lv_obj_t* parent, const char* icon, const lv_font_t* f
         lv_obj_set_style_bg_color(b, lv_color_hex(0x000000), 0);
         lv_obj_set_style_bg_opa(b, LV_OPA_20, 0);
         lv_obj_set_style_border_width(b, 1, 0);
-        lv_obj_set_style_border_color(b, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_border_color(b, COL_TEXT, 0);
         lv_obj_set_style_border_opa(b, LV_OPA_40, 0);
     } else {
         lv_obj_set_style_bg_opa(b, LV_OPA_TRANSP, 0);
@@ -470,7 +470,7 @@ void buildImmersivePlayer() {
     lv_obj_set_pos(slider_progress, SX(IM_ROW_X), SY(IM_BAR_MID(6)));
     lv_obj_set_size(slider_progress, SX(IM_ROW_W), SY(6));
     lv_slider_set_range(slider_progress, 0, 100);
-    lv_obj_set_style_bg_color(slider_progress, lv_color_hex(0x3A3A3A), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(slider_progress, COL_BTN, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_progress, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_progress, COL_ACCENT, LV_PART_KNOB);
     lv_obj_set_style_pad_all(slider_progress, 0, LV_PART_KNOB);
@@ -517,7 +517,7 @@ void buildImmersivePlayer() {
     lv_obj_set_pos(slider_vol, SX(IM_ROW_X), SY(IM_BAR_MID(6)));
     lv_obj_set_size(slider_vol, SX(IM_ROW_W + 120), SY(6));
     lv_slider_set_range(slider_vol, 0, 100);
-    lv_obj_set_style_bg_color(slider_vol, lv_color_hex(0x3A3A3A), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(slider_vol, COL_BTN, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_KNOB);
     lv_obj_set_style_pad_all(slider_vol, SMIN(4), LV_PART_KNOB);

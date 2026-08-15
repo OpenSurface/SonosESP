@@ -43,7 +43,7 @@ void buildClassicPlayer() {
     panel_art = lv_obj_create(scr_main);
     lv_obj_set_size(panel_art, SX(450), SY(480));
     lv_obj_set_pos(panel_art, 0, 0);
-    lv_obj_set_style_bg_color(panel_art, lv_color_hex(0x1a1a1a), 0);
+    lv_obj_set_style_bg_color(panel_art, COL_BG, 0);
     lv_obj_set_style_bg_opa(panel_art, LV_OPA_TRANSP, 0);  // fully transparent: blur bg is the background
     lv_obj_set_style_radius(panel_art, 0, 0);
     lv_obj_set_style_border_width(panel_art, 0, 0);
@@ -82,7 +82,7 @@ void buildClassicPlayer() {
     lbl_linein_subtitle = lv_label_create(panel_art);
     lv_label_set_text(lbl_linein_subtitle, "LIVE AUDIO");
     lv_obj_set_style_text_font(lbl_linein_subtitle, &font_text_14, 0);
-    lv_obj_set_style_text_color(lbl_linein_subtitle, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(lbl_linein_subtitle, COL_TEXT2, 0);
     lv_obj_set_style_text_letter_space(lbl_linein_subtitle, 3, 0);  // spaced-out caps for modern look
     lv_obj_align(lbl_linein_subtitle, LV_ALIGN_CENTER, SX(15), SY(58)); // below icon (+80px icon height / 2 + gap)
     lv_obj_add_flag(lbl_linein_subtitle, LV_OBJ_FLAG_HIDDEN);
@@ -98,7 +98,7 @@ void buildClassicPlayer() {
     lbl_tv_subtitle = lv_label_create(panel_art);
     lv_label_set_text(lbl_tv_subtitle, "TV AUDIO");
     lv_obj_set_style_text_font(lbl_tv_subtitle, &font_text_14, 0);
-    lv_obj_set_style_text_color(lbl_tv_subtitle, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(lbl_tv_subtitle, COL_TEXT2, 0);
     lv_obj_set_style_text_letter_space(lbl_tv_subtitle, 3, 0);
     lv_obj_align(lbl_tv_subtitle, LV_ALIGN_CENTER, SX(15), SY(58));
     lv_obj_add_flag(lbl_tv_subtitle, LV_OBJ_FLAG_HIDDEN);
@@ -106,7 +106,7 @@ void buildClassicPlayer() {
     // Lyrics status indicator — top-left corner of art image
     lbl_lyrics_status = lv_label_create(panel_art);
     lv_label_set_text(lbl_lyrics_status, "");
-    lv_obj_set_style_text_color(lbl_lyrics_status, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(lbl_lyrics_status, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_lyrics_status, &font_text_14, 0);
     lv_obj_align(lbl_lyrics_status, LV_ALIGN_TOP_LEFT, SX(30), SY(5));  // Aligned with art left edge (x=30), in the gap above art
 
@@ -227,7 +227,7 @@ void buildClassicPlayer() {
     lv_obj_set_pos(lbl_album, SX(15), SY(154));
     lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_album, "");
-    lv_obj_set_style_text_color(lbl_album, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(lbl_album, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_album, &font_text_14, 0);
 
     // ===== PROGRESS BAR =====

@@ -68,7 +68,7 @@ lv_obj_t* addSwitch(lv_obj_t* parent, bool initial) {
     lv_obj_set_size(sw, SX(50), SY(26));
     lv_obj_set_style_margin_top(sw, 4, 0);
     lv_obj_set_style_radius(sw, 13, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(sw, lv_color_hex(0x333333), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(sw, COL_SELECTED, LV_PART_MAIN);
     lv_obj_set_style_bg_color(sw, COL_ACCENT,
         (lv_style_selector_t)((uint32_t)LV_PART_INDICATOR | (uint32_t)LV_STATE_CHECKED));
     lv_obj_set_style_radius(sw, 13, LV_PART_INDICATOR);

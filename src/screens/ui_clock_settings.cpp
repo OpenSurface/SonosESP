@@ -33,11 +33,11 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // Clock-specific theme tokens (form inputs + keyboard, not in the shared header
 // because only this screen uses them so far)
 // ─────────────────────────────────────────────────────────────────────────────
-#define CLK_INPUT_BG    lv_color_hex(0x222222)
-#define CLK_INPUT_BORD  lv_color_hex(0x3A3A3A)
-#define CLK_KB_BG       lv_color_hex(0x1A1A1A)
-#define CLK_KB_KEY      lv_color_hex(0x2A2A2A)
-#define CLK_KB_KEY_BORD lv_color_hex(0x3A3A3A)
+#define CLK_INPUT_BG    COL_MENU
+#define CLK_INPUT_BORD  COL_BTN
+#define CLK_KB_BG       COL_BG
+#define CLK_KB_KEY      COL_CARD
+#define CLK_KB_KEY_BORD COL_BTN
 
 // Location method indices (UI-level — derived from clock_weather_city_idx)
 #define LOC_METHOD_AUTO    0
@@ -60,14 +60,14 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
     // The highlighted row in the OPEN list is LV_PART_SELECTED. Styling only the
     // list (below) leaves this part to LVGL's default theme, which is light — so
     // the list renders dark with a white selection bar. See ui_ota_screen.cpp.
-    lv_obj_set_style_bg_color(dd, lv_color_hex(0x222222), LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(dd, COL_MENU, LV_PART_SELECTED);
     lv_obj_set_style_bg_color(dd, COL_ACCENT,
         (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
     lv_obj_set_style_text_color(dd, COL_TEXT, LV_PART_SELECTED);
     lv_obj_t* list = lv_dropdown_get_list(dd);
     if (list) {
         lv_obj_set_height(list, SY(260));
-        lv_obj_set_style_bg_color(list, lv_color_hex(0x222222), 0);
+        lv_obj_set_style_bg_color(list, COL_MENU, 0);
         lv_obj_set_style_text_color(list, COL_TEXT, 0);
         lv_obj_set_style_text_font(list, &font_text_14, 0);
         lv_obj_set_style_border_color(list, CLK_INPUT_BORD, 0);
@@ -81,7 +81,7 @@ static lv_obj_t* makeSlider(lv_obj_t* parent, int min, int max, int value) {
     lv_obj_set_height(s, SY(20));
     lv_slider_set_range(s, min, max);
     lv_slider_set_value(s, value, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(s, lv_color_hex(0x333333), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s, COL_SELECTED, LV_PART_MAIN);
     lv_obj_set_style_bg_color(s, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(s, COL_ACCENT, LV_PART_KNOB);
     lv_obj_set_style_radius(s, 10, LV_PART_MAIN);
@@ -295,7 +295,7 @@ static void style_keyboard_dark(lv_obj_t* kb) {
 // ============================================================================
 void createClockSettingsScreen() {
     scr_clock_settings = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_clock_settings, lv_color_hex(0x121212), 0);
+    lv_obj_set_style_bg_color(scr_clock_settings, COL_SCREEN, 0);
 
     // Sidebar — Clock is index 6
     lv_obj_t* content = createSettingsSidebar(scr_clock_settings, 6);
@@ -520,7 +520,7 @@ void createClockSettingsScreen() {
         custom_loc_card = lv_obj_create(card);
         lv_obj_set_width(custom_loc_card, lv_pct(100));
         lv_obj_set_height(custom_loc_card, LV_SIZE_CONTENT);
-        lv_obj_set_style_bg_color(custom_loc_card, lv_color_hex(0x121212), 0);
+        lv_obj_set_style_bg_color(custom_loc_card, COL_SCREEN, 0);
         lv_obj_set_style_bg_opa(custom_loc_card, LV_OPA_COVER, 0);
         lv_obj_set_style_radius(custom_loc_card, 10, 0);
         lv_obj_set_style_border_color(custom_loc_card, COL_ACCENT, 0);
