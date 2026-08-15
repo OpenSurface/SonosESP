@@ -1143,6 +1143,7 @@ void createClockScreen() {
     clock_wx_fl_lbl = lv_label_create(clock_wx_tr_panel);
     lv_label_set_text(clock_wx_fl_lbl, "Feels like  --");
     lv_obj_set_width(clock_wx_fl_lbl, SX(300));
+    lv_label_set_long_mode(clock_wx_fl_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_fl_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_fl_lbl, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(clock_wx_fl_lbl, lv_color_hex(0x999999), 0);
@@ -1152,6 +1153,7 @@ void createClockScreen() {
     clock_wx_uv_lbl = lv_label_create(clock_wx_tr_panel);
     lv_label_set_text(clock_wx_uv_lbl, "UV  --");
     lv_obj_set_width(clock_wx_uv_lbl, SX(300));
+    lv_label_set_long_mode(clock_wx_uv_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_uv_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_uv_lbl, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(clock_wx_uv_lbl, lv_color_hex(0x999999), 0);
@@ -1161,6 +1163,7 @@ void createClockScreen() {
     clock_wx_rise_t_lbl = lv_label_create(clock_wx_tr_panel);
     lv_label_set_text(clock_wx_rise_t_lbl, "Rise  --:--");
     lv_obj_set_width(clock_wx_rise_t_lbl, SX(300));
+    lv_label_set_long_mode(clock_wx_rise_t_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_rise_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_rise_t_lbl, &font_text_14, 0);
     lv_obj_set_style_text_color(clock_wx_rise_t_lbl, lv_color_hex(0x777777), 0);
@@ -1170,6 +1173,7 @@ void createClockScreen() {
     clock_wx_set_t_lbl = lv_label_create(clock_wx_tr_panel);
     lv_label_set_text(clock_wx_set_t_lbl, "Set   --:--");
     lv_obj_set_width(clock_wx_set_t_lbl, SX(300));
+    lv_label_set_long_mode(clock_wx_set_t_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_set_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_set_t_lbl, &font_text_14, 0);
     lv_obj_set_style_text_color(clock_wx_set_t_lbl, lv_color_hex(0x777777), 0);

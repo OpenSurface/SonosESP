@@ -563,15 +563,20 @@ void buildImmersivePlayer() {
     lv_obj_set_style_text_font(lbl_next_header, &font_text_12, 0);
     park(lbl_next_header);
 
+    // Ellipsise rather than wrap: both strings are unbounded track metadata in a
+    // fixed-width parked label, so the default WRAP grows them downward over
+    // whatever sits below.
     lbl_next_title = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_title, "");
     lv_obj_set_width(lbl_next_title, SX(200));
+    lv_label_set_long_mode(lbl_next_title, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(lbl_next_title, &font_text_14, 0);
     park(lbl_next_title);
 
     lbl_next_artist = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_artist, "");
     lv_obj_set_width(lbl_next_artist, SX(200));
+    lv_label_set_long_mode(lbl_next_artist, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(lbl_next_artist, &font_text_12, 0);
     park(lbl_next_artist);
 }
