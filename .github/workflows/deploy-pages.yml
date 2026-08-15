@@ -131,11 +131,30 @@ jobs:
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       run: |
         python - <<'EOF'
-        import json, os, sys, glob
-        # The original bug this guards: manifest.json omitted boot_app0.bin entirely,
+        import json, os, sys, glob, re
+        failed = False
+
+        # Guard 2: version.json, the manifests and FIRMWARE_VERSION must agree.
+        # bump_version.py writes all of them, but a commit that stages only some
+        # paths can ship a release whose firmware reports the PREVIOUS version -
+        # the OTA check then sees latest != current forever, offers an update,
+        # installs the same build, and still reports the old number.
+        ver_json = json.load(open('version.json'))['version']
+        m = re.search(r'FIRMWARE_VERSION\s+"([^"]+)"', open('include/ui_common.h').read())
+        ver_fw = m.group(1) if m else None
+        print(f"version.json={ver_json}  FIRMWARE_VERSION={ver_fw}")
+        if ver_fw != ver_json:
+            print(f"MISMATCH  include/ui_common.h says {ver_fw}, version.json says {ver_json}")
+            failed = True
+        for mf in sorted(glob.glob('web-installer/manifest*.json')):
+            mv = json.load(open(mf)).get('version')
+            if mv != ver_json:
+                print(f"MISMATCH  {mf} says {mv}, version.json says {ver_json}")
+                failed = True
+
+        # Guard 1 - the original: manifest.json omitted boot_app0.bin entirely,
         # so devices that had OTA'd into app1 kept booting app1 after a web install.
         # A missing/renamed binary fails just as silently, so check both directions.
-        failed = False
         for mf in sorted(glob.glob('web-installer/manifest*.json')):
             m = json.load(open(mf))
             for build in m.get('builds', []):
