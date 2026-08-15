@@ -5,9 +5,6 @@
 
 #include "ui_common.h"
 #include "ui_fonts.h"
-#if SCREEN_SIZE == 7
-#include "../../lib/jd9165_lcd/jd9165_panels.h"
-#endif
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -130,61 +127,9 @@ void createDisplaySettingsScreen() {
         if (screen_dimmed) setBrightness(brightness_dimmed);
     }, LV_EVENT_VALUE_CHANGED, lbl_dimmed_brightness_val);
 
-#if SCREEN_SIZE == 7
-    // ── Panel type (7" only) ────────────────────────────────────────────────
-    // GUITION ship two different LCD panels under the same JC1060P470C_I_W_Y
-    // SKU. Nothing in the firmware can tell them apart — same JD9165 controller,
-    // same 1024x600, same chip ID — so the user picks. Wrong choice shows as
-    // vertical white stripes or a blank/flashing screen (#113).
-    lv_obj_t* lbl_panel = lv_label_create(content);
-    lv_label_set_text(lbl_panel, "Panel type:");
-    lv_obj_set_style_text_color(lbl_panel, COL_TEXT, 0);
-    lv_obj_set_style_text_font(lbl_panel, &font_text_16, 0);
-    lv_obj_set_style_pad_top(lbl_panel, SY(8), 0);
-
-    lv_obj_t* lbl_panel_hint = lv_label_create(content);
-    lv_label_set_text(lbl_panel_hint,
-        "If the screen shows white stripes or stays blank, switch this. Restarts the device.");
-    lv_obj_set_style_text_color(lbl_panel_hint, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_panel_hint, &font_text_12, 0);
-    lv_obj_set_width(lbl_panel_hint, lv_pct(100));
-    lv_label_set_long_mode(lbl_panel_hint, LV_LABEL_LONG_WRAP);
-
-    // Options come from JD9165_PANELS[], so a new panel revision appears here
-    // automatically - no UI change needed.
-    static char panel_opts[192];
-    panel_opts[0] = 0;
-    for (uint8_t i = 0; i < JD9165_PANEL_COUNT; i++) {
-        if (i) strncat(panel_opts, "\\n", sizeof(panel_opts) - strlen(panel_opts) - 1);
-        strncat(panel_opts, JD9165_PANELS[i].name, sizeof(panel_opts) - strlen(panel_opts) - 1);
-    }
-
-    lv_obj_t* dd_panel = lv_dropdown_create(content);
-    lv_dropdown_set_options(dd_panel, panel_opts);
-    lv_dropdown_set_selected(dd_panel, jd9165PanelClamp(panel_variant));
-    lv_obj_set_width(dd_panel, lv_pct(100));
-    lv_obj_set_style_bg_color(dd_panel, lv_color_hex(0x222222), 0);
-    lv_obj_set_style_text_color(dd_panel, COL_TEXT, 0);
-    lv_obj_set_style_text_font(dd_panel, &font_text_14, 0);
-    lv_obj_set_style_radius(dd_panel, 8, 0);
-    lv_obj_set_style_pad_all(dd_panel, 10, 0);
-    lv_obj_set_style_margin_top(dd_panel, SY(6), 0);
-    lv_obj_add_event_cb(dd_panel, [](lv_event_t* e) {
-        lv_obj_t* dd = (lv_obj_t*)lv_event_get_target(e);
-        int sel = jd9165PanelClamp((int)lv_dropdown_get_selected(dd));
-        if (sel == panel_variant) return;
-        panel_variant = sel;
-        wifiPrefs.putInt(NVS_KEY_PANEL_VAR, panel_variant);
-        // Picking by hand counts as confirming - do not re-run the wizard.
-        wifiPrefs.putBool(NVS_KEY_PANEL_OK, true);
-        // Init sequence and DSI timings are applied once at boot, so switching
-        // means restarting. Blank the backlight first so a mis-set panel does
-        // not flash garbage on the way down.
-        Serial.printf("[Display] Panel variant -> %d (%s), restarting\\n",
-                      panel_variant, JD9165_PANELS[panel_variant].name);
-        display_set_brightness(0);
-        vTaskDelay(pdMS_TO_TICKS(150));
-        ESP.restart();
-    }, LV_EVENT_VALUE_CHANGED, NULL);
-#endif
+// No panel-type control here on purpose. If the picture is good you can read
+// this screen, so there is nothing to change; if it is bad you cannot reach it
+// anyway. Offering the choice only creates a way to strand yourself, because a
+// manual pick also marks the panel confirmed and stops the boot wizard from
+// rescuing you. Detection is the wizard's job (see ui_panel_wizard.cpp).
 }

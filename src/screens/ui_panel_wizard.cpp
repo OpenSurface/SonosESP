@@ -23,7 +23,6 @@
 
 #include "ui_common.h"
 #include "ui_fonts.h"
-#include <esp_task_wdt.h>
 
 #if SCREEN_SIZE == 7
 #include "../../lib/jd9165_lcd/jd9165_panels.h"
@@ -103,7 +102,9 @@ static bool wizardAsk(uint8_t variant) {
                               (unsigned long)((PANEL_WIZARD_TIMEOUT_MS - elapsed) / 1000) + 1);
         lv_tick_inc(20);
         lv_timer_handler();
-        esp_task_wdt_reset();
+        // No esp_task_wdt_reset() here: loopTask is not subscribed to the task
+        // watchdog during setup(), so it only logs "task not found" hundreds of
+        // times. delay() yields to the idle task, which is what the WDT needs.
         delay(20);
     }
     return wiz_confirmed;
