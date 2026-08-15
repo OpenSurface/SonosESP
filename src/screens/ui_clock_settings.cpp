@@ -55,7 +55,7 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
     lv_obj_set_style_text_font(dd, &font_text_14, 0);
     lv_obj_set_style_border_color(dd, CLK_INPUT_BORD, 0);
     lv_obj_set_style_radius(dd, 8, 0);
-    lv_obj_set_style_pad_all(dd, 10, 0);
+    lv_obj_set_style_pad_all(dd, SMIN(10), 0);
     if (open_up) lv_dropdown_set_dir(dd, LV_DIR_TOP);
     // The highlighted row in the OPEN list is LV_PART_SELECTED. Styling only the
     // list (below) leaves this part to LVGL's default theme, which is light — so
@@ -86,7 +86,7 @@ static lv_obj_t* makeSlider(lv_obj_t* parent, int min, int max, int value) {
     lv_obj_set_style_bg_color(s, COL_ACCENT, LV_PART_KNOB);
     lv_obj_set_style_radius(s, 10, LV_PART_MAIN);
     lv_obj_set_style_radius(s, 10, LV_PART_INDICATOR);
-    lv_obj_set_style_pad_all(s, 2, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(s, SMIN(2), LV_PART_KNOB);
     return s;
 }
 
@@ -106,7 +106,7 @@ static lv_obj_t* makeTextarea(lv_obj_t* parent, const char* initial,
     lv_obj_set_style_border_color(ta, CLK_INPUT_BORD, 0);
     lv_obj_set_style_border_width(ta, 1, 0);
     lv_obj_set_style_radius(ta, 8, 0);
-    lv_obj_set_style_pad_all(ta, 10, 0);
+    lv_obj_set_style_pad_all(ta, SMIN(10), 0);
     return ta;
 }
 
@@ -270,8 +270,8 @@ static void style_keyboard_dark(lv_obj_t* kb) {
     lv_obj_set_style_bg_opa(kb, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_color(kb, SET_CARD_BORDER, LV_PART_MAIN);
     lv_obj_set_style_border_width(kb, 1, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(kb, 6, LV_PART_MAIN);
-    lv_obj_set_style_pad_gap(kb, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(kb, SMIN(6), LV_PART_MAIN);
+    lv_obj_set_style_pad_gap(kb, SMIN(4), LV_PART_MAIN);
     lv_obj_set_style_radius(kb, 12, LV_PART_MAIN);
 
     // Key buttons
@@ -310,7 +310,7 @@ void createClockSettingsScreen() {
     lv_label_set_text(lbl_title, "Clock");
     lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_pad_bottom(lbl_title, 12, 0);
+    lv_obj_set_style_pad_bottom(lbl_title, SY(12), 0);
 
     // ────────────────────────────────────────────────────────────────────────
     // CARD 1 — Display
@@ -489,7 +489,7 @@ void createClockSettingsScreen() {
         lv_obj_set_style_bg_opa(city_sub_container, LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(city_sub_container, 0, 0);
         lv_obj_set_style_pad_all(city_sub_container, 0, 0);
-        lv_obj_set_style_pad_row(city_sub_container, 4, 0);
+        lv_obj_set_style_pad_row(city_sub_container, SY(4), 0);
         lv_obj_set_flex_flow(city_sub_container, LV_FLEX_FLOW_COLUMN);
         lv_obj_clear_flag(city_sub_container, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -525,8 +525,8 @@ void createClockSettingsScreen() {
         lv_obj_set_style_radius(custom_loc_card, 10, 0);
         lv_obj_set_style_border_color(custom_loc_card, COL_ACCENT, 0);
         lv_obj_set_style_border_width(custom_loc_card, 1, 0);
-        lv_obj_set_style_pad_all(custom_loc_card, 12, 0);
-        lv_obj_set_style_pad_row(custom_loc_card, 6, 0);
+        lv_obj_set_style_pad_all(custom_loc_card, SMIN(12), 0);
+        lv_obj_set_style_pad_row(custom_loc_card, SY(6), 0);
         lv_obj_set_style_margin_top(custom_loc_card, 6, 0);
         lv_obj_set_flex_flow(custom_loc_card, LV_FLEX_FLOW_COLUMN);
         lv_obj_clear_flag(custom_loc_card, LV_OBJ_FLAG_SCROLLABLE);

@@ -57,7 +57,7 @@ void refreshGroupsList() {
         lv_obj_set_user_data(btn, (void*)(intptr_t)i);
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
-        lv_obj_set_style_pad_all(btn, 12, 0);
+        lv_obj_set_style_pad_all(btn, SMIN(12), 0);
 
         lv_obj_set_style_bg_color(btn, isSelected ? COL_SELECTED : COL_CARD, 0);
         lv_obj_set_style_bg_color(btn, COL_BTN_PRESSED, LV_STATE_PRESSED);
@@ -115,7 +115,7 @@ void refreshGroupsList() {
             lv_label_set_text(nowPlaying, trackInfo.c_str());
             lv_obj_set_style_text_color(nowPlaying, lv_color_hex(0x4ECB71), 0);
             lv_obj_set_style_text_font(nowPlaying, &font_text_12, 0);
-            lv_obj_align(nowPlaying, LV_ALIGN_LEFT_MID, 70, 22);
+            lv_obj_align(nowPlaying, LV_ALIGN_LEFT_MID, SX(70), SY(22));
         }
 
         // Click to select this group for management
@@ -138,7 +138,7 @@ void refreshGroupsList() {
                 lv_obj_set_user_data(memBtn, (void*)(intptr_t)j);
                 lv_obj_set_style_radius(memBtn, 8, 0);
                 lv_obj_set_style_shadow_width(memBtn, 0, 0);
-                lv_obj_set_style_pad_all(memBtn, 10, 0);
+                lv_obj_set_style_pad_all(memBtn, SMIN(10), 0);
                 lv_obj_set_style_bg_color(memBtn, lv_color_hex(0x252525), 0);
                 lv_obj_set_style_bg_color(memBtn, COL_BTN_PRESSED, LV_STATE_PRESSED);
                 lv_obj_set_style_margin_left(memBtn, 40, 0);
@@ -147,18 +147,18 @@ void refreshGroupsList() {
                 lv_label_set_text(memIcon, MDI_CHEVRON_RIGHT " " MDI_SPEAKER);
                 lv_obj_set_style_text_color(memIcon, COL_TEXT2, 0);
                 lv_obj_set_style_text_font(memIcon, &lv_font_mdi_16, 0);
-                lv_obj_align(memIcon, LV_ALIGN_LEFT_MID, 5, 0);
+                lv_obj_align(memIcon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
                 lv_obj_t* memLbl = lv_label_create(memBtn);
                 lv_label_set_text(memLbl, member->roomName.c_str());
                 lv_obj_set_style_text_color(memLbl, COL_TEXT, 0);
                 lv_obj_set_style_text_font(memLbl, &font_text_16, 0);
-                lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, 60, 0);
+                lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, SX(60), 0);
 
                 // Remove from group button
                 lv_obj_t* removeBtn = lv_btn_create(memBtn);
                 lv_obj_set_size(removeBtn, SX(90), SY(35));
-                lv_obj_align(removeBtn, LV_ALIGN_RIGHT_MID, -5, 0);
+                lv_obj_align(removeBtn, LV_ALIGN_RIGHT_MID, SX(-5), 0);
                 lv_obj_set_style_bg_color(removeBtn, lv_color_hex(0x8B0000), 0);
                 lv_obj_set_style_radius(removeBtn, 8, 0);
                 lv_obj_set_user_data(removeBtn, (void*)(intptr_t)j);
@@ -192,7 +192,7 @@ void refreshGroupsList() {
             lv_obj_set_size(hdr, SX(720), SY(40));
             lv_obj_set_style_bg_color(hdr, lv_color_hex(0x1A1A1A), 0);
             lv_obj_set_style_border_width(hdr, 0, 0);
-            lv_obj_set_style_pad_all(hdr, 10, 0);
+            lv_obj_set_style_pad_all(hdr, SMIN(10), 0);
             lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
 
             lv_obj_t* hdrLbl = lv_label_create(hdr);
@@ -218,7 +218,7 @@ void refreshGroupsList() {
                 lv_obj_set_user_data(addBtn, (void*)(intptr_t)i);
                 lv_obj_set_style_radius(addBtn, 10, 0);
                 lv_obj_set_style_shadow_width(addBtn, 0, 0);
-                lv_obj_set_style_pad_all(addBtn, 10, 0);
+                lv_obj_set_style_pad_all(addBtn, SMIN(10), 0);
                 lv_obj_set_style_bg_color(addBtn, lv_color_hex(0x1E3A1E), 0);  // Dark green hint
                 lv_obj_set_style_bg_color(addBtn, lv_color_hex(0x2A5A2A), LV_STATE_PRESSED);
 
@@ -226,13 +226,13 @@ void refreshGroupsList() {
                 lv_label_set_text(addIcon, MDI_PLUS " " MDI_SPEAKER);
                 lv_obj_set_style_text_color(addIcon, lv_color_hex(0x4ECB71), 0);
                 lv_obj_set_style_text_font(addIcon, &lv_font_mdi_24, 0);
-                lv_obj_align(addIcon, LV_ALIGN_LEFT_MID, 5, 0);
+                lv_obj_align(addIcon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
                 lv_obj_t* addLbl = lv_label_create(addBtn);
                 lv_label_set_text_fmt(addLbl, "Add %s", dev->roomName.c_str());
                 lv_obj_set_style_text_color(addLbl, COL_TEXT, 0);
                 lv_obj_set_style_text_font(addLbl, &font_text_16, 0);
-                lv_obj_align(addLbl, LV_ALIGN_LEFT_MID, 60, 0);
+                lv_obj_align(addLbl, LV_ALIGN_LEFT_MID, SX(60), 0);
 
                 lv_obj_add_event_cb(addBtn, [](lv_event_t* e) {
                     int idx = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
@@ -339,11 +339,11 @@ void createGroupsScreen() {
     lv_obj_set_style_border_width(list_groups, 0, 0);
     lv_obj_set_style_radius(list_groups, 0, 0);
     lv_obj_set_style_pad_all(list_groups, 0, 0);
-    lv_obj_set_style_pad_row(list_groups, 6, 0);
+    lv_obj_set_style_pad_row(list_groups, SY(6), 0);
     lv_obj_set_flex_flow(list_groups, LV_FLEX_FLOW_COLUMN);
 
     // Scrollbar styling
-    lv_obj_set_style_pad_right(list_groups, 8, LV_PART_SCROLLBAR);
+    lv_obj_set_style_pad_right(list_groups, SX(8), LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_opa(list_groups, LV_OPA_30, LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_color(list_groups, COL_TEXT2, LV_PART_SCROLLBAR);
     lv_obj_set_style_width(list_groups, 6, LV_PART_SCROLLBAR);

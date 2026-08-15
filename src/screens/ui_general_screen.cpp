@@ -32,7 +32,7 @@ void createGeneralScreen() {
     lv_label_set_text(lbl_title, "General");
     lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_pad_bottom(lbl_title, 12, 0);
+    lv_obj_set_style_pad_bottom(lbl_title, SY(12), 0);
 
     // ────────────────────────────────────────────────────────────────────────
     // CARD — Lyrics
@@ -88,7 +88,7 @@ void createGeneralScreen() {
         lv_obj_set_style_text_font(dd, &font_text_14, 0);
         lv_obj_set_style_border_color(dd, lv_color_hex(0x3A3A3A), 0);
         lv_obj_set_style_radius(dd, 8, 0);
-        lv_obj_set_style_pad_all(dd, 10, 0);
+        lv_obj_set_style_pad_all(dd, SMIN(10), 0);
         lv_obj_set_style_margin_top(dd, 4, 0);
         // Highlighted row in the OPEN list. Styling only the list leaves this to
         // LVGL's default (light) theme — dark list, white selection bar.

@@ -46,7 +46,7 @@ void setRadioMode(bool enable) {
         // Allow 2-line wrap so long programme names ("Artist - Song Title on Station") show fully.
         if (lbl_artist) {
             lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_WRAP);
-            lv_obj_set_height(lbl_artist, 44);  // 2 × 22px line height for Montserrat 16
+            lv_obj_set_height(lbl_artist, SY(44));  // 2 × 22px line height for Montserrat 16
         }
         // Hide album label — irrelevant for radio and would overlap with 2-line artist
         if (lbl_album) lv_obj_add_flag(lbl_album, LV_OBJ_FLAG_HIDDEN);
@@ -55,7 +55,7 @@ void setRadioMode(bool enable) {
         Serial.println("[RADIO UI] Switching to music mode");
 
         // Restore title to music-mode position (y=68, Montserrat 32)
-        if (lbl_title) lv_obj_set_y(lbl_title, 88);
+        if (lbl_title) lv_obj_set_y(lbl_title, SY(88));
         // Restore artist to single-line truncated mode
         if (lbl_artist) {
             lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_DOT);

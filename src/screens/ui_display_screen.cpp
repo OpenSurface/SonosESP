@@ -27,14 +27,14 @@ void createDisplaySettingsScreen() {
     lv_label_set_text(lbl_title, "Display");
     lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_pad_bottom(lbl_title, 16, 0);
+    lv_obj_set_style_pad_bottom(lbl_title, SY(16), 0);
 
     // Brightness
     lv_obj_t* lbl_brightness = lv_label_create(content);
     lv_label_set_text(lbl_brightness, "Brightness:");
     lv_obj_set_style_text_color(lbl_brightness, COL_TEXT, 0);
     lv_obj_set_style_text_font(lbl_brightness, &font_text_16, 0);
-    lv_obj_set_style_pad_top(lbl_brightness, 8, 0);
+    lv_obj_set_style_pad_top(lbl_brightness, SY(8), 0);
 
     static lv_obj_t* lbl_brightness_val;
     lbl_brightness_val = lv_label_create(content);
@@ -52,9 +52,9 @@ void createDisplaySettingsScreen() {
     lv_obj_set_style_bg_color(slider_brightness, COL_ACCENT, LV_PART_KNOB);
     lv_obj_set_style_radius(slider_brightness, 10, LV_PART_MAIN);
     lv_obj_set_style_radius(slider_brightness, 10, LV_PART_INDICATOR);
-    lv_obj_set_style_pad_all(slider_brightness, 2, LV_PART_KNOB);
-    lv_obj_set_style_pad_top(slider_brightness, 4, 0);
-    lv_obj_set_style_pad_bottom(slider_brightness, 16, 0);
+    lv_obj_set_style_pad_all(slider_brightness, SMIN(2), LV_PART_KNOB);
+    lv_obj_set_style_pad_top(slider_brightness, SY(4), 0);
+    lv_obj_set_style_pad_bottom(slider_brightness, SY(16), 0);
     lv_obj_add_event_cb(slider_brightness, [](lv_event_t* e) {
         lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
         int val = lv_slider_get_value(slider);
@@ -84,9 +84,9 @@ void createDisplaySettingsScreen() {
     lv_obj_set_style_bg_color(slider_dim_timeout, COL_ACCENT, LV_PART_KNOB);
     lv_obj_set_style_radius(slider_dim_timeout, 10, LV_PART_MAIN);
     lv_obj_set_style_radius(slider_dim_timeout, 10, LV_PART_INDICATOR);
-    lv_obj_set_style_pad_all(slider_dim_timeout, 2, LV_PART_KNOB);
-    lv_obj_set_style_pad_top(slider_dim_timeout, 4, 0);
-    lv_obj_set_style_pad_bottom(slider_dim_timeout, 16, 0);
+    lv_obj_set_style_pad_all(slider_dim_timeout, SMIN(2), LV_PART_KNOB);
+    lv_obj_set_style_pad_top(slider_dim_timeout, SY(4), 0);
+    lv_obj_set_style_pad_bottom(slider_dim_timeout, SY(16), 0);
     lv_obj_add_event_cb(slider_dim_timeout, [](lv_event_t* e) {
         lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
         autodim_timeout = lv_slider_get_value(slider);
@@ -116,9 +116,9 @@ void createDisplaySettingsScreen() {
     lv_obj_set_style_bg_color(slider_dimmed_brightness, COL_ACCENT, LV_PART_KNOB);
     lv_obj_set_style_radius(slider_dimmed_brightness, 10, LV_PART_MAIN);
     lv_obj_set_style_radius(slider_dimmed_brightness, 10, LV_PART_INDICATOR);
-    lv_obj_set_style_pad_all(slider_dimmed_brightness, 2, LV_PART_KNOB);
-    lv_obj_set_style_pad_top(slider_dimmed_brightness, 4, 0);
-    lv_obj_set_style_pad_bottom(slider_dimmed_brightness, 16, 0);
+    lv_obj_set_style_pad_all(slider_dimmed_brightness, SMIN(2), LV_PART_KNOB);
+    lv_obj_set_style_pad_top(slider_dimmed_brightness, SY(4), 0);
+    lv_obj_set_style_pad_bottom(slider_dimmed_brightness, SY(16), 0);
     lv_obj_add_event_cb(slider_dimmed_brightness, [](lv_event_t* e) {
         lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
         brightness_dimmed = lv_slider_get_value(slider);

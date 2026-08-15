@@ -34,7 +34,7 @@ void createOTAScreen() {
     lv_obj_set_style_bg_color(card_version, lv_color_hex(0x2A2A2A), 0);
     lv_obj_set_style_radius(card_version, 12, 0);
     lv_obj_set_style_border_width(card_version, 0, 0);
-    lv_obj_set_style_pad_all(card_version, 16, 0);
+    lv_obj_set_style_pad_all(card_version, SMIN(16), 0);
     lv_obj_clear_flag(card_version, LV_OBJ_FLAG_SCROLLABLE);
 
     lbl_current_version = lv_label_create(card_version);
@@ -47,7 +47,7 @@ void createOTAScreen() {
     lv_label_set_text(lbl_latest_version, "Latest: Checking...");
     lv_obj_set_style_text_font(lbl_latest_version, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_latest_version, COL_TEXT2, 0);
-    lv_obj_align(lbl_latest_version, LV_ALIGN_TOP_LEFT, 0, 30);
+    lv_obj_align(lbl_latest_version, LV_ALIGN_TOP_LEFT, 0, SY(30));
 
     // Release channel selector card
     lv_obj_t* card_channel = lv_obj_create(content);
@@ -56,7 +56,7 @@ void createOTAScreen() {
     lv_obj_set_style_bg_color(card_channel, lv_color_hex(0x2A2A2A), 0);
     lv_obj_set_style_radius(card_channel, 12, 0);
     lv_obj_set_style_border_width(card_channel, 0, 0);
-    lv_obj_set_style_pad_all(card_channel, 16, 0);
+    lv_obj_set_style_pad_all(card_channel, SMIN(16), 0);
     lv_obj_clear_flag(card_channel, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t* lbl_channel = lv_label_create(card_channel);
@@ -67,7 +67,7 @@ void createOTAScreen() {
 
     dd_ota_channel = lv_dropdown_create(card_channel);
     lv_dropdown_set_options(dd_ota_channel, "Stable\nNightly");
-    lv_obj_set_size(dd_ota_channel, 150, 40);
+    lv_obj_set_size(dd_ota_channel, SX(150), SY(40));
     lv_obj_align(dd_ota_channel, LV_ALIGN_RIGHT_MID, 0, 0);
 
     // Style the dropdown button (closed state)
@@ -77,8 +77,8 @@ void createOTAScreen() {
     lv_obj_set_style_radius(dd_ota_channel, 8, LV_PART_MAIN);
     lv_obj_set_style_border_width(dd_ota_channel, 1, LV_PART_MAIN);
     lv_obj_set_style_border_color(dd_ota_channel, lv_color_hex(0x555555), LV_PART_MAIN);
-    lv_obj_set_style_pad_left(dd_ota_channel, 12, LV_PART_MAIN);
-    lv_obj_set_style_pad_right(dd_ota_channel, 12, LV_PART_MAIN);
+    lv_obj_set_style_pad_left(dd_ota_channel, SX(12), LV_PART_MAIN);
+    lv_obj_set_style_pad_right(dd_ota_channel, SX(12), LV_PART_MAIN);
 
     // Style the dropdown list (opened state) - this is the key for dark theme!
     lv_obj_set_style_bg_color(dd_ota_channel, lv_color_hex(0x2A2A2A), LV_PART_SELECTED);

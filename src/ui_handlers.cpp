@@ -321,7 +321,7 @@ void ev_wifi_scan(lv_event_t* e) {
         lv_label_set_text(icon, MDI_WIFI);
         lv_obj_set_style_text_font(icon, &lv_font_mdi_16, 0);
         lv_obj_set_style_text_color(icon, icon_color, 0);
-        lv_obj_align(icon, LV_ALIGN_LEFT_MID, 10, 0);
+        lv_obj_align(icon, LV_ALIGN_LEFT_MID, SX(10), 0);
 
         lv_obj_t* ssid_lbl = lv_label_create(btn);
         lv_label_set_text(ssid_lbl, wifiNetworks[ui].c_str());
@@ -329,7 +329,7 @@ void ev_wifi_scan(lv_event_t* e) {
         lv_obj_set_style_text_font(ssid_lbl, &font_text_14, 0);
         lv_obj_set_width(ssid_lbl, lv_pct(80));
         lv_label_set_long_mode(ssid_lbl, LV_LABEL_LONG_DOT);
-        lv_obj_align(ssid_lbl, LV_ALIGN_LEFT_MID, 36, 0);
+        lv_obj_align(ssid_lbl, LV_ALIGN_LEFT_MID, SX(36), 0);
     }
     WiFi.scanDelete();
 }

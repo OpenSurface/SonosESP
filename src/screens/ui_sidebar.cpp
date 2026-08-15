@@ -72,7 +72,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
         lv_obj_set_style_bg_color(btn, lv_color_hex(0x2A2A2A), LV_STATE_PRESSED);
         lv_obj_set_style_radius(btn, 8, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
-        lv_obj_set_style_pad_left(btn, 10, 0);
+        lv_obj_set_style_pad_left(btn, SX(10), 0);
 
         lv_obj_t* ico = lv_label_create(btn);
         lv_label_set_text(ico, icons[i]);
@@ -118,7 +118,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     lv_obj_set_style_bg_color(content, lv_color_hex(0x121212), 0);
     lv_obj_set_style_border_width(content, 0, 0);
     lv_obj_set_style_radius(content, 0, 0);
-    lv_obj_set_style_pad_all(content, 24, 0);
+    lv_obj_set_style_pad_all(content, SMIN(24), 0);
 
     // Every settings screen turns this area's scrollbar on but none of them style
     // it, so it was drawn by LVGL's default (light) theme. Styled once here so it

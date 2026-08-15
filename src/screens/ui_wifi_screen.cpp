@@ -76,14 +76,14 @@ void createWiFiScreen() {
     lv_obj_set_style_bg_color(pw_strip, COL_CARD, 0);
     lv_obj_set_style_border_width(pw_strip, 0, 0);
     lv_obj_set_style_radius(pw_strip, 10, 0);
-    lv_obj_set_style_pad_hor(pw_strip, 10, 0);
+    lv_obj_set_style_pad_hor(pw_strip, SX(10), 0);
     lv_obj_set_style_pad_ver(pw_strip, 0, 0);
     lv_obj_clear_flag(pw_strip, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(pw_strip, LV_OBJ_FLAG_HIDDEN);
 
     // Cancel (×) button — far left
     lv_obj_t* btn_cancel = lv_btn_create(pw_strip);
-    lv_obj_set_size(btn_cancel, 32, 32);
+    lv_obj_set_size(btn_cancel, SMIN(32), SMIN(32));
     lv_obj_align(btn_cancel, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_set_style_bg_color(btn_cancel, COL_BTN, 0);
     lv_obj_set_style_radius(btn_cancel, 16, 0);
@@ -104,9 +104,9 @@ void createWiFiScreen() {
     lv_label_set_text(lbl_pw_ssid, "");
     lv_obj_set_style_text_font(lbl_pw_ssid, &font_text_14, 0);
     lv_obj_set_style_text_color(lbl_pw_ssid, COL_TEXT, 0);
-    lv_obj_set_width(lbl_pw_ssid, 138);
+    lv_obj_set_width(lbl_pw_ssid, SX(138));
     lv_label_set_long_mode(lbl_pw_ssid, LV_LABEL_LONG_DOT);
-    lv_obj_align(lbl_pw_ssid, LV_ALIGN_LEFT_MID, 42, 0);
+    lv_obj_align(lbl_pw_ssid, LV_ALIGN_LEFT_MID, SX(42), 0);
 
     // Password textarea
     ta_password = lv_textarea_create(pw_strip);
@@ -147,7 +147,7 @@ void createWiFiScreen() {
     lv_obj_set_style_border_width(list_wifi, 0, 0);
     lv_obj_set_style_radius(list_wifi, 0, 0);
     lv_obj_set_style_pad_all(list_wifi, 0, 0);
-    lv_obj_set_style_pad_row(list_wifi, 5, 0);
+    lv_obj_set_style_pad_row(list_wifi, SY(5), 0);
 
     // ── Scan spinner (centered in list area, hidden by default) ───────────────
     spinner_wifi_scan = lv_spinner_create(content);
@@ -169,7 +169,7 @@ void createWiFiScreen() {
     lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, SX(90), SY(-5));
     lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_style_bg_color(kb, COL_CARD, 0);
-    lv_obj_set_style_pad_all(kb, 5, 0);
+    lv_obj_set_style_pad_all(kb, SMIN(5), 0);
     lv_obj_set_style_radius(kb, 10, 0);
     lv_obj_set_style_bg_color(kb, COL_BTN, LV_PART_ITEMS);
     lv_obj_set_style_text_color(kb, COL_TEXT, LV_PART_ITEMS);

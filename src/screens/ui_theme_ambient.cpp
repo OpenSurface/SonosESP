@@ -294,7 +294,7 @@ void buildAmbientPlayer() {
     lv_obj_set_style_bg_color(slider_progress, lv_color_hex(0x4A4A4A), LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_progress, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_progress, COL_TEXT, LV_PART_KNOB);
-    lv_obj_set_style_pad_all(slider_progress, 4, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(slider_progress, SMIN(4), LV_PART_KNOB);
     lv_obj_add_event_cb(slider_progress, ev_progress, LV_EVENT_ALL, NULL);
 
     lbl_time = lv_label_create(panel_right);
@@ -349,7 +349,7 @@ void buildAmbientPlayer() {
     lv_obj_set_style_bg_color(slider_vol, lv_color_hex(0x4A4A4A), LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT2, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_KNOB);
-    lv_obj_set_style_pad_all(slider_vol, 4, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(slider_vol, SMIN(4), LV_PART_KNOB);
     lv_obj_add_event_cb(slider_vol, ev_vol_slider, LV_EVENT_ALL, NULL);
 
     // ── Created but unused by this layout ───────────────────────────────────

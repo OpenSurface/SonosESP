@@ -543,10 +543,10 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lv_obj_set_style_shadow_width(lyrics_container, 0, 0);
     lv_obj_set_style_radius(lyrics_container, 24, 0);     // match album art corner radius
     lv_obj_set_style_clip_corner(lyrics_container, true, 0);
-    lv_obj_set_style_pad_top(lyrics_container, 24, 0);    // extra top pad — fades into art
-    lv_obj_set_style_pad_bottom(lyrics_container, 12, 0);
-    lv_obj_set_style_pad_left(lyrics_container, 12, 0);
-    lv_obj_set_style_pad_right(lyrics_container, 12, 0);
+    lv_obj_set_style_pad_top(lyrics_container, SY(24), 0);    // extra top pad — fades into art
+    lv_obj_set_style_pad_bottom(lyrics_container, SY(12), 0);
+    lv_obj_set_style_pad_left(lyrics_container, SX(12), 0);
+    lv_obj_set_style_pad_right(lyrics_container, SX(12), 0);
     lv_obj_clear_flag(lyrics_container, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scrollbar_mode(lyrics_container, LV_SCROLLBAR_MODE_OFF);
 

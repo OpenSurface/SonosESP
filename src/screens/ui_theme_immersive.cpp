@@ -520,7 +520,7 @@ void buildImmersivePlayer() {
     lv_obj_set_style_bg_color(slider_vol, lv_color_hex(0x3A3A3A), LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_KNOB);
-    lv_obj_set_style_pad_all(slider_vol, 4, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(slider_vol, SMIN(4), LV_PART_KNOB);
     lv_obj_set_ext_click_area(slider_vol, 14);   // easier to grab a 6px bar
     lv_obj_add_event_cb(slider_vol, ev_vol_slider, LV_EVENT_ALL, NULL);
     // Only real touches keep it alive. Registering this on LV_EVENT_ALL also caught
