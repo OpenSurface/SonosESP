@@ -14,14 +14,14 @@
 #include "touch_driver.h"
 #include "sonos_controller.h"
 #include "esp_heap_caps.h"
-#include "ui_scale.h"   // SX()/SY() resolution-relative scaling + FONT_* tiers
+#include "ui_scale.h"   // SX()/SY()/SMIN() resolution-relative scaling
 
 // Default WiFi credentials (empty = force WiFi setup via UI)
 #define DEFAULT_WIFI_SSID ""
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.12.7"
+#define FIRMWARE_VERSION "1.13.0"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 

@@ -1,6 +1,6 @@
 {
   "name": "SonosESP — 4\" Screen (GUITION JC4880P433C)",
-  "version": "1.12.7",
+  "version": "1.13.0",
   "new_install_prompt_erase": true,
   "builds": [
     {
