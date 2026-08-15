@@ -16,8 +16,8 @@ lv_obj_t* addCard(lv_obj_t* parent, const char* title) {
     lv_obj_set_style_radius(card, 14, 0);
     lv_obj_set_style_border_color(card, SET_CARD_BORDER, 0);
     lv_obj_set_style_border_width(card, 1, 0);
-    lv_obj_set_style_pad_all(card, 16, 0);
-    lv_obj_set_style_pad_row(card, 8, 0);
+    lv_obj_set_style_pad_all(card, SMIN(16), 0);
+    lv_obj_set_style_pad_row(card, SY(8), 0);
     lv_obj_set_style_margin_bottom(card, 14, 0);
     lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(card, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
@@ -48,7 +48,7 @@ void addSettingLabel(lv_obj_t* parent, const char* text) {
     lv_label_set_text(lbl, text);
     lv_obj_set_style_text_font(lbl, &font_text_14, 0);
     lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
-    lv_obj_set_style_pad_top(lbl, 6, 0);
+    lv_obj_set_style_pad_top(lbl, SY(6), 0);
 }
 
 // Returns the label so callers can retarget its text later (the clock-face
@@ -68,14 +68,14 @@ lv_obj_t* addSwitch(lv_obj_t* parent, bool initial) {
     lv_obj_set_size(sw, SX(50), SY(26));
     lv_obj_set_style_margin_top(sw, 4, 0);
     lv_obj_set_style_radius(sw, 13, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(sw, lv_color_hex(0x333333), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(sw, COL_SELECTED, LV_PART_MAIN);
     lv_obj_set_style_bg_color(sw, COL_ACCENT,
         (lv_style_selector_t)((uint32_t)LV_PART_INDICATOR | (uint32_t)LV_STATE_CHECKED));
     lv_obj_set_style_radius(sw, 13, LV_PART_INDICATOR);
     lv_obj_set_style_pad_all(sw, 0, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(sw, COL_TEXT, LV_PART_KNOB);
     lv_obj_set_style_radius(sw, 11, LV_PART_KNOB);
-    lv_obj_set_style_pad_all(sw, -3, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(sw, SMIN(-3), LV_PART_KNOB);
     if (initial) lv_obj_add_state(sw, LV_STATE_CHECKED);
     return sw;
 }

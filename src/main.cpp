@@ -80,6 +80,7 @@ void setup() {
     brightness_dimmed = wifiPrefs.getInt(NVS_KEY_BRIGHTNESS_DIM, DEFAULT_BRIGHTNESS_DIM);
     autodim_timeout = wifiPrefs.getInt(NVS_KEY_AUTODIM, DEFAULT_AUTODIM_SEC);
     lyrics_enabled = wifiPrefs.getBool(NVS_KEY_LYRICS, true);
+    blur_bg_enabled = wifiPrefs.getBool(NVS_KEY_BLUR_BG, true);   // #49, defaults on
     // 7" panel variant. MUST be loaded before display_init() — it selects the
     // panel init sequence and DSI timings.
     panel_variant = wifiPrefs.getInt(NVS_KEY_PANEL_VAR, PANEL_VARIANT_DEFAULT);
@@ -197,10 +198,12 @@ void setup() {
         Serial.println("=========================================\n");
     }
 
-    lv_init();
     // Wire the Latin-1 / Latin-Ext-A fallbacks onto the text fonts. Must run before
-    // any screen is built, since builders capture &font_text_* at creation time.
+    // any screen is built, since builders capture &font_text_* at creation time —
+    // and before lv_init(), because LV_FONT_DEFAULT now points at font_text_16 and
+    // the default theme captures that pointer while initialising.
     uiFontsInit();
+    lv_init();
     if (!display_init()) { Serial.println("Display FAIL"); while(1) delay(1000); }
     if (!touch_init()) { Serial.println("Touch FAIL"); while(1) delay(1000); }
 
@@ -240,8 +243,8 @@ void setup() {
     lv_obj_t* boot_bar = lv_bar_create(boot_scr);
     lv_obj_set_size(boot_bar, SX(300), SY(8));
     lv_obj_align(boot_bar, LV_ALIGN_CENTER, 0, SY(80));
-    lv_obj_set_style_bg_color(boot_bar, lv_color_hex(0x333333), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(boot_bar, lv_color_hex(0xD4A84B), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(boot_bar, COL_SELECTED, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(boot_bar, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_border_width(boot_bar, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(boot_bar, 4, LV_PART_MAIN);
     lv_obj_set_style_radius(boot_bar, 4, LV_PART_INDICATOR);
@@ -251,7 +254,7 @@ void setup() {
     // Version number in bottom right corner
     lv_obj_t* lbl_boot_version = lv_label_create(boot_scr);
     lv_label_set_text(lbl_boot_version, "v" FIRMWARE_VERSION);
-    lv_obj_set_style_text_color(lbl_boot_version, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(lbl_boot_version, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_boot_version, &font_text_12, 0);
     lv_obj_align(lbl_boot_version, LV_ALIGN_BOTTOM_RIGHT, SX(-10), SY(-10));
 
@@ -323,7 +326,7 @@ void setup() {
     if (wifiPrefs.getBool(NVS_KEY_OTA_PENDING, false) && WiFi.status() != WL_CONNECTED) {
         Serial.println("[OTA] Boot OTA pending — waiting for WiFi...");
         lv_obj_t* lbl_ota_wifi = lv_label_create(boot_scr);
-        lv_obj_set_style_text_color(lbl_ota_wifi, lv_color_hex(0xD4A84B), 0);
+        lv_obj_set_style_text_color(lbl_ota_wifi, COL_ACCENT, 0);
         lv_obj_set_style_text_font(lbl_ota_wifi, &font_text_16, 0);
         lv_obj_align(lbl_ota_wifi, LV_ALIGN_CENTER, 0, SY(50));
         lv_label_set_text_fmt(lbl_ota_wifi, "Waiting for WiFi: %s ...", ssid.c_str());

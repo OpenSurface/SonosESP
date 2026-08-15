@@ -21,6 +21,20 @@ void createMainScreen() {
     themeCurrent()->build();
 }
 
+// Header buttons were bare icons on a transparent hit box: nothing showed where
+// the button ended, so they read as decoration rather than controls. This is the
+// same treatment the Immersive and Ambient headers use — a soft dark disc with a
+// faint ring — lifted here so all three themes present their header the same way.
+static void headerCircle(lv_obj_t* b) {
+    lv_obj_set_style_radius(b, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(b, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(b, LV_OPA_20, 0);
+    lv_obj_set_style_border_width(b, 1, 0);
+    lv_obj_set_style_border_color(b, COL_TEXT, 0);
+    lv_obj_set_style_border_opa(b, LV_OPA_40, 0);
+    lv_obj_set_style_shadow_width(b, 0, 0);
+}
+
 // ==================== CLASSIC LAYOUT — used by Classic + Ambient ============
 // Ambient shares this layout and differs only in backdrop treatment, which is
 // applied by themeApplyBackdrop() from the art colour animation.
@@ -43,7 +57,7 @@ void buildClassicPlayer() {
     panel_art = lv_obj_create(scr_main);
     lv_obj_set_size(panel_art, SX(450), SY(480));
     lv_obj_set_pos(panel_art, 0, 0);
-    lv_obj_set_style_bg_color(panel_art, lv_color_hex(0x1a1a1a), 0);
+    lv_obj_set_style_bg_color(panel_art, COL_BG, 0);
     lv_obj_set_style_bg_opa(panel_art, LV_OPA_TRANSP, 0);  // fully transparent: blur bg is the background
     lv_obj_set_style_radius(panel_art, 0, 0);
     lv_obj_set_style_border_width(panel_art, 0, 0);
@@ -82,7 +96,7 @@ void buildClassicPlayer() {
     lbl_linein_subtitle = lv_label_create(panel_art);
     lv_label_set_text(lbl_linein_subtitle, "LIVE AUDIO");
     lv_obj_set_style_text_font(lbl_linein_subtitle, &font_text_14, 0);
-    lv_obj_set_style_text_color(lbl_linein_subtitle, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(lbl_linein_subtitle, COL_TEXT2, 0);
     lv_obj_set_style_text_letter_space(lbl_linein_subtitle, 3, 0);  // spaced-out caps for modern look
     lv_obj_align(lbl_linein_subtitle, LV_ALIGN_CENTER, SX(15), SY(58)); // below icon (+80px icon height / 2 + gap)
     lv_obj_add_flag(lbl_linein_subtitle, LV_OBJ_FLAG_HIDDEN);
@@ -98,7 +112,7 @@ void buildClassicPlayer() {
     lbl_tv_subtitle = lv_label_create(panel_art);
     lv_label_set_text(lbl_tv_subtitle, "TV AUDIO");
     lv_obj_set_style_text_font(lbl_tv_subtitle, &font_text_14, 0);
-    lv_obj_set_style_text_color(lbl_tv_subtitle, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(lbl_tv_subtitle, COL_TEXT2, 0);
     lv_obj_set_style_text_letter_space(lbl_tv_subtitle, 3, 0);
     lv_obj_align(lbl_tv_subtitle, LV_ALIGN_CENTER, SX(15), SY(58));
     lv_obj_add_flag(lbl_tv_subtitle, LV_OBJ_FLAG_HIDDEN);
@@ -106,7 +120,7 @@ void buildClassicPlayer() {
     // Lyrics status indicator — top-left corner of art image
     lbl_lyrics_status = lv_label_create(panel_art);
     lv_label_set_text(lbl_lyrics_status, "");
-    lv_obj_set_style_text_color(lbl_lyrics_status, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(lbl_lyrics_status, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_lyrics_status, &font_text_14, 0);
     lv_obj_align(lbl_lyrics_status, LV_ALIGN_TOP_LEFT, SX(30), SY(5));  // Aligned with art left edge (x=30), in the gap above art
 
@@ -134,8 +148,7 @@ void buildClassicPlayer() {
     lv_obj_t* btn_back = lv_btn_create(panel_right);
     lv_obj_set_size(btn_back, SMIN(40), SMIN(40));
     lv_obj_set_pos(btn_back, SX(10), SY(15));
-    lv_obj_set_style_bg_opa(btn_back, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_shadow_width(btn_back, 0, 0);
+    headerCircle(btn_back);
     lv_obj_set_style_transform_scale_x(btn_back, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transform_scale_y(btn_back, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transition(btn_back, &trans_btn, LV_STATE_PRESSED);
@@ -153,13 +166,25 @@ void buildClassicPlayer() {
     lv_obj_set_style_text_color(lbl_device_name, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
     lv_obj_set_pos(lbl_device_name, SX(55), SY(25));
+    // "Now Playing - <room>" is unbounded — room names are user-chosen and can be
+    // long ("Living Room Playbar & Sub"). Without a width this ran straight under
+    // the sources and settings buttons at x=255. Stops 8px short of them and
+    // ellipsises instead.
+    lv_obj_set_size(lbl_device_name, SX(192), SY(20));
+    // SCROLL, not SCROLL_CIRCULAR: this pauses, runs to the end, pauses again and
+    // returns, rather than looping a room name past you forever. It only animates
+    // when the text actually overflows, so a name that fits stays perfectly still.
+    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_SCROLL);
 
     // Music Sources button - scale effect
     lv_obj_t* btn_sources = lv_btn_create(panel_right);
     lv_obj_set_size(btn_sources, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_sources, SX(255), SY(18));
-    lv_obj_set_style_bg_opa(btn_sources, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_shadow_width(btn_sources, 0, 0);
+    headerCircle(btn_sources);
+    // 5px, not 8: btn_settings starts 12px away, so 5 a side keeps a 2px gap
+    // between the two hit areas. Overlapping them would hand the shared strip to
+    // whichever was created last.
+    lv_obj_set_ext_click_area(btn_sources, 5);
     lv_obj_set_style_transform_scale_x(btn_sources, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transform_scale_y(btn_sources, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transition(btn_sources, &trans_btn, LV_STATE_PRESSED);
@@ -175,8 +200,8 @@ void buildClassicPlayer() {
     lv_obj_t* btn_settings = lv_btn_create(panel_right);
     lv_obj_set_size(btn_settings, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_settings, SX(305), SY(18));
-    lv_obj_set_style_bg_opa(btn_settings, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_shadow_width(btn_settings, 0, 0);
+    headerCircle(btn_settings);
+    lv_obj_set_ext_click_area(btn_settings, 5);
     lv_obj_add_event_cb(btn_settings, ev_settings, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_set = lv_label_create(btn_settings);
     lv_label_set_text(ico_set, MDI_COG);
@@ -207,8 +232,7 @@ void buildClassicPlayer() {
     btn_queue = lv_btn_create(panel_right);
     lv_obj_set_size(btn_queue, SMIN(48), SMIN(48));
     lv_obj_set_pos(btn_queue, SX(295), SY(122));
-    lv_obj_set_style_bg_opa(btn_queue, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_shadow_width(btn_queue, 0, 0);
+    headerCircle(btn_queue);
     lv_obj_set_style_transform_scale_x(btn_queue, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transform_scale_y(btn_queue, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transition(btn_queue, &trans_btn, LV_STATE_PRESSED);
@@ -227,7 +251,7 @@ void buildClassicPlayer() {
     lv_obj_set_pos(lbl_album, SX(15), SY(154));
     lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_album, "");
-    lv_obj_set_style_text_color(lbl_album, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(lbl_album, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_album, &font_text_14, 0);
 
     // ===== PROGRESS BAR =====
@@ -382,7 +406,7 @@ void buildClassicPlayer() {
     lv_obj_set_style_bg_color(slider_vol, COL_BTN, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT2, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_KNOB);
-    lv_obj_set_style_pad_all(slider_vol, 4, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(slider_vol, SMIN(4), LV_PART_KNOB);
     lv_obj_add_event_cb(slider_vol, ev_vol_slider, LV_EVENT_ALL, NULL);
 
     // ===== PLAY NEXT SECTION (below volume) =====

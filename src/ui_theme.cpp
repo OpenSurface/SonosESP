@@ -36,7 +36,11 @@ const ThemeDef* themeCurrent(void) {
 }
 
 bool themeUsesBlurBg(void) {
-    return themeCurrent()->bg == THEME_BG_BLUR_ART;
+    // Two independent conditions, deliberately in that order: the theme has to
+    // want a blurred backdrop at all, and the user has to have left it switched
+    // on. Every consumer routes through here, so the Display Settings toggle
+    // needs no other wiring.
+    return blur_bg_enabled && themeCurrent()->bg == THEME_BG_BLUR_ART;
 }
 
 // ── Backdrop colour maths ───────────────────────────────────────────────────

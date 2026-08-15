@@ -543,10 +543,10 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lv_obj_set_style_shadow_width(lyrics_container, 0, 0);
     lv_obj_set_style_radius(lyrics_container, 24, 0);     // match album art corner radius
     lv_obj_set_style_clip_corner(lyrics_container, true, 0);
-    lv_obj_set_style_pad_top(lyrics_container, 24, 0);    // extra top pad — fades into art
-    lv_obj_set_style_pad_bottom(lyrics_container, 12, 0);
-    lv_obj_set_style_pad_left(lyrics_container, 12, 0);
-    lv_obj_set_style_pad_right(lyrics_container, 12, 0);
+    lv_obj_set_style_pad_top(lyrics_container, SY(24), 0);    // extra top pad — fades into art
+    lv_obj_set_style_pad_bottom(lyrics_container, SY(12), 0);
+    lv_obj_set_style_pad_left(lyrics_container, SX(12), 0);
+    lv_obj_set_style_pad_right(lyrics_container, SX(12), 0);
     lv_obj_clear_flag(lyrics_container, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scrollbar_mode(lyrics_container, LV_SCROLLBAR_MODE_OFF);
 
@@ -559,7 +559,7 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lv_label_set_text(lbl_lyric_prev, "");
     lv_obj_set_width(lbl_lyric_prev, SMIN(396));
     lv_obj_set_style_text_font(lbl_lyric_prev, &font_text_14, 0);
-    lv_obj_set_style_text_color(lbl_lyric_prev, lv_color_hex(0xAAAAAA), 0);
+    lv_obj_set_style_text_color(lbl_lyric_prev, COL_TEXT3, 0);
     lv_obj_set_style_text_align(lbl_lyric_prev, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(lbl_lyric_prev, LV_LABEL_LONG_SCROLL_CIRCULAR);
 
@@ -568,7 +568,7 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lv_label_set_text(lbl_lyric_current, "");
     lv_obj_set_width(lbl_lyric_current, SMIN(396));
     lv_obj_set_style_text_font(lbl_lyric_current, &font_text_20, 0);
-    lv_obj_set_style_text_color(lbl_lyric_current, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(lbl_lyric_current, COL_TEXT, 0);
     lv_obj_set_style_text_align(lbl_lyric_current, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(lbl_lyric_current, LV_LABEL_LONG_SCROLL_CIRCULAR);
 
@@ -577,7 +577,7 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lv_label_set_text(lbl_lyric_next, "");
     lv_obj_set_width(lbl_lyric_next, SMIN(396));
     lv_obj_set_style_text_font(lbl_lyric_next, &font_text_14, 0);
-    lv_obj_set_style_text_color(lbl_lyric_next, lv_color_hex(0xAAAAAA), 0);
+    lv_obj_set_style_text_color(lbl_lyric_next, COL_TEXT3, 0);
     lv_obj_set_style_text_align(lbl_lyric_next, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(lbl_lyric_next, LV_LABEL_LONG_SCROLL_CIRCULAR);
 

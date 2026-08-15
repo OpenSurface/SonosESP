@@ -5,6 +5,8 @@
 
 #include "ui_common.h"
 #include "ui_fonts.h"
+#include "ui_settings_card.h"   // addSwitch() — shared styling
+#include "ui_theme.h"
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -14,7 +16,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // ============================================================================
 void createDisplaySettingsScreen() {
     scr_display = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_display, lv_color_hex(0x121212), 0);
+    lv_obj_set_style_bg_color(scr_display, COL_SCREEN, 0);
 
     // Create sidebar and get content area (Display is index 4)
     lv_obj_t* content = createSettingsSidebar(scr_display, 4);
@@ -27,14 +29,14 @@ void createDisplaySettingsScreen() {
     lv_label_set_text(lbl_title, "Display");
     lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_pad_bottom(lbl_title, 16, 0);
+    lv_obj_set_style_pad_bottom(lbl_title, SY(16), 0);
 
     // Brightness
     lv_obj_t* lbl_brightness = lv_label_create(content);
     lv_label_set_text(lbl_brightness, "Brightness:");
     lv_obj_set_style_text_color(lbl_brightness, COL_TEXT, 0);
     lv_obj_set_style_text_font(lbl_brightness, &font_text_16, 0);
-    lv_obj_set_style_pad_top(lbl_brightness, 8, 0);
+    lv_obj_set_style_pad_top(lbl_brightness, SY(8), 0);
 
     static lv_obj_t* lbl_brightness_val;
     lbl_brightness_val = lv_label_create(content);
@@ -47,14 +49,14 @@ void createDisplaySettingsScreen() {
     lv_obj_set_height(slider_brightness, SY(20));
     lv_slider_set_range(slider_brightness, 10, 100);
     lv_slider_set_value(slider_brightness, brightness_level, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(slider_brightness, lv_color_hex(0x333333), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(slider_brightness, COL_SELECTED, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_brightness, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_brightness, COL_ACCENT, LV_PART_KNOB);
     lv_obj_set_style_radius(slider_brightness, 10, LV_PART_MAIN);
     lv_obj_set_style_radius(slider_brightness, 10, LV_PART_INDICATOR);
-    lv_obj_set_style_pad_all(slider_brightness, 2, LV_PART_KNOB);
-    lv_obj_set_style_pad_top(slider_brightness, 4, 0);
-    lv_obj_set_style_pad_bottom(slider_brightness, 16, 0);
+    lv_obj_set_style_pad_all(slider_brightness, SMIN(2), LV_PART_KNOB);
+    lv_obj_set_style_pad_top(slider_brightness, SY(4), 0);
+    lv_obj_set_style_pad_bottom(slider_brightness, SY(16), 0);
     lv_obj_add_event_cb(slider_brightness, [](lv_event_t* e) {
         lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
         int val = lv_slider_get_value(slider);
@@ -79,14 +81,14 @@ void createDisplaySettingsScreen() {
     lv_obj_set_height(slider_dim_timeout, SY(20));
     lv_slider_set_range(slider_dim_timeout, 0, 300);
     lv_slider_set_value(slider_dim_timeout, autodim_timeout, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(slider_dim_timeout, lv_color_hex(0x333333), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(slider_dim_timeout, COL_SELECTED, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_dim_timeout, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_dim_timeout, COL_ACCENT, LV_PART_KNOB);
     lv_obj_set_style_radius(slider_dim_timeout, 10, LV_PART_MAIN);
     lv_obj_set_style_radius(slider_dim_timeout, 10, LV_PART_INDICATOR);
-    lv_obj_set_style_pad_all(slider_dim_timeout, 2, LV_PART_KNOB);
-    lv_obj_set_style_pad_top(slider_dim_timeout, 4, 0);
-    lv_obj_set_style_pad_bottom(slider_dim_timeout, 16, 0);
+    lv_obj_set_style_pad_all(slider_dim_timeout, SMIN(2), LV_PART_KNOB);
+    lv_obj_set_style_pad_top(slider_dim_timeout, SY(4), 0);
+    lv_obj_set_style_pad_bottom(slider_dim_timeout, SY(16), 0);
     lv_obj_add_event_cb(slider_dim_timeout, [](lv_event_t* e) {
         lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
         autodim_timeout = lv_slider_get_value(slider);
@@ -111,14 +113,14 @@ void createDisplaySettingsScreen() {
     lv_obj_set_height(slider_dimmed_brightness, SY(20));
     lv_slider_set_range(slider_dimmed_brightness, 5, 50);
     lv_slider_set_value(slider_dimmed_brightness, brightness_dimmed, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(slider_dimmed_brightness, lv_color_hex(0x333333), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(slider_dimmed_brightness, COL_SELECTED, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_dimmed_brightness, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_dimmed_brightness, COL_ACCENT, LV_PART_KNOB);
     lv_obj_set_style_radius(slider_dimmed_brightness, 10, LV_PART_MAIN);
     lv_obj_set_style_radius(slider_dimmed_brightness, 10, LV_PART_INDICATOR);
-    lv_obj_set_style_pad_all(slider_dimmed_brightness, 2, LV_PART_KNOB);
-    lv_obj_set_style_pad_top(slider_dimmed_brightness, 4, 0);
-    lv_obj_set_style_pad_bottom(slider_dimmed_brightness, 16, 0);
+    lv_obj_set_style_pad_all(slider_dimmed_brightness, SMIN(2), LV_PART_KNOB);
+    lv_obj_set_style_pad_top(slider_dimmed_brightness, SY(4), 0);
+    lv_obj_set_style_pad_bottom(slider_dimmed_brightness, SY(16), 0);
     lv_obj_add_event_cb(slider_dimmed_brightness, [](lv_event_t* e) {
         lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
         brightness_dimmed = lv_slider_get_value(slider);
@@ -126,6 +128,44 @@ void createDisplaySettingsScreen() {
         wifiPrefs.putInt(NVS_KEY_BRIGHTNESS_DIM, brightness_dimmed);
         if (screen_dimmed) setBrightness(brightness_dimmed);
     }, LV_EVENT_VALUE_CHANGED, lbl_dimmed_brightness_val);
+
+    // Blurred album-art background (issue #49)
+    lv_obj_t* lbl_blur = lv_label_create(content);
+    lv_label_set_text(lbl_blur, "Blurred album art background:");
+    lv_obj_set_style_text_color(lbl_blur, COL_TEXT, 0);
+    lv_obj_set_style_text_font(lbl_blur, &font_text_16, 0);
+    lv_obj_set_style_pad_top(lbl_blur, SY(8), 0);
+
+    lv_obj_t* lbl_blur_desc = lv_label_create(content);
+    lv_label_set_text(lbl_blur_desc,
+                      "Fills the screen behind the player with a blurred copy of "
+                      "the artwork. Used by the Classic theme; the others paint "
+                      "their own backdrop.");
+    lv_obj_set_style_text_color(lbl_blur_desc, COL_TEXT2, 0);
+    lv_obj_set_style_text_font(lbl_blur_desc, &font_text_12, 0);
+    lv_obj_set_width(lbl_blur_desc, lv_pct(100));
+    lv_label_set_long_mode(lbl_blur_desc, LV_LABEL_LONG_WRAP);
+
+    lv_obj_t* sw_blur = addSwitch(content, blur_bg_enabled);
+    lv_obj_set_style_pad_bottom(sw_blur, SY(16), 0);
+    lv_obj_add_event_cb(sw_blur, [](lv_event_t* e) {
+        lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
+        blur_bg_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
+        wifiPrefs.putBool(NVS_KEY_BLUR_BG, blur_bg_enabled);
+
+        if (!blur_bg_enabled) {
+            // Hide immediately rather than waiting for the next track — the
+            // backdrop is already on screen behind this settings page.
+            if (img_blur_bg) lv_obj_add_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
+        } else if (art_mutex && xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
+            // Re-publish the artwork we already hold so it comes straight back.
+            // Gated on blur_bg_valid, not on the buffer pointer: blur_bg_buf is
+            // allocated once and never freed, so a pointer check would republish
+            // the previous track's blur (or uninitialised PSRAM).
+            if (blur_bg_valid) blur_bg_ready = true;
+            xSemaphoreGive(art_mutex);
+        }
+    }, LV_EVENT_VALUE_CHANGED, NULL);
 
 // No panel-type control here on purpose. If the picture is good you can read
 // this screen, so there is nothing to change; if it is bad you cannot reach it

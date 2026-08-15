@@ -23,7 +23,21 @@
 //
 // Covers essentially all Western/Central European text. Cyrillic, Greek, CJK
 // and RTL scripts are still out of range (RTL would also need LV_USE_BIDI).
+//
+// ── The number in the name is a DESIGN SIZE, not a pixel size ──────────────
+// These follow the same convention as SX()/SY(): the layout is authored against
+// 800x480, and each name resolves to whatever face suits the active panel.
+// font_text_14 is Montserrat 14 on the 4" and Montserrat 16 on the 7". Call
+// sites just ask for the design size and never branch on SCREEN_SIZE.
+// The mapping table lives in uiFontsInit() (ui_fonts.cpp).
 // ---------------------------------------------------------------------------
+
+// C linkage: LV_FONT_DEFAULT points at font_text_16, so LVGL re-declares it from
+// lv_font.h (inside LVGL's extern "C" block). Both declarations must agree or any
+// translation unit including both fails to compile.
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern lv_font_t font_text_12;
 extern lv_font_t font_text_14;
@@ -33,7 +47,11 @@ extern lv_font_t font_text_24;
 extern lv_font_t font_text_32;
 extern lv_font_t font_text_48;
 
-// Must be called once at boot BEFORE any screen is built.
+#ifdef __cplusplus
+}
+#endif
+
+// Must be called once at boot BEFORE any screen is built, and before lv_init().
 void uiFontsInit(void);
 
 #endif // UI_FONTS_H

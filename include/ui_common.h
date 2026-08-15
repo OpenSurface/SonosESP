@@ -14,14 +14,14 @@
 #include "touch_driver.h"
 #include "sonos_controller.h"
 #include "esp_heap_caps.h"
-#include "ui_scale.h"   // SX()/SY() resolution-relative scaling + FONT_* tiers
+#include "ui_scale.h"   // SX()/SY()/SMIN() resolution-relative scaling
 
 // Default WiFi credentials (empty = force WiFi setup via UI)
 #define DEFAULT_WIFI_SSID ""
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.12.7"
+#define FIRMWARE_VERSION "1.13.0"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -40,15 +40,32 @@ LV_IMG_DECLARE(Sonos_idnu60bqes_1);
 // ============================================================================
 // Color Theme - extern declarations
 // ============================================================================
-extern lv_color_t COL_BG;
-extern lv_color_t COL_CARD;
+// Surfaces — COL_SCREEN is the page itself; COL_BG is a panel/list sitting on
+// it. They are NOT interchangeable and were never meant to be the same value.
+extern lv_color_t COL_SCREEN;        // screen background
+extern lv_color_t COL_BG;            // panel / list background
+extern lv_color_t COL_CARD;          // raised card
+extern lv_color_t COL_CARD2;         // card in a highlighted / current row
+extern lv_color_t COL_MENU;          // open dropdown list
+
+// Controls
 extern lv_color_t COL_BTN;
 extern lv_color_t COL_BTN_PRESSED;
-extern lv_color_t COL_TEXT;
-extern lv_color_t COL_TEXT2;
+extern lv_color_t COL_SELECTED;      // selection highlight, and the slider/bar groove
+extern lv_color_t COL_BORDER;
+
+// Text
+extern lv_color_t COL_TEXT;          // primary
+extern lv_color_t COL_TEXT2;         // secondary
+extern lv_color_t COL_TEXT3;         // tertiary / hint
+
+// Semantic — these carry meaning, so they are not interchangeable with the
+// accent even when they happen to look similar.
 extern lv_color_t COL_ACCENT;
-extern lv_color_t COL_HEART;
-extern lv_color_t COL_SELECTED;
+extern lv_color_t COL_ERROR;         // failure / offline
+extern lv_color_t COL_OK;            // success / online
+extern lv_color_t COL_WARN;          // caution
+extern lv_color_t COL_HEART;         // favourite — a role, not a generic red
 
 // ============================================================================
 // Global Objects - extern declarations
@@ -62,6 +79,7 @@ extern int brightness_dimmed;
 extern int autodim_timeout;
 extern int panel_variant;   // PANEL_VARIANT_* — which 7" LCD panel is fitted
 extern bool lyrics_enabled;
+extern bool blur_bg_enabled;
 extern String pending_wifi_ssid;        // issue #85: creds awaiting persistence
 extern String pending_wifi_pass;
 extern volatile bool wifi_creds_need_save;

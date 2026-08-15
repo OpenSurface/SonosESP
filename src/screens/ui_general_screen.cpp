@@ -18,7 +18,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 
 void createGeneralScreen() {
     scr_general = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_general, lv_color_hex(0x121212), 0);
+    lv_obj_set_style_bg_color(scr_general, COL_SCREEN, 0);
 
     // Sidebar — General is index 0
     lv_obj_t* content = createSettingsSidebar(scr_general, 0);
@@ -32,7 +32,7 @@ void createGeneralScreen() {
     lv_label_set_text(lbl_title, "General");
     lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_pad_bottom(lbl_title, 12, 0);
+    lv_obj_set_style_pad_bottom(lbl_title, SY(12), 0);
 
     // ────────────────────────────────────────────────────────────────────────
     // CARD — Lyrics
@@ -83,18 +83,24 @@ void createGeneralScreen() {
         lv_dropdown_set_options(dd, theme_opts);
         lv_dropdown_set_selected(dd, active_theme);
         lv_obj_set_width(dd, lv_pct(100));
-        lv_obj_set_style_bg_color(dd, lv_color_hex(0x2A2A2A), 0);
+        lv_obj_set_style_bg_color(dd, COL_CARD, 0);
         lv_obj_set_style_text_color(dd, COL_TEXT, 0);
         lv_obj_set_style_text_font(dd, &font_text_14, 0);
-        lv_obj_set_style_border_color(dd, lv_color_hex(0x3A3A3A), 0);
+        lv_obj_set_style_border_color(dd, COL_BTN, 0);
         lv_obj_set_style_radius(dd, 8, 0);
-        lv_obj_set_style_pad_all(dd, 10, 0);
+        lv_obj_set_style_pad_all(dd, SMIN(10), 0);
         lv_obj_set_style_margin_top(dd, 4, 0);
+        // Highlighted row in the OPEN list. Styling only the list leaves this to
+        // LVGL's default (light) theme — dark list, white selection bar.
+        lv_obj_set_style_bg_color(dd, COL_MENU, LV_PART_SELECTED);
+        lv_obj_set_style_bg_color(dd, COL_ACCENT,
+            (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
+        lv_obj_set_style_text_color(dd, COL_TEXT, LV_PART_SELECTED);
         if (lv_obj_t* list = lv_dropdown_get_list(dd)) {
-            lv_obj_set_style_bg_color(list, lv_color_hex(0x1F1F1F), 0);
+            lv_obj_set_style_bg_color(list, COL_MENU, 0);
             lv_obj_set_style_text_color(list, COL_TEXT, 0);
             lv_obj_set_style_text_font(list, &font_text_14, 0);
-            lv_obj_set_style_border_color(list, lv_color_hex(0x3A3A3A), 0);
+            lv_obj_set_style_border_color(list, COL_BTN, 0);
         }
         lv_obj_add_event_cb(dd, [](lv_event_t* e) {
             lv_obj_t* d = (lv_obj_t*)lv_event_get_target(e);

@@ -8,15 +8,26 @@
 // ============================================================================
 // Color Theme
 // ============================================================================
+// Every value here already shipped — the ones below the original nine were in
+// the code as bare literals, repeated across screens with nothing naming them.
+// Naming them is what stops the next screen from inventing a tenth grey.
+lv_color_t COL_SCREEN = lv_color_hex(0x121212);
 lv_color_t COL_BG = lv_color_hex(0x1A1A1A);
 lv_color_t COL_CARD = lv_color_hex(0x2A2A2A);
+lv_color_t COL_CARD2 = lv_color_hex(0x252525);
+lv_color_t COL_MENU = lv_color_hex(0x222222);
 lv_color_t COL_BTN = lv_color_hex(0x3A3A3A);
 lv_color_t COL_BTN_PRESSED = lv_color_hex(0x4A4A4A);
+lv_color_t COL_SELECTED = lv_color_hex(0x333333);
+lv_color_t COL_BORDER = lv_color_hex(0x555555);
 lv_color_t COL_TEXT = lv_color_hex(0xFFFFFF);
 lv_color_t COL_TEXT2 = lv_color_hex(0x888888);
+lv_color_t COL_TEXT3 = lv_color_hex(0xAAAAAA);
 lv_color_t COL_ACCENT = lv_color_hex(0xD4A84B);
+lv_color_t COL_ERROR = lv_color_hex(0xFF6B6B);
+lv_color_t COL_OK = lv_color_hex(0x4ECB71);
+lv_color_t COL_WARN = lv_color_hex(0xFFA500);
 lv_color_t COL_HEART = lv_color_hex(0xE85D5D);
-lv_color_t COL_SELECTED = lv_color_hex(0x333333);
 
 // ============================================================================
 // Core Objects
@@ -31,6 +42,9 @@ int brightness_level = 100;
 int brightness_dimmed = 20;
 int autodim_timeout = 30;
 bool lyrics_enabled = true;
+// Defaults on: this shipped as always-on for the Classic theme, so an existing
+// device must look identical until its owner decides otherwise.
+bool blur_bg_enabled = true;
 // Issue #85: WiFi creds entered in the setup dialog, awaiting persistence. On a flaky
 // radio the dialog's connect loop can time out before WL_CONNECTED, so its immediate save
 // never runs. checkWiFiReconnect() persists these to NVS once the link is actually up.

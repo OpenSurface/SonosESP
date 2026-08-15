@@ -63,7 +63,7 @@ static lv_obj_t* circleBtn(lv_obj_t* parent, const char* icon, const lv_font_t* 
     lv_obj_set_style_radius(b, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_shadow_width(b, 0, 0);
     if (filled) {
-        lv_obj_set_style_bg_color(b, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_bg_color(b, COL_TEXT, 0);
         lv_obj_set_style_bg_opa(b, LV_OPA_10, 0);
         lv_obj_set_style_border_width(b, 0, 0);
     } else {
@@ -127,14 +127,16 @@ void buildAmbientPlayer() {
     // shadow_width in LVGL is a BLUR RADIUS, not an outline: the blur spreads
     // equally in every direction from each corner point, so a 36px shadow renders
     // with visibly rounded corners around a square image however the radius is
-    // set. Zeroing the radius could never fix that. A crisp 1px outline gives the
-    // artwork definition against the backdrop instead — and it also drops the
-    // most expensive draw on this screen, since blur is pure software here.
+    // set. Zeroing the radius could never fix that — and it also drops the most
+    // expensive draw on this screen, since blur is pure software here.
+    //
+    // A 1px white outline replaced the shadow to give the artwork definition.
+    // Removed: against a dark ambient backdrop it read as a hard white frame
+    // around the album rather than as an edge, which is not the look this theme
+    // is going for. The artwork now sits directly on the backdrop.
     lv_obj_set_style_radius(img_album, 0, 0);
     lv_obj_set_style_shadow_width(img_album, 0, 0);
-    lv_obj_set_style_border_width(img_album, 1, 0);
-    lv_obj_set_style_border_color(img_album, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_border_opa(img_album, LV_OPA_20, 0);
+    lv_obj_set_style_border_width(img_album, 0, 0);
 
     art_placeholder = lv_label_create(panel_art);
     lv_label_set_text(art_placeholder, MDI_MUSIC_NOTE);
@@ -158,7 +160,7 @@ void buildAmbientPlayer() {
         *m.sub = lv_label_create(panel_art);
         lv_label_set_text(*m.sub, m.text);
         lv_obj_set_style_text_font(*m.sub, &font_text_14, 0);
-        lv_obj_set_style_text_color(*m.sub, lv_color_hex(0xAAAAAA), 0);
+        lv_obj_set_style_text_color(*m.sub, COL_TEXT3, 0);
         lv_obj_set_style_text_letter_space(*m.sub, 3, 0);
         lv_obj_set_pos(*m.sub, SX(AM_L + AM_ART / 2 - 44), SY(AM_ART_Y + AM_ART / 2 + 40));
         lv_obj_add_flag(*m.sub, LV_OBJ_FLAG_HIDDEN);
@@ -167,7 +169,7 @@ void buildAmbientPlayer() {
     lbl_lyrics_status = lv_label_create(panel_art);
     lv_label_set_text(lbl_lyrics_status, "");
     lv_obj_set_pos(lbl_lyrics_status, SX(AM_L), SY(AM_ART_Y + AM_ART + 6));
-    lv_obj_set_style_text_color(lbl_lyrics_status, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(lbl_lyrics_status, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_lyrics_status, &font_text_12, 0);
 
     // ── Left column: lyrics BELOW the artwork ───────────────────────────────
@@ -220,7 +222,7 @@ void buildAmbientPlayer() {
     lv_obj_set_size(pill, SX(250), SY(38));
     lv_obj_set_pos(pill, SX(AM_R), SY(40));
     lv_obj_set_style_radius(pill, SMIN(19), 0);
-    lv_obj_set_style_bg_color(pill, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_bg_color(pill, COL_TEXT, 0);
     lv_obj_set_style_bg_opa(pill, LV_OPA_10, 0);
     lv_obj_set_style_border_width(pill, 0, 0);
     lv_obj_set_style_shadow_width(pill, 0, 0);
@@ -242,7 +244,7 @@ void buildAmbientPlayer() {
     lv_label_set_text(lbl_device_name, "Now Playing");
     lv_obj_set_pos(lbl_device_name, SX(30), SY(10));
     lv_obj_set_size(lbl_device_name, SX(196), SY(20));
-    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_DOT);
+    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_SCROLL);
     lv_obj_set_style_text_color(lbl_device_name, COL_TEXT, 0);
     lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
 
@@ -291,10 +293,10 @@ void buildAmbientPlayer() {
     lv_obj_set_pos(slider_progress, SX(AM_R), SY(264));
     lv_obj_set_size(slider_progress, SX(AM_RW), SY(6));
     lv_slider_set_range(slider_progress, 0, 100);
-    lv_obj_set_style_bg_color(slider_progress, lv_color_hex(0x4A4A4A), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(slider_progress, COL_BTN_PRESSED, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_progress, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_progress, COL_TEXT, LV_PART_KNOB);
-    lv_obj_set_style_pad_all(slider_progress, 4, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(slider_progress, SMIN(4), LV_PART_KNOB);
     lv_obj_add_event_cb(slider_progress, ev_progress, LV_EVENT_ALL, NULL);
 
     lbl_time = lv_label_create(panel_right);
@@ -306,6 +308,9 @@ void buildAmbientPlayer() {
     lbl_time_remaining = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_time_remaining, SX(AM_RIGHT - 60), SY(284));
     lv_obj_set_size(lbl_time_remaining, SX(60), SY(18));
+    // CLIP not DOT: this is a clock value in a fixed box, and an ellipsised time
+    // reads as a glitch. Long durations are truncated rather than wrapped.
+    lv_label_set_long_mode(lbl_time_remaining, LV_LABEL_LONG_CLIP);
     lv_obj_set_style_text_align(lbl_time_remaining, LV_TEXT_ALIGN_RIGHT, 0);
     lv_label_set_text(lbl_time_remaining, "-0:00");
     lv_obj_set_style_text_color(lbl_time_remaining, COL_TEXT2, 0);
@@ -343,10 +348,10 @@ void buildAmbientPlayer() {
     lv_obj_set_pos(slider_vol, SX(AM_R + 54), SY(425));
     lv_obj_set_size(slider_vol, SX(AM_RW - 54), SY(6));
     lv_slider_set_range(slider_vol, 0, 100);
-    lv_obj_set_style_bg_color(slider_vol, lv_color_hex(0x4A4A4A), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(slider_vol, COL_BTN_PRESSED, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT2, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_KNOB);
-    lv_obj_set_style_pad_all(slider_vol, 4, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(slider_vol, SMIN(4), LV_PART_KNOB);
     lv_obj_add_event_cb(slider_vol, ev_vol_slider, LV_EVENT_ALL, NULL);
 
     // ── Created but unused by this layout ───────────────────────────────────
@@ -360,15 +365,20 @@ void buildAmbientPlayer() {
     lv_obj_set_style_text_font(lbl_next_header, &font_text_12, 0);
     park(lbl_next_header);
 
+    // Ellipsise rather than wrap: both strings are unbounded track metadata in a
+    // fixed-width parked label, so the default WRAP grows them downward over
+    // whatever sits below.
     lbl_next_title = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_title, "");
     lv_obj_set_width(lbl_next_title, SX(200));
+    lv_label_set_long_mode(lbl_next_title, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(lbl_next_title, &font_text_14, 0);
     park(lbl_next_title);
 
     lbl_next_artist = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_artist, "");
     lv_obj_set_width(lbl_next_artist, SX(200));
+    lv_label_set_long_mode(lbl_next_artist, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(lbl_next_artist, &font_text_12, 0);
     park(lbl_next_artist);
 }

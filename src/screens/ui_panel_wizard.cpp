@@ -62,7 +62,7 @@ static bool wizardAsk(uint8_t variant) {
     lv_obj_t* title = lv_label_create(wiz_screen);
     lv_label_set_text(title, "Can you read this?");
     lv_obj_set_style_text_font(title, &font_text_32, 0);
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(title, COL_TEXT, 0);
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, SY(62));
 
     lv_obj_t* sub = lv_label_create(wiz_screen);

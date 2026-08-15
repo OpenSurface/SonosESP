@@ -20,10 +20,10 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     lv_obj_t* sidebar = lv_obj_create(screen);
     lv_obj_set_size(sidebar, SX(180), SY(480));
     lv_obj_set_pos(sidebar, 0, 0);
-    lv_obj_set_style_bg_color(sidebar, lv_color_hex(0x1A1A1A), 0);
+    lv_obj_set_style_bg_color(sidebar, COL_BG, 0);
     lv_obj_set_style_border_width(sidebar, 1, 0);
     lv_obj_set_style_border_side(sidebar, LV_BORDER_SIDE_RIGHT, 0);
-    lv_obj_set_style_border_color(sidebar, lv_color_hex(0x2A2A2A), 0);
+    lv_obj_set_style_border_color(sidebar, COL_CARD, 0);
     lv_obj_set_style_radius(sidebar, 0, 0);
     lv_obj_set_style_pad_all(sidebar, 0, 0);
     lv_obj_clear_flag(sidebar, LV_OBJ_FLAG_SCROLLABLE);
@@ -46,7 +46,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     lv_obj_t* btn_close = lv_button_create(title_row);
     lv_obj_set_size(btn_close, SMIN(32), SMIN(32));
     lv_obj_set_pos(btn_close, SX(140), SY(10));
-    lv_obj_set_style_bg_color(btn_close, lv_color_hex(0x333333), 0);
+    lv_obj_set_style_bg_color(btn_close, COL_SELECTED, 0);
     lv_obj_set_style_bg_color(btn_close, lv_color_hex(0x444444), LV_STATE_PRESSED);
     lv_obj_set_style_radius(btn_close, SMIN(16), 0);
     lv_obj_set_style_shadow_width(btn_close, 0, 0);
@@ -68,11 +68,11 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
         lv_obj_set_pos(btn, SX(8), SY(y));
 
         bool active = (i == activeIdx);
-        lv_obj_set_style_bg_color(btn, active ? COL_ACCENT : lv_color_hex(0x1A1A1A), 0);
-        lv_obj_set_style_bg_color(btn, lv_color_hex(0x2A2A2A), LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(btn, active ? COL_ACCENT : COL_BG, 0);
+        lv_obj_set_style_bg_color(btn, COL_CARD, LV_STATE_PRESSED);
         lv_obj_set_style_radius(btn, 8, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
-        lv_obj_set_style_pad_left(btn, 10, 0);
+        lv_obj_set_style_pad_left(btn, SX(10), 0);
 
         lv_obj_t* ico = lv_label_create(btn);
         lv_label_set_text(ico, icons[i]);
@@ -115,10 +115,19 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     lv_obj_t* content = lv_obj_create(screen);
     lv_obj_set_size(content, SX(620), SY(480));
     lv_obj_set_pos(content, SX(180), 0);
-    lv_obj_set_style_bg_color(content, lv_color_hex(0x121212), 0);
+    lv_obj_set_style_bg_color(content, COL_SCREEN, 0);
     lv_obj_set_style_border_width(content, 0, 0);
     lv_obj_set_style_radius(content, 0, 0);
-    lv_obj_set_style_pad_all(content, 24, 0);
+    lv_obj_set_style_pad_all(content, SMIN(24), 0);
+
+    // Every settings screen turns this area's scrollbar on but none of them style
+    // it, so it was drawn by LVGL's default (light) theme. Styled once here so it
+    // is dark for all of them — and for any settings screen added later.
+    lv_obj_set_style_bg_color(content, COL_SELECTED, LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_opa(content, LV_OPA_60, LV_PART_SCROLLBAR);
+    lv_obj_set_style_width(content, SX(6), LV_PART_SCROLLBAR);
+    lv_obj_set_style_radius(content, SX(3), LV_PART_SCROLLBAR);
+    lv_obj_set_style_pad_right(content, SX(2), LV_PART_SCROLLBAR);
 
     return content;
 }

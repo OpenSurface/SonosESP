@@ -45,7 +45,7 @@ void refreshDeviceList() {
         lv_obj_set_user_data(btn, (void*)(intptr_t)i);
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
-        lv_obj_set_style_pad_all(btn, 12, 0);
+        lv_obj_set_style_pad_all(btn, SMIN(12), 0);
 
         lv_obj_set_style_bg_color(btn, isSelected ? COL_SELECTED : COL_CARD, 0);
         lv_obj_set_style_bg_color(btn, COL_BTN_PRESSED, LV_STATE_PRESSED);
@@ -85,7 +85,7 @@ void refreshDeviceList() {
             } else {
                 lv_label_set_text(sub, MDI_PLAY " Playing");
             }
-            lv_obj_set_style_text_color(sub, isPlaying ? lv_color_hex(0x4ECB71) : COL_TEXT2, 0);
+            lv_obj_set_style_text_color(sub, isPlaying ? COL_OK : COL_TEXT2, 0);
             lv_obj_set_style_text_font(sub, &lv_font_mdi_16, 0);
             lv_obj_align(sub, LV_ALIGN_LEFT_MID, hasGroup ? 55 : 45, 12);
         }
@@ -95,7 +95,7 @@ void refreshDeviceList() {
         lv_label_set_text(arrow, MDI_CHEVRON_RIGHT);
         lv_obj_set_style_text_color(arrow, COL_TEXT2, 0);
         lv_obj_set_style_text_font(arrow, &lv_font_mdi_24, 0);
-        lv_obj_align(arrow, LV_ALIGN_RIGHT_MID, -5, 0);
+        lv_obj_align(arrow, LV_ALIGN_RIGHT_MID, SX(-5), 0);
 
         lv_obj_add_event_cb(btn, [](lv_event_t* e) {
             int idx = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
@@ -116,8 +116,8 @@ void refreshDeviceList() {
                 lv_obj_set_user_data(memBtn, (void*)(intptr_t)j);
                 lv_obj_set_style_radius(memBtn, 8, 0);
                 lv_obj_set_style_shadow_width(memBtn, 0, 0);
-                lv_obj_set_style_pad_all(memBtn, 10, 0);
-                lv_obj_set_style_bg_color(memBtn, lv_color_hex(0x252525), 0);
+                lv_obj_set_style_pad_all(memBtn, SMIN(10), 0);
+                lv_obj_set_style_bg_color(memBtn, COL_CARD2, 0);
                 lv_obj_set_style_bg_color(memBtn, COL_BTN_PRESSED, LV_STATE_PRESSED);
                 lv_obj_set_style_margin_left(memBtn, 40, 0);
 
@@ -126,20 +126,20 @@ void refreshDeviceList() {
                 lv_label_set_text(memIcon, MDI_CHEVRON_RIGHT " " MDI_SPEAKER);
                 lv_obj_set_style_text_color(memIcon, COL_TEXT2, 0);
                 lv_obj_set_style_text_font(memIcon, &lv_font_mdi_16, 0);
-                lv_obj_align(memIcon, LV_ALIGN_LEFT_MID, 5, 0);
+                lv_obj_align(memIcon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
                 lv_obj_t* memLbl = lv_label_create(memBtn);
                 lv_label_set_text(memLbl, member->roomName.c_str());
                 lv_obj_set_style_text_color(memLbl, COL_TEXT, 0);
                 lv_obj_set_style_text_font(memLbl, &font_text_16, 0);
-                lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, 55, 0);
+                lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, SX(55), 0);
 
                 // "Grouped" badge
                 lv_obj_t* badge = lv_label_create(memBtn);
                 lv_label_set_text(badge, "Grouped");
                 lv_obj_set_style_text_color(badge, COL_TEXT2, 0);
                 lv_obj_set_style_text_font(badge, &font_text_12, 0);
-                lv_obj_align(badge, LV_ALIGN_RIGHT_MID, -10, 0);
+                lv_obj_align(badge, LV_ALIGN_RIGHT_MID, SX(-10), 0);
 
                 // Click to select this member directly
                 lv_obj_add_event_cb(memBtn, [](lv_event_t* e) {
@@ -176,20 +176,20 @@ void refreshDeviceList() {
             lv_obj_set_user_data(btn, (void*)(intptr_t)i);
             lv_obj_set_style_radius(btn, 12, 0);
             lv_obj_set_style_shadow_width(btn, 0, 0);
-            lv_obj_set_style_pad_all(btn, 15, 0);
+            lv_obj_set_style_pad_all(btn, SMIN(15), 0);
             lv_obj_set_style_bg_color(btn, isSelected ? COL_SELECTED : COL_CARD, 0);
 
             lv_obj_t* icon = lv_label_create(btn);
             lv_label_set_text(icon, MDI_SPEAKER);
             lv_obj_set_style_text_color(icon, COL_TEXT2, 0);
             lv_obj_set_style_text_font(icon, &lv_font_mdi_24, 0);
-            lv_obj_align(icon, LV_ALIGN_LEFT_MID, 5, 0);
+            lv_obj_align(icon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
             lv_obj_t* lbl = lv_label_create(btn);
             lv_label_set_text(lbl, dev->roomName.c_str());
             lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
             lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
-            lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 40, 0);
+            lv_obj_align(lbl, LV_ALIGN_LEFT_MID, SX(40), 0);
 
             lv_obj_add_event_cb(btn, [](lv_event_t* e) {
                 int idx = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
@@ -203,7 +203,7 @@ void refreshDeviceList() {
 
 void createDevicesScreen() {
     scr_devices = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_devices, lv_color_hex(0x121212), 0);
+    lv_obj_set_style_bg_color(scr_devices, COL_SCREEN, 0);
 
     // Create sidebar and get content area (Speakers is index 1)
     lv_obj_t* content = createSettingsSidebar(scr_devices, 1);
@@ -248,14 +248,14 @@ void createDevicesScreen() {
     list_devices = lv_list_create(content);
     lv_obj_set_size(list_devices, lv_pct(100), SY(380));
     lv_obj_set_pos(list_devices, 0, SY(75));
-    lv_obj_set_style_bg_color(list_devices, lv_color_hex(0x1A1A1A), 0);
+    lv_obj_set_style_bg_color(list_devices, COL_BG, 0);
     lv_obj_set_style_border_width(list_devices, 0, 0);
     lv_obj_set_style_radius(list_devices, 0, 0);
     lv_obj_set_style_pad_all(list_devices, 0, 0);
-    lv_obj_set_style_pad_row(list_devices, 6, 0);
+    lv_obj_set_style_pad_row(list_devices, SY(6), 0);
 
     // Professional scrollbar styling
-    lv_obj_set_style_pad_right(list_devices, 8, LV_PART_SCROLLBAR);
+    lv_obj_set_style_pad_right(list_devices, SX(8), LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_opa(list_devices, LV_OPA_30, LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_color(list_devices, COL_TEXT2, LV_PART_SCROLLBAR);
     lv_obj_set_style_width(list_devices, 6, LV_PART_SCROLLBAR);
@@ -266,7 +266,7 @@ void createDevicesScreen() {
     lv_obj_set_size(spinner_scan, SMIN(100), SMIN(100));
     lv_obj_center(spinner_scan);
     lv_obj_set_style_arc_color(spinner_scan, COL_ACCENT, LV_PART_INDICATOR);
-    lv_obj_set_style_arc_color(spinner_scan, lv_color_hex(0x555555), LV_PART_MAIN);
+    lv_obj_set_style_arc_color(spinner_scan, COL_BORDER, LV_PART_MAIN);
     lv_obj_set_style_arc_width(spinner_scan, 10, LV_PART_INDICATOR);
     lv_obj_set_style_arc_width(spinner_scan, 10, LV_PART_MAIN);
     lv_obj_set_style_arc_rounded(spinner_scan, true, LV_PART_INDICATOR);

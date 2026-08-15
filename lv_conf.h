@@ -122,6 +122,24 @@
  * THEMES
  *********************/
 #define LV_USE_THEME_DEFAULT 1
+#if LV_USE_THEME_DEFAULT
+    /* 0: light mode, 1: dark mode.
+     *
+     * This was never set, so it defaulted to 0 and LVGL painted every widget
+     * from a LIGHT palette. The UI is dark, so each screen repainted those
+     * defaults one part at a time — and any part nobody remembered stayed
+     * light. That is exactly how the dropdown selection ended up white on a
+     * dark list, and how three settings screens shipped a light scrollbar.
+     *
+     * Setting it to 1 makes dark the starting point instead of the exception.
+     * It changes nothing that is already styled explicitly (an explicit style
+     * always wins over the theme); it only affects parts we never touched —
+     * message boxes, the on-screen keyboard, roller options, textarea cursors
+     * and placeholders — which is precisely the set that was wrong. */
+    #define LV_THEME_DEFAULT_DARK 1
+    #define LV_THEME_DEFAULT_GROW 1
+    #define LV_THEME_DEFAULT_TRANSITION_TIME 80
+#endif
 #define LV_USE_THEME_SIMPLE 1
 #define LV_USE_THEME_MONO 0
 
@@ -157,7 +175,21 @@
 #define LV_FONT_MONTSERRAT_46 0
 #define LV_FONT_MONTSERRAT_48 1
 
-#define LV_FONT_DEFAULT &lv_font_montserrat_16
+/* Default font for any text that is never given one explicitly — dropdown list
+ * items, roller options, message boxes and the on-screen keyboard, none of which
+ * expose a style hook we reach today.
+ *
+ * This must NOT be the raw built-in: lv_font_montserrat_16 is ASCII-only, so that
+ * text still dropped accented characters (Beyoncé, Sigur Rós) even after the
+ * fallback work. font_text_16 is a RAM copy of the same built-in with the
+ * Latin-Ext supplement attached — visually identical, but it can render accents.
+ *
+ * Declared via LV_FONT_CUSTOM_DECLARE rather than inline here: lv_conf.h is read
+ * before LVGL defines lv_font_t, so a declaration at this point cannot compile.
+ * LVGL re-expands this hook at the end of lv_font.h, where the type exists.
+ * uiFontsInit() populates the struct before lv_init() runs. */
+#define LV_FONT_CUSTOM_DECLARE extern lv_font_t font_text_16;
+#define LV_FONT_DEFAULT &font_text_16
 
 /* Enable symbol fonts */
 #define LV_FONT_MONTSERRAT_12_SUBPX 0

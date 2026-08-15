@@ -176,24 +176,6 @@ void jd9165_lcd::draw16bitbergbbitmap(uint16_t x, uint16_t y, uint16_t w, uint16
     esp_lcd_panel_draw_bitmap(panel_handle, x_start, y_start, x_end, y_end, color_data);
 }
 
-void jd9165_lcd::fillScreen(uint16_t color)
-{
-    uint16_t *color_data = (uint16_t *)heap_caps_malloc(480 * 272 * 2, MALLOC_CAP_INTERNAL);
-    memset(color_data, color, 480 * 272 * 2);
-    draw16bitbergbbitmap(0, 0, 480, 272, color_data);
-    free(color_data);
-}
-
-void jd9165_lcd::te_on()
-{
-    esp_lcd_panel_io_tx_param(io_handle, 0x35,new (uint8_t[]){0x00}, 1);
-}
-
-void jd9165_lcd::te_off()
-{
-    esp_lcd_panel_io_tx_param(io_handle, 0x34,new (uint8_t[]){0x00}, 0);
-}
-
 uint16_t jd9165_lcd::width()
 {
     return LCD_H_RES;

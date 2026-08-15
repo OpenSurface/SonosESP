@@ -281,7 +281,7 @@ static lv_obj_t* roundBtn(lv_obj_t* parent, const char* icon, const lv_font_t* f
         lv_obj_set_style_bg_color(b, lv_color_hex(0x000000), 0);
         lv_obj_set_style_bg_opa(b, LV_OPA_20, 0);
         lv_obj_set_style_border_width(b, 1, 0);
-        lv_obj_set_style_border_color(b, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_border_color(b, COL_TEXT, 0);
         lv_obj_set_style_border_opa(b, LV_OPA_40, 0);
     } else {
         lv_obj_set_style_bg_opa(b, LV_OPA_TRANSP, 0);
@@ -405,6 +405,13 @@ void buildImmersivePlayer() {
 
     lbl_device_name = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_device_name, SX(IM_TEXT_X), SY(IM_HEAD_Y + 82));
+    // "Now Playing - <room>" is unbounded: room names are user-chosen and can be
+    // long ("Living Room Playbar & Sub"). Without a width this ran past the
+    // header and under the settings buttons. Same width as the title/artist above
+    // it so the header block stays a clean column, ellipsised rather than
+    // scrolled — it is a static label, not track metadata worth animating.
+    lv_obj_set_size(lbl_device_name, SX(head_text_w), SY(20));
+    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_SCROLL);
     lv_label_set_text(lbl_device_name, "Now Playing");
     lv_obj_set_style_text_color(lbl_device_name, COL_TEXT, 0);
     lv_obj_set_style_text_opa(lbl_device_name, LV_OPA_60, 0);
@@ -452,7 +459,12 @@ void buildImmersivePlayer() {
     lv_obj_set_size(bar, SX(800), SY(IM_BAR_H));
     lv_obj_set_pos(bar, 0, SY(IM_BAR_Y));
     lv_obj_set_style_bg_color(bar, lv_color_hex(0x0C0C0C), 0);
-    lv_obj_set_style_bg_opa(bar, 232, 0);
+    // Opaque, not 232/255. At 91% the difference is barely visible, but it forced
+    // an 800x94 alpha blend against the saturated backdrop on every frame that
+    // touched this region — and the transport buttons live inside it. Frame time
+    // here is not cosmetic: the touch driver is polled from the same loop that
+    // renders, so a slow frame means fewer input samples.
+    lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(bar, 0, 0);          // square: a rounded bottom edge looked wrong
     lv_obj_set_style_border_width(bar, 0, 0);
     lv_obj_set_style_pad_all(bar, 0, 0);
@@ -470,7 +482,7 @@ void buildImmersivePlayer() {
     lv_obj_set_pos(slider_progress, SX(IM_ROW_X), SY(IM_BAR_MID(6)));
     lv_obj_set_size(slider_progress, SX(IM_ROW_W), SY(6));
     lv_slider_set_range(slider_progress, 0, 100);
-    lv_obj_set_style_bg_color(slider_progress, lv_color_hex(0x3A3A3A), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(slider_progress, COL_BTN, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_progress, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_progress, COL_ACCENT, LV_PART_KNOB);
     lv_obj_set_style_pad_all(slider_progress, 0, LV_PART_KNOB);
@@ -483,15 +495,27 @@ void buildImmersivePlayer() {
     lv_obj_set_style_text_opa(lbl_time_remaining, LV_OPA_60, 0);
     lv_obj_set_style_text_font(lbl_time_remaining, &font_text_14, 0);
 
-    // Transport: prev / play / next on a 64px pitch, centred in the space between
-    // the time readout and the volume icon.
-    btn_prev = roundBtn(bar, MDI_SKIP_PREV, &lv_font_mdi_32, 466, IM_BAR_MID(44), 44, ev_prev, false);
+    // Transport: prev / play / next, centred on x=552 in the space between the
+    // time readout and the volume icon.
+    //
+    // These were 44px with no extended hit area and sit in the bottom 94px of the
+    // panel, where a fingertip lands least accurately — reported as the buttons
+    // needing several taps. Ambient's equivalents are 56 and 70 and have never
+    // had the problem. Enlarged to 52/64 and given 6px of ext_click_area each.
+    //
+    // 6px is not arbitrary: the gaps are 14px, so 6 a side leaves 2px between
+    // adjacent hit areas. Any more and they would overlap, and LVGL awards an
+    // overlap to the last-created object — tapping the edge of play would fire
+    // next, which is worse than a small target.
+    btn_prev = roundBtn(bar, MDI_SKIP_PREV, &lv_font_mdi_32, 454, IM_BAR_MID(52), 52, ev_prev, false);
+    lv_obj_set_ext_click_area(btn_prev, 6);
 
     btn_play = lv_btn_create(bar);
-    lv_obj_set_size(btn_play, SMIN(60), SMIN(60));
-    lv_obj_set_pos(btn_play, SX(522), SY(IM_BAR_MID(60)));
+    lv_obj_set_size(btn_play, SMIN(64), SMIN(64));
+    lv_obj_set_pos(btn_play, SX(520), SY(IM_BAR_MID(64)));
+    lv_obj_set_ext_click_area(btn_play, 6);
     lv_obj_set_style_bg_color(btn_play, g_ambient_bright, 0);
-    lv_obj_set_style_radius(btn_play, SMIN(30), 0);
+    lv_obj_set_style_radius(btn_play, SMIN(32), 0);
     lv_obj_set_style_shadow_width(btn_play, 0, 0);
     pressScale(btn_play);
     lv_obj_add_event_cb(btn_play, ev_play, LV_EVENT_CLICKED, NULL);
@@ -501,12 +525,14 @@ void buildImmersivePlayer() {
     lv_obj_set_style_text_color(ico_play, lv_color_hex(0x111111), 0);
     lv_obj_center(ico_play);
 
-    btn_next = roundBtn(bar, MDI_SKIP_NEXT, &lv_font_mdi_32, 594, IM_BAR_MID(44), 44, ev_next, false);
+    btn_next = roundBtn(bar, MDI_SKIP_NEXT, &lv_font_mdi_32, 598, IM_BAR_MID(52), 52, ev_next, false);
+    lv_obj_set_ext_click_area(btn_next, 6);
 
     // Volume: just an icon until tapped. Tapping slides it to the head of the row
     // and reveals the slider across the full width; tapping again while open
     // toggles mute (so mute is still reachable). Auto-closes after IM_VOL_HOLD_MS.
     btn_mute = roundBtn(bar, MDI_VOLUME_HIGH, &lv_font_mdi_32, IM_MUTE_X, IM_BAR_MID(44), 44, nullptr, false);
+    lv_obj_set_ext_click_area(btn_mute, 6);   // nothing within 60px of it, so this is free
     lv_obj_add_event_cb(btn_mute, [](lv_event_t* e) {
         if (im_vol_open) { ev_mute(e); im_vol_poke(); }
         else             { im_vol_set_open(true); }
@@ -517,10 +543,10 @@ void buildImmersivePlayer() {
     lv_obj_set_pos(slider_vol, SX(IM_ROW_X), SY(IM_BAR_MID(6)));
     lv_obj_set_size(slider_vol, SX(IM_ROW_W + 120), SY(6));
     lv_slider_set_range(slider_vol, 0, 100);
-    lv_obj_set_style_bg_color(slider_vol, lv_color_hex(0x3A3A3A), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(slider_vol, COL_BTN, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_KNOB);
-    lv_obj_set_style_pad_all(slider_vol, 4, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(slider_vol, SMIN(4), LV_PART_KNOB);
     lv_obj_set_ext_click_area(slider_vol, 14);   // easier to grab a 6px bar
     lv_obj_add_event_cb(slider_vol, ev_vol_slider, LV_EVENT_ALL, NULL);
     // Only real touches keep it alive. Registering this on LV_EVENT_ALL also caught
@@ -563,15 +589,20 @@ void buildImmersivePlayer() {
     lv_obj_set_style_text_font(lbl_next_header, &font_text_12, 0);
     park(lbl_next_header);
 
+    // Ellipsise rather than wrap: both strings are unbounded track metadata in a
+    // fixed-width parked label, so the default WRAP grows them downward over
+    // whatever sits below.
     lbl_next_title = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_title, "");
     lv_obj_set_width(lbl_next_title, SX(200));
+    lv_label_set_long_mode(lbl_next_title, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(lbl_next_title, &font_text_14, 0);
     park(lbl_next_title);
 
     lbl_next_artist = lv_label_create(panel_right);
     lv_label_set_text(lbl_next_artist, "");
     lv_obj_set_width(lbl_next_artist, SX(200));
+    lv_label_set_long_mode(lbl_next_artist, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(lbl_next_artist, &font_text_12, 0);
     park(lbl_next_artist);
 }

@@ -398,7 +398,7 @@ static void buildStandbyFace(lv_obj_t* parent) {
     sb_date = lv_label_create(parent);
     lv_label_set_text(sb_date, "");
     lv_obj_set_style_text_font(sb_date, &font_text_24, 0);
-    lv_obj_set_style_text_color(sb_date, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(sb_date, COL_TEXT, 0);
     lv_obj_set_style_text_opa(sb_date, LV_OPA_60, 0);
     lv_obj_align(sb_date, LV_ALIGN_TOP_MID, 0, SY(SB_TOP + SB_INK + 14));
     lv_obj_add_flag(sb_date, LV_OBJ_FLAG_HIDDEN);
@@ -1020,14 +1020,14 @@ void createClockScreen() {
     clock_time_lbl = lv_label_create(scr_clock);
     lv_label_set_text(clock_time_lbl, "--:--");
     lv_obj_set_style_text_font(clock_time_lbl, &lv_font_montserrat_140, 0);
-    lv_obj_set_style_text_color(clock_time_lbl, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(clock_time_lbl, COL_TEXT, 0);
     lv_obj_align(clock_time_lbl, LV_ALIGN_CENTER, 0, SY(-30));
 
     // Date label — "Thu, May 16" small and dim below the time
     clock_date_lbl = lv_label_create(scr_clock);
     lv_label_set_text(clock_date_lbl, "");
     lv_obj_set_style_text_font(clock_date_lbl, &font_text_24, 0);
-    lv_obj_set_style_text_color(clock_date_lbl, lv_color_hex(0xAAAAAA), 0);
+    lv_obj_set_style_text_color(clock_date_lbl, COL_TEXT3, 0);
     lv_obj_align(clock_date_lbl, LV_ALIGN_CENTER, 0, SY(90));
 
     buildStandbyFace(scr_clock);
@@ -1052,32 +1052,32 @@ void createClockScreen() {
     clock_wx_city_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_city_lbl, "---");
     lv_obj_set_style_text_font(clock_wx_city_lbl, &font_text_20, 0);
-    lv_obj_set_style_text_color(clock_wx_city_lbl, lv_color_hex(0xAAAAAA), 0);
+    lv_obj_set_style_text_color(clock_wx_city_lbl, COL_TEXT3, 0);
     lv_obj_set_pos(clock_wx_city_lbl, SX(10), SY(5));
 
     clock_wx_temp_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_temp_lbl, "--°C");
     lv_obj_set_style_text_font(clock_wx_temp_lbl, &font_text_48, 0);
-    lv_obj_set_style_text_color(clock_wx_temp_lbl, lv_color_hex(0xAAAAAA), 0);
+    lv_obj_set_style_text_color(clock_wx_temp_lbl, COL_TEXT3, 0);
     lv_obj_set_pos(clock_wx_temp_lbl, SX(10), SY(32));
 
     clock_wx_cond_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_cond_lbl, "");
     lv_obj_set_style_text_font(clock_wx_cond_lbl, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(clock_wx_cond_lbl, lv_color_hex(0xAAAAAA), 0);
+    lv_obj_set_style_text_color(clock_wx_cond_lbl, COL_TEXT3, 0);
     lv_obj_set_pos(clock_wx_cond_lbl, SX(10), SY(95));
 
     clock_wx_detail_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_detail_lbl, "");
     lv_obj_set_style_text_font(clock_wx_detail_lbl, &font_text_14, 0);
-    lv_obj_set_style_text_color(clock_wx_detail_lbl, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_text_color(clock_wx_detail_lbl, COL_TEXT2, 0);
     lv_obj_set_pos(clock_wx_detail_lbl, SX(10), SY(118));
 
     // Today icon — 80px, close to the right of the temp number
     clock_wx_icon = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_icon, WI_DAY_SUNNY);
     lv_obj_set_style_text_font(clock_wx_icon, &lv_font_weathericons_80, 0);
-    lv_obj_set_style_text_color(clock_wx_icon, lv_color_hex(0xAAAAAA), 0);
+    lv_obj_set_style_text_color(clock_wx_icon, COL_TEXT3, 0);
     lv_obj_set_pos(clock_wx_icon, SX(155), SY(10));
     lv_obj_clear_flag(clock_wx_icon, LV_OBJ_FLAG_CLICKABLE);
 
@@ -1112,7 +1112,7 @@ void createClockScreen() {
         lv_obj_set_pos(clock_wx_fc_icon[i], SX(col_x), SY(24));
         lv_obj_set_style_text_align(clock_wx_fc_icon[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_style_text_font(clock_wx_fc_icon[i], &lv_font_weathericons_32, 0);
-        lv_obj_set_style_text_color(clock_wx_fc_icon[i], lv_color_hex(0xAAAAAA), 0);
+        lv_obj_set_style_text_color(clock_wx_fc_icon[i], COL_TEXT3, 0);
         lv_label_set_text(clock_wx_fc_icon[i], WI_DAY_SUNNY);
 
         // Temperature
@@ -1121,7 +1121,7 @@ void createClockScreen() {
         lv_obj_set_pos(clock_wx_fc_temp[i], SX(col_x), SY(70));
         lv_obj_set_style_text_align(clock_wx_fc_temp[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_style_text_font(clock_wx_fc_temp[i], &font_text_16, 0);
-        lv_obj_set_style_text_color(clock_wx_fc_temp[i], lv_color_hex(0xAAAAAA), 0);
+        lv_obj_set_style_text_color(clock_wx_fc_temp[i], COL_TEXT3, 0);
         lv_label_set_text(clock_wx_fc_temp[i], "--°");
     }
 
@@ -1143,6 +1143,7 @@ void createClockScreen() {
     clock_wx_fl_lbl = lv_label_create(clock_wx_tr_panel);
     lv_label_set_text(clock_wx_fl_lbl, "Feels like  --");
     lv_obj_set_width(clock_wx_fl_lbl, SX(300));
+    lv_label_set_long_mode(clock_wx_fl_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_fl_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_fl_lbl, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(clock_wx_fl_lbl, lv_color_hex(0x999999), 0);
@@ -1152,6 +1153,7 @@ void createClockScreen() {
     clock_wx_uv_lbl = lv_label_create(clock_wx_tr_panel);
     lv_label_set_text(clock_wx_uv_lbl, "UV  --");
     lv_obj_set_width(clock_wx_uv_lbl, SX(300));
+    lv_label_set_long_mode(clock_wx_uv_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_uv_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_uv_lbl, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(clock_wx_uv_lbl, lv_color_hex(0x999999), 0);
@@ -1161,6 +1163,7 @@ void createClockScreen() {
     clock_wx_rise_t_lbl = lv_label_create(clock_wx_tr_panel);
     lv_label_set_text(clock_wx_rise_t_lbl, "Rise  --:--");
     lv_obj_set_width(clock_wx_rise_t_lbl, SX(300));
+    lv_label_set_long_mode(clock_wx_rise_t_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_rise_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_rise_t_lbl, &font_text_14, 0);
     lv_obj_set_style_text_color(clock_wx_rise_t_lbl, lv_color_hex(0x777777), 0);
@@ -1170,6 +1173,7 @@ void createClockScreen() {
     clock_wx_set_t_lbl = lv_label_create(clock_wx_tr_panel);
     lv_label_set_text(clock_wx_set_t_lbl, "Set   --:--");
     lv_obj_set_width(clock_wx_set_t_lbl, SX(300));
+    lv_label_set_long_mode(clock_wx_set_t_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_set_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_set_t_lbl, &font_text_14, 0);
     lv_obj_set_style_text_color(clock_wx_set_t_lbl, lv_color_hex(0x777777), 0);
