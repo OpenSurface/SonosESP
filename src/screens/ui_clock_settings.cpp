@@ -57,6 +57,13 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
     lv_obj_set_style_radius(dd, 8, 0);
     lv_obj_set_style_pad_all(dd, 10, 0);
     if (open_up) lv_dropdown_set_dir(dd, LV_DIR_TOP);
+    // The highlighted row in the OPEN list is LV_PART_SELECTED. Styling only the
+    // list (below) leaves this part to LVGL's default theme, which is light — so
+    // the list renders dark with a white selection bar. See ui_ota_screen.cpp.
+    lv_obj_set_style_bg_color(dd, lv_color_hex(0x222222), LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(dd, COL_ACCENT,
+        (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
+    lv_obj_set_style_text_color(dd, COL_TEXT, LV_PART_SELECTED);
     lv_obj_t* list = lv_dropdown_get_list(dd);
     if (list) {
         lv_obj_set_height(list, SY(260));

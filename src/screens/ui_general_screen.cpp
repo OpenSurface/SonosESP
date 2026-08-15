@@ -90,6 +90,12 @@ void createGeneralScreen() {
         lv_obj_set_style_radius(dd, 8, 0);
         lv_obj_set_style_pad_all(dd, 10, 0);
         lv_obj_set_style_margin_top(dd, 4, 0);
+        // Highlighted row in the OPEN list. Styling only the list leaves this to
+        // LVGL's default (light) theme — dark list, white selection bar.
+        lv_obj_set_style_bg_color(dd, lv_color_hex(0x1F1F1F), LV_PART_SELECTED);
+        lv_obj_set_style_bg_color(dd, COL_ACCENT,
+            (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
+        lv_obj_set_style_text_color(dd, COL_TEXT, LV_PART_SELECTED);
         if (lv_obj_t* list = lv_dropdown_get_list(dd)) {
             lv_obj_set_style_bg_color(list, lv_color_hex(0x1F1F1F), 0);
             lv_obj_set_style_text_color(list, COL_TEXT, 0);

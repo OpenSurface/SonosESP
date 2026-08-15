@@ -120,5 +120,14 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     lv_obj_set_style_radius(content, 0, 0);
     lv_obj_set_style_pad_all(content, 24, 0);
 
+    // Every settings screen turns this area's scrollbar on but none of them style
+    // it, so it was drawn by LVGL's default (light) theme. Styled once here so it
+    // is dark for all of them — and for any settings screen added later.
+    lv_obj_set_style_bg_color(content, COL_SELECTED, LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_opa(content, LV_OPA_60, LV_PART_SCROLLBAR);
+    lv_obj_set_style_width(content, SX(6), LV_PART_SCROLLBAR);
+    lv_obj_set_style_radius(content, SX(3), LV_PART_SCROLLBAR);
+    lv_obj_set_style_pad_right(content, SX(2), LV_PART_SCROLLBAR);
+
     return content;
 }
