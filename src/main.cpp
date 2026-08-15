@@ -197,10 +197,12 @@ void setup() {
         Serial.println("=========================================\n");
     }
 
-    lv_init();
     // Wire the Latin-1 / Latin-Ext-A fallbacks onto the text fonts. Must run before
-    // any screen is built, since builders capture &font_text_* at creation time.
+    // any screen is built, since builders capture &font_text_* at creation time —
+    // and before lv_init(), because LV_FONT_DEFAULT now points at font_text_16 and
+    // the default theme captures that pointer while initialising.
     uiFontsInit();
+    lv_init();
     if (!display_init()) { Serial.println("Display FAIL"); while(1) delay(1000); }
     if (!touch_init()) { Serial.println("Touch FAIL"); while(1) delay(1000); }
 

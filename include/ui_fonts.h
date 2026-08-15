@@ -25,6 +25,13 @@
 // and RTL scripts are still out of range (RTL would also need LV_USE_BIDI).
 // ---------------------------------------------------------------------------
 
+// C linkage: LV_FONT_DEFAULT points at font_text_16, so LVGL re-declares it from
+// lv_font.h (inside LVGL's extern "C" block). Both declarations must agree or any
+// translation unit including both fails to compile.
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern lv_font_t font_text_12;
 extern lv_font_t font_text_14;
 extern lv_font_t font_text_16;
@@ -33,7 +40,11 @@ extern lv_font_t font_text_24;
 extern lv_font_t font_text_32;
 extern lv_font_t font_text_48;
 
-// Must be called once at boot BEFORE any screen is built.
+#ifdef __cplusplus
+}
+#endif
+
+// Must be called once at boot BEFORE any screen is built, and before lv_init().
 void uiFontsInit(void);
 
 #endif // UI_FONTS_H
