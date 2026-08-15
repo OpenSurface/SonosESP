@@ -127,14 +127,16 @@ void buildAmbientPlayer() {
     // shadow_width in LVGL is a BLUR RADIUS, not an outline: the blur spreads
     // equally in every direction from each corner point, so a 36px shadow renders
     // with visibly rounded corners around a square image however the radius is
-    // set. Zeroing the radius could never fix that. A crisp 1px outline gives the
-    // artwork definition against the backdrop instead — and it also drops the
-    // most expensive draw on this screen, since blur is pure software here.
+    // set. Zeroing the radius could never fix that — and it also drops the most
+    // expensive draw on this screen, since blur is pure software here.
+    //
+    // A 1px white outline replaced the shadow to give the artwork definition.
+    // Removed: against a dark ambient backdrop it read as a hard white frame
+    // around the album rather than as an edge, which is not the look this theme
+    // is going for. The artwork now sits directly on the backdrop.
     lv_obj_set_style_radius(img_album, 0, 0);
     lv_obj_set_style_shadow_width(img_album, 0, 0);
-    lv_obj_set_style_border_width(img_album, 1, 0);
-    lv_obj_set_style_border_color(img_album, COL_TEXT, 0);
-    lv_obj_set_style_border_opa(img_album, LV_OPA_20, 0);
+    lv_obj_set_style_border_width(img_album, 0, 0);
 
     art_placeholder = lv_label_create(panel_art);
     lv_label_set_text(art_placeholder, MDI_MUSIC_NOTE);

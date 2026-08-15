@@ -21,6 +21,20 @@ void createMainScreen() {
     themeCurrent()->build();
 }
 
+// Header buttons were bare icons on a transparent hit box: nothing showed where
+// the button ended, so they read as decoration rather than controls. This is the
+// same treatment the Immersive and Ambient headers use — a soft dark disc with a
+// faint ring — lifted here so all three themes present their header the same way.
+static void headerCircle(lv_obj_t* b) {
+    lv_obj_set_style_radius(b, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(b, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(b, LV_OPA_20, 0);
+    lv_obj_set_style_border_width(b, 1, 0);
+    lv_obj_set_style_border_color(b, COL_TEXT, 0);
+    lv_obj_set_style_border_opa(b, LV_OPA_40, 0);
+    lv_obj_set_style_shadow_width(b, 0, 0);
+}
+
 // ==================== CLASSIC LAYOUT — used by Classic + Ambient ============
 // Ambient shares this layout and differs only in backdrop treatment, which is
 // applied by themeApplyBackdrop() from the art colour animation.
@@ -134,8 +148,7 @@ void buildClassicPlayer() {
     lv_obj_t* btn_back = lv_btn_create(panel_right);
     lv_obj_set_size(btn_back, SMIN(40), SMIN(40));
     lv_obj_set_pos(btn_back, SX(10), SY(15));
-    lv_obj_set_style_bg_opa(btn_back, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_shadow_width(btn_back, 0, 0);
+    headerCircle(btn_back);
     lv_obj_set_style_transform_scale_x(btn_back, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transform_scale_y(btn_back, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transition(btn_back, &trans_btn, LV_STATE_PRESSED);
@@ -153,13 +166,22 @@ void buildClassicPlayer() {
     lv_obj_set_style_text_color(lbl_device_name, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
     lv_obj_set_pos(lbl_device_name, SX(55), SY(25));
+    // "Now Playing - <room>" is unbounded — room names are user-chosen and can be
+    // long ("Living Room Playbar & Sub"). Without a width this ran straight under
+    // the sources and settings buttons at x=255. Stops 8px short of them and
+    // ellipsises instead.
+    lv_obj_set_size(lbl_device_name, SX(192), SY(20));
+    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_DOT);
 
     // Music Sources button - scale effect
     lv_obj_t* btn_sources = lv_btn_create(panel_right);
     lv_obj_set_size(btn_sources, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_sources, SX(255), SY(18));
-    lv_obj_set_style_bg_opa(btn_sources, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_shadow_width(btn_sources, 0, 0);
+    headerCircle(btn_sources);
+    // 5px, not 8: btn_settings starts 12px away, so 5 a side keeps a 2px gap
+    // between the two hit areas. Overlapping them would hand the shared strip to
+    // whichever was created last.
+    lv_obj_set_ext_click_area(btn_sources, 5);
     lv_obj_set_style_transform_scale_x(btn_sources, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transform_scale_y(btn_sources, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transition(btn_sources, &trans_btn, LV_STATE_PRESSED);
@@ -175,8 +197,8 @@ void buildClassicPlayer() {
     lv_obj_t* btn_settings = lv_btn_create(panel_right);
     lv_obj_set_size(btn_settings, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_settings, SX(305), SY(18));
-    lv_obj_set_style_bg_opa(btn_settings, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_shadow_width(btn_settings, 0, 0);
+    headerCircle(btn_settings);
+    lv_obj_set_ext_click_area(btn_settings, 5);
     lv_obj_add_event_cb(btn_settings, ev_settings, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_set = lv_label_create(btn_settings);
     lv_label_set_text(ico_set, MDI_COG);
@@ -207,8 +229,7 @@ void buildClassicPlayer() {
     btn_queue = lv_btn_create(panel_right);
     lv_obj_set_size(btn_queue, SMIN(48), SMIN(48));
     lv_obj_set_pos(btn_queue, SX(295), SY(122));
-    lv_obj_set_style_bg_opa(btn_queue, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_shadow_width(btn_queue, 0, 0);
+    headerCircle(btn_queue);
     lv_obj_set_style_transform_scale_x(btn_queue, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transform_scale_y(btn_queue, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transition(btn_queue, &trans_btn, LV_STATE_PRESSED);

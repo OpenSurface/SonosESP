@@ -405,6 +405,13 @@ void buildImmersivePlayer() {
 
     lbl_device_name = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_device_name, SX(IM_TEXT_X), SY(IM_HEAD_Y + 82));
+    // "Now Playing - <room>" is unbounded: room names are user-chosen and can be
+    // long ("Living Room Playbar & Sub"). Without a width this ran past the
+    // header and under the settings buttons. Same width as the title/artist above
+    // it so the header block stays a clean column, ellipsised rather than
+    // scrolled — it is a static label, not track metadata worth animating.
+    lv_obj_set_size(lbl_device_name, SX(head_text_w), SY(20));
+    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_DOT);
     lv_label_set_text(lbl_device_name, "Now Playing");
     lv_obj_set_style_text_color(lbl_device_name, COL_TEXT, 0);
     lv_obj_set_style_text_opa(lbl_device_name, LV_OPA_60, 0);
@@ -483,15 +490,27 @@ void buildImmersivePlayer() {
     lv_obj_set_style_text_opa(lbl_time_remaining, LV_OPA_60, 0);
     lv_obj_set_style_text_font(lbl_time_remaining, &font_text_14, 0);
 
-    // Transport: prev / play / next on a 64px pitch, centred in the space between
-    // the time readout and the volume icon.
-    btn_prev = roundBtn(bar, MDI_SKIP_PREV, &lv_font_mdi_32, 466, IM_BAR_MID(44), 44, ev_prev, false);
+    // Transport: prev / play / next, centred on x=552 in the space between the
+    // time readout and the volume icon.
+    //
+    // These were 44px with no extended hit area and sit in the bottom 94px of the
+    // panel, where a fingertip lands least accurately — reported as the buttons
+    // needing several taps. Ambient's equivalents are 56 and 70 and have never
+    // had the problem. Enlarged to 52/64 and given 6px of ext_click_area each.
+    //
+    // 6px is not arbitrary: the gaps are 14px, so 6 a side leaves 2px between
+    // adjacent hit areas. Any more and they would overlap, and LVGL awards an
+    // overlap to the last-created object — tapping the edge of play would fire
+    // next, which is worse than a small target.
+    btn_prev = roundBtn(bar, MDI_SKIP_PREV, &lv_font_mdi_32, 454, IM_BAR_MID(52), 52, ev_prev, false);
+    lv_obj_set_ext_click_area(btn_prev, 6);
 
     btn_play = lv_btn_create(bar);
-    lv_obj_set_size(btn_play, SMIN(60), SMIN(60));
-    lv_obj_set_pos(btn_play, SX(522), SY(IM_BAR_MID(60)));
+    lv_obj_set_size(btn_play, SMIN(64), SMIN(64));
+    lv_obj_set_pos(btn_play, SX(520), SY(IM_BAR_MID(64)));
+    lv_obj_set_ext_click_area(btn_play, 6);
     lv_obj_set_style_bg_color(btn_play, g_ambient_bright, 0);
-    lv_obj_set_style_radius(btn_play, SMIN(30), 0);
+    lv_obj_set_style_radius(btn_play, SMIN(32), 0);
     lv_obj_set_style_shadow_width(btn_play, 0, 0);
     pressScale(btn_play);
     lv_obj_add_event_cb(btn_play, ev_play, LV_EVENT_CLICKED, NULL);
@@ -501,12 +520,14 @@ void buildImmersivePlayer() {
     lv_obj_set_style_text_color(ico_play, lv_color_hex(0x111111), 0);
     lv_obj_center(ico_play);
 
-    btn_next = roundBtn(bar, MDI_SKIP_NEXT, &lv_font_mdi_32, 594, IM_BAR_MID(44), 44, ev_next, false);
+    btn_next = roundBtn(bar, MDI_SKIP_NEXT, &lv_font_mdi_32, 598, IM_BAR_MID(52), 52, ev_next, false);
+    lv_obj_set_ext_click_area(btn_next, 6);
 
     // Volume: just an icon until tapped. Tapping slides it to the head of the row
     // and reveals the slider across the full width; tapping again while open
     // toggles mute (so mute is still reachable). Auto-closes after IM_VOL_HOLD_MS.
     btn_mute = roundBtn(bar, MDI_VOLUME_HIGH, &lv_font_mdi_32, IM_MUTE_X, IM_BAR_MID(44), 44, nullptr, false);
+    lv_obj_set_ext_click_area(btn_mute, 6);   // nothing within 60px of it, so this is free
     lv_obj_add_event_cb(btn_mute, [](lv_event_t* e) {
         if (im_vol_open) { ev_mute(e); im_vol_poke(); }
         else             { im_vol_set_open(true); }
