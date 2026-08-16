@@ -707,12 +707,22 @@ bool SonosController::saveCurrentTrack(const char* playlistName) {
     String updateID = extractXML(browsePlaylist, "UpdateID");
     if (updateID.length() == 0) updateID = "0";
 
+    // Both of these came out of a DIDL that decodeHTMLEntities() already decoded
+    // above, so trackURI holds literal & (service URIs carry "?sid=...&flags=...")
+    // and trackMetadata holds literal < and >. Dropped into the SOAP body raw
+    // they produce malformed XML — the same defect that stopped containers and
+    // service tracks playing, in a third place.
+    String trackURIEnc = trackURI;
+    encodeXML(trackURIEnc);
+    String trackMetaEnc = trackMetadata;
+    encodeXML(trackMetaEnc);
+
     // Add track with proper metadata
     String addArgs = "<InstanceID>0</InstanceID>"
                     "<ObjectID>" + playlistID + "</ObjectID>"
                     "<UpdateID>" + updateID + "</UpdateID>"
-                    "<EnqueuedURI>" + trackURI + "</EnqueuedURI>"
-                    "<EnqueuedURIMetaData>" + trackMetadata + "</EnqueuedURIMetaData>"
+                    "<EnqueuedURI>" + trackURIEnc + "</EnqueuedURI>"
+                    "<EnqueuedURIMetaData>" + trackMetaEnc + "</EnqueuedURIMetaData>"
                     "<AddAtIndex>4294967295</AddAtIndex>";
 
     String addResp = sendSOAP("AVTransport", "AddURIToSavedQueue", addArgs.c_str());
