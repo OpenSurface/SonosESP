@@ -423,6 +423,53 @@ static void browseItemDeleteCb(lv_event_t* e) {
     }
 }
 
+// ── Browse paging ───────────────────────────────────────────────────────────
+// Rows are fetched a page at a time instead of "the first 100 and nothing else".
+// A 500-track queue used to show 100 items with no indication the rest existed.
+//
+// This is a memory decision as much as a display one: every row owns an ItemData
+// of ~2.1KB in PSRAM, so a page size of 50 costs ~107KB and the user only pays
+// for the pages they actually ask for.
+#define BROWSE_PAGE_SIZE 50
+
+static lv_obj_t* browse_list     = nullptr;   // list being appended to
+static lv_obj_t* browse_more_btn = nullptr;   // the "Load more" row, if shown
+static int       browse_offset   = 0;         // next StartingIndex to request
+
+static int browsePopulate(lv_obj_t* list, int startIndex);
+
+// Row icon from the DIDL upnp:class, so an album, a playlist and a radio station
+// no longer all read as a generic folder. Falls back to folder/note for classes
+// not listed, which keeps unknown content types rendering sensibly.
+static const char* browseIconFor(const String& cls, bool isContainer) {
+    if (cls.indexOf("musicAlbum") >= 0)        return MDI_MUSIC_BOX;
+    if (cls.indexOf("playlistContainer") >= 0) return MDI_PLAYLIST;
+    if (cls.indexOf("musicGenre") >= 0)        return MDI_WAVEFORM;
+    if (cls.indexOf("audioBroadcast") >= 0)    return MDI_RADIO;
+    if (cls.indexOf("musicTrack") >= 0)        return MDI_MUSIC_NOTE;
+    return isContainer ? MDI_FOLDER : MDI_MUSIC_NOTE;
+}
+
+// "Music Library > Artists" — the levels above the one being shown. Empty at the
+// top, where the back arrow alone says everything. ASCII '>' deliberately: the
+// nicer chevrons live outside Latin-Ext-A and would render as tofu.
+static String browseTrailText(void) {
+    String s;
+    for (int i = 0; i < browse_depth; i++) {
+        if (s.length()) s += " > ";
+        s += browse_stack_title[i];
+    }
+    return s;
+}
+
+static void browseLoadMore(lv_event_t* e) {
+    if (!browse_list) return;
+    // Drop the button first so the new rows land at the end of the list, then
+    // browsePopulate() re-adds it if the page came back full.
+    if (browse_more_btn) { lv_obj_del(browse_more_btn); browse_more_btn = nullptr; }
+    browse_offset += browsePopulate(browse_list, browse_offset);
+}
+
 void createBrowseScreen() {
     if (scr_browse) {
         // Per-row ItemData is released by browseItemDeleteCb as LVGL tears down the
@@ -458,13 +505,28 @@ void createBrowseScreen() {
     lv_obj_set_style_text_font(ico_back, &lv_font_mdi_24, 0);
     lv_obj_center(ico_back);
 
+    // Breadcrumb — the levels above this one, so you can tell "Albums" inside
+    // Music Library from "Albums" inside a service. Only drawn when nested.
+    String trail = browseTrailText();
+    bool nested = trail.length() > 0;
+    if (nested) {
+        lv_obj_t* lbl_trail = lv_label_create(content);
+        lv_label_set_text(lbl_trail, trail.c_str());
+        lv_obj_set_style_text_font(lbl_trail, &font_text_12, 0);
+        lv_obj_set_style_text_color(lbl_trail, COL_TEXT2, 0);
+        lv_obj_set_pos(lbl_trail, SX(48), SY(2));
+        lv_obj_set_width(lbl_trail, SX(520));
+        lv_label_set_long_mode(lbl_trail, LV_LABEL_LONG_DOT);
+    }
+
     // Title — sits right of the back arrow, and ellipsises rather than running
-    // under the sidebar: container names are user content and unbounded.
+    // under the sidebar: container names are user content and unbounded. Drops
+    // below the breadcrumb when there is one, otherwise keeps the whole row.
     lv_obj_t* lbl_title = lv_label_create(content);
     lv_label_set_text(lbl_title, current_browse_title.c_str());
     lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_pos(lbl_title, SX(48), SY(4));
+    lv_obj_set_pos(lbl_title, SX(48), nested ? SY(18) : SY(4));
     lv_obj_set_width(lbl_title, SX(520));
     lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_DOT);
 
@@ -479,15 +541,28 @@ void createBrowseScreen() {
     lv_obj_set_flex_align(list, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_style_pad_row(list, SY(10), 0);
 
-    String didl = sonos.browseContent(current_browse_id.c_str());
+    browse_list     = list;
+    browse_more_btn = nullptr;
+    browse_offset   = browsePopulate(list, 0);
+}
 
-    Serial.printf("[BROWSE] ID=%s, DIDL length=%d\n", current_browse_id.c_str(), didl.length());
+// Appends one page of rows to `list`, starting at `startIndex`. Returns how many
+// were added, so the caller can advance the offset.
+static int browsePopulate(lv_obj_t* list, int startIndex) {
+    String didl = sonos.browseContent(current_browse_id.c_str(), startIndex, BROWSE_PAGE_SIZE);
+
+    Serial.printf("[BROWSE] ID=%s start=%d DIDL length=%d\n",
+                  current_browse_id.c_str(), startIndex, didl.length());
 
     if (didl.length() == 0) {
-        lv_obj_t* lbl_empty = lv_label_create(list);
-        lv_label_set_text(lbl_empty, "No items found");
-        lv_obj_set_style_text_color(lbl_empty, COL_TEXT2, 0);
-        return;
+        // Only say "empty" for the first page — a later page coming back empty
+        // just means we reached the end, and the rows already shown are valid.
+        if (startIndex == 0) {
+            lv_obj_t* lbl_empty = lv_label_create(list);
+            lv_label_set_text(lbl_empty, "No items found");
+            lv_obj_set_style_text_color(lbl_empty, COL_TEXT2, 0);
+        }
+        return 0;
     }
 
     int searchPos = 0;
@@ -559,7 +634,7 @@ void createBrowseScreen() {
         lv_obj_add_event_cb(btn, browseItemDeleteCb, LV_EVENT_DELETE, NULL);
 
         lv_obj_t* icon = lv_label_create(btn);
-        lv_label_set_text(icon, isContainer ? MDI_FOLDER : MDI_SPEAKER);
+        lv_label_set_text(icon, browseIconFor(sonos.extractXML(itemXML, "upnp:class"), isContainer));
         lv_obj_set_style_text_color(icon, COL_ACCENT, 0);
         lv_obj_set_style_text_font(icon, &lv_font_mdi_16, 0);
         lv_obj_align(icon, LV_ALIGN_LEFT_MID, SX(5), 0);
@@ -615,8 +690,14 @@ void createBrowseScreen() {
                 }
 
                 if (uri.startsWith("x-rincon-cpcontainer:")) {
-                    // Sonos Favorites (x-rincon-cpcontainer) not supported.
-                    Serial.println("[BROWSE] Sonos Favorites not supported");
+                    // Favorites, and service albums/playlists, are containers: the
+                    // whole thing becomes the transport rather than one track being
+                    // played. playContainer() does exactly that — it has been
+                    // implemented and unused since it was written, while this branch
+                    // refused the tap instead.
+                    Serial.printf("[BROWSE] Playing container: %s\n", uri.c_str());
+                    sonos.playContainer(uri.c_str(), itemXML.c_str());
+                    lv_screen_load(scr_main);
                 } else if (uri.length() > 0) {
                     Serial.printf("[BROWSE] Playing URI: %s\n", uri.c_str());
                     sonos.playURI(uri.c_str(), itemXML.c_str());
@@ -629,17 +710,37 @@ void createBrowseScreen() {
 
         searchPos = endPos + (isContainer ? 12 : 7);
         itemCount++;
-        if (itemCount >= 100) {
-            Serial.printf("[BROWSE] Reached 100 item limit, stopping\n");
-            break;
-        }
     }
 
-    if (itemCount == 0) {
+    if (itemCount == 0 && startIndex == 0) {
         lv_obj_t* lbl_empty = lv_label_create(list);
         lv_label_set_text(lbl_empty, "No items found");
         lv_obj_set_style_text_color(lbl_empty, COL_TEXT2, 0);
     }
 
-    Serial.printf("[BROWSE] Created %d items, free heap: %d bytes\n", itemCount, esp_get_free_heap_size());
+    // A full page means there is probably more. browseContent() returns only the
+    // DIDL, not TotalMatches, so this is the honest test available — worst case
+    // is one "Load more" that turns out to fetch nothing, which then removes
+    // itself because the next page comes back empty.
+    if (itemCount == BROWSE_PAGE_SIZE) {
+        browse_more_btn = lv_btn_create(list);
+        lv_obj_set_size(browse_more_btn, lv_pct(100), SY(50));
+        lv_obj_set_style_radius(browse_more_btn, 10, 0);
+        lv_obj_set_style_shadow_width(browse_more_btn, 0, 0);
+        lv_obj_set_style_bg_color(browse_more_btn, COL_BG, 0);
+        lv_obj_set_style_bg_color(browse_more_btn, COL_BTN_PRESSED, LV_STATE_PRESSED);
+        lv_obj_set_style_border_width(browse_more_btn, 1, 0);
+        lv_obj_set_style_border_color(browse_more_btn, COL_BORDER, 0);
+        lv_obj_add_event_cb(browse_more_btn, browseLoadMore, LV_EVENT_CLICKED, NULL);
+
+        lv_obj_t* lbl_more = lv_label_create(browse_more_btn);
+        lv_label_set_text_fmt(lbl_more, "Load more  (%d shown)", startIndex + itemCount);
+        lv_obj_set_style_text_color(lbl_more, COL_ACCENT, 0);
+        lv_obj_set_style_text_font(lbl_more, &font_text_16, 0);
+        lv_obj_center(lbl_more);
+    }
+
+    Serial.printf("[BROWSE] +%d rows from %d, free heap: %d bytes\n",
+                  itemCount, startIndex, esp_get_free_heap_size());
+    return itemCount;
 }
