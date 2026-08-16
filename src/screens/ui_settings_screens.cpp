@@ -190,6 +190,138 @@ void createSettingsScreen() {
 // ============================================================================
 // Sources Screen
 // ============================================================================
+// The source list is whatever the player reports from Browse("0"), not a
+// hardcoded list. Households differ — no library share, no favorites, no saved
+// queues — and a static list produces rows that do nothing when tapped.
+//
+// Display metadata for the containers Sonos returns at the root. The device's
+// own titles are unusable: it calls the music library "Attributes". Anything NOT
+// in this table still appears, using whatever title the device gave it, so a
+// container Sonos adds later shows up without a firmware change.
+struct SourceMeta {
+    const char* rootID;      // id as returned by Browse("0")
+    const char* browseID;    // what we actually browse when the row is tapped
+    const char* label;
+    const char* icon;
+};
+
+static const SourceMeta SOURCE_META[] = {
+    {"A:",  "A:",    "Music Library",   MDI_MUSIC_BOX},
+    {"S:",  "S:",    "Music Shares",    MDI_FOLDER},
+    {"SQ:", "SQ:",   "Sonos Playlists", MDI_PLAYLIST},
+    // FV: contains a single child, FV:2, itself titled "Favorites" — so browsing
+    // FV: costs a tap to reach a row with the same name as the one just tapped.
+    // FV:2 is the conventional Sonos favorites container and is what other
+    // controllers use. If a household ever differs, the row lands on the existing
+    // "No items found" state rather than failing.
+    {"FV:", "FV:2",  "Favorites",       MDI_MUSIC_NOTE},
+    // R: reports TotalMatches=0 at its OWN root — browsing it shows nothing at
+    // all — while the stations live one level down. Jump straight there.
+    {"R:",  "R:0/0", "Internet Radio",  MDI_RADIO},
+    // Q: lists "Queue Instance 0/1" wrappers nobody wants to see. Q:0 is the
+    // queue that is actually playing.
+    {"Q:",  "Q:0",   "Queue",           MDI_SPEAKER},
+};
+static const int SOURCE_META_COUNT = sizeof(SOURCE_META) / sizeof(SOURCE_META[0]);
+
+static lv_obj_t* sources_list = nullptr;
+
+// Each row owns a heap copy of the ObjectID to browse. Freed when LVGL destroys
+// the button, for any reason — same contract as the browse rows below.
+static void sourceRowDeleteCb(lv_event_t* e) {
+    void* p = lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
+    if (p) free(p);
+}
+
+// Rebuilt on every screen open rather than once at boot: createSourcesScreen()
+// runs during setup(), before the Sonos is necessarily discovered, so a list
+// built there would stay empty forever. One Browse per visit, and only when the
+// user actually opens the screen — nothing is spent at boot.
+static void refreshSourcesList(lv_event_t* e) {
+    if (!sources_list) return;
+    lv_obj_clean(sources_list);   // per-row delete cbs free their ObjectIDs
+
+    String didl = sonos.browseContent("0");
+    Serial.printf("[SOURCES] root DIDL length=%d\n", didl.length());
+
+    int searchPos = 0, shown = 0;
+    while (searchPos < (int)didl.length()) {
+        int cPos = didl.indexOf("<container", searchPos);
+        if (cPos < 0) break;
+        int endPos = didl.indexOf("</container>", cPos);
+        if (endPos < 0) break;
+
+        String itemXML = didl.substring(cPos, endPos + 12);
+        String title   = sonos.extractXML(itemXML, "dc:title");
+        int idStart = itemXML.indexOf("id=\"") + 4;
+        int idEnd   = itemXML.indexOf("\"", idStart);
+        String id   = itemXML.substring(idStart, idEnd);
+        searchPos = endPos + 12;
+
+        const SourceMeta* meta = nullptr;
+        for (int i = 0; i < SOURCE_META_COUNT; i++) {
+            if (id == SOURCE_META[i].rootID) { meta = &SOURCE_META[i]; break; }
+        }
+
+        const char* label    = meta ? meta->label    : title.c_str();
+        const char* icon     = meta ? meta->icon     : MDI_FOLDER;
+        String      browseID = meta ? meta->browseID : id;
+        if (browseID.length() == 0) continue;
+
+        char* idCopy = (char*)malloc(browseID.length() + 1);
+        if (!idCopy) { Serial.println("[SOURCES] malloc failed"); break; }
+        strcpy(idCopy, browseID.c_str());
+
+        lv_obj_t* btn = lv_btn_create(sources_list);
+        lv_obj_set_size(btn, lv_pct(100), SY(50));
+        lv_obj_set_style_radius(btn, 12, 0);
+        lv_obj_set_style_shadow_width(btn, 0, 0);
+        lv_obj_set_style_bg_color(btn, COL_CARD, 0);
+        lv_obj_set_style_bg_color(btn, COL_BTN_PRESSED, LV_STATE_PRESSED);
+        lv_obj_set_style_pad_all(btn, SMIN(15), 0);
+        lv_obj_set_user_data(btn, idCopy);
+        lv_obj_add_event_cb(btn, sourceRowDeleteCb, LV_EVENT_DELETE, NULL);
+
+        lv_obj_t* ico = lv_label_create(btn);
+        lv_label_set_text(ico, icon);
+        lv_obj_set_style_text_color(ico, COL_ACCENT, 0);
+        lv_obj_set_style_text_font(ico, &lv_font_mdi_24, 0);
+        lv_obj_align(ico, LV_ALIGN_LEFT_MID, SX(5), 0);
+
+        // Child index 1 — the click handler reads the title back from here.
+        lv_obj_t* name = lv_label_create(btn);
+        lv_label_set_text(name, label);
+        lv_obj_set_style_text_color(name, COL_TEXT, 0);
+        lv_obj_set_style_text_font(name, &lv_font_montserrat_18, 0);
+        lv_obj_set_width(name, SX(300));
+        lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
+        lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(40), 0);
+
+        lv_obj_add_event_cb(btn, [](lv_event_t* ev) {
+            lv_obj_t* b = (lv_obj_t*)lv_event_get_target(ev);
+            const char* objID = (const char*)lv_obj_get_user_data(b);
+            if (!objID) return;
+            current_browse_id    = String(objID);
+            current_browse_title = String(lv_label_get_text(lv_obj_get_child(b, 1)));
+            createBrowseScreen();
+            lv_screen_load(scr_browse);
+        }, LV_EVENT_CLICKED, NULL);
+
+        Serial.printf("[SOURCES] %s -> browse %s\n", label, browseID.c_str());
+        shown++;
+    }
+
+    if (shown == 0) {
+        lv_obj_t* lbl = lv_label_create(sources_list);
+        lv_label_set_text(lbl, sonos.getCurrentDevice()
+                               ? "No sources found"
+                               : "No Sonos device connected");
+        lv_obj_set_style_text_color(lbl, COL_TEXT2, 0);
+        lv_obj_set_style_text_font(lbl, &font_text_16, 0);
+    }
+    Serial.printf("[SOURCES] %d source(s) listed\n", shown);
+}
+
 void createSourcesScreen() {
     scr_sources = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_sources, COL_SCREEN, 0);
@@ -216,52 +348,10 @@ void createSourcesScreen() {
     lv_obj_set_flex_align(list, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_style_pad_row(list, SY(8), 0);
 
-    // Music source items
-    struct MusicSource {
-        const char* name;
-        const char* icon;
-        const char* objectID;
-    };
-
-    MusicSource sources[] = {
-        {"Sonos Playlists", MDI_PLAYLIST, "SQ:"}
-    };
-
-    for (int i = 0; i < 1; i++) {
-        lv_obj_t* btn = lv_btn_create(list);
-        lv_obj_set_size(btn, lv_pct(100), SY(50));
-        lv_obj_set_style_radius(btn, 12, 0);
-        lv_obj_set_style_shadow_width(btn, 0, 0);
-        lv_obj_set_style_bg_color(btn, COL_CARD, 0);
-        lv_obj_set_style_bg_color(btn, COL_BTN_PRESSED, LV_STATE_PRESSED);
-        lv_obj_set_style_pad_all(btn, SMIN(15), 0);
-        lv_obj_set_user_data(btn, (void*)sources[i].objectID);
-
-        lv_obj_t* icon = lv_label_create(btn);
-        lv_label_set_text(icon, sources[i].icon);
-        lv_obj_set_style_text_color(icon, COL_ACCENT, 0);
-        lv_obj_set_style_text_font(icon, &lv_font_mdi_24, 0);
-        lv_obj_align(icon, LV_ALIGN_LEFT_MID, SX(5), 0);
-
-        lv_obj_t* name = lv_label_create(btn);
-        lv_label_set_text(name, sources[i].name);
-        lv_obj_set_style_text_color(name, COL_TEXT, 0);
-        lv_obj_set_style_text_font(name, &lv_font_montserrat_18, 0);
-        lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(40), 0);
-
-        lv_obj_add_event_cb(btn, [](lv_event_t* e) {
-            lv_obj_t* btn_target = (lv_obj_t*)lv_event_get_target(e);
-            const char* objID = (const char*)lv_obj_get_user_data(btn_target);
-            lv_obj_t* label = lv_obj_get_child(btn_target, 1);
-            const char* title = lv_label_get_text(label);
-
-            current_browse_id = String(objID);
-            current_browse_title = String(title);
-
-            createBrowseScreen();
-            lv_screen_load(scr_browse);
-        }, LV_EVENT_CLICKED, NULL);
-    }
+    // Populated by refreshSourcesList() on every screen open — see the note there
+    // for why this is not filled in here at boot.
+    sources_list = list;
+    lv_obj_add_event_cb(scr_sources, refreshSourcesList, LV_EVENT_SCREEN_LOAD_START, NULL);
 }
 
 // ============================================================================
