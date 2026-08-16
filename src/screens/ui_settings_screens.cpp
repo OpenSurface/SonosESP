@@ -226,6 +226,54 @@ static const int SOURCE_META_COUNT = sizeof(SOURCE_META) / sizeof(SOURCE_META[0]
 
 static lv_obj_t* sources_list = nullptr;
 
+// ── Browse navigation trail ─────────────────────────────────────────────────
+// createBrowseScreen() rebuilds the screen for every container and keeps only
+// current_browse_id, so "where did I come from" has to be recorded explicitly or
+// there is no way back out of a nested container except the sidebar. Fixed depth:
+// Sonos trees are shallow in practice, and this avoids allocating per navigation.
+#define BROWSE_STACK_MAX 8
+static String browse_stack_id[BROWSE_STACK_MAX];
+static String browse_stack_title[BROWSE_STACK_MAX];
+static int    browse_depth = 0;
+
+// Enter a top-level source. Clears the trail, so Back leaves for the Sources list.
+static void browseEnterRoot(const String& id, const String& title) {
+    browse_depth = 0;
+    current_browse_id    = id;
+    current_browse_title = title;
+    createBrowseScreen();
+    lv_screen_load(scr_browse);
+}
+
+// Descend into a child container, remembering the level being left.
+static void browseDescend(const String& id, const String& title) {
+    if (browse_depth < BROWSE_STACK_MAX) {
+        browse_stack_id[browse_depth]    = current_browse_id;
+        browse_stack_title[browse_depth] = current_browse_title;
+        browse_depth++;
+    }
+    // Past the cap the trail simply stops growing rather than blocking the tap:
+    // Back then surfaces one level higher than expected, which is a far better
+    // failure than a row that does nothing.
+    current_browse_id    = id;
+    current_browse_title = title;
+    createBrowseScreen();
+    lv_screen_load(scr_browse);
+}
+
+// Back arrow: up one container, or out to the Sources list at the top.
+static void browseBack(void) {
+    if (browse_depth > 0) {
+        browse_depth--;
+        current_browse_id    = browse_stack_id[browse_depth];
+        current_browse_title = browse_stack_title[browse_depth];
+        createBrowseScreen();
+        lv_screen_load(scr_browse);
+    } else {
+        lv_screen_load(scr_sources);
+    }
+}
+
 // Each row owns a heap copy of the ObjectID to browse. Freed when LVGL destroys
 // the button, for any reason — same contract as the browse rows below.
 static void sourceRowDeleteCb(lv_event_t* e) {
@@ -301,10 +349,8 @@ static void refreshSourcesList(lv_event_t* e) {
             lv_obj_t* b = (lv_obj_t*)lv_event_get_target(ev);
             const char* objID = (const char*)lv_obj_get_user_data(b);
             if (!objID) return;
-            current_browse_id    = String(objID);
-            current_browse_title = String(lv_label_get_text(lv_obj_get_child(b, 1)));
-            createBrowseScreen();
-            lv_screen_load(scr_browse);
+            browseEnterRoot(String(objID),
+                            String(lv_label_get_text(lv_obj_get_child(b, 1))));
         }, LV_EVENT_CLICKED, NULL);
 
         Serial.printf("[SOURCES] %s -> browse %s\n", label, browseID.c_str());
@@ -391,12 +437,36 @@ void createBrowseScreen() {
     lv_obj_t* content = createSettingsSidebar(scr_browse, 3);
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Title
+    // Back arrow — up one container, or out to Sources at the top level. Without
+    // this the only way out of a nested container was the sidebar, which jumps
+    // all the way back to the Sources root and loses your place entirely.
+    lv_obj_t* btn_back = lv_btn_create(content);
+    lv_obj_set_size(btn_back, SMIN(38), SMIN(38));
+    lv_obj_set_pos(btn_back, 0, 0);
+    lv_obj_set_style_radius(btn_back, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(btn_back, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(btn_back, LV_OPA_20, 0);
+    lv_obj_set_style_border_width(btn_back, 1, 0);
+    lv_obj_set_style_border_color(btn_back, COL_TEXT, 0);
+    lv_obj_set_style_border_opa(btn_back, LV_OPA_40, 0);
+    lv_obj_set_style_shadow_width(btn_back, 0, 0);
+    lv_obj_set_ext_click_area(btn_back, 8);
+    lv_obj_add_event_cb(btn_back, [](lv_event_t* e) { browseBack(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* ico_back = lv_label_create(btn_back);
+    lv_label_set_text(ico_back, MDI_ARROW_LEFT);
+    lv_obj_set_style_text_color(ico_back, COL_TEXT, 0);
+    lv_obj_set_style_text_font(ico_back, &lv_font_mdi_24, 0);
+    lv_obj_center(ico_back);
+
+    // Title — sits right of the back arrow, and ellipsises rather than running
+    // under the sidebar: container names are user content and unbounded.
     lv_obj_t* lbl_title = lv_label_create(content);
     lv_label_set_text(lbl_title, current_browse_title.c_str());
     lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_pos(lbl_title, 0, 0);
+    lv_obj_set_pos(lbl_title, SX(48), SY(4));
+    lv_obj_set_width(lbl_title, SX(520));
+    lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_DOT);
 
     // Content list
     lv_obj_t* list = lv_obj_create(content);
@@ -522,10 +592,7 @@ void createBrowseScreen() {
                     sonos.playPlaylist(id.c_str(), title.c_str());
                     lv_screen_load(scr_main);
                 } else {
-                    current_browse_id = id;
-                    current_browse_title = sonos.extractXML(itemXML, "dc:title");
-                    createBrowseScreen();
-                    lv_screen_load(scr_browse);
+                    browseDescend(id, sonos.extractXML(itemXML, "dc:title"));
                 }
             } else {
 
@@ -538,11 +605,8 @@ void createBrowseScreen() {
                             int idStart = resMD.indexOf("id=\"") + 4;
                             int idEnd = resMD.indexOf("\"", idStart);
                             String containerID = resMD.substring(idStart, idEnd);
-                            current_browse_id = containerID;
-                            current_browse_title = sonos.extractXML(resMD, "dc:title");
                             Serial.printf("[BROWSE] Shortcut to container: %s\n", containerID.c_str());
-                            createBrowseScreen();
-                            lv_screen_load(scr_browse);
+                            browseDescend(containerID, sonos.extractXML(resMD, "dc:title"));
                             return;
                         }
 
