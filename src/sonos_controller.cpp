@@ -763,15 +763,21 @@ bool SonosController::playURI(const char* uri, const char* metadata) {
     String metaEncoded = String(metadata);
     encodeXML(metaEncoded);
 
-    // Use static buffer to avoid String concatenation
-    static char args[1024];
-    snprintf(args, sizeof(args),
-        "<InstanceID>0</InstanceID>"
-        "<CurrentURI>%s</CurrentURI>"
-        "<CurrentURIMetaData>%s</CurrentURIMetaData>",
-        uri, metaEncoded.c_str());
+    // The URI needs escaping as much as the metadata does: service track URIs
+    // carry query strings ("...?sid=284&flags=8&sn=2") and a literal & inside
+    // <CurrentURI> breaks the SOAP envelope, which the player rejects with
+    // UPnP 402. Same bug that stopped containers playing — it reaches any track
+    // opened from a music service rather than the local library.
+    String uriEncoded = String(uri);
+    encodeXML(uriEncoded);
 
-    String resp = sendSOAP("AVTransport", "SetAVTransportURI", args);
+    // String rather than a fixed buffer: URI and metadata together are unbounded,
+    // and a truncated SOAP body fails as malformed XML instead of as an error.
+    String args = String("<InstanceID>0</InstanceID>")
+                + "<CurrentURI>" + uriEncoded + "</CurrentURI>"
+                + "<CurrentURIMetaData>" + metaEncoded + "</CurrentURIMetaData>";
+
+    String resp = sendSOAP("AVTransport", "SetAVTransportURI", args.c_str());
 
     if (resp.length() > 0 && resp.indexOf("Fault") < 0) {
         // Auto-play after setting URI
@@ -998,8 +1004,18 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
     // encodes to ~700 bytes and a larger one would have silently truncated
     // against the 1024-byte buffer that used to be here, producing malformed
     // XML rather than an error.
+    // The URI must be XML-escaped too, not just the metadata. Service URIs carry
+    // query strings — this one is "...?sid=284&flags=72&sn=2" — and a literal &
+    // inside <EnqueuedURI> breaks the SOAP envelope. Measured on a real player:
+    //     URI raw      -> HTTP 500, UPnP 402 (Invalid Args)
+    //     URI escaped  -> HTTP 200
+    // Only the metadata was ever escaped here, which is why no container with a
+    // query string could be played.
+    String uriEncoded = String(containerURI);
+    encodeXML(uriEncoded);
+
     String addArgs = String("<InstanceID>0</InstanceID>")
-                   + "<EnqueuedURI>" + containerURI + "</EnqueuedURI>"
+                   + "<EnqueuedURI>" + uriEncoded + "</EnqueuedURI>"
                    + "<EnqueuedURIMetaData>" + metaEncoded + "</EnqueuedURIMetaData>"
                    + "<DesiredFirstTrackNumberEnqueued>1</DesiredFirstTrackNumberEnqueued>"
                    + "<EnqueueAsNext>0</EnqueueAsNext>";
