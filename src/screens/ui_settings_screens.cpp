@@ -305,7 +305,12 @@ static void refreshSourcesList(lv_event_t* e) {
         if (endPos < 0) break;
 
         String itemXML = didl.substring(cPos, endPos + 12);
-        String title   = sonos.extractXML(itemXML, "dc:title");
+        // decodeHTML again: the DIDL arrives double-escaped. browseContent()
+        // decodes once, which turns it into valid XML, but an & inside a title
+        // was escaped a second time to survive that — so "R&B" is still sitting
+        // there as "R&amp;B" until this pass. Same for any name with & < > or a
+        // quote in it.
+        String title   = sonos.decodeHTML(sonos.extractXML(itemXML, "dc:title"));
         int idStart = itemXML.indexOf("id=\"") + 4;
         int idEnd   = itemXML.indexOf("\"", idStart);
         String id   = itemXML.substring(idStart, idEnd);
@@ -377,7 +382,9 @@ static void refreshSourcesList(lv_event_t* e) {
         lv_obj_set_style_pad_all(btn, SMIN(15), 0);
 
         lv_obj_t* ico = lv_label_create(btn);
-        lv_label_set_text(ico, MDI_WAVEFORM);
+        // MDI_WAVEFORM is the line-in hero glyph but exists only at 40/80, so at
+        // mdi_24 it renders as a tofu box. MDI_BROADCAST is in this size.
+        lv_label_set_text(ico, MDI_BROADCAST);
         lv_obj_set_style_text_color(ico, COL_ACCENT, 0);
         lv_obj_set_style_text_font(ico, &lv_font_mdi_24, 0);
         lv_obj_align(ico, LV_ALIGN_LEFT_MID, SX(5), 0);
@@ -483,10 +490,13 @@ static int browsePopulate(lv_obj_t* list, int startIndex);
 // Row icon from the DIDL upnp:class, so an album, a playlist and a radio station
 // no longer all read as a generic folder. Falls back to folder/note for classes
 // not listed, which keeps unknown content types rendering sensibly.
+// NOTE: only icons present in lv_font_mdi_16 may be used here. MDI_WAVEFORM and
+// MDI_TELEVISION are generated at 40/80 only — they are hero glyphs — and using
+// one at this size renders a tofu box, not an icon. Genres used MDI_WAVEFORM and
+// showed exactly that. A genre is just a container, so it takes the folder.
 static const char* browseIconFor(const String& cls, bool isContainer) {
     if (cls.indexOf("musicAlbum") >= 0)        return MDI_MUSIC_BOX;
     if (cls.indexOf("playlistContainer") >= 0) return MDI_PLAYLIST;
-    if (cls.indexOf("musicGenre") >= 0)        return MDI_WAVEFORM;
     if (cls.indexOf("audioBroadcast") >= 0)    return MDI_RADIO;
     if (cls.indexOf("musicTrack") >= 0)        return MDI_MUSIC_NOTE;
     return isContainer ? MDI_FOLDER : MDI_MUSIC_NOTE;
@@ -631,7 +641,10 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
         if (endPos < 0) break;
 
         String itemXML = didl.substring(searchPos, endPos + (isContainer ? 12 : 7));
-        String title = sonos.extractXML(itemXML, "dc:title");
+        // See the note in refreshSourcesList(): DIDL is double-escaped, so a
+        // title containing & < > or a quote needs a second decode after
+        // browseContent()'s. Without it a genre reads "R&amp;B".
+        String title = sonos.decodeHTML(sonos.extractXML(itemXML, "dc:title"));
 
         int idStart = itemXML.indexOf("id=\"") + 4;
         int idEnd = itemXML.indexOf("\"", idStart);
@@ -704,12 +717,14 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
 
             if (data->isContainer) {
                 if (id.startsWith("SQ:") && id.indexOf("/") < 0) {
-                    String title = sonos.extractXML(itemXML, "dc:title");
+                    // Decoded: the title goes into the DIDL playPlaylist() builds,
+                    // so a raw &amp; here would be re-escaped into &amp;amp;.
+                    String title = sonos.decodeHTML(sonos.extractXML(itemXML, "dc:title"));
                     Serial.printf("[BROWSE] Playing playlist: %s (ID: %s)\n", title.c_str(), id.c_str());
                     sonos.playPlaylist(id.c_str(), title.c_str());
                     lv_screen_load(scr_main);
                 } else {
-                    browseDescend(id, sonos.extractXML(itemXML, "dc:title"));
+                    browseDescend(id, sonos.decodeHTML(sonos.extractXML(itemXML, "dc:title")));
                 }
             } else {
 
@@ -723,7 +738,8 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
                             int idEnd = resMD.indexOf("\"", idStart);
                             String containerID = resMD.substring(idStart, idEnd);
                             Serial.printf("[BROWSE] Shortcut to container: %s\n", containerID.c_str());
-                            browseDescend(containerID, sonos.extractXML(resMD, "dc:title"));
+                            browseDescend(containerID,
+                                          sonos.decodeHTML(sonos.extractXML(resMD, "dc:title")));
                             return;
                         }
 

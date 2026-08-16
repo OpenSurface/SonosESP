@@ -37,8 +37,13 @@
 #define MDI_ARROW_LEFT         "\xF3\xB0\x81\x8D"   // U+F004D  mdi-arrow-left
 #define MDI_BROADCAST          "\xF3\xB1\x9C\xA0"   // U+F1720  mdi-broadcast
 #define MDI_RADIO              "\xF3\xB0\x90\xB9"   // U+F0439  mdi-radio
-#define MDI_WAVEFORM           "\xF3\xB1\xA1\xAC"   // U+F186C  mdi-audio-input-stereo-minijack  (line-in hero)
-#define MDI_TELEVISION         "\xF3\xB0\x94\x82"   // U+F0502  mdi-television  (TV audio hero)
+// HERO GLYPHS — 40 and 80 ONLY. These two are not generated into lv_font_mdi_16,
+// _24 or _32, so using them at those sizes draws a tofu box rather than an icon
+// and nothing warns you. Genres shipped with MDI_WAVEFORM at 16 and looked like a
+// blank square. If you need one of these in a list row, either pick a different
+// icon or regenerate the smaller fonts to include the codepoint.
+#define MDI_WAVEFORM           "\xF3\xB1\xA1\xAC"   // U+F186C  mdi-audio-input-stereo-minijack  (line-in hero, 40/80 only)
+#define MDI_TELEVISION         "\xF3\xB0\x94\x82"   // U+F0502  mdi-television  (TV audio hero, 40/80 only)
 
 // ── Settings / navigation (lv_font_mdi_24, includes Montserrat ASCII) ───────
 #define MDI_SPEAKER            "\xF3\xB0\x93\x83"   // U+F04C3  mdi-speaker
