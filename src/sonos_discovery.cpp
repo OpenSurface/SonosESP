@@ -350,6 +350,7 @@ bool SonosController::fetchDevicePlayingState(SonosDevice* dev) {
 }
 
 void SonosController::getRoomName(SonosDevice* dev) {
+    dev->hasLineIn = false;   // default off: a failed fetch must not offer a dead row
     HTTPClient http;
     char url[128];
     snprintf(url, sizeof(url), "http://%s:1400/xml/device_description.xml", dev->ip.toString().c_str());
@@ -368,6 +369,13 @@ void SonosController::getRoomName(SonosDevice* dev) {
             // the ASCII-only Montserrat label font.
             dev->roomName = decodeHTML(xml.substring(start + 10, end));
             Serial.printf("[SONOS]   Room name fetched successfully: '%s'\n", dev->roomName.c_str());
+
+            // Line-in is not browsable content — ObjectID "AI:" returns nothing on
+            // S2 — so the only way to know a player has a physical input is whether
+            // it advertises the AudioIn service here. Five/Amp/Port/Beam do; One
+            // and SL do not, and offering them a Line-In source would be a dead row.
+            dev->hasLineIn = (xml.indexOf("AudioIn") >= 0);
+            Serial.printf("[SONOS]   Line-in: %s\n", dev->hasLineIn ? "yes" : "no");
         } else {
             Serial.printf("[SONOS]   Failed to parse room name from XML for %s\n", dev->ip.toString().c_str());
         }

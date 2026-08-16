@@ -90,6 +90,7 @@ struct SonosDevice {
     // Radio station info
     bool isRadioStation;          // True if playing radio (detected by URI pattern)
     bool isLineIn;                // True if playing from line-in (x-rincon-stream: URI)
+    bool hasLineIn;               // Player HAS a physical line-in (Five/Amp/Port/Beam; not One/SL)
     bool isTvAudio;               // True if playing TV audio (x-sonos-htastream: URI)
     String currentURI;            // Track URI (needed for radio detection)
     String radioStationName;      // Station name from GetMediaInfo's CurrentURIMetaData

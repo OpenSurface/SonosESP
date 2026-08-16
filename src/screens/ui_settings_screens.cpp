@@ -357,6 +357,43 @@ static void refreshSourcesList(lv_event_t* e) {
         shown++;
     }
 
+    // Line-In is not in the browse tree at all — ObjectID "AI:" returns nothing on
+    // S2 — so it cannot appear from Browse("0") no matter what. It is played by
+    // pointing the transport straight at x-rincon-stream:<rincon>, so it gets a
+    // synthetic row with its own handler rather than a browse target.
+    SonosDevice* dev = sonos.getCurrentDevice();
+    if (dev && dev->hasLineIn) {
+        lv_obj_t* btn = lv_btn_create(sources_list);
+        lv_obj_set_size(btn, lv_pct(100), SY(50));
+        lv_obj_set_style_radius(btn, 12, 0);
+        lv_obj_set_style_shadow_width(btn, 0, 0);
+        lv_obj_set_style_bg_color(btn, COL_CARD, 0);
+        lv_obj_set_style_bg_color(btn, COL_BTN_PRESSED, LV_STATE_PRESSED);
+        lv_obj_set_style_pad_all(btn, SMIN(15), 0);
+
+        lv_obj_t* ico = lv_label_create(btn);
+        lv_label_set_text(ico, MDI_WAVEFORM);
+        lv_obj_set_style_text_color(ico, COL_ACCENT, 0);
+        lv_obj_set_style_text_font(ico, &lv_font_mdi_24, 0);
+        lv_obj_align(ico, LV_ALIGN_LEFT_MID, SX(5), 0);
+
+        lv_obj_t* name = lv_label_create(btn);
+        lv_label_set_text(name, "Line-In");
+        lv_obj_set_style_text_color(name, COL_TEXT, 0);
+        lv_obj_set_style_text_font(name, &lv_font_montserrat_18, 0);
+        lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(40), 0);
+
+        lv_obj_add_event_cb(btn, [](lv_event_t* ev) {
+            SonosDevice* d = sonos.getCurrentDevice();
+            if (!d) return;
+            String uri = "x-rincon-stream:" + d->rinconID;
+            Serial.printf("[SOURCES] Line-In -> %s\n", uri.c_str());
+            sonos.playURI(uri.c_str(), "");
+            lv_screen_load(scr_main);
+        }, LV_EVENT_CLICKED, NULL);
+        shown++;
+    }
+
     if (shown == 0) {
         lv_obj_t* lbl = lv_label_create(sources_list);
         lv_label_set_text(lbl, sonos.getCurrentDevice()
@@ -692,11 +729,23 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
                 if (uri.startsWith("x-rincon-cpcontainer:")) {
                     // Favorites, and service albums/playlists, are containers: the
                     // whole thing becomes the transport rather than one track being
-                    // played. playContainer() does exactly that — it has been
-                    // implemented and unused since it was written, while this branch
-                    // refused the tap instead.
+                    // played.
+                    //
+                    // The metadata MUST be r:resMD, not the favourite item itself.
+                    // A favourite looks like this:
+                    //     <res>x-rincon-cpcontainer:1006...?sid=284</res>
+                    //     <r:resMD>...<desc id="cdudn">SA_RINCON72711_..._Token</desc>...</r:resMD>
+                    // and that cdudn token is what tells the player WHICH service
+                    // account resolves the container. Hand Sonos the outer <item>
+                    // instead and it cannot resolve anything, so the tap silently
+                    // does nothing — which is exactly what was reported.
+                    //
+                    // resMD is passed still-escaped: playContainer() runs
+                    // decodeHTMLEntities() on it before re-encoding for SOAP.
+                    String meta = sonos.extractXML(itemXML, "r:resMD");
+                    if (meta.length() == 0) meta = itemXML;   // non-favourite containers
                     Serial.printf("[BROWSE] Playing container: %s\n", uri.c_str());
-                    sonos.playContainer(uri.c_str(), itemXML.c_str());
+                    sonos.playContainer(uri.c_str(), meta.c_str());
                     lv_screen_load(scr_main);
                 } else if (uri.length() > 0) {
                     Serial.printf("[BROWSE] Playing URI: %s\n", uri.c_str());
