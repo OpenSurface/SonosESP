@@ -707,12 +707,22 @@ bool SonosController::saveCurrentTrack(const char* playlistName) {
     String updateID = extractXML(browsePlaylist, "UpdateID");
     if (updateID.length() == 0) updateID = "0";
 
+    // Both of these came out of a DIDL that decodeHTMLEntities() already decoded
+    // above, so trackURI holds literal & (service URIs carry "?sid=...&flags=...")
+    // and trackMetadata holds literal < and >. Dropped into the SOAP body raw
+    // they produce malformed XML — the same defect that stopped containers and
+    // service tracks playing, in a third place.
+    String trackURIEnc = trackURI;
+    encodeXML(trackURIEnc);
+    String trackMetaEnc = trackMetadata;
+    encodeXML(trackMetaEnc);
+
     // Add track with proper metadata
     String addArgs = "<InstanceID>0</InstanceID>"
                     "<ObjectID>" + playlistID + "</ObjectID>"
                     "<UpdateID>" + updateID + "</UpdateID>"
-                    "<EnqueuedURI>" + trackURI + "</EnqueuedURI>"
-                    "<EnqueuedURIMetaData>" + trackMetadata + "</EnqueuedURIMetaData>"
+                    "<EnqueuedURI>" + trackURIEnc + "</EnqueuedURI>"
+                    "<EnqueuedURIMetaData>" + trackMetaEnc + "</EnqueuedURIMetaData>"
                     "<AddAtIndex>4294967295</AddAtIndex>";
 
     String addResp = sendSOAP("AVTransport", "AddURIToSavedQueue", addArgs.c_str());
@@ -763,15 +773,21 @@ bool SonosController::playURI(const char* uri, const char* metadata) {
     String metaEncoded = String(metadata);
     encodeXML(metaEncoded);
 
-    // Use static buffer to avoid String concatenation
-    static char args[1024];
-    snprintf(args, sizeof(args),
-        "<InstanceID>0</InstanceID>"
-        "<CurrentURI>%s</CurrentURI>"
-        "<CurrentURIMetaData>%s</CurrentURIMetaData>",
-        uri, metaEncoded.c_str());
+    // The URI needs escaping as much as the metadata does: service track URIs
+    // carry query strings ("...?sid=284&flags=8&sn=2") and a literal & inside
+    // <CurrentURI> breaks the SOAP envelope, which the player rejects with
+    // UPnP 402. Same bug that stopped containers playing — it reaches any track
+    // opened from a music service rather than the local library.
+    String uriEncoded = String(uri);
+    encodeXML(uriEncoded);
 
-    String resp = sendSOAP("AVTransport", "SetAVTransportURI", args);
+    // String rather than a fixed buffer: URI and metadata together are unbounded,
+    // and a truncated SOAP body fails as malformed XML instead of as an error.
+    String args = String("<InstanceID>0</InstanceID>")
+                + "<CurrentURI>" + uriEncoded + "</CurrentURI>"
+                + "<CurrentURIMetaData>" + metaEncoded + "</CurrentURIMetaData>";
+
+    String resp = sendSOAP("AVTransport", "SetAVTransportURI", args.c_str());
 
     if (resp.length() > 0 && resp.indexOf("Fault") < 0) {
         // Auto-play after setting URI
@@ -954,67 +970,105 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
 
     Serial.printf("[CONTAINER] Metadata: %s\n", metaDecoded.c_str());
 
-    // Try SetAVTransportURI directly (works for YouTube Music containers)
-    static char setArgs[1024];
-    snprintf(setArgs, sizeof(setArgs),
-        "<InstanceID>0</InstanceID>"
-        "<CurrentURI>%s</CurrentURI>"
-        "<CurrentURIMetaData>%s</CurrentURIMetaData>",
-        containerURI, metaEncoded.c_str());
+    // A container CANNOT be the transport. Setting one directly was tried first
+    // here and Sonos rejects it outright — measured against a real player:
+    //
+    //     SetAVTransportURI(x-rincon-cpcontainer:...) -> HTTP 500, UPnP 714
+    //                                                   "Illegal MIME-type"
+    //
+    // and the rejection left the transport unsettled, so the AddURIToQueue that
+    // followed it — single-shot, no retry — hit the settling window and failed
+    // too, reporting "both methods failed" for what is really one wrong call.
+    // The same AddURIToQueue succeeds first time when it is not preceded by the
+    // doomed one.
+    //
+    // So: no direct-transport attempt. Load the container into the queue and
+    // point the transport at the queue, which is exactly what playPlaylist()
+    // does and has always worked. The retry/delay constants below are that
+    // function's, for the same reason: Sonos returns a transient 500 for a
+    // while after each transport operation.
 
-    Serial.printf("[CONTAINER] Using SetAVTransportURI with metadata\n");
-    String resp = sendSOAP("AVTransport", "SetAVTransportURI", setArgs);
-
-    if (resp.length() > 0 && resp.indexOf("Fault") < 0) {
-        Serial.println("[CONTAINER] Container loaded and playing");
-        vTaskDelay(pdMS_TO_TICKS(100));
-        sendSOAP("AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>");
-        vTaskDelay(pdMS_TO_TICKS(300));
-        updateTrackInfo();
-        updateQueue();
-        return true;
+    // Pre-switch to queue mode if something else (radio, line-in) holds the
+    // transport, or RemoveAllTracksFromQueue below can land mid-transition.
+    {
+        bool alreadyQueue = dev->currentURI.indexOf("rincon-queue") >= 0;
+        if (!alreadyQueue) {
+            String pre = "<InstanceID>0</InstanceID><CurrentURI>x-rincon-queue:"
+                       + dev->rinconID + "#0</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>";
+            static const int preDelays[] = {200, 350, 500};
+            for (int a = 0; a < 3; a++) {
+                String r = sendSOAP("AVTransport", "SetAVTransportURI", pre.c_str());
+                if (r.length() > 0 && r.indexOf("Fault") < 0) break;
+                vTaskDelay(pdMS_TO_TICKS(preDelays[a]));
+            }
+            vTaskDelay(pdMS_TO_TICKS(300));
+        }
     }
 
-    Serial.println("[CONTAINER] SetAVTransportURI failed, trying queue-based approach");
+    // Replace the queue rather than appending: tapping a favourite means "play
+    // this now", not "add it after the 500 tracks already queued".
+    sendSOAP("AVTransport", "RemoveAllTracksFromQueue", "<InstanceID>0</InstanceID>");
+    vTaskDelay(pdMS_TO_TICKS(500));
 
-    // Fallback: Try AddURIToQueue (works for some other container types)
-    static char addArgs[1024];
-    snprintf(addArgs, sizeof(addArgs),
-        "<InstanceID>0</InstanceID>"
-        "<EnqueuedURI>%s</EnqueuedURI>"
-        "<EnqueuedURIMetaData>%s</EnqueuedURIMetaData>"
-        "<DesiredFirstTrackNumberEnqueued>0</DesiredFirstTrackNumberEnqueued>"
-        "<EnqueueAsNext>1</EnqueueAsNext>",
-        containerURI, metaEncoded.c_str());
+    // String, not a fixed char[]: favourite metadata is unbounded — this one
+    // encodes to ~700 bytes and a larger one would have silently truncated
+    // against the 1024-byte buffer that used to be here, producing malformed
+    // XML rather than an error.
+    // The URI must be XML-escaped too, not just the metadata. Service URIs carry
+    // query strings — this one is "...?sid=284&flags=72&sn=2" — and a literal &
+    // inside <EnqueuedURI> breaks the SOAP envelope. Measured on a real player:
+    //     URI raw      -> HTTP 500, UPnP 402 (Invalid Args)
+    //     URI escaped  -> HTTP 200
+    // Only the metadata was ever escaped here, which is why no container with a
+    // query string could be played.
+    String uriEncoded = String(containerURI);
+    encodeXML(uriEncoded);
 
-    resp = sendSOAP("AVTransport", "AddURIToQueue", addArgs);
+    String addArgs = String("<InstanceID>0</InstanceID>")
+                   + "<EnqueuedURI>" + uriEncoded + "</EnqueuedURI>"
+                   + "<EnqueuedURIMetaData>" + metaEncoded + "</EnqueuedURIMetaData>"
+                   + "<DesiredFirstTrackNumberEnqueued>1</DesiredFirstTrackNumberEnqueued>"
+                   + "<EnqueueAsNext>0</EnqueueAsNext>";
 
-    if (resp.length() > 0 && resp.indexOf("Fault") < 0) {
-        Serial.println("[CONTAINER] AddURIToQueue successful");
-        vTaskDelay(pdMS_TO_TICKS(200));
-
-        static char queueURI[128];
-        static char queueArgs[256];
-        snprintf(queueURI, sizeof(queueURI), "x-rincon-queue:%s#0", dev->rinconID.c_str());
-        snprintf(queueArgs, sizeof(queueArgs),
-            "<InstanceID>0</InstanceID>"
-            "<CurrentURI>%s</CurrentURI>"
-            "<CurrentURIMetaData></CurrentURIMetaData>",
-            queueURI);
-
-        sendSOAP("AVTransport", "SetAVTransportURI", queueArgs);
-        vTaskDelay(pdMS_TO_TICKS(100));
-
-        sendSOAP("AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>");
-        Serial.println("[CONTAINER] Container loaded and playing via queue");
-        vTaskDelay(pdMS_TO_TICKS(300));
-        updateTrackInfo();
-        updateQueue();
-        return true;
+    String resp;
+    for (int attempt = 0; attempt < 3; attempt++) {
+        resp = sendSOAP("AVTransport", "AddURIToQueue", addArgs.c_str());
+        if (resp.length() > 0 && resp.indexOf("Fault") < 0) break;
+        Serial.printf("[CONTAINER] AddURIToQueue attempt %d failed, retrying\n", attempt + 1);
+        vTaskDelay(pdMS_TO_TICKS(400));
     }
 
-    Serial.println("[CONTAINER] Both methods failed");
-    return false;
+    if (resp.length() == 0 || resp.indexOf("Fault") >= 0) {
+        Serial.println("[CONTAINER] Failed to add container to queue");
+        return false;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(200));
+    String queueArgs = String("<InstanceID>0</InstanceID><CurrentURI>x-rincon-queue:")
+                     + dev->rinconID + "#0</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>";
+    String setResp;
+    for (int attempt = 0; attempt < 3; attempt++) {
+        setResp = sendSOAP("AVTransport", "SetAVTransportURI", queueArgs.c_str());
+        if (setResp.length() > 0 && setResp.indexOf("Fault") < 0) break;
+        Serial.printf("[CONTAINER] SetAVTransportURI attempt %d failed, retrying\n", attempt + 1);
+        vTaskDelay(pdMS_TO_TICKS(400));
+    }
+    if (setResp.length() == 0 || setResp.indexOf("Fault") >= 0) {
+        Serial.println("[CONTAINER] Failed to point transport at the queue");
+        return false;
+    }
+
+    // Seek before Play: the queue was just rebuilt, so the position is stale.
+    vTaskDelay(pdMS_TO_TICKS(100));
+    sendSOAP("AVTransport", "Seek",
+             "<InstanceID>0</InstanceID><Unit>TRACK_NR</Unit><Target>1</Target>");
+    vTaskDelay(pdMS_TO_TICKS(100));
+    sendSOAP("AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>");
+    vTaskDelay(pdMS_TO_TICKS(300));
+    updateTrackInfo();
+    updateQueue();
+    Serial.println("[CONTAINER] Container loaded and playing");
+    return true;
 }
 
 String SonosController::listMusicServices() {
