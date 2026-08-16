@@ -216,8 +216,13 @@ static const SourceMeta SOURCE_META[] = {
     // "No items found" state rather than failing.
     {"FV:", "FV:2",  "Favorites",       MDI_MUSIC_NOTE},
     // R: reports TotalMatches=0 at its OWN root — browsing it shows nothing at
-    // all — while the stations live one level down. Jump straight there.
-    {"R:",  "R:0/0", "Internet Radio",  MDI_RADIO},
+    // all — while the content lives one level down at R:0, which holds BOTH
+    // "Radio Stations" (R:0/0) and "Radio Shows" (R:0/1).
+    //
+    // Deliberately R:0 and not R:0/0: jumping straight to the stations saves a
+    // tap but silently hides Radio Shows, which is where podcasts live. Costing
+    // one tap to not hide a whole category is the right trade.
+    {"R:",  "R:0",   "Internet Radio",  MDI_RADIO},
     // Q: lists "Queue Instance 0/1" wrappers nobody wants to see. Q:0 is the
     // queue that is actually playing.
     {"Q:",  "Q:0",   "Queue",           MDI_SPEAKER},
