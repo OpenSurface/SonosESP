@@ -26,7 +26,27 @@
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
 // Album art configuration
+//
+// ART_SIZE is the DESIGN-space square, like every other number wrapped in
+// SX/SY/SMIN. ART_PX is what the art is actually decoded at, which must equal
+// the on-screen box or LVGL ends up transforming the image to fit.
+//
+// That distinction is the whole of issue #89's rounded-corner complaint. The
+// 7" drew a 420px bitmap scaled up into a 525px widget, and lv_image builds its
+// clip mask from the SOURCE dimensions:
+//
+//     lv_area_set(&draw_dsc.image_area, x1, y1, x1 + img->w - 1, y1 + img->h - 1);
+//     draw_dsc.clip_radius = lv_obj_get_style_radius(obj, LV_PART_MAIN);
+//
+// so the rounded mask covered only the top-left 420x420 of a 525x525 draw and
+// the real corners were never masked — square on the 7", correct on the 4"
+// where the scale is exactly 1:1 and nothing transforms. Decoding at ART_PX
+// removes the transform entirely, which fixes the corners and also stops the
+// 7" showing an upscaled, soft image.
+//
+// On the 4" SMIN(420) == 420, so ART_PX == ART_SIZE and nothing changes at all.
 #define ART_SIZE 420
+#define ART_PX   SMIN(ART_SIZE)
 #define MAX_ART_SIZE 280000          // 280KB max - allows Spotify 640x640 images
 #define ART_CHUNK_SIZE 4096          // 4KB chunks for HTTP downloads
 

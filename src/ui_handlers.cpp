@@ -1631,10 +1631,10 @@ static void displayCompletedArt() {
         // LVGL renderer — so there is never concurrent read+write of the descriptor.
         // The background art task only writes art_buffer (pixels); we set the header here.
         memset(&art_dsc, 0, sizeof(art_dsc));
-        art_dsc.header.w    = ART_SIZE;
-        art_dsc.header.h    = ART_SIZE;
+        art_dsc.header.w    = ART_PX;
+        art_dsc.header.h    = ART_PX;
         art_dsc.header.cf   = LV_COLOR_FORMAT_RGB565;
-        art_dsc.data_size   = ART_SIZE * ART_SIZE * 2;
+        art_dsc.data_size   = ART_PX * ART_PX * 2;
         art_dsc.data        = (const uint8_t*)art_buffer;
         lv_img_set_src(img_album, &art_dsc);
         themeApplyArtGeometry(img_album);   // HERO (Classic) vs THUMB (Immersive)

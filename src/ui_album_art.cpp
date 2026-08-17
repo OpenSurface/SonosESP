@@ -211,7 +211,7 @@ static uint32_t target_bg_color = 0x1a1a1a;
 // 2-slot LRU album art cache in PSRAM — instant display on prev/next, no re-download
 struct ArtCacheEntry {
     char url[512];
-    uint16_t* pixels;        // ART_SIZE*ART_SIZE*2 bytes (~352KB each)
+    uint16_t* pixels;        // ART_PX*ART_PX*2 bytes (~352KB each)
     uint32_t dominant_color;
     bool valid;
 };
@@ -778,12 +778,12 @@ static DecodeResult decodeToRGB565(uint8_t* buf, size_t len, bool isJPEG, bool i
 
 // ── Scale decoded pixels to 420×420 and push to display ───────────────────────
 static void displayArt(const DecodeResult& dec, const char* url) {
-    memset(art_temp_buffer, 0, ART_SIZE * ART_SIZE * 2);
+    memset(art_temp_buffer, 0, ART_PX * ART_PX * 2);
     Serial.printf("[ART] Bilinear scaling %dx%d -> 420x420 (stride=%d)\n", dec.w, dec.h, dec.stride);
-    scaleImageBilinear(dec.pixels, dec.w, dec.h, dec.stride, art_temp_buffer, ART_SIZE, ART_SIZE);
+    scaleImageBilinear(dec.pixels, dec.w, dec.h, dec.stride, art_temp_buffer, ART_PX, ART_PX);
     Serial.println("[ART] Scaling complete");
 
-    sampleDominantColor(art_temp_buffer, ART_SIZE, ART_SIZE);
+    sampleDominantColor(art_temp_buffer, ART_PX, ART_PX);
     uint32_t new_color = 0x1a1a1a;
     if (color_sample_count > 0) {
         uint8_t avg_r = color_r_sum / color_sample_count;
@@ -824,12 +824,12 @@ static void displayArt(const DecodeResult& dec, const char* url) {
 
         // Step 1: box-average downsample — map each tiny pixel to its art region
         for (int ty = 0; ty < TINY; ty++) {
-            int y0 = ty * ART_SIZE / TINY, y1 = (ty + 1) * ART_SIZE / TINY;
+            int y0 = ty * ART_PX / TINY, y1 = (ty + 1) * ART_PX / TINY;
             for (int tx = 0; tx < TINY; tx++) {
-                int x0 = tx * ART_SIZE / TINY, x1 = (tx + 1) * ART_SIZE / TINY;
+                int x0 = tx * ART_PX / TINY, x1 = (tx + 1) * ART_PX / TINY;
                 uint32_t r = 0, g = 0, b = 0, n = 0;
                 for (int py = y0; py < y1; py++) {
-                    uint16_t* row = &art_temp_buffer[py * ART_SIZE + x0];
+                    uint16_t* row = &art_temp_buffer[py * ART_PX + x0];
                     for (int px = 0; px < (x1 - x0); px++) {
                         uint16_t p = row[px];
                         r += (p >> 11) & 0x1F;
@@ -884,7 +884,7 @@ static void displayArt(const DecodeResult& dec, const char* url) {
     }
 
     if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
-        memcpy(art_buffer, art_temp_buffer, ART_SIZE * ART_SIZE * 2);
+        memcpy(art_buffer, art_temp_buffer, ART_PX * ART_PX * 2);
         last_art_url   = url;
         dominant_color = new_color;
         art_ready      = true;
@@ -899,7 +899,7 @@ static void displayArt(const DecodeResult& dec, const char* url) {
 
     if (art_cache[0].pixels && art_cache[1].pixels) {
         int slot = 1 - art_cache_lru;
-        memcpy(art_cache[slot].pixels, art_temp_buffer, ART_SIZE * ART_SIZE * 2);
+        memcpy(art_cache[slot].pixels, art_temp_buffer, ART_PX * ART_PX * 2);
         strncpy(art_cache[slot].url, url, sizeof(art_cache[slot].url) - 1);
         art_cache[slot].url[sizeof(art_cache[slot].url) - 1] = '\0';
         art_cache[slot].dominant_color = new_color;
@@ -1032,17 +1032,17 @@ void albumArtTask(void* param) {
     // Guard against PSRAM leak on OTA recovery: task may be killed/recreated while globals
     // already hold valid pointers. Only allocate if not yet allocated.
     if (!art_buffer)
-        art_buffer     = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
+        art_buffer     = (uint16_t*)heap_caps_malloc(ART_PX * ART_PX * 2, MALLOC_CAP_SPIRAM);
     if (!art_temp_buffer)
-        art_temp_buffer = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
+        art_temp_buffer = (uint16_t*)heap_caps_malloc(ART_PX * ART_PX * 2, MALLOC_CAP_SPIRAM);
     if (!blur_bg_buf)
         blur_bg_buf = (uint16_t*)heap_caps_malloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * 2, MALLOC_CAP_SPIRAM);
     if (!art_buffer || !art_temp_buffer) { vTaskDelete(NULL); return; }
 
     if (!art_cache[0].pixels)
-        art_cache[0].pixels = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
+        art_cache[0].pixels = (uint16_t*)heap_caps_malloc(ART_PX * ART_PX * 2, MALLOC_CAP_SPIRAM);
     if (!art_cache[1].pixels)
-        art_cache[1].pixels = (uint16_t*)heap_caps_malloc(ART_SIZE * ART_SIZE * 2, MALLOC_CAP_SPIRAM);
+        art_cache[1].pixels = (uint16_t*)heap_caps_malloc(ART_PX * ART_PX * 2, MALLOC_CAP_SPIRAM);
     if (!art_cache[0].pixels || !art_cache[1].pixels) {
         Serial.println("[ART] LRU cache allocation failed — cache disabled");
     }
@@ -1156,7 +1156,7 @@ void albumArtTask(void* param) {
                         strncmp(art_cache[i].url, url, sizeof(art_cache[i].url)) == 0) {
                         Serial.printf("[ART] Cache hit slot %d — skipping download\n", i);
                         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
-                            memcpy(art_buffer, art_cache[i].pixels, ART_SIZE * ART_SIZE * 2);
+                            memcpy(art_buffer, art_cache[i].pixels, ART_PX * ART_PX * 2);
                             last_art_url = url;
                             dominant_color = art_cache[i].dominant_color;
                             art_ready = true;
