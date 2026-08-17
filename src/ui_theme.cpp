@@ -120,23 +120,26 @@ void themeApplyArtGeometry(lv_obj_t* img) {
     if (t->art_x == THEME_ART_CENTRED && t->art_y == THEME_ART_CENTRED &&
         t->art_size == ART_SIZE) {
         // Classic: full size, centred in the art panel.
-        // Issue #89 — this used a raw ART_SIZE while ui_main_screen.cpp builds the
-        // widget at SMIN(ART_SIZE), so on the 7" panel the 420px image sat inside a
-        // 525px square and visibly failed to fill it. The source bitmap is always
-        // decoded at ART_SIZE, so scale it up to match the panel-relative box.
-        // On 4" SMIN(ART_SIZE) == ART_SIZE and the scale is 256 (1:1) — byte-for-byte
-        // the previous behaviour for the deployed fleet.
-        const int box = SMIN(ART_SIZE);
-        lv_image_set_scale(img, (256 * box) / ART_SIZE);
-        lv_obj_set_size(img, box, box);
+        //
+        // Explicitly UNSCALED. The art is decoded at ART_PX, which is exactly this
+        // box, so the image must not be transformed — lv_image builds its rounded
+        // clip mask from the SOURCE dimensions, so any scale leaves the mask the
+        // wrong size and the corners come out square. That was the second half of
+        // issue #89: the 7" scaled a 420px bitmap into a 525px widget and lost its
+        // rounded corners, while the 4" looked right only because its scale
+        // happened to be 1:1.
+        lv_image_set_scale(img, LV_SCALE_NONE);
+        lv_obj_set_size(img, ART_PX, ART_PX);
         lv_obj_center(img);
         return;
     }
 
-    // The decoded source is always ART_SIZE square; scale it to the theme's box
-    // (LVGL zoom is 256 = 1:1) rather than re-decoding at another size.
+    // Other themes use a smaller box than the decoded bitmap, so they do scale —
+    // and therefore cannot have rounded corners. Both set radius 0 deliberately
+    // (square artwork), so nothing is lost. Scale is relative to ART_PX because
+    // that is the size the source is now decoded at.
     lv_obj_set_size(img, SMIN(t->art_size), SMIN(t->art_size));
-    lv_image_set_scale(img, (256 * t->art_size) / ART_SIZE);
+    lv_image_set_scale(img, (LV_SCALE_NONE * SMIN(t->art_size)) / ART_PX);
     if (t->art_x == THEME_ART_CENTRED) lv_obj_center(img);
     else                               lv_obj_set_pos(img, SX(t->art_x), SY(t->art_y));
 }
