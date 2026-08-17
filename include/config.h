@@ -136,6 +136,18 @@
                                         // Art download (16KB burst) adds ~11 more buffers. Pool stabilises at
                                         // ~14 total (22KB) instead of 32 (51KB). DMA floor = ~85KB vs ~35KB.
                                         // 10 items is sufficient for the "Next Up" queue display.
+// SOAP request sizing. The envelope wrapper sendSOAP() builds is ~285 bytes
+// including the service and action names, so SOAP_MAX_ARGS is set well inside
+// SOAP_BODY_SIZE and the remainder is slack.
+//
+// 2048/1600 was too small once playURI() and playContainer() stopped truncating
+// their arguments: a music-service favourite carries its full DIDL and a local
+// file carries a long NAS path, which measured ~1900 bytes in the field (#125).
+// body[] is a single static shared under network_mutex, so this is a one-off
+// cost in internal RAM, not per-request.
+#define SOAP_BODY_SIZE          4096    // sendSOAP() envelope buffer
+#define SOAP_MAX_ARGS           3700    // rejected above this; leaves ~110B slack
+
 #define SONOS_CMD_QUEUE_SIZE    10      // Command queue depth
 #define SONOS_UI_QUEUE_SIZE     20      // UI update queue depth
 

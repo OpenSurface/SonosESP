@@ -167,11 +167,21 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
 String SonosController::sendSOAP(SonosDevice* dev, const char* service, const char* action, const char* args) {
     if (!dev) return "";
 
-    // Validate args size to prevent buffer overflow
-    // SOAP wrapper adds ~400 bytes, so args must stay under 1600 bytes
+    // Validate args size to prevent buffer overflow. The envelope wrapper below is
+    // ~285 bytes including the service and action names, so the limit is sized to
+    // leave comfortable room inside body[].
+    //
+    // This was 1600 against a 2048-byte body, which was fine only because the
+    // callers with large payloads truncated their own args into a 1024-byte
+    // buffer first — they were sending malformed XML and Sonos rejected it. Once
+    // playURI() and playContainer() were fixed to build complete args, real
+    // payloads turned out to reach ~1900 bytes: a music-service favourite carries
+    // its full DIDL, and a local file carries a long NAS path. Both were then
+    // refused here instead (issue #125).
     size_t args_len = strlen(args);
-    if (args_len > 1600) {
-        Serial.printf("[SONOS] ERROR: SOAP args too large (%d bytes, max 1600)\n", args_len);
+    if (args_len > SOAP_MAX_ARGS) {
+        Serial.printf("[SONOS] ERROR: SOAP args too large for %s.%s (%u bytes, max %u)\n",
+                      service, action, (unsigned)args_len, (unsigned)SOAP_MAX_ARGS);
         return "";
     }
 
@@ -212,7 +222,7 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
     // GetPositionInfo body under a Next SOAPAction (command silently lost). Everything
     // below reads these buffers, so it all belongs under the lock.
     static char url[256];
-    static char body[2048];  // Large buffer for SOAP body
+    static char body[SOAP_BODY_SIZE];  // envelope + args; see SOAP_MAX_ARGS
     static char soapAction[256];
     static char soapActionHeader[280];
     static char custom_endpoint[128];
