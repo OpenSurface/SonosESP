@@ -1645,6 +1645,19 @@ static void displayCompletedArt() {
     } else if (art_show_placeholder) {
         lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
         lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+
+        // Clear the backdrop too. It was generated from the PREVIOUS track's
+        // artwork, so leaving it up while this track shows the no-art placeholder
+        // puts the wrong album behind the screen — reported on #49.
+        //
+        // blur_bg_valid must be cleared as well, not just the HIDDEN flag: it is
+        // what themeSet() and the Display-settings blur toggle consult when they
+        // republish existing artwork, so without this the stale image comes
+        // straight back the next time either of those runs.
+        if (img_blur_bg) lv_obj_add_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
+        blur_bg_valid = false;
+        blur_bg_ready = false;
+
         art_show_placeholder = false;
     }
     // Ambient/Immersive themes paint a solid backdrop instead — themeUsesBlurBg()
