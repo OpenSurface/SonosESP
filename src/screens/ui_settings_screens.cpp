@@ -769,8 +769,23 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
                     sonos.playContainer(uri.c_str(), meta.c_str());
                     lv_screen_load(scr_main);
                 } else if (uri.length() > 0) {
-                    Serial.printf("[BROWSE] Playing URI: %s\n", uri.c_str());
-                    sonos.playURI(uri.c_str(), itemXML.c_str());
+                    // A favourited RADIO STATION needs r:resMD exactly as a favourited
+                    // playlist does. x-sonosapi-stream: is service content too, and the
+                    // <desc id="cdudn">SA_RINCON..._Token</desc> inside resMD is what
+                    // names the account that resolves it. Handing Sonos the outer
+                    // <item> instead is accepted WITHOUT an error and then plays
+                    // nothing at all — #125, still failing after the size limit was
+                    // raised, because only the container branch had been fixed.
+                    //
+                    // Note the asymmetry, which is easy to get wrong: playContainer()
+                    // runs decodeHTMLEntities() on what it is given, so it wants the
+                    // escaped form; playURI() runs encodeXML(), so it wants the decoded
+                    // one. Passing the same string to both would double-escape here.
+                    String resMD = sonos.extractXML(itemXML, "r:resMD");
+                    String meta  = resMD.length() ? sonos.decodeHTML(resMD) : itemXML;
+                    Serial.printf("[BROWSE] Playing URI: %s%s\n", uri.c_str(),
+                                  resMD.length() ? "  (with favourite metadata)" : "");
+                    sonos.playURI(uri.c_str(), meta.c_str());
                     lv_screen_load(scr_main);
                 } else {
                     Serial.println("[BROWSE] No URI found!");
