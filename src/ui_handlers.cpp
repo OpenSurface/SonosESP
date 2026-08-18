@@ -1526,6 +1526,28 @@ void ev_install_update(lv_event_t* e) {
 // Called from setup() if NVS_KEY_OTA_PENDING was saved before the previous reboot.
 // Uses the URL saved before reboot - skips checkForUpdates() entirely so no HTTPS session
 // consumes DMA before the OTA TLS handshake. This breaks the reboot loop.
+// Put the player into its "this track has no artwork" state: hide the art, show
+// the placeholder, and drop the blurred backdrop generated from the PREVIOUS
+// track.
+//
+// This exists because there are TWO independent ways to reach that state and
+// they were drifting apart. v1.14.1 fixed the backdrop for the download-failed
+// path (art_show_placeholder) but not for the far more common one — a track
+// that simply has no art URL, handled inline in updateUI() — so #49 came back
+// with the reporter still seeing the previous album behind the placeholder.
+//
+// blur_bg_valid must be cleared as well as the HIDDEN flag: it is what
+// themeSet() and the Display-settings blur toggle consult when they republish
+// existing artwork, so hiding the object alone lets the stale image return the
+// moment either of those runs.
+static void showNoArtwork(void) {
+    if (img_album)       lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
+    if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+    if (img_blur_bg)     lv_obj_add_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
+    blur_bg_valid = false;
+    blur_bg_ready = false;
+}
+
 void triggerPendingOTA() {
     // Load saved URL - skip checkForUpdates() (its HTTPS session costs ~8KB DMA we can't afford)
     Preferences prefs;
@@ -1643,21 +1665,8 @@ static void displayCompletedArt() {
         art_ready = false;
         art_show_placeholder = false;
     } else if (art_show_placeholder) {
-        lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
-
-        // Clear the backdrop too. It was generated from the PREVIOUS track's
-        // artwork, so leaving it up while this track shows the no-art placeholder
-        // puts the wrong album behind the screen — reported on #49.
-        //
-        // blur_bg_valid must be cleared as well, not just the HIDDEN flag: it is
-        // what themeSet() and the Display-settings blur toggle consult when they
-        // republish existing artwork, so without this the stale image comes
-        // straight back the next time either of those runs.
-        if (img_blur_bg) lv_obj_add_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
-        blur_bg_valid = false;
-        blur_bg_ready = false;
-
+        // Download failed or was abandoned — see showNoArtwork().
+        showNoArtwork();
         art_show_placeholder = false;
     }
     // Ambient/Immersive themes paint a solid backdrop instead — themeUsesBlurBg()
@@ -1878,8 +1887,10 @@ static void updateAlbumArtRequest(SonosDevice* d) {
         // Track changed but has NO art URL — clear old art and show placeholder immediately
         // (Without this, the old track's art stays on screen forever)
         Serial.println("[ART] No art URL for this track - showing placeholder");
-        if (img_album) lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-        if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+        // Was hiding the art and showing the placeholder but leaving the
+        // blurred backdrop up, so the previous album stayed on screen
+        // behind it (#49).
+        showNoArtwork();
         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
             last_art_url = "";
             pending_art_url = "";  // Prevent art task re-fetching the old URL
