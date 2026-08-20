@@ -20,7 +20,7 @@ A wall-mount or desktop remote for Sonos speakers: album art, synced lyrics, ful
 
 ---
 
-![SonosESP running on a GUITION ESP32-P4 touchscreen, showing album art and playback controls](assets/image1.gif)
+![SonosESP running on a GUITION ESP32-P4 touchscreen, showing album art and playback controls](assets/sonosESP.gif)
 
 ## Features
 
