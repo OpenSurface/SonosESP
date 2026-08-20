@@ -58,6 +58,20 @@ const steps = [
       </ol>
       <a class="btn" :href="withBase('/guide/install')">Install it now</a>
     </section>
+
+    <section class="support">
+      <div>
+        <h2>Free, and staying that way</h2>
+        <p>
+          SonosESP is MIT licensed and built in spare time. If it earns a place on
+          your wall, a coffee helps pay for the panels that get tested to breaking
+          point so yours doesn't.
+        </p>
+      </div>
+      <a class="kofi" href="https://ko-fi.com/pizzapasta" target="_blank" rel="noopener">
+        Support on Ko-fi
+      </a>
+    </section>
   </div>
 </template>
 
@@ -127,4 +141,24 @@ const steps = [
   .steps { padding: 34px 24px; }
 }
 @media (prefers-reduced-motion: reduce) { .card, .btn { transition: none; } }
+
+.support {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 24px;
+  margin-top: 20px; padding: 30px 32px;
+  border: 1px solid var(--vp-c-divider); border-radius: 18px;
+  background: var(--vp-c-bg-soft);
+}
+.support h2 { margin: 0 0 8px; border: 0; padding: 0; font-size: 1.18rem; letter-spacing: -.015em; }
+.support p { margin: 0; max-width: 56ch; font-size: .92rem; line-height: 1.6; color: var(--vp-c-text-2); }
+.kofi {
+  flex-shrink: 0;
+  display: inline-block; padding: 11px 22px; border-radius: 999px;
+  background: #ff5e5b; color: #fff; font-weight: 600; font-size: .92rem;
+  text-decoration: none; white-space: nowrap;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.kofi:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255, 94, 91, .32); }
+@media (prefers-reduced-motion: reduce) { .kofi { transition: none; } .kofi:hover { transform: none; } }
+@media (max-width: 620px) { .support { flex-direction: column; align-items: flex-start; } }
 </style>
