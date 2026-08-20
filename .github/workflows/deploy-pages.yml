@@ -175,6 +175,54 @@ jobs:
         sys.exit(1 if failed else 0)
         EOF
 
+    # The binaries and manifests are verified above in web-installer/. Stage them
+    # into the VitePress public directory, which is copied verbatim to the site
+    # ROOT — so /manifest-4inch.json and the .bin files keep the exact URLs the
+    # installer and everything already linking to them expect.
+    #
+    # Only the artefacts move. web-installer/index.html is deliberately NOT
+    # copied: it would land as /index.html and collide with the site home page.
+    # The installer UI now lives at /guide/install.
+    - name: Stage firmware into the docs site
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
+      run: |
+        mkdir -p docs/public
+        cp web-installer/*.bin           docs/public/
+        cp web-installer/manifest*.json  docs/public/
+        ls -la docs/public/
+
+    - name: Setup Node
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
+      uses: actions/setup-node@v6
+      with:
+        node-version: '22'
+        cache: 'npm'
+
+    - name: Build docs site
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
+      run: |
+        npm ci
+        npm run docs:build
+
+    # Fail loudly rather than publishing a site whose install button 404s.
+    - name: Verify the built site still serves the firmware
+      if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
+      run: |
+        DIST=docs/.vitepress/dist
+        missing=0
+        for f in manifest-4inch.json manifest-7inch.json firmware-4inch.bin firmware-7inch.bin bootloader.bin partitions.bin boot_app0.bin; do
+          if [ -s "$DIST/$f" ]; then
+            echo "ok       $f"
+          else
+            echo "::error::$f missing from the built site — the installer would 404"
+            missing=1
+          fi
+        done
+        for f in index.html guide/install.html; do
+          [ -s "$DIST/$f" ] && echo "ok       $f" || { echo "::error::$f not built"; missing=1; }
+        done
+        exit $missing
+
     - name: Setup Pages
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       uses: actions/configure-pages@v6
@@ -183,7 +231,7 @@ jobs:
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       uses: actions/upload-pages-artifact@v5
       with:
-        path: './web-installer'
+        path: './docs/.vitepress/dist'
         retention-days: 1  # Auto-cleanup after 1 day
 
     - name: Deploy to GitHub Pages

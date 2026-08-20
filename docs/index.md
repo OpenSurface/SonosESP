@@ -23,9 +23,17 @@ features:
   - title: Play what you already saved
     details: Anything in your Sonos favourites plays from the panel, whatever service it came from — Spotify, YouTube Music, radio stations. You never sign into anything on the device.
   - title: Browse your whole library
-    details: Artists, albums, genres, composers and tracks from your music library, plus playlists, internet radio, your NAS shares and the current queue.
-  - title: Album art and synced lyrics
-    details: Hardware JPEG decoding, dominant-colour backdrops, and time-synced lyrics that follow the track.
+    details: Artists, albums, genres, composers and tracks, plus playlists, internet radio, your NAS shares, the queue and line-in.
+  - title: Synced lyrics
+    details: Time-synced lyrics that follow the track and colour-match the artwork, hiding themselves when a song has none.
+  - title: Album art, properly
+    details: Hardware JPEG decoding with PNG support, and the dominant colour pulled out to tint the rest of the screen.
+  - title: Multi-room and groups
+    details: Switch between zones with live indicators for what is playing where, and create or break speaker groups from the panel.
+  - title: Clock, weather and themes
+    details: Four clock faces with a 6-hour forecast, three player themes, and auto-dimming when you leave it alone.
   - title: Updates over the air
-    details: The panel updates itself from the settings screen, on a stable or nightly channel, and resumes interrupted downloads rather than starting again.
+    details: The panel updates itself from settings, on a stable or nightly channel, and resumes interrupted downloads rather than starting again.
+  - title: One codebase, two screens
+    details: The 4-inch and 7-inch builds come from the same source, with type and spacing scaling to the panel.
 ---

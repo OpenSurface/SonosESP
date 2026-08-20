@@ -34,6 +34,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Install', link: '/guide/install' },
+      { text: 'Features', link: '/guide/features' },
       { text: 'Guide', link: '/guide/hardware' },
       { text: 'Troubleshooting', link: '/TROUBLESHOOTING' },
       { text: 'Releases', link: 'https://github.com/OpenSurface/SonosESP/releases' },
@@ -43,6 +44,7 @@ export default defineConfig({
       {
         text: 'Getting started',
         items: [
+          { text: 'Everything it does', link: '/guide/features' },
           { text: 'Install', link: '/guide/install' },
           { text: 'First-time setup', link: '/guide/setup' },
           { text: 'Hardware', link: '/guide/hardware' },
