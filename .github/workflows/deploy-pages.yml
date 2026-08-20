@@ -3,10 +3,19 @@ name: Deploy Web Installer
 on:
   push:
     branches: [ main ]
-    # Only redeploy when the firmware or the installer page actually changes —
-    # not on doc/workflow-only pushes (which would otherwise trigger a full
-    # firmware rebuild for nothing). Manual runs are always available below.
+    # Only redeploy when something that ends up ON the published site changes.
+    # A push touching just the README, the issue templates or an unrelated
+    # workflow shouldn't spend five minutes rebuilding firmware for nothing.
+    #
+    # 'docs/**' is the important one: since the VitePress migration the site is
+    # BUILT from docs/, so a docs-only push is exactly the case that most needs
+    # to deploy. It was missing, and a home page rewrite touching nothing
+    # outside docs/ merged to main without deploying at all. Anything added
+    # later that renders into the site has to be listed here, or it publishes
+    # only by accident, on whatever unrelated push happens to come next.
     paths:
+      - 'docs/**'
+      - '.github/workflows/deploy-pages.yml'
       - 'version.json'
       - 'web-installer/**'
       - 'src/**'
