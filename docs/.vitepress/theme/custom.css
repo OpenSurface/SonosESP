@@ -1,0 +1,18 @@
+/* The home page is a full-bleed marketing layout. layout:page still reserves the
+   sidebar column and the doc container padding, so both are removed here —
+   frontmatter alone hides the sidebar contents but keeps its gutter. */
+.home-page .VPSidebar,
+.home-page .VPLocalNav,
+.home-page .VPDoc .aside,
+.home-page .VPDocFooter,
+.home-page .VPFooter { display: none !important; }
+
+.home-page .VPContent,
+.home-page .VPContent.has-sidebar { padding: 0 !important; margin: 0 !important; }
+
+.home-page .VPPage { padding: 0 !important; }
+
+.home-page .VPDoc { padding: 0 !important; }
+.home-page .VPDoc .container { max-width: none !important; margin: 0 !important; display: block !important; }
+.home-page .VPDoc .content { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+.home-page .VPDoc .content-container { max-width: none !important; }
