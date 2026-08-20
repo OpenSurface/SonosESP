@@ -7,7 +7,7 @@ sidebar: false
 aside: false
 outline: false
 navbar: true
-footer: false
+footer: true
 ---
 
 <HomeHero />

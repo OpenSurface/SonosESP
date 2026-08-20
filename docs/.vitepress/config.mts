@@ -79,7 +79,8 @@ export default defineConfig({
     search: { provider: 'local' },
 
     footer: {
-      message: 'MIT licensed',
+      message:
+        'MIT licensed · <a href="https://ko-fi.com/pizzapasta" target="_blank" rel="noopener">Support on Ko-fi</a>',
       copyright: 'SonosESP'
     }
   }
