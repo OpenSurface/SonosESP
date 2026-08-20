@@ -21,3 +21,7 @@ node_modules/
 *.map
 WORKFLOW.md
 ARCHITECTURE.md
+
+# VitePress
+docs/.vitepress/dist/
+docs/.vitepress/cache/

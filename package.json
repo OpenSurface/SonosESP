@@ -2,6 +2,12 @@
   "devDependencies": {
     "@fontsource/montserrat": "^5.3.0",
     "@fortawesome/fontawesome-free": "^7.2.0",
-    "@mdi/font": "^7.4.47"
+    "@mdi/font": "^7.4.47",
+    "vitepress": "^2.0.0-alpha.19"
+  },
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   }
 }
