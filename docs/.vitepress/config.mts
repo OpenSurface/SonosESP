@@ -17,7 +17,7 @@ export default defineConfig({
       type: 'module',
       src: 'https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module'
     }],
-    ['meta', { property: 'og:image', content: 'https://raw.githubusercontent.com/OpenSurface/SonosESP/main/assets/sonosESP.gif' }],
+    ['meta', { property: 'og:image', content: 'https://raw.githubusercontent.com/OpenSurface/SonosESP/main/docs/public/sonosESP.gif' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
   ],
 

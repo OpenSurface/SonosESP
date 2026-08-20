@@ -6,7 +6,7 @@ hero:
   text: A touchscreen Sonos controller
   tagline: Album art, synced lyrics, full library browsing and multi-room control on a 4-inch or 7-inch panel. Flashes from your browser.
   image:
-    src: https://raw.githubusercontent.com/OpenSurface/SonosESP/main/assets/sonosESP.gif
+    src: /sonosESP.gif
     alt: SonosESP running on a GUITION ESP32-P4 touchscreen
   actions:
     - theme: brand
