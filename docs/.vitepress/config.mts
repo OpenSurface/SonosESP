@@ -17,8 +17,27 @@ export default defineConfig({
       type: 'module',
       src: 'https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module'
     }],
-    ['meta', { property: 'og:image', content: 'https://raw.githubusercontent.com/OpenSurface/SonosESP/main/docs/public/sonosESP.gif' }],
-    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    // Link preview card. og:image was pointing at the 2.1 MB animated GIF on
+    // raw.githubusercontent.com: several scrapers reject GIFs outright, the rest
+    // show a single arbitrary frame, and nothing animates it. og-card.png is a
+    // static 1200x630 built from the clearest player frame.
+    //
+    // og:title and og:description were missing entirely, so every share fell
+    // back to whatever the scraper inferred. These are absolute URLs because
+    // relative ones are not resolved by most crawlers.
+    ['meta', { property: 'og:type',        content: 'website' }],
+    ['meta', { property: 'og:site_name',   content: 'SonosESP' }],
+    ['meta', { property: 'og:url',         content: 'https://opensurface.github.io/SonosESP/' }],
+    ['meta', { property: 'og:title',       content: 'SonosESP - a touchscreen Sonos controller for ESP32-P4' }],
+    ['meta', { property: 'og:description', content: 'Album art, synced lyrics, multi-room control and a weather clock on a 4-inch or 7-inch panel. Free, MIT licensed, and you flash it from your browser.' }],
+    ['meta', { property: 'og:image',       content: 'https://opensurface.github.io/SonosESP/og-card.png' }],
+    ['meta', { property: 'og:image:width',  content: '1200' }],
+    ['meta', { property: 'og:image:height', content: '630' }],
+    ['meta', { property: 'og:image:alt',   content: 'A wall-mounted touchscreen showing album art, track title and synced lyrics, with playback controls below.' }],
+    ['meta', { name: 'twitter:card',        content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title',       content: 'SonosESP - a touchscreen Sonos controller for ESP32-P4' }],
+    ['meta', { name: 'twitter:description', content: 'Album art, synced lyrics, multi-room control and a weather clock on a 4-inch or 7-inch panel. Free, MIT licensed, and you flash it from your browser.' }],
+    ['meta', { name: 'twitter:image',       content: 'https://opensurface.github.io/SonosESP/og-card.png' }],
   ],
 
   vue: {
