@@ -77,7 +77,33 @@ def harvest(buf, lines):
             lines[int(m.group(1), 16)] = m.group(2)
 
 
-def capture(port_name, baud, timeout, progress=True, retries=3):
+def diagnose(blob, idx, lines, n_lines):
+    """Explain a line that never arrived intact, using what is actually there."""
+    out = []
+    tag = b"%04X:" % idx
+    hits = [m.start() for m in re.finditer(re.escape(tag), blob)]
+    out.append("  index %04X appeared %d time(s) in the stream" % (idx, len(hits)))
+    for pos in hits[:3]:
+        end = blob.find(b"\n", pos)
+        seg = blob[pos:end if end != -1 else pos + 120]
+        out.append("    %r" % seg[:120])
+    if not hits:
+        # Never sent at all, or lost wholesale. Show the neighbours so we can
+        # see whether the stream simply jumps over it.
+        for probe in (idx - 1, idx + 1):
+            if 0 <= probe < n_lines:
+                t = b"%04X:" % probe
+                out.append("    neighbour %04X present: %s"
+                           % (probe, "yes" if t in blob else "no"))
+    got = len(lines)
+    out.append("  recovered %d of %d lines; stream held %d bytes"
+               % (got, n_lines, len(blob)))
+    return "\n".join(out)
+
+
+def capture(port_name, baud, timeout, progress=True, retries=3, raw_path=None):
+    raw = [] if raw_path else None
+
     with serial.Serial(port_name, baud, timeout=0.1) as port:
         time.sleep(0.2)
         port.reset_input_buffer()
@@ -85,6 +111,8 @@ def capture(port_name, baud, timeout, progress=True, retries=3):
         port.flush()
 
         buf, got = read_until_quiet(port, timeout, progress)
+        if raw is not None:
+            raw.append(buf)
         if not buf.strip():
             port.write(CMD)          # first one may have been missed
             port.flush()
@@ -122,21 +150,37 @@ def capture(port_name, baud, timeout, progress=True, retries=3):
             if progress:
                 sys.stderr.write("\r  recovering %d damaged line%s\n"
                                  % (len(missing), "" if len(missing) == 1 else "s"))
-            for idx in missing:
-                port.write(b"shotline %04X\n" % idx)
-            port.flush()
-            more, _ = read_until_quiet(port, max(2.0, timeout / 3))
-            harvest(more, lines)
+            # Send in small batches. The board's CDC receive buffer is a few
+            # hundred bytes, so 92 requests in one burst (~1.4KB) overflows it
+            # and most are never read. That is why large recoveries crawled
+            # (92 -> 91 -> 89) rather than completing in one round.
+            for start in range(0, len(missing), 8):
+                for idx in missing[start:start + 8]:
+                    port.write(b"shotline %04X\n" % idx)
+                port.flush()
+                more, _ = read_until_quiet(port, 1.5)
+                harvest(more, lines)
+                if raw is not None:
+                    raw.append(more)
 
         port.write(b"shotfree\n")     # let the board free its 768KB capture buffer
         port.flush()
 
+    if raw_path:
+        with open(raw_path, "wb") as f:
+            f.write(b"".join(raw))
+        sys.stderr.write("  raw stream written to %s\n" % raw_path)
+
     missing = [i for i in range(n_lines) if i not in lines]
     if missing:
+        # Show what actually arrived where the line should have been rather
+        # than asserting a cause: absent, truncated and corrupted look
+        # different, and only one of them is fixable by re-requesting.
+        blob = b"".join(raw) if raw else buf
         raise RuntimeError(
-            "%d of %d lines could not be recovered (first: %d). Re-run; if it "
-            "persists, close any serial monitor sharing the port."
-            % (len(missing), n_lines, missing[0]))
+            "%d of %d lines could not be recovered (first: %d)\n%s"
+            % (len(missing), n_lines, missing[0],
+               diagnose(blob, missing[0], lines, n_lines)))
 
     b64 = b"".join(lines[i] for i in range(n_lines))
     data = base64.b64decode(b64 + b"=" * (-len(b64) % 4))
@@ -177,12 +221,15 @@ def main():
                     help="nearest-neighbour upscale (2 = crisp 2x for docs)")
     ap.add_argument("--retries", type=int, default=3,
                     help="rounds of re-requesting damaged lines")
+    ap.add_argument("--raw", metavar="FILE",
+                    help="save the raw serial stream for diagnosis")
     ap.add_argument("-q", "--quiet", action="store_true", help="suppress progress")
     a = ap.parse_args()
 
     try:
         data, w, h = capture(a.port, a.baud, a.timeout,
-                             progress=not a.quiet, retries=a.retries)
+                             progress=not a.quiet, retries=a.retries,
+                             raw_path=a.raw)
     except Exception as e:
         print("error: %s" % e, file=sys.stderr)
         return 1
