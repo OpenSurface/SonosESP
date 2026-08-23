@@ -60,6 +60,16 @@ static void dumpScreenshot(void) {
     // looking image with a corrupt tail, which is worse than a clear failure.
     Serial.printf("[shot] %u %u %u\n", (unsigned)s_w, (unsigned)s_h, (unsigned)s_len);
 
+    // USB-CDC drops writes it cannot place in the TX buffer — it does not block
+    // and does not retry — so a host that falls behind silently loses whole
+    // lines mid-stream. Raising the TX timeout makes write() wait for space
+    // instead of discarding, and flushing periodically stops the buffer ever
+    // filling in the first place. Without this the frame arrives 99% complete
+    // with a few lines missing, which decodes to a shifted, corrupt image.
+#if ARDUINO_USB_CDC_ON_BOOT
+    Serial.setTxTimeoutMs(1000);
+#endif
+
     const uint8_t* p = s_buf;
     char line[kLineLen + 1];
     int  col   = 0;
@@ -79,15 +89,25 @@ static void dumpScreenshot(void) {
             line[col] = 0;
             Serial.println(line);
             col = 0;
-            // ~1MB of serial writes takes a second or two even over USB-CDC,
-            // and this runs on the task that owns the watchdog.
-            if ((++lines & 0x3F) == 0) esp_task_wdt_reset();
+            // ~1MB of serial writes, on the task that owns the watchdog. The
+            // flush drains the CDC buffer so it never overflows; the yield lets
+            // the USB stack actually run, which it cannot do if this loop hogs
+            // the core.
+            if ((++lines & 0x1F) == 0) {
+                Serial.flush();
+                esp_task_wdt_reset();
+                vTaskDelay(1);
+            }
         }
     }
     if (col) { line[col] = 0; Serial.println(line); }
 
     Serial.println("[/shot]");
+    Serial.flush();
     esp_task_wdt_reset();
+#if ARDUINO_USB_CDC_ON_BOOT
+    Serial.setTxTimeoutMs(0);   // back to non-blocking so logging never stalls the UI
+#endif
 
     // Give the memory straight back. Holding 768KB of PSRAM permanently for a
     // feature used occasionally is not a trade worth making on a board that has
