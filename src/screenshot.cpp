@@ -39,7 +39,7 @@ void screenshotCaptureHook(const uint8_t* px_map, const lv_area_t* area) {
         s_buf = (uint8_t*)heap_caps_malloc(need, MALLOC_CAP_SPIRAM);
         if (!s_buf) {
             s_request = false;
-            Serial.println("[shot] ERROR: could not allocate capture buffer");
+            Serial.println("[shot-err] could not allocate capture buffer");
             return;
         }
     }
@@ -111,9 +111,11 @@ void screenshotPoll(void) {
             cmd[n] = 0;
             if (n && strcmp(cmd, "screenshot") == 0) {
                 if (s_request) {
-                    Serial.println("[shot] already pending");
+                    Serial.println("[shot-busy] request already queued");
                 } else {
-                    s_request = true;   // the next full flush captures it
+                    s_request = true;
+                    lv_obj_t* scr = lv_screen_active();
+                    if (scr) lv_obj_invalidate(scr);   // force a flush to capture
                 }
             }
             n = 0;
