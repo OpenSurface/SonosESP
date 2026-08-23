@@ -1,5 +1,6 @@
 #include "display_driver.h"
 #include "config.h"
+#include "screenshot.h"
 
 // Defined in ui_globals.cpp, loaded from NVS in setup() before display_init().
 // Declared here rather than pulling in ui_common.h, which would drag the whole
@@ -174,6 +175,11 @@ void display_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *px_ma
         return;
     }
 
+    // Grab the frame for a pending screenshot before it is rotated: px_map is
+    // the landscape frame LVGL drew, rotate_buf is the portrait panel version
+    // which would come out sideways. No-op unless one has been requested.
+    screenshotCaptureHook(px_map, area);
+
     // Rotate the entire frame from landscape 800x480 to portrait 480x800 for panel
     // Panel DPI is now configured for 480×800 portrait
 #if USE_PPA_ACCELERATION
@@ -275,6 +281,8 @@ void display_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *px_ma
         lv_display_flush_ready(disp_drv);
         return;
     }
+
+    screenshotCaptureHook(px_map, area);
 
     // Native landscape: push the rendered region straight to the panel.
     lcd->lcd_draw_bitmap(area->x1, area->y1, area->x2 + 1, area->y2 + 1, (uint16_t *)px_map);
