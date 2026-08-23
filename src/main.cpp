@@ -13,6 +13,7 @@
 #include <esp_flash.h>
 #include <esp_task_wdt.h>
 #include "ui_fonts.h"
+#include "screenshot.h"
 #if SCREEN_SIZE == 7
 #include "../lib/jd9165_lcd/jd9165_panels.h"
 #endif
@@ -539,6 +540,7 @@ static void mainAppTask(void* param) {
             checkClockTrigger();
             checkWiFiReconnect();
             logHeapStatus();  // Periodic memory monitoring
+            screenshotPoll();  // serial "screenshot" command — no-op otherwise
 
             // ── DMA recovery handler ─────────────────────────────────────────────
             // Art task (PSRAM stack) cannot call esp_restart() or Preferences.begin()
