@@ -30,7 +30,17 @@ except ImportError:
 # Payload lines are "XXXX:<base64>". The index is what makes recovery possible:
 # other FreeRTOS tasks print to the same port and can land inside a line, and
 # without an index there is no way to know which line was damaged.
-PAY_RE = re.compile(rb"^([0-9A-Fa-f]{4}):([A-Za-z0-9+/]+={0,2})$")
+#
+# Deliberately NOT anchored at the end. Another task's log output regularly
+# lands between the payload and println's newline, giving lines like:
+#
+#   1B24:wxjDGMMY...wxjD[SOAP/DMA] #3040: pre=136KB post=136KB
+#
+# The base64 in front of that is complete and correct. Requiring the whole line
+# to be base64 threw away good data, and because the interfering log repeats
+# constantly, re-requesting the line hit exactly the same problem. Take the
+# leading base64 run and ignore whatever followed it.
+PAY_RE = re.compile(rb"^([0-9A-Fa-f]{4}):([A-Za-z0-9+/]*={0,2})")
 
 # Match the header by shape rather than splitting on "[shot]". The firmware also
 # emits [shot-busy] and [shot-err] status lines, and a bare split on the marker
@@ -69,12 +79,32 @@ def read_until_quiet(port, timeout, progress=False, seen=0):
     return b"".join(chunks), got
 
 
-def harvest(buf, lines):
-    """Pull every intact indexed payload line out of `buf` into `lines`."""
+def harvest(buf, lines, n_lines=None, expect=None):
+    """Pull every usable indexed payload line out of `buf` into `lines`.
+
+    A line is accepted only if the leading base64 run is the full length that
+    index should carry, so a log spliced into the MIDDLE (which truncates the
+    run) is still rejected and re-requested, while one appended to the END is
+    simply ignored.
+    """
     for raw in buf.splitlines():
         m = PAY_RE.match(raw.strip())
-        if m:
-            lines[int(m.group(1), 16)] = m.group(2)
+        if not m:
+            continue
+        idx, payload = int(m.group(1), 16), m.group(2)
+        if n_lines is not None and expect is not None:
+            want = 76 if idx < n_lines - 1 else _tail_chars(expect)
+            if len(payload) != want:
+                continue
+        elif len(payload) != 76:
+            continue
+        lines[idx] = payload
+
+
+def _tail_chars(total_bytes):
+    """base64 characters in the final (possibly short) line."""
+    rem = total_bytes % PER_LINE or PER_LINE
+    return ((rem + 2) // 3) * 4
 
 
 def diagnose(blob, idx, lines, n_lines):
@@ -138,7 +168,7 @@ def capture(port_name, baud, timeout, progress=True, retries=3, raw_path=None):
         w, h, expect, n_lines = (int(m.group(i)) for i in (1, 2, 3, 4))
 
         lines = {}
-        harvest(buf[m.end():], lines)
+        harvest(buf[m.end():], lines, n_lines, expect)
 
         # Re-request only what is missing. A log line printed by another task
         # mid-dump corrupts exactly the line it landed in; asking for that one
@@ -159,7 +189,7 @@ def capture(port_name, baud, timeout, progress=True, retries=3, raw_path=None):
                     port.write(b"shotline %04X\n" % idx)
                 port.flush()
                 more, _ = read_until_quiet(port, 1.5)
-                harvest(more, lines)
+                harvest(more, lines, n_lines, expect)
                 if raw is not None:
                     raw.append(more)
 
