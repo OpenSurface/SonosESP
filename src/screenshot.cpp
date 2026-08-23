@@ -14,10 +14,46 @@ static uint8_t*      s_buf     = nullptr;
 static size_t        s_len     = 0;
 static uint32_t      s_w = 0, s_h = 0;
 
-// Base64 line length. MUST be a multiple of 4: a base64 group is 4 characters
-// encoding 3 bytes, and splitting a group across a newline shifts every byte
-// that follows it.
+// Base64 payload per line. MUST be a multiple of 4: a base64 group is 4
+// characters encoding 3 bytes, and splitting a group across a newline shifts
+// every byte that follows it.
 static const int kLineLen = 76;
+static const int kPerLine = (kLineLen / 4) * 3;   // 57 source bytes per line
+
+// Every payload line carries its own index: "0A3F:AAAA...".
+//
+// Other FreeRTOS tasks print to this same port and nothing prevents one landing
+// in the middle of a payload line. That line is then unrecoverable — and
+// without an index there is no way to know WHICH line was damaged, so the frame
+// simply arrives short. With an index the host knows exactly which lines it is
+// missing and asks for those again, so a stray log line costs one retransmitted
+// line instead of the entire capture.
+static void emitLine(uint32_t idx, const char* payload) {
+    char out[8 + kLineLen + 1];
+    snprintf(out, sizeof(out), "%04X:%s", (unsigned)idx, payload);
+    Serial.println(out);
+}
+
+// Encode one line's worth of source bytes (57 -> 76 base64 characters).
+static void encodeLine(size_t byteOff, char* dst) {
+    static const char* B64 =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const uint8_t* p = s_buf;
+    int col = 0;
+    size_t end = byteOff + kPerLine;
+    if (end > s_len) end = s_len;
+
+    for (size_t i = byteOff; i < end; i += 3) {
+        uint32_t v = (uint32_t)p[i] << 16;
+        if (i + 1 < s_len) v |= (uint32_t)p[i + 1] << 8;
+        if (i + 2 < s_len) v |= p[i + 2];
+        dst[col++] = B64[(v >> 18) & 63];
+        dst[col++] = B64[(v >> 12) & 63];
+        dst[col++] = (i + 1 < s_len) ? B64[(v >> 6) & 63] : '=';
+        dst[col++] = (i + 2 < s_len) ? B64[ v        & 63] : '=';
+    }
+    dst[col] = 0;
+}
 
 void screenshotCaptureHook(const uint8_t* px_map, const lv_area_t* area) {
     // The entire cost of this feature on the hot path.
@@ -51,56 +87,42 @@ void screenshotCaptureHook(const uint8_t* px_map, const lv_area_t* area) {
     s_ready   = true;
 }
 
-static void dumpScreenshot(void) {
-    static const char* B64 =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static void releaseBuffer(void) {
+    if (s_buf) { heap_caps_free(s_buf); s_buf = nullptr; }
+    s_len   = 0;
+    s_ready = false;
+}
 
-    // The byte count goes in the header so the host can prove it received the
-    // whole thing. A truncated transfer otherwise decodes into a plausible-
-    // looking image with a corrupt tail, which is worse than a clear failure.
-    Serial.printf("[shot] %u %u %u\n", (unsigned)s_w, (unsigned)s_h, (unsigned)s_len);
+static void dumpScreenshot(void) {
+    const uint32_t nLines = (uint32_t)((s_len + kPerLine - 1) / kPerLine);
+
+    // The byte and line counts go in the header so the host can prove it
+    // received everything. A truncated transfer otherwise decodes into a
+    // plausible-looking image with a corrupt tail — worse than a clear failure.
+    Serial.printf("[shot] %u %u %u %u\n",
+                  (unsigned)s_w, (unsigned)s_h, (unsigned)s_len, (unsigned)nLines);
 
     // USB-CDC drops writes it cannot place in the TX buffer — it does not block
     // and does not retry — so a host that falls behind silently loses whole
-    // lines mid-stream. Raising the TX timeout makes write() wait for space
-    // instead of discarding, and flushing periodically stops the buffer ever
-    // filling in the first place. Without this the frame arrives 99% complete
-    // with a few lines missing, which decodes to a shifted, corrupt image.
+    // lines. Raising the TX timeout makes write() wait for space instead of
+    // discarding; flushing periodically stops the buffer ever filling.
 #if ARDUINO_USB_CDC_ON_BOOT
     Serial.setTxTimeoutMs(1000);
 #endif
 
-    const uint8_t* p = s_buf;
-    char line[kLineLen + 1];
-    int  col   = 0;
-    int  lines = 0;
+    char payload[kLineLen + 1];
+    for (uint32_t i = 0; i < nLines; i++) {
+        encodeLine((size_t)i * kPerLine, payload);
+        emitLine(i, payload);
 
-    for (size_t i = 0; i < s_len; i += 3) {
-        uint32_t v = (uint32_t)p[i] << 16;
-        if (i + 1 < s_len) v |= (uint32_t)p[i + 1] << 8;
-        if (i + 2 < s_len) v |= p[i + 2];
-
-        line[col++] = B64[(v >> 18) & 63];
-        line[col++] = B64[(v >> 12) & 63];
-        line[col++] = (i + 1 < s_len) ? B64[(v >> 6) & 63] : '=';
-        line[col++] = (i + 2 < s_len) ? B64[ v        & 63] : '=';
-
-        if (col >= kLineLen) {
-            line[col] = 0;
-            Serial.println(line);
-            col = 0;
-            // ~1MB of serial writes, on the task that owns the watchdog. The
-            // flush drains the CDC buffer so it never overflows; the yield lets
-            // the USB stack actually run, which it cannot do if this loop hogs
-            // the core.
-            if ((++lines & 0x1F) == 0) {
-                Serial.flush();
-                esp_task_wdt_reset();
-                vTaskDelay(1);
-            }
+        // Deliberately NO vTaskDelay here. Yielding hands the CPU to tasks that
+        // then print into the middle of a line, and every such line costs a
+        // retransmit. The watchdog needs the reset, not a yield.
+        if ((i & 0x1F) == 0) {
+            Serial.flush();
+            esp_task_wdt_reset();
         }
     }
-    if (col) { line[col] = 0; Serial.println(line); }
 
     Serial.println("[/shot]");
     Serial.flush();
@@ -109,33 +131,47 @@ static void dumpScreenshot(void) {
     Serial.setTxTimeoutMs(0);   // back to non-blocking so logging never stalls the UI
 #endif
 
-    // Give the memory straight back. Holding 768KB of PSRAM permanently for a
-    // feature used occasionally is not a trade worth making on a board that has
-    // had heap pressure problems.
-    heap_caps_free(s_buf);
-    s_buf = nullptr;
-    s_len = 0;
-    s_ready = false;
+    s_ready = false;   // buffer deliberately kept, for "shotline" retransmits
+}
+
+// Resend one line. The host asks for these when a log line has landed inside
+// one. The capture buffer is still held from the dump.
+static void resendLine(uint32_t idx) {
+    if (!s_buf || (size_t)idx * kPerLine >= s_len) {
+        Serial.printf("[shot-err] line %u unavailable\n", (unsigned)idx);
+        return;
+    }
+    char payload[kLineLen + 1];
+    encodeLine((size_t)idx * kPerLine, payload);
+    emitLine(idx, payload);
+    Serial.flush();
 }
 
 void screenshotPoll(void) {
     // A frame captured on a previous pass is ready — ship it.
     if (s_ready) { dumpScreenshot(); return; }
 
-    static char cmd[24];
+    static char cmd[32];
     static uint8_t n = 0;
 
     while (Serial.available()) {
         char c = (char)Serial.read();
         if (c == '\n' || c == '\r') {
             cmd[n] = 0;
-            if (n && strcmp(cmd, "screenshot") == 0) {
-                if (s_request) {
-                    Serial.println("[shot-busy] request already queued");
-                } else {
-                    s_request = true;
-                    lv_obj_t* scr = lv_screen_active();
-                    if (scr) lv_obj_invalidate(scr);   // force a flush to capture
+            if (n) {
+                if (strcmp(cmd, "screenshot") == 0) {
+                    if (s_request) {
+                        Serial.println("[shot-busy] request already queued");
+                    } else {
+                        releaseBuffer();                    // drop any previous frame
+                        s_request = true;
+                        lv_obj_t* scr = lv_screen_active();
+                        if (scr) lv_obj_invalidate(scr);    // force a flush to capture
+                    }
+                } else if (strncmp(cmd, "shotline ", 9) == 0) {
+                    resendLine((uint32_t)strtoul(cmd + 9, nullptr, 16));
+                } else if (strcmp(cmd, "shotfree") == 0) {
+                    releaseBuffer();
                 }
             }
             n = 0;
