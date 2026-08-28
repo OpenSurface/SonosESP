@@ -73,6 +73,10 @@ void refreshDeviceList() {
         lv_label_set_text(lbl, dev->roomName.c_str());
         lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
         lv_obj_set_style_text_font(lbl, &font_text_20, 0);
+        // Cap + ellipsize: these labels had no width limit at all, so a long
+        // room name ran under the chevron. Generous — only bites past ~40 chars.
+        lv_obj_set_width(lbl, SX(440));
+        lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, hasGroup ? SX(55) : SX(45), hasGroup || isPlaying ? SY(-8) : 0);
 
         // Subtitle: group info or playing status
@@ -189,6 +193,8 @@ void refreshDeviceList() {
             lv_label_set_text(lbl, dev->roomName.c_str());
             lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
             lv_obj_set_style_text_font(lbl, &font_text_20, 0);
+            lv_obj_set_width(lbl, SX(600));
+            lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
             lv_obj_align(lbl, LV_ALIGN_LEFT_MID, SX(40), 0);
 
             lv_obj_add_event_cb(btn, [](lv_event_t* e) {

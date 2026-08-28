@@ -1097,7 +1097,7 @@ void createClockScreen() {
         lv_obj_set_pos(clock_wx_fc_day[i], SX(col_x), SY(7));
         lv_obj_set_style_text_align(clock_wx_fc_day[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_style_text_font(clock_wx_fc_day[i], &font_text_14, 0);
-        lv_obj_set_style_text_color(clock_wx_fc_day[i], COL_TEXT2, 0);
+        lv_obj_set_style_text_color(clock_wx_fc_day[i], COL_TEXT3, 0);
         lv_label_set_text(clock_wx_fc_day[i], "---");
 
         // Condition icon (32px Weather Icons glyph)
@@ -1140,7 +1140,7 @@ void createClockScreen() {
     lv_label_set_long_mode(clock_wx_fl_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_fl_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_fl_lbl, &font_text_16, 0);
-    lv_obj_set_style_text_color(clock_wx_fl_lbl, COL_TEXT2, 0);
+    lv_obj_set_style_text_color(clock_wx_fl_lbl, COL_TEXT3, 0);
     lv_obj_set_pos(clock_wx_fl_lbl, 0, 0);
 
     // Row 1 — UV index
@@ -1150,7 +1150,7 @@ void createClockScreen() {
     lv_label_set_long_mode(clock_wx_uv_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_uv_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_uv_lbl, &font_text_16, 0);
-    lv_obj_set_style_text_color(clock_wx_uv_lbl, COL_TEXT2, 0);
+    lv_obj_set_style_text_color(clock_wx_uv_lbl, COL_TEXT3, 0);
     lv_obj_set_pos(clock_wx_uv_lbl, 0, SY(26));
 
     // Row 2 — Sunrise

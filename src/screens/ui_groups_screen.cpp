@@ -88,6 +88,9 @@ void refreshGroupsList() {
         lv_label_set_text(lbl, dev->roomName.c_str());
         lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
         lv_obj_set_style_text_font(lbl, &font_text_20, 0);
+        // Cap + ellipsize — the Remove button sits at this row's right edge.
+        lv_obj_set_width(lbl, SX(400));
+        lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, isPlaying ? SX(70) : SX(55), (isPlaying && hasTrack) ? SY(-18) : SY(-8));
 
         // Member count / status subtitle
