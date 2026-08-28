@@ -243,7 +243,11 @@ void ev_wifi_scan(lv_event_t* e) {
         lv_obj_remove_flag(spinner_wifi_scan, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(spinner_wifi_scan);
     }
-    lv_timer_handler();  // Update UI immediately
+    // lv_refr_now, NOT lv_timer_handler: we are inside an event callback, which
+    // runs inside the outer lv_timer_handler(), and LVGL's already_running guard
+    // makes a nested call return immediately without drawing. The spinner and
+    // the status text would never appear before the blocking scan below.
+    lv_refr_now(NULL);  // Update UI immediately
 
     WiFi.disconnect();
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -351,7 +355,7 @@ void ev_wifi_connect(lv_event_t* e) {
     lv_label_set_text_fmt(lbl_wifi_status, MDI_REFRESH " Connecting to %s...", selectedSSID.c_str());
     lv_obj_set_style_text_color(lbl_wifi_status, COL_ACCENT, 0);
     lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
-    lv_timer_handler();  // Update UI
+    lv_refr_now(NULL);  // Update UI (nested lv_timer_handler would be a no-op)
 
     WiFi.disconnect();
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -372,10 +376,14 @@ void ev_wifi_connect(lv_event_t* e) {
     while (WiFi.status() != WL_CONNECTED && tries++ < 60) {
         esp_task_wdt_reset();  // Feed WDT — loop runs up to 30s, WDT timeout = 30s
         vTaskDelay(pdMS_TO_TICKS(500));
-        lv_timer_handler();  // Keep UI responsive
         lv_label_set_text_fmt(lbl_wifi_status, MDI_REFRESH " Connecting to %s%s",
             selectedSSID.c_str(),
             tries % 4 == 0 ? "..." : tries % 4 == 1 ? ".  " : tries % 4 == 2 ? ".. " : " ..");
+        // Repaint AFTER updating the label, and with lv_refr_now: this runs
+        // inside an event callback, so a nested lv_timer_handler() hits LVGL's
+        // already_running guard and returns without drawing. The animated dots
+        // never rendered — the screen simply froze for up to 30s.
+        lv_refr_now(NULL);  // Keep UI responsive
     }
     esp_task_wdt_reset();  // Reset after loop exits (NVS write below can take ~100ms)
 
@@ -464,7 +472,7 @@ static void checkForUpdates() {
         lv_label_set_text(lbl_ota_status, MDI_REFRESH " Checking for updates...");
         lv_obj_set_style_text_color(lbl_ota_status, COL_ACCENT, 0);
     }
-    lv_timer_handler();
+    lv_refr_now(NULL);  // nested lv_timer_handler would be a no-op; see ev_wifi_scan
 
     WiFiClientSecure client;
     client.setInsecure();  // Skip certificate validation

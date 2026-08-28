@@ -305,7 +305,6 @@ void createGroupsScreen() {
         int cnt = sonos.getDeviceCount();
         for (int i = 0; i < cnt; i++) {
             lv_tick_inc(10);
-            lv_timer_handler();
             lv_refr_now(NULL);
         }
         sonos.updateGroupInfo();

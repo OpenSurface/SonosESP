@@ -109,7 +109,6 @@ int SonosController::discoverDevices() {
         // Update UI periodically to keep spinner animating
         if (millis() - lastUIUpdate > 20) {
             lv_tick_inc(20);
-            lv_timer_handler();
             lv_refr_now(NULL);  // Force display refresh
             lastUIUpdate = millis();
         }
@@ -143,7 +142,6 @@ int SonosController::discoverDevices() {
 
         // Update UI while fetching room names
         lv_tick_inc(10);
-        lv_timer_handler();
         lv_refr_now(NULL);
     }
 
@@ -241,7 +239,6 @@ int SonosController::discoverDevices() {
             devices[i].isPlaying ? "PLAYING" : "stopped");
         // Keep UI alive during the SOAP calls
         lv_tick_inc(10);
-        lv_timer_handler();
         lv_refr_now(NULL);
     }
 
