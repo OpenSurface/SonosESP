@@ -36,7 +36,7 @@ static int pending_duration = 0;
 static int lyrics_retry_count = 0;  // Track retry attempts for failed fetches
 static char lyrics_status_msg[64] = "";         // Status shown briefly after fetch completes
 static unsigned long lyrics_status_start_ms = 0; // millis() when the status was posted
-static bool          lyrics_status_active   = false;
+static volatile bool lyrics_status_active   = false;  // set on the lyrics task, read on the UI thread
 #define LYRICS_STATUS_SHOW_MS 5000
 // Track which song already failed so requestLyrics() doesn't re-spawn for same track.
 // Cleared when a genuinely new track is detected (different artist or title).

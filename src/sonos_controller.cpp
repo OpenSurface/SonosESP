@@ -646,7 +646,13 @@ bool SonosController::saveCurrentTrack(const char* playlistName) {
             break;
         }
 
-        pos = queueDIDL.indexOf("</item>", pos) + 7;
+        // Same guard as above. Unguarded, a missing </item> made this -1 + 7 = 6,
+        // so the scan jumped BACKWARDS and re-found the same <item> forever —
+        // itemCount kept climbing, so it only escaped once it happened to equal
+        // currentTrackNum, and never at all if currentTrackNum was 0.
+        int nextEnd = queueDIDL.indexOf("</item>", pos);
+        if (nextEnd < 0) break;
+        pos = nextEnd + 7;
     }
 
     if (trackMetadata.length() == 0 || trackURI.length() == 0) {

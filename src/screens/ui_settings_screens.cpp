@@ -351,7 +351,8 @@ static void refreshSourcesList(lv_event_t* e) {
         lv_label_set_text(name, label);
         lv_obj_set_style_text_color(name, COL_TEXT, 0);
         lv_obj_set_style_text_font(name, &font_text_20, 0);
-        lv_obj_set_width(name, SX(300));
+        lv_obj_set_width(name, SX(340));   // widened with the 18->20px font so the
+                                           // same number of characters stays visible
         lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
         lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(40), 0);
 
