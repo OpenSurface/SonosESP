@@ -442,6 +442,30 @@ void ev_wifi_connect(lv_event_t* e) {
 // ============================================================================
 // OTA Update Functions
 // ============================================================================
+// True only when `candidate` is strictly newer than `current` by major.minor.patch.
+// The check used to be a raw `!=`, which treats ANY difference as an update: a
+// re-tagged release, a rollback, or a hand-edited version.json would all offer the
+// fleet a silent DOWNGRADE with an "Update available" label. Parsing stops at the
+// first non-digit/non-dot, so a "-nightly.abc1234" suffix is ignored here.
+static bool isSemverNewer(const String& candidate, const String& current) {
+    auto parse = [](const String& v, int out[3]) {
+        out[0] = out[1] = out[2] = 0;
+        int part = 0, val = 0;
+        for (unsigned i = 0; i < v.length() && part < 3; i++) {
+            char c = v[i];
+            if (c >= '0' && c <= '9')      val = val * 10 + (c - '0');
+            else if (c == '.')           { out[part++] = val; val = 0; }
+            else break;                    // prerelease suffix ends the numeric part
+        }
+        if (part < 3) out[part] = val;
+    };
+    int a[3], b[3];
+    parse(candidate, a);
+    parse(current, b);
+    for (int i = 0; i < 3; i++) if (a[i] != b[i]) return a[i] > b[i];
+    return false;                          // numerically equal is not newer
+}
+
 static void checkForUpdates() {
     if (WiFi.status() != WL_CONNECTED) {
         if (lbl_ota_status) {
@@ -713,8 +737,15 @@ static void checkForUpdates() {
                 Serial.printf("[OTA] No firmware asset for this build (%s) in release\n", kVariantAsset);
             }
 
-            // Compare versions
-            if (latest_version != FIRMWARE_VERSION && download_url.length() == 0) {
+            // Compare versions. Nightly builds all share the same major.minor.patch
+            // and differ only by commit hash, so there ANY difference is a new build;
+            // Stable must be strictly newer, or a re-tag reads as an update and
+            // installs an older image over a newer one.
+            const bool update_available = (ota_channel == 1)
+                ? (latest_version != FIRMWARE_VERSION)
+                : isSemverNewer(latest_version, FIRMWARE_VERSION);
+
+            if (update_available && download_url.length() == 0) {
                 // Newer release exists but carries no asset this build can install —
                 // don't offer an Install button that would download nothing.
                 if (lbl_ota_status) {
@@ -724,7 +755,7 @@ static void checkForUpdates() {
                 if (btn_install_update) {
                     lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
                 }
-            } else if (latest_version != FIRMWARE_VERSION) {
+            } else if (update_available) {
                 if (lbl_ota_status) {
                     lv_label_set_text_fmt(lbl_ota_status, MDI_DOWNLOAD " Update available: v%s", latest_version.c_str());
                     lv_obj_set_style_text_color(lbl_ota_status, COL_OK, 0);

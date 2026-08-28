@@ -11,6 +11,11 @@ OTA_FEATURE_SUMMARY.md
 RELEASE_INSTRUCTIONS.md
 CODE_REVIEW_ACTION_PLAN.md
 FLOWS.md
+# Private planning docs — untracked but were NOT ignored, so any `git add -A`
+# would have published them.
+AUDIT_FINDINGS.md
+SOURCES_PLAN.md
+UPNP_DEPRECATION.md
 
 # Node.js (font generation tooling — @mdi/font + lv_font_conv)
 node_modules/
@@ -27,3 +32,6 @@ docs/.vitepress/dist/
 docs/.vitepress/cache/
 docs/public/*.bin
 docs/public/manifest*.json
+
+# Python bytecode from the build/release scripts
+__pycache__/
