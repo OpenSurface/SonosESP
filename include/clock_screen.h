@@ -313,8 +313,6 @@ extern lv_img_dsc_t  clock_bg_dsc;      // LVGL image descriptor pointing to buf
 extern lv_obj_t* scr_clock;
 extern lv_obj_t* scr_clock_settings;
 extern lv_obj_t* clock_bg_img;      // Background image widget
-extern lv_obj_t* clock_time_lbl;    // HH:MM:SS label
-extern lv_obj_t* clock_date_lbl;    // Day, Month DD YYYY label
 
 // ============================================================================
 // Function Declarations

@@ -18,7 +18,6 @@
 #include "clock_face.h"
 #include "nocturne.h"
 
-LV_FONT_DECLARE(lv_font_montserrat_140);
 LV_FONT_DECLARE(lv_font_weathericons_80);
 LV_FONT_DECLARE(lv_font_weathericons_32);
 #include <WiFiClientSecure.h>
@@ -463,15 +462,15 @@ static void applyClockStyle(void) {
         if (own_face && root) lv_obj_move_foreground(root);
     }
 
+    // StandBy is the only builder-less face left in the registry (index 0), so
+    // !own_face implies StandBy. The old "classic" branch is gone — see the
+    // Classic removal note in clock_face.cpp's migration.
     const bool standby = !own_face && (clock_style == CLOCK_STYLE_STANDBY);
-    const bool classic = !own_face && !standby;
     auto vis = [](lv_obj_t* o, bool show) {
         if (!o) return;
         if (show) lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
         else      lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
     };
-    vis(clock_time_lbl, classic);
-    vis(clock_date_lbl, classic);
     for (int i = 0; i < 4; i++) vis(sb_digit[i], standby);
     for (int i = 0; i < 2; i++) vis(sb_dot[i],   standby);
     vis(sb_date, standby);
@@ -486,7 +485,9 @@ void clockStyleChanged(void) {
 }
 
 static void clock_tick_cb(lv_timer_t* /*timer*/) {
-    if (!clock_time_lbl || !clock_date_lbl) return;
+    // Guards that the clock screen has actually been built. This used to test
+    // the Classic time/date labels, which were the first widgets created.
+    if (!scr_clock) return;
 
     // Update weather overlay if the bg task posted new data
     if (clock_weather_updated && clock_wx_tl_panel) {
@@ -496,9 +497,9 @@ static void clock_tick_cb(lv_timer_t* /*timer*/) {
 
     struct tm timeinfo;
     if (!getLocalTime(&timeinfo, 100)) {
-        // NTP not synced yet — show dashes
-        lv_label_set_text(clock_time_lbl, "--:--");
-        lv_label_set_text(clock_date_lbl, "Waiting for NTP...");
+        // NTP not synced yet. The dashes used to go to the Classic labels, which
+        // no face has displayed since Classic was removed; the StandBy digits
+        // keep their placeholder text until the first successful sync.
         return;
     }
 
@@ -506,20 +507,14 @@ static void clock_tick_cb(lv_timer_t* /*timer*/) {
     const ClockFaceDef* face = clockFaceCurrent();
     if (face->tick) { face->tick(&timeinfo); return; }
 
+    // Kept unpadded ("09:30", not "9:30"): the StandBy face below splits this
+    // into four fixed cells and hides the leading zero as a cell, so stripping
+    // it here would shift every digit one position left.
     char time_str[8];
-    if (clock_12h) {
-        strftime(time_str, sizeof(time_str), "%I:%M", &timeinfo);
-        // Strip leading zero: "09:30" → "9:30"
-        const char* t = (time_str[0] == '0') ? time_str + 1 : time_str;
-        lv_label_set_text(clock_time_lbl, t);
-    } else {
-        strftime(time_str, sizeof(time_str), "%H:%M", &timeinfo);
-        lv_label_set_text(clock_time_lbl, time_str);
-    }
+    strftime(time_str, sizeof(time_str), clock_12h ? "%I:%M" : "%H:%M", &timeinfo);
 
     char date_str[32];
     strftime(date_str, sizeof(date_str), "%a, %b %d", &timeinfo);
-    lv_label_set_text(clock_date_lbl, date_str);
 
     // StandBy face: drive the four digits individually. time_str is always
     // "HH:MM" here (the 12h variant only strips a leading zero, which we want to
@@ -1016,19 +1011,11 @@ void createClockScreen() {
     lv_obj_clear_flag(overlay, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_clear_flag(overlay, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Time label — HH:MM in native 120px Montserrat (crisp, no scaling)
-    clock_time_lbl = lv_label_create(scr_clock);
-    lv_label_set_text(clock_time_lbl, "--:--");
-    lv_obj_set_style_text_font(clock_time_lbl, &lv_font_montserrat_140, 0);
-    lv_obj_set_style_text_color(clock_time_lbl, COL_TEXT, 0);
-    lv_obj_align(clock_time_lbl, LV_ALIGN_CENTER, 0, SY(-30));
-
-    // Date label — "Thu, May 16" small and dim below the time
-    clock_date_lbl = lv_label_create(scr_clock);
-    lv_label_set_text(clock_date_lbl, "");
-    lv_obj_set_style_text_font(clock_date_lbl, &font_text_24, 0);
-    lv_obj_set_style_text_color(clock_date_lbl, COL_TEXT3, 0);
-    lv_obj_align(clock_date_lbl, LV_ALIGN_CENTER, 0, SY(90));
+    // The Classic time/date labels used to be created here. Classic was removed
+    // from the face registry in 1.10 (clock_face.cpp migrates saved indices off
+    // it), so they were built, ticked and then hidden on every boot for every
+    // user — and their 140px Montserrat face was the single largest font in the
+    // image. Removed; StandBy owns this screen's digits.
 
     buildStandbyFace(scr_clock);
     applyClockStyle();

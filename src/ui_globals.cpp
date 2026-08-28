@@ -287,8 +287,6 @@ lv_img_dsc_t         clock_bg_dsc;
 lv_obj_t* scr_clock          = nullptr;
 lv_obj_t* scr_clock_settings = nullptr;
 lv_obj_t* clock_bg_img       = nullptr;
-lv_obj_t* clock_time_lbl     = nullptr;
-lv_obj_t* clock_date_lbl     = nullptr;
 
 // ============================================================================
 // OTA Update State

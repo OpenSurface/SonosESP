@@ -15,9 +15,9 @@
  *     constructs its whole layout, so a face can be a genuinely different
  *     design rather than a recolour.
  *
- * CONTRACT FOR BUILDERS: a builder owns everything it creates and must leave
- * clock_time_lbl / clock_date_lbl assigned (clock_tick_cb dereferences them),
- * or set them NULL and supply its own `tick`.
+ * CONTRACT FOR BUILDERS: a builder owns everything it creates and must supply
+ * its own `tick`. clock_tick_cb hands control to that tick and returns; it only
+ * renders anything itself for the builder-less StandBy face.
  */
 #ifndef CLOCK_FACE_H
 #define CLOCK_FACE_H
