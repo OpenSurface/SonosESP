@@ -617,15 +617,23 @@ bool SonosController::saveCurrentTrack(const char* playlistName) {
         itemCount++;
 
         if (itemCount == currentTrackNum) {
-            int endPos = queueDIDL.indexOf("</item>", pos) + 7;
+            // Guard the terminator search: on a truncated Browse response
+            // indexOf returns -1 and the "+ 7" silently yields 6, so the substring
+            // below would slice from the wrong offset. The <container> loop further
+            // down already checks this; the <item> loop did not.
+            int endTag = queueDIDL.indexOf("</item>", pos);
+            if (endTag < 0) break;
+            int endPos = endTag + 7;
             String itemXML = queueDIDL.substring(pos, endPos);
 
             // Extract URI before encoding
             int resStart = itemXML.indexOf("<res");
             if (resStart >= 0) {
                 int resEnd = itemXML.indexOf("</res>", resStart);
-                int resContentStart = itemXML.indexOf(">", resStart) + 1;
-                trackURI = itemXML.substring(resContentStart, resEnd);
+                int resGt  = itemXML.indexOf(">", resStart);
+                if (resGt >= 0 && resEnd > resGt) {
+                    trackURI = itemXML.substring(resGt + 1, resEnd);
+                }
             }
 
             // Re-encode for SOAP
@@ -827,8 +835,19 @@ bool SonosController::playPlaylist(const char* playlistID, const char* title) {
     // Skip pre-switch entirely if already in queue mode — avoids a redundant SOAP
     // that could reset the transport position on devices that are already playing queue.
     {
-        bool alreadyQueue = dev->currentURI.indexOf("rincon-queue") >= 0 ||
-                            dev->currentURI.indexOf("x-rincon-queue") >= 0;
+        // Snapshot under deviceMutex. This runs on mainAppTask (sources-screen tap)
+        // while pollingTask reassigns dev->currentURI in updateTrackInfo() under the
+        // same lock. Arduino String assignment reallocs and frees the old buffer, so
+        // an unlocked indexOf() here can read freed memory — a fault, not just a
+        // stale value. On timeout the snapshot stays empty, which falls through to
+        // the pre-switch: the same thing the old code did when the URI was unknown.
+        String uriNow;
+        if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
+            uriNow = dev->currentURI;
+            xSemaphoreGive(deviceMutex);
+        }
+        bool alreadyQueue = uriNow.indexOf("rincon-queue") >= 0 ||
+                            uriNow.indexOf("x-rincon-queue") >= 0;
         if (alreadyQueue) {
             Serial.println("[PLAYLIST] Already in queue transport mode — skipping pre-switch");
         } else {
@@ -1001,7 +1020,13 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
     // Pre-switch to queue mode if something else (radio, line-in) holds the
     // transport, or RemoveAllTracksFromQueue below can land mid-transition.
     {
-        bool alreadyQueue = dev->currentURI.indexOf("rincon-queue") >= 0;
+        // Snapshot under deviceMutex — same cross-task String race as playPlaylist().
+        String uriNow;
+        if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
+            uriNow = dev->currentURI;
+            xSemaphoreGive(deviceMutex);
+        }
+        bool alreadyQueue = uriNow.indexOf("rincon-queue") >= 0;
         if (!alreadyQueue) {
             String pre = "<InstanceID>0</InstanceID><CurrentURI>x-rincon-queue:"
                        + dev->rinconID + "#0</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>";
@@ -1096,6 +1121,28 @@ String SonosController::listMusicServices() {
 
     const char* soapAction = "\"urn:schemas-upnp-org:service:MusicServices:1#ListAvailableServices\"";
 
+    // This was the one network call in this file that bypassed network_mutex and
+    // every SDIO cooldown — and its ListAvailableServices response is the largest
+    // single SOAP body the project handles (the ~99-service list). Fired
+    // concurrently with an art download it is exactly the two-TCP-streams-into-
+    // pkt_rxbuff overflow (sdio_push_data_to_queue :928) the rest of this file's
+    // architecture exists to prevent, and it also left last_network_end_ms stale
+    // so the NEXT SOAP and the next art download would both skip their drain.
+    // The function currently has no call sites, so this envelope costs nothing
+    // today; it is here so wiring it up for the sources work cannot reintroduce
+    // the crash. Mirrors sendSOAP()'s general-cooldown / mutex / stamp envelope.
+    if (last_network_end_ms > 0) {
+        unsigned long elapsed = millis() - last_network_end_ms;
+        if (elapsed < SDIO_GENERAL_COOLDOWN_MS) {
+            vTaskDelay(pdMS_TO_TICKS(SDIO_GENERAL_COOLDOWN_MS - elapsed));
+        }
+    }
+
+    if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
+        Serial.println("[SERVICES] Failed to acquire network mutex - request failed");
+        return "";
+    }
+
     HTTPClient http;
     http.begin(url);
     http.setTimeout(3000);
@@ -1112,6 +1159,8 @@ String SonosController::listMusicServices() {
     }
 
     http.end();
+    last_network_end_ms = millis();   // stamp before releasing, as sendSOAP does
+    xSemaphoreGive(network_mutex);
     return resp;
 }
 

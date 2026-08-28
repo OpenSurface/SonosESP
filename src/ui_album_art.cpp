@@ -1637,7 +1637,9 @@ void albumArtTask(void* param) {
                         // If download failed/aborted, close connection and free TLS/DMA resources
                         if (!readSuccess) {
                             Serial.println("[ART] Download failed/aborted - closing connection");
-                            stream->stop();  // TCP RST - kills connection immediately
+                            // Null-guarded for the same reason as the oversized path:
+                            // getStreamPtr() yields NULL on an already-closed peer.
+                            if (stream) stream->stop();  // TCP RST - kills connection immediately
                             jpgBuf = nullptr;  // static buffer — don't free
                             // CRITICAL: http.end() + secure_client.stop() free TLS/DMA memory
                             // After TCP RST, these won't send SDIO traffic (socket is dead)
@@ -1770,9 +1772,13 @@ void albumArtTask(void* param) {
                     } // end: dma_dl_start >= ART_TCP_RCVBUF_DL_SAFETY
                 } else if (len >= (int)max_art_size) {
                     Serial.printf("[ART] Album art too large: %d bytes (max %dKB)\n", len, (int)(max_art_size/1000));
-                    // Force close - don't drain (overwhelms SDIO buffer)
-                    WiFiClient* stream = http.getStreamPtr();
-                    stream->stop();
+                    // Force close - don't drain (overwhelms SDIO buffer).
+                    // getStreamPtr() returns NULL once the peer has closed and lwIP
+                    // has nothing buffered — reachable here because the oversized
+                    // branch is only taken after the pre-drain loop, which can run
+                    // for up to 15s. Guarded like the sites in sonos_controller.cpp
+                    // and lyrics.cpp; the connection is already gone in that case.
+                    if (WiFiClient* stream = http.getStreamPtr()) stream->stop();
                     Serial.println("[ART] Connection closed (oversized image)");
                     if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
                         last_art_url = url;

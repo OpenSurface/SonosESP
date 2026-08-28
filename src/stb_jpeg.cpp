@@ -25,6 +25,11 @@
 
 // Only compile the JPEG decoder — saves ~40KB of flash vs full stb_image
 #define STBI_ONLY_JPEG
+// Reject absurd dimensions inside stb itself, before it allocates anything.
+// Default is 1<<24. Upstream stb has open, unfixed memory-safety issues in the
+// progressive-AC decoder this file exists to use, so keep the input surface as
+// small as possible. ART_STB_MAX_DIM below applies the same cap explicitly.
+#define STBI_MAX_DIMENSIONS 2048
 // No stdio — we always decode from memory
 #define STBI_NO_STDIO
 // Suppress unused-function warnings from the STB header
@@ -49,6 +54,24 @@ bool decodeJPEGProgressiveStb(const uint8_t* buf, size_t len,
                                uint16_t** out, int* out_w, int* out_h) {
     int w = 0, h = 0, channels = 0;
 
+    // Check dimensions BEFORE decoding. stb allocates w*h*3 up front, and this
+    // path only ever sees progressive JPEGs, which compress hard enough that a
+    // 3000x3000 image fits comfortably inside the 280KB MAX_ART_SIZE download
+    // gate — decoding it would ask for a 27MB RGB888 block from the same PSRAM
+    // pool that holds the art buffers, both cache slots and four task stacks,
+    // only to reject the result afterwards. stbi_info parses the header only.
+    // The sibling decoders in ui_album_art.cpp validate before allocating too.
+    const int ART_STB_MAX_DIM = 2048;
+    int info_w = 0, info_h = 0, info_c = 0;
+    if (!stbi_info_from_memory(buf, (int)len, &info_w, &info_h, &info_c)) {
+        Serial.printf("[ART] stb_image header unreadable: %s\n", stbi_failure_reason());
+        return false;
+    }
+    if (info_w <= 0 || info_h <= 0 || info_w > ART_STB_MAX_DIM || info_h > ART_STB_MAX_DIM) {
+        Serial.printf("[ART] stb_image dimensions rejected pre-decode: %dx%d\n", info_w, info_h);
+        return false;
+    }
+
     // stb_image returns RGB888 interleaved (3 bytes per pixel)
     uint8_t* rgb888 = stbi_load_from_memory(buf, (int)len, &w, &h, &channels, 3);
     if (!rgb888) {
@@ -56,7 +79,8 @@ bool decodeJPEGProgressiveStb(const uint8_t* buf, size_t len,
         return false;
     }
 
-    if (w <= 0 || h <= 0 || w > 2048 || h > 2048) {
+    // Belt-and-braces: the header said one thing, confirm the decode agrees.
+    if (w <= 0 || h <= 0 || w > ART_STB_MAX_DIM || h > ART_STB_MAX_DIM) {
         Serial.printf("[ART] stb_image invalid dimensions: %dx%d\n", w, h);
         stbi_image_free(rgb888);
         return false;

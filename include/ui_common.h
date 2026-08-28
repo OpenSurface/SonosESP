@@ -148,7 +148,7 @@ extern String lyrics_last_track;
 extern volatile bool art_ready;
 extern volatile bool art_show_placeholder;
 extern SemaphoreHandle_t art_mutex;
-extern uint32_t dominant_color;
+extern volatile uint32_t dominant_color;   // art task writes, UI reads — aligned 32-bit, atomic on RISC-V
 extern volatile bool color_ready;
 extern int art_offset_x, art_offset_y;
 

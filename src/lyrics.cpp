@@ -35,7 +35,9 @@ static char pending_title[128];
 static int pending_duration = 0;
 static int lyrics_retry_count = 0;  // Track retry attempts for failed fetches
 static char lyrics_status_msg[64] = "";         // Status shown briefly after fetch completes
-static unsigned long lyrics_status_until_ms = 0; // Show status until this timestamp
+static unsigned long lyrics_status_start_ms = 0; // millis() when the status was posted
+static bool          lyrics_status_active   = false;
+#define LYRICS_STATUS_SHOW_MS 5000
 // Track which song already failed so requestLyrics() doesn't re-spawn for same track.
 // Cleared when a genuinely new track is detected (different artist or title).
 static char lyrics_failed_artist[128] = "";
@@ -418,7 +420,10 @@ static void lyricsTaskFunc(void* param) {
     }
 
     lyrics_status_msg[sizeof(lyrics_status_msg) - 1] = '\0';
-    lyrics_status_until_ms = millis() + 5000;
+    // Elapsed form, not millis()+5000: the absolute deadline wraps at ~49.7 days
+    // uptime and the status would never display for that one track.
+    lyrics_status_start_ms = millis();
+    lyrics_status_active   = true;
 
     lyrics_fetching = false;
     lyrics_task_exit_ms = millis();  // handle cleared by requestLyrics after reap grace
@@ -492,7 +497,7 @@ bool requestLyrics(const String& artist, const String& title, int durationSec) {
     lyrics_abort_requested = false;
     lyrics_retry_count = 0;
     lyrics_status_msg[0] = '\0';
-    lyrics_status_until_ms = 0;
+    lyrics_status_active = false;
 
     // Store parameters for the task (copy to fixed buffers)
     strncpy(pending_artist, artist.c_str(), sizeof(pending_artist) - 1);
@@ -720,7 +725,8 @@ void updateLyricsStatus() {
         int frame = (millis() / 500) % 3;
         lv_label_set_text(lbl_lyrics_status, dot_frames[frame]);
         lv_obj_set_style_text_color(lbl_lyrics_status, lv_color_hex(0x666666), 0);
-    } else if (lyrics_status_msg[0] != '\0' && millis() < lyrics_status_until_ms) {
+    } else if (lyrics_status_msg[0] != '\0' && lyrics_status_active &&
+               (millis() - lyrics_status_start_ms) < LYRICS_STATUS_SHOW_MS) {
         // Show result status briefly after fetch completes (5 seconds)
         lv_label_set_text(lbl_lyrics_status, lyrics_status_msg);
         lv_obj_set_style_text_color(lbl_lyrics_status, lv_color_hex(0x666666), 0);
