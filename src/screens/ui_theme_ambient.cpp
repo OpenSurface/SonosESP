@@ -285,7 +285,7 @@ void buildAmbientPlayer() {
     lv_obj_set_size(lbl_album, SX(AM_RW), SY(20));
     lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_album, "");
-    lv_obj_set_style_text_color(lbl_album, lv_color_hex(0x9A9A9A), 0);
+    lv_obj_set_style_text_color(lbl_album, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_album, &font_text_14, 0);
 
     // ── Right column: progress ──────────────────────────────────────────────

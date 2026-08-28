@@ -40,7 +40,7 @@ static void headerCircle(lv_obj_t* b) {
 // applied by themeApplyBackdrop() from the art colour animation.
 void buildClassicPlayer() {
     scr_main = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_main, lv_color_hex(0x111111), 0);  // dark fallback before first art loads
+    lv_obj_set_style_bg_color(scr_main, COL_SCREEN, 0);  // dark fallback before first art loads
     lv_obj_clear_flag(scr_main, LV_OBJ_FLAG_SCROLLABLE);
 
     // Blurred art background — fullscreen, must be first child (lowest z-order).

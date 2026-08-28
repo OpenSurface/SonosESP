@@ -28,6 +28,10 @@ lv_color_t COL_ERROR = lv_color_hex(0xFF6B6B);
 lv_color_t COL_OK = lv_color_hex(0x4ECB71);
 lv_color_t COL_WARN = lv_color_hex(0xFFA500);
 lv_color_t COL_HEART = lv_color_hex(0xE85D5D);
+lv_color_t COL_ERROR_SURFACE      = lv_color_hex(0x8B0000);
+lv_color_t COL_OK_SURFACE         = lv_color_hex(0x1E3A1E);
+lv_color_t COL_OK_SURFACE_PRESSED = lv_color_hex(0x2A5A2A);
+lv_color_t COL_OK_STRONG          = lv_color_hex(0x2E7D32);
 
 // ============================================================================
 // Core Objects

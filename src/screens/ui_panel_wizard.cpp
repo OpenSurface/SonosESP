@@ -38,7 +38,7 @@ static void wiz_confirm_cb(lv_event_t*) {
 static bool wizardAsk(uint8_t variant) {
     wiz_confirmed = false;
     wiz_screen = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(wiz_screen, lv_color_hex(0x101010), 0);
+    lv_obj_set_style_bg_color(wiz_screen, COL_SCREEN, 0);
     lv_obj_clear_flag(wiz_screen, LV_OBJ_FLAG_SCROLLABLE);
 
     // Full-width reference bars. A wrong panel corrupts part of every scanline,
@@ -69,7 +69,7 @@ static bool wizardAsk(uint8_t variant) {
     lv_label_set_text(sub, "Tap the button to keep this display setting.\n"
                            "If the screen looks wrong, just wait.");
     lv_obj_set_style_text_font(sub, &font_text_16, 0);
-    lv_obj_set_style_text_color(sub, lv_color_hex(0xB0B0B0), 0);
+    lv_obj_set_style_text_color(sub, COL_TEXT3, 0);
     lv_obj_set_style_text_align(sub, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(sub, LV_ALIGN_TOP_MID, 0, SY(118));
 
@@ -78,7 +78,7 @@ static bool wizardAsk(uint8_t variant) {
     lv_obj_t* btn = lv_btn_create(wiz_screen);
     lv_obj_set_size(btn, SX(300), SY(90));
     lv_obj_align(btn, LV_ALIGN_CENTER, 0, SY(20));
-    lv_obj_set_style_bg_color(btn, lv_color_hex(0x2E7D32), 0);
+    lv_obj_set_style_bg_color(btn, COL_OK_STRONG, 0);
     lv_obj_set_style_radius(btn, 12, 0);
     lv_obj_add_event_cb(btn, wiz_confirm_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_t* blbl = lv_label_create(btn);
@@ -88,7 +88,7 @@ static bool wizardAsk(uint8_t variant) {
 
     lv_obj_t* foot = lv_label_create(wiz_screen);
     lv_obj_set_style_text_font(foot, &font_text_14, 0);
-    lv_obj_set_style_text_color(foot, lv_color_hex(0x777777), 0);
+    lv_obj_set_style_text_color(foot, COL_TEXT2, 0);
     lv_obj_align(foot, LV_ALIGN_BOTTOM_MID, 0, -SY(40));
 
     lv_screen_load(wiz_screen);

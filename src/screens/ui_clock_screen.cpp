@@ -820,7 +820,14 @@ void clockBgTask(void* /*param*/) {
 
             for (int attempt = 1; attempt <= MAX_ATTEMPTS && dl_total == 0 && !clock_bg_shutdown_requested; attempt++) {
 
-                // SDIO crash-defence: general + HTTPS cooldowns before BG photo download.
+                // SDIO crash-defence: general cooldown only, and that is deliberate.
+                // Both steps below are plain HTTP (Step 1 explicitly rewrites an
+                // https:// redirect down to http://), so there is no mbedTLS DMA
+                // residue to drain and SDIO_WAIT_HTTPS_COOLDOWN would not apply.
+                // Do NOT "fix" this to add the HTTPS flag: its 3000ms silence before
+                // a large download is the P4 SDIO DMA clock-gate pattern that caused
+                // the :928 overflow, which is why art and lyrics had their storm
+                // gates removed too. The comment here used to claim HTTPS cooldowns.
                 if (!sdioPreWait("CLKBG", 0, &clock_bg_shutdown_requested)) break;
 
                 if (xSemaphoreTake(network_mutex, pdMS_TO_TICKS(8000)) != pdTRUE) {
@@ -1050,7 +1057,7 @@ void createClockScreen() {
 
     clock_wx_cond_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_cond_lbl, "");
-    lv_obj_set_style_text_font(clock_wx_cond_lbl, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(clock_wx_cond_lbl, &font_text_16, 0);
     lv_obj_set_style_text_color(clock_wx_cond_lbl, COL_TEXT3, 0);
     lv_obj_set_pos(clock_wx_cond_lbl, SX(10), SY(95));
 
@@ -1090,7 +1097,7 @@ void createClockScreen() {
         lv_obj_set_pos(clock_wx_fc_day[i], SX(col_x), SY(7));
         lv_obj_set_style_text_align(clock_wx_fc_day[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_style_text_font(clock_wx_fc_day[i], &font_text_14, 0);
-        lv_obj_set_style_text_color(clock_wx_fc_day[i], lv_color_hex(0x999999), 0);
+        lv_obj_set_style_text_color(clock_wx_fc_day[i], COL_TEXT2, 0);
         lv_label_set_text(clock_wx_fc_day[i], "---");
 
         // Condition icon (32px Weather Icons glyph)
@@ -1132,8 +1139,8 @@ void createClockScreen() {
     lv_obj_set_width(clock_wx_fl_lbl, SX(300));
     lv_label_set_long_mode(clock_wx_fl_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_fl_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_set_style_text_font(clock_wx_fl_lbl, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(clock_wx_fl_lbl, lv_color_hex(0x999999), 0);
+    lv_obj_set_style_text_font(clock_wx_fl_lbl, &font_text_16, 0);
+    lv_obj_set_style_text_color(clock_wx_fl_lbl, COL_TEXT2, 0);
     lv_obj_set_pos(clock_wx_fl_lbl, 0, 0);
 
     // Row 1 — UV index
@@ -1142,8 +1149,8 @@ void createClockScreen() {
     lv_obj_set_width(clock_wx_uv_lbl, SX(300));
     lv_label_set_long_mode(clock_wx_uv_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_uv_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_set_style_text_font(clock_wx_uv_lbl, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(clock_wx_uv_lbl, lv_color_hex(0x999999), 0);
+    lv_obj_set_style_text_font(clock_wx_uv_lbl, &font_text_16, 0);
+    lv_obj_set_style_text_color(clock_wx_uv_lbl, COL_TEXT2, 0);
     lv_obj_set_pos(clock_wx_uv_lbl, 0, SY(26));
 
     // Row 2 — Sunrise
@@ -1153,7 +1160,7 @@ void createClockScreen() {
     lv_label_set_long_mode(clock_wx_rise_t_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_rise_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_rise_t_lbl, &font_text_14, 0);
-    lv_obj_set_style_text_color(clock_wx_rise_t_lbl, lv_color_hex(0x777777), 0);
+    lv_obj_set_style_text_color(clock_wx_rise_t_lbl, COL_TEXT2, 0);
     lv_obj_set_pos(clock_wx_rise_t_lbl, 0, SY(56));
 
     // Row 3 — Sunset
@@ -1163,7 +1170,7 @@ void createClockScreen() {
     lv_label_set_long_mode(clock_wx_set_t_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_set_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_set_t_lbl, &font_text_14, 0);
-    lv_obj_set_style_text_color(clock_wx_set_t_lbl, lv_color_hex(0x777777), 0);
+    lv_obj_set_style_text_color(clock_wx_set_t_lbl, COL_TEXT2, 0);
     lv_obj_set_pos(clock_wx_set_t_lbl, 0, SY(78));
 
     // (Tap-to-dismiss: whole screen is clickable, so no separate hint needed)

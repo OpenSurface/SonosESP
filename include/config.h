@@ -268,16 +268,11 @@
 #define NVS_KEY_OTA_PENDING     "ota_pending"    // Auto-reboot OTA flag
 #define NVS_KEY_OTA_URL         "ota_url"        // Saved firmware URL for auto-reboot OTA
 
-// =============================================================================
-// UI COLORS (hex values)
-// =============================================================================
-#define COLOR_BACKGROUND        0x000000
-#define COLOR_TEXT_PRIMARY      0xFFFFFF
-#define COLOR_TEXT_SECONDARY    0x888888
-#define COLOR_ACCENT            0xD4A84B  // Sonos gold
-#define COLOR_SUCCESS           0x00FF00
-#define COLOR_ERROR             0xFF0000
-#define COLOR_WARNING           0xFFA500
+// UI colours live in ONE place: the COL_* set in ui_globals.cpp, declared in
+// ui_common.h. A second COLOR_* palette used to sit here with zero references
+// and values that disagreed with the live one (COLOR_ERROR 0xFF0000 vs
+// COL_ERROR 0xFF6B6B, COLOR_SUCCESS 0x00FF00 vs COL_OK 0x4ECB71) — a trap for
+// anyone who reached for the wrong prefix. Removed; use COL_*.
 
 // =============================================================================
 // CLOCK / SCREENSAVER

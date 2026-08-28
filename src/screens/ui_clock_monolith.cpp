@@ -17,6 +17,7 @@
 #include "clock_face.h"
 #include "ui_fonts.h"
 #include "nocturne.h"
+#include <string.h>   // memset — clearing the cached widget pointers
 
 const char* wmoCondition(int code);            // ui_clock_screen.cpp
 const char* wmoGlyph(int code, bool night);    // ui_clock_screen.cpp
@@ -46,10 +47,30 @@ static lv_obj_t* ml_rail_hr[6]   = {};
 static lv_obj_t* ml_rail_icon[6] = {};
 static lv_obj_t* ml_rail_tmp[6]  = {};
 
+// Every widget here is a descendant of ml_root, so LVGL destroys them all
+// with it. The cached pointers must be cleared too: the build guard keys off
+// ml_root, so a stale non-null root would suppress the rebuild and then hand
+// out dangling children.
+static void ml_root_deleted(lv_event_t*) {
+    ml_root = nullptr;
+    ml_city = nullptr;
+    ml_date = nullptr;
+    ml_hh = nullptr;
+    ml_mm = nullptr;
+    ml_icon = nullptr;
+    ml_temp = nullptr;
+    ml_cond = nullptr;
+    memset(ml_val, 0, sizeof(ml_val));
+    memset(ml_rail_hr, 0, sizeof(ml_rail_hr));
+    memset(ml_rail_icon, 0, sizeof(ml_rail_icon));
+    memset(ml_rail_tmp, 0, sizeof(ml_rail_tmp));
+}
+
 void buildMonolithFace(lv_obj_t* parent) {
     if (ml_root) return;
 
     ml_root = nocFaceRoot(parent);
+    lv_obj_add_event_cb(ml_root, ml_root_deleted, LV_EVENT_DELETE, nullptr);
 
     // ── Header ──────────────────────────────────────────────────────────────
     ml_city = nocLabel(ml_root, &font_text_14, NOC_N400, "");

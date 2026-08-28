@@ -86,6 +86,14 @@ extern lv_color_t COL_ERROR;         // failure / offline
 extern lv_color_t COL_OK;            // success / online
 extern lv_color_t COL_WARN;          // caution
 extern lv_color_t COL_HEART;         // favourite — a role, not a generic red
+// Semantic SURFACE colours. COL_ERROR/COL_OK are foreground tints (light salmon,
+// light green) and are unreadable as button backgrounds, so destructive and
+// affirmative buttons need their own dark surfaces. These carry the exact values
+// that were previously inline literals, so nothing changes visually.
+extern lv_color_t COL_ERROR_SURFACE;        // destructive button bg (Remove)
+extern lv_color_t COL_OK_SURFACE;           // affirmative button bg (Add)
+extern lv_color_t COL_OK_SURFACE_PRESSED;   // ...its pressed state
+extern lv_color_t COL_OK_STRONG;            // prominent confirm CTA (boot panel wizard)
 
 // ============================================================================
 // Global Objects - extern declarations
