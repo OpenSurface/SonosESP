@@ -1,5 +1,10 @@
 # Build / CI Python dependencies.
 # Declaring them here lets GitHub Actions' setup-python `cache: pip` key off this
 # file, so PlatformIO's pip downloads are cached between runs.
-platformio
-esptool
+#
+# PINNED DELIBERATELY. These build and sign the images that ship to the OTA
+# Stable channel, so an upstream major landing mid-release must never be able to
+# change the output (or break the run) without a commit here. Bump on purpose,
+# then watch one full release build before trusting it.
+platformio==6.1.19
+esptool==5.3.1

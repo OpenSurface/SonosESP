@@ -105,7 +105,8 @@ jobs:
     - name: Assemble release assets (per-screen + legacy 4")
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       run: |
-        pip install esptool
+        # esptool comes from requirements.txt (installed above, same job) so the
+        # version stays pinned in one place.
         VER="${{ steps.get_version.outputs.VERSION }}"
         ROOT="$PWD"
         mkdir -p dist
@@ -116,8 +117,11 @@ jobs:
           OUT=".pio/build/esp32_${s}"
           cp "$OUT/firmware.bin" "dist/firmware-${s}.bin"
           # full single-image (web-flash) per screen
-          python -m esptool --chip esp32p4 merge_bin -o "dist/firmware-merged-${s}.bin" \
-            --flash_mode qio --flash_size 16MB \
+          # esptool v5 syntax (hyphens). The v4 spellings (merge_bin,
+          # --flash_mode, --flash_size) still work in v5 but are deprecated and
+          # are slated for removal, which would break the release build silently.
+          python -m esptool --chip esp32p4 merge-bin -o "dist/firmware-merged-${s}.bin" \
+            --flash-mode qio --flash-size 16MB \
             0x0 "$OUT/bootloader.bin" 0x8000 "$OUT/partitions.bin" 0x10000 "$OUT/firmware.bin"
           (cd "$OUT" && zip -r "$ROOT/dist/sonos-controller-firmware-${s}-v${VER}.zip" bootloader.bin partitions.bin firmware.bin)
         done
