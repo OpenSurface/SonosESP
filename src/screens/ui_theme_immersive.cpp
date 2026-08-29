@@ -313,7 +313,7 @@ void buildImmersivePlayer() {
     im_prog_group[0] = im_prog_group[1] = im_prog_group[2] = nullptr;
 
     scr_main = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_main, lv_color_hex(0x1b1b1b), 0);   // until the first art colour lands
+    lv_obj_set_style_bg_color(scr_main, COL_BG, 0);   // until the first art colour lands
     lv_obj_clear_flag(scr_main, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_event_cb(scr_main, im_screen_deleted, LV_EVENT_DELETE, NULL);
 
@@ -522,7 +522,7 @@ void buildImmersivePlayer() {
     lv_obj_t* ico_play = lv_label_create(btn_play);
     lv_label_set_text(ico_play, MDI_PAUSE);
     lv_obj_set_style_text_font(ico_play, &lv_font_mdi_32, 0);
-    lv_obj_set_style_text_color(ico_play, lv_color_hex(0x111111), 0);
+    lv_obj_set_style_text_color(ico_play, COL_SCREEN, 0);
     lv_obj_center(ico_play);
 
     btn_next = roundBtn(bar, MDI_SKIP_NEXT, &lv_font_mdi_32, 598, IM_BAR_MID(52), 52, ev_next, false);

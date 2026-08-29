@@ -66,14 +66,18 @@ void refreshDeviceList() {
         }
         lv_obj_set_style_text_color(icon, isPlaying ? COL_ACCENT : (isSelected ? COL_ACCENT : COL_TEXT2), 0);
         lv_obj_set_style_text_font(icon, &lv_font_mdi_24, 0);
-        lv_obj_align(icon, LV_ALIGN_LEFT_MID, 5, hasGroup || isPlaying ? -8 : 0);
+        lv_obj_align(icon, LV_ALIGN_LEFT_MID, SX(5), hasGroup || isPlaying ? SY(-8) : 0);
 
         // Room name
         lv_obj_t* lbl = lv_label_create(btn);
         lv_label_set_text(lbl, dev->roomName.c_str());
         lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
-        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, hasGroup ? 55 : 45, hasGroup || isPlaying ? -8 : 0);
+        lv_obj_set_style_text_font(lbl, &font_text_20, 0);
+        // Cap + ellipsize: these labels had no width limit at all, so a long
+        // room name ran under the chevron. Generous — only bites past ~40 chars.
+        lv_obj_set_width(lbl, SX(440));
+        lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
+        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, hasGroup ? SX(55) : SX(45), hasGroup || isPlaying ? SY(-8) : 0);
 
         // Subtitle: group info or playing status
         if (hasGroup || isPlaying) {
@@ -87,7 +91,7 @@ void refreshDeviceList() {
             }
             lv_obj_set_style_text_color(sub, isPlaying ? COL_OK : COL_TEXT2, 0);
             lv_obj_set_style_text_font(sub, &lv_font_mdi_16, 0);
-            lv_obj_align(sub, LV_ALIGN_LEFT_MID, hasGroup ? 55 : 45, 12);
+            lv_obj_align(sub, LV_ALIGN_LEFT_MID, hasGroup ? SX(55) : SX(45), SY(12));
         }
 
         // Right arrow indicator
@@ -119,7 +123,7 @@ void refreshDeviceList() {
                 lv_obj_set_style_pad_all(memBtn, SMIN(10), 0);
                 lv_obj_set_style_bg_color(memBtn, COL_CARD2, 0);
                 lv_obj_set_style_bg_color(memBtn, COL_BTN_PRESSED, LV_STATE_PRESSED);
-                lv_obj_set_style_margin_left(memBtn, 40, 0);
+                lv_obj_set_style_margin_left(memBtn, SX(40), 0);
 
                 // Linking icon
                 lv_obj_t* memIcon = lv_label_create(memBtn);
@@ -188,7 +192,9 @@ void refreshDeviceList() {
             lv_obj_t* lbl = lv_label_create(btn);
             lv_label_set_text(lbl, dev->roomName.c_str());
             lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
-            lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
+            lv_obj_set_style_text_font(lbl, &font_text_20, 0);
+            lv_obj_set_width(lbl, SX(600));
+            lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
             lv_obj_align(lbl, LV_ALIGN_LEFT_MID, SX(40), 0);
 
             lv_obj_add_event_cb(btn, [](lv_event_t* e) {

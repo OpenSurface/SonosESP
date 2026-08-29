@@ -39,13 +39,13 @@ void createOTAScreen() {
 
     lbl_current_version = lv_label_create(card_version);
     lv_label_set_text_fmt(lbl_current_version, "Current: v" FIRMWARE_VERSION);
-    lv_obj_set_style_text_font(lbl_current_version, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(lbl_current_version, &font_text_16, 0);
     lv_obj_set_style_text_color(lbl_current_version, COL_TEXT, 0);
     lv_obj_align(lbl_current_version, LV_ALIGN_TOP_LEFT, 0, 0);
 
     lbl_latest_version = lv_label_create(card_version);
     lv_label_set_text(lbl_latest_version, "Latest: Checking...");
-    lv_obj_set_style_text_font(lbl_latest_version, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(lbl_latest_version, &font_text_16, 0);
     lv_obj_set_style_text_color(lbl_latest_version, COL_TEXT2, 0);
     lv_obj_align(lbl_latest_version, LV_ALIGN_TOP_LEFT, 0, SY(30));
 

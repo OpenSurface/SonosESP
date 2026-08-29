@@ -18,7 +18,6 @@
 #include "clock_face.h"
 #include "nocturne.h"
 
-LV_FONT_DECLARE(lv_font_montserrat_140);
 LV_FONT_DECLARE(lv_font_weathericons_80);
 LV_FONT_DECLARE(lv_font_weathericons_32);
 #include <WiFiClientSecure.h>
@@ -463,15 +462,15 @@ static void applyClockStyle(void) {
         if (own_face && root) lv_obj_move_foreground(root);
     }
 
+    // StandBy is the only builder-less face left in the registry (index 0), so
+    // !own_face implies StandBy. The old "classic" branch is gone — see the
+    // Classic removal note in clock_face.cpp's migration.
     const bool standby = !own_face && (clock_style == CLOCK_STYLE_STANDBY);
-    const bool classic = !own_face && !standby;
     auto vis = [](lv_obj_t* o, bool show) {
         if (!o) return;
         if (show) lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
         else      lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
     };
-    vis(clock_time_lbl, classic);
-    vis(clock_date_lbl, classic);
     for (int i = 0; i < 4; i++) vis(sb_digit[i], standby);
     for (int i = 0; i < 2; i++) vis(sb_dot[i],   standby);
     vis(sb_date, standby);
@@ -486,7 +485,9 @@ void clockStyleChanged(void) {
 }
 
 static void clock_tick_cb(lv_timer_t* /*timer*/) {
-    if (!clock_time_lbl || !clock_date_lbl) return;
+    // Guards that the clock screen has actually been built. This used to test
+    // the Classic time/date labels, which were the first widgets created.
+    if (!scr_clock) return;
 
     // Update weather overlay if the bg task posted new data
     if (clock_weather_updated && clock_wx_tl_panel) {
@@ -496,9 +497,9 @@ static void clock_tick_cb(lv_timer_t* /*timer*/) {
 
     struct tm timeinfo;
     if (!getLocalTime(&timeinfo, 100)) {
-        // NTP not synced yet — show dashes
-        lv_label_set_text(clock_time_lbl, "--:--");
-        lv_label_set_text(clock_date_lbl, "Waiting for NTP...");
+        // NTP not synced yet. The dashes used to go to the Classic labels, which
+        // no face has displayed since Classic was removed; the StandBy digits
+        // keep their placeholder text until the first successful sync.
         return;
     }
 
@@ -506,20 +507,14 @@ static void clock_tick_cb(lv_timer_t* /*timer*/) {
     const ClockFaceDef* face = clockFaceCurrent();
     if (face->tick) { face->tick(&timeinfo); return; }
 
+    // Kept unpadded ("09:30", not "9:30"): the StandBy face below splits this
+    // into four fixed cells and hides the leading zero as a cell, so stripping
+    // it here would shift every digit one position left.
     char time_str[8];
-    if (clock_12h) {
-        strftime(time_str, sizeof(time_str), "%I:%M", &timeinfo);
-        // Strip leading zero: "09:30" → "9:30"
-        const char* t = (time_str[0] == '0') ? time_str + 1 : time_str;
-        lv_label_set_text(clock_time_lbl, t);
-    } else {
-        strftime(time_str, sizeof(time_str), "%H:%M", &timeinfo);
-        lv_label_set_text(clock_time_lbl, time_str);
-    }
+    strftime(time_str, sizeof(time_str), clock_12h ? "%I:%M" : "%H:%M", &timeinfo);
 
     char date_str[32];
     strftime(date_str, sizeof(date_str), "%a, %b %d", &timeinfo);
-    lv_label_set_text(clock_date_lbl, date_str);
 
     // StandBy face: drive the four digits individually. time_str is always
     // "HH:MM" here (the 12h variant only strips a leading zero, which we want to
@@ -735,7 +730,11 @@ static void fetchClockWeather() {
                     for (int i = 0; i < 6; i++) {
                         int src = i + skip;
                         const char* ts = (src < arr_sz) ? h_time[src].as<const char*>() : nullptr;
-                        hourly[i].hour = ts ? atoi(ts + 11) : 0;
+                        // Length-check before indexing +11 into the ISO timestamp:
+                        // a short/truncated value ("", "2026") would make atoi read
+                        // past the parsed JSON buffer. The sunrise/sunset parse above
+                        // already guards this way; this loop did not.
+                        hourly[i].hour = (ts && strlen(ts) >= 13) ? atoi(ts + 11) : 0;
                         hourly[i].wmo  = (src < arr_sz) ? h_wmo[src].as<int>()                 : wmo;
                         hourly[i].temp = (src < arr_sz) ? (int)roundf(h_temp[src].as<float>()) : cur_temp;
                     }
@@ -825,7 +824,14 @@ void clockBgTask(void* /*param*/) {
 
             for (int attempt = 1; attempt <= MAX_ATTEMPTS && dl_total == 0 && !clock_bg_shutdown_requested; attempt++) {
 
-                // SDIO crash-defence: general + HTTPS cooldowns before BG photo download.
+                // SDIO crash-defence: general cooldown only, and that is deliberate.
+                // Both steps below are plain HTTP (Step 1 explicitly rewrites an
+                // https:// redirect down to http://), so there is no mbedTLS DMA
+                // residue to drain and SDIO_WAIT_HTTPS_COOLDOWN would not apply.
+                // Do NOT "fix" this to add the HTTPS flag: its 3000ms silence before
+                // a large download is the P4 SDIO DMA clock-gate pattern that caused
+                // the :928 overflow, which is why art and lyrics had their storm
+                // gates removed too. The comment here used to claim HTTPS cooldowns.
                 if (!sdioPreWait("CLKBG", 0, &clock_bg_shutdown_requested)) break;
 
                 if (xSemaphoreTake(network_mutex, pdMS_TO_TICKS(8000)) != pdTRUE) {
@@ -1016,19 +1022,11 @@ void createClockScreen() {
     lv_obj_clear_flag(overlay, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_clear_flag(overlay, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Time label — HH:MM in native 120px Montserrat (crisp, no scaling)
-    clock_time_lbl = lv_label_create(scr_clock);
-    lv_label_set_text(clock_time_lbl, "--:--");
-    lv_obj_set_style_text_font(clock_time_lbl, &lv_font_montserrat_140, 0);
-    lv_obj_set_style_text_color(clock_time_lbl, COL_TEXT, 0);
-    lv_obj_align(clock_time_lbl, LV_ALIGN_CENTER, 0, SY(-30));
-
-    // Date label — "Thu, May 16" small and dim below the time
-    clock_date_lbl = lv_label_create(scr_clock);
-    lv_label_set_text(clock_date_lbl, "");
-    lv_obj_set_style_text_font(clock_date_lbl, &font_text_24, 0);
-    lv_obj_set_style_text_color(clock_date_lbl, COL_TEXT3, 0);
-    lv_obj_align(clock_date_lbl, LV_ALIGN_CENTER, 0, SY(90));
+    // The Classic time/date labels used to be created here. Classic was removed
+    // from the face registry in 1.10 (clock_face.cpp migrates saved indices off
+    // it), so they were built, ticked and then hidden on every boot for every
+    // user — and their 140px Montserrat face was the single largest font in the
+    // image. Removed; StandBy owns this screen's digits.
 
     buildStandbyFace(scr_clock);
     applyClockStyle();
@@ -1063,7 +1061,7 @@ void createClockScreen() {
 
     clock_wx_cond_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_cond_lbl, "");
-    lv_obj_set_style_text_font(clock_wx_cond_lbl, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(clock_wx_cond_lbl, &font_text_16, 0);
     lv_obj_set_style_text_color(clock_wx_cond_lbl, COL_TEXT3, 0);
     lv_obj_set_pos(clock_wx_cond_lbl, SX(10), SY(95));
 
@@ -1103,7 +1101,7 @@ void createClockScreen() {
         lv_obj_set_pos(clock_wx_fc_day[i], SX(col_x), SY(7));
         lv_obj_set_style_text_align(clock_wx_fc_day[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_style_text_font(clock_wx_fc_day[i], &font_text_14, 0);
-        lv_obj_set_style_text_color(clock_wx_fc_day[i], lv_color_hex(0x999999), 0);
+        lv_obj_set_style_text_color(clock_wx_fc_day[i], COL_TEXT3, 0);
         lv_label_set_text(clock_wx_fc_day[i], "---");
 
         // Condition icon (32px Weather Icons glyph)
@@ -1145,8 +1143,8 @@ void createClockScreen() {
     lv_obj_set_width(clock_wx_fl_lbl, SX(300));
     lv_label_set_long_mode(clock_wx_fl_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_fl_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_set_style_text_font(clock_wx_fl_lbl, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(clock_wx_fl_lbl, lv_color_hex(0x999999), 0);
+    lv_obj_set_style_text_font(clock_wx_fl_lbl, &font_text_16, 0);
+    lv_obj_set_style_text_color(clock_wx_fl_lbl, COL_TEXT3, 0);
     lv_obj_set_pos(clock_wx_fl_lbl, 0, 0);
 
     // Row 1 — UV index
@@ -1155,8 +1153,8 @@ void createClockScreen() {
     lv_obj_set_width(clock_wx_uv_lbl, SX(300));
     lv_label_set_long_mode(clock_wx_uv_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_uv_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_set_style_text_font(clock_wx_uv_lbl, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(clock_wx_uv_lbl, lv_color_hex(0x999999), 0);
+    lv_obj_set_style_text_font(clock_wx_uv_lbl, &font_text_16, 0);
+    lv_obj_set_style_text_color(clock_wx_uv_lbl, COL_TEXT3, 0);
     lv_obj_set_pos(clock_wx_uv_lbl, 0, SY(26));
 
     // Row 2 — Sunrise
@@ -1166,7 +1164,7 @@ void createClockScreen() {
     lv_label_set_long_mode(clock_wx_rise_t_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_rise_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_rise_t_lbl, &font_text_14, 0);
-    lv_obj_set_style_text_color(clock_wx_rise_t_lbl, lv_color_hex(0x777777), 0);
+    lv_obj_set_style_text_color(clock_wx_rise_t_lbl, COL_TEXT2, 0);
     lv_obj_set_pos(clock_wx_rise_t_lbl, 0, SY(56));
 
     // Row 3 — Sunset
@@ -1176,7 +1174,7 @@ void createClockScreen() {
     lv_label_set_long_mode(clock_wx_set_t_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(clock_wx_set_t_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_font(clock_wx_set_t_lbl, &font_text_14, 0);
-    lv_obj_set_style_text_color(clock_wx_set_t_lbl, lv_color_hex(0x777777), 0);
+    lv_obj_set_style_text_color(clock_wx_set_t_lbl, COL_TEXT2, 0);
     lv_obj_set_pos(clock_wx_set_t_lbl, 0, SY(78));
 
     // (Tap-to-dismiss: whole screen is clickable, so no separate hint needed)

@@ -243,7 +243,11 @@ void ev_wifi_scan(lv_event_t* e) {
         lv_obj_remove_flag(spinner_wifi_scan, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(spinner_wifi_scan);
     }
-    lv_timer_handler();  // Update UI immediately
+    // lv_refr_now, NOT lv_timer_handler: we are inside an event callback, which
+    // runs inside the outer lv_timer_handler(), and LVGL's already_running guard
+    // makes a nested call return immediately without drawing. The spinner and
+    // the status text would never appear before the blocking scan below.
+    lv_refr_now(NULL);  // Update UI immediately
 
     WiFi.disconnect();
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -300,7 +304,7 @@ void ev_wifi_scan(lv_event_t* e) {
         else                 icon_color = COL_ERROR;
 
         lv_obj_t* btn = lv_btn_create(list_wifi);
-        lv_obj_set_size(btn, lv_pct(100), 50);
+        lv_obj_set_size(btn, lv_pct(100), SY(50));
         lv_obj_set_user_data(btn, (void*)(intptr_t)ui);
         lv_obj_set_style_bg_color(btn, COL_CARD, 0);
         lv_obj_set_style_bg_color(btn, COL_BTN, LV_STATE_PRESSED);
@@ -351,7 +355,7 @@ void ev_wifi_connect(lv_event_t* e) {
     lv_label_set_text_fmt(lbl_wifi_status, MDI_REFRESH " Connecting to %s...", selectedSSID.c_str());
     lv_obj_set_style_text_color(lbl_wifi_status, COL_ACCENT, 0);
     lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
-    lv_timer_handler();  // Update UI
+    lv_refr_now(NULL);  // Update UI (nested lv_timer_handler would be a no-op)
 
     WiFi.disconnect();
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -372,10 +376,14 @@ void ev_wifi_connect(lv_event_t* e) {
     while (WiFi.status() != WL_CONNECTED && tries++ < 60) {
         esp_task_wdt_reset();  // Feed WDT — loop runs up to 30s, WDT timeout = 30s
         vTaskDelay(pdMS_TO_TICKS(500));
-        lv_timer_handler();  // Keep UI responsive
         lv_label_set_text_fmt(lbl_wifi_status, MDI_REFRESH " Connecting to %s%s",
             selectedSSID.c_str(),
             tries % 4 == 0 ? "..." : tries % 4 == 1 ? ".  " : tries % 4 == 2 ? ".. " : " ..");
+        // Repaint AFTER updating the label, and with lv_refr_now: this runs
+        // inside an event callback, so a nested lv_timer_handler() hits LVGL's
+        // already_running guard and returns without drawing. The animated dots
+        // never rendered — the screen simply froze for up to 30s.
+        lv_refr_now(NULL);  // Keep UI responsive
     }
     esp_task_wdt_reset();  // Reset after loop exits (NVS write below can take ~100ms)
 
@@ -434,6 +442,30 @@ void ev_wifi_connect(lv_event_t* e) {
 // ============================================================================
 // OTA Update Functions
 // ============================================================================
+// True only when `candidate` is strictly newer than `current` by major.minor.patch.
+// The check used to be a raw `!=`, which treats ANY difference as an update: a
+// re-tagged release, a rollback, or a hand-edited version.json would all offer the
+// fleet a silent DOWNGRADE with an "Update available" label. Parsing stops at the
+// first non-digit/non-dot, so a "-nightly.abc1234" suffix is ignored here.
+static bool isSemverNewer(const String& candidate, const String& current) {
+    auto parse = [](const String& v, int out[3]) {
+        out[0] = out[1] = out[2] = 0;
+        int part = 0, val = 0;
+        for (unsigned i = 0; i < v.length() && part < 3; i++) {
+            char c = v[i];
+            if (c >= '0' && c <= '9')      val = val * 10 + (c - '0');
+            else if (c == '.')           { out[part++] = val; val = 0; }
+            else break;                    // prerelease suffix ends the numeric part
+        }
+        if (part < 3) out[part] = val;
+    };
+    int a[3], b[3];
+    parse(candidate, a);
+    parse(current, b);
+    for (int i = 0; i < 3; i++) if (a[i] != b[i]) return a[i] > b[i];
+    return false;                          // numerically equal is not newer
+}
+
 static void checkForUpdates() {
     if (WiFi.status() != WL_CONNECTED) {
         if (lbl_ota_status) {
@@ -464,7 +496,7 @@ static void checkForUpdates() {
         lv_label_set_text(lbl_ota_status, MDI_REFRESH " Checking for updates...");
         lv_obj_set_style_text_color(lbl_ota_status, COL_ACCENT, 0);
     }
-    lv_timer_handler();
+    lv_refr_now(NULL);  // nested lv_timer_handler would be a no-op; see ev_wifi_scan
 
     WiFiClientSecure client;
     client.setInsecure();  // Skip certificate validation
@@ -532,7 +564,17 @@ static void checkForUpdates() {
         httpCode = http.GET();
 
         if (httpCode == 200) {
-            payload = http.getString();
+            // Cap before getString() — it reserves from Content-Length, so an oversized
+            // response would allocate that much internal DRAM. Leaving payload empty
+            // falls into the existing "no payload" path rather than short-circuiting
+            // out of here, which would skip http.end() / client.stop() below.
+            const int body_len = http.getSize();
+            if (body_len > OTA_MAX_JSON_BYTES) {
+                Serial.printf("[OTA] Release JSON too large (%d bytes, cap %d) — ignoring\n",
+                              body_len, OTA_MAX_JSON_BYTES);
+            } else {
+                payload = http.getString();
+            }
         }
 
         http.end();
@@ -705,8 +747,15 @@ static void checkForUpdates() {
                 Serial.printf("[OTA] No firmware asset for this build (%s) in release\n", kVariantAsset);
             }
 
-            // Compare versions
-            if (latest_version != FIRMWARE_VERSION && download_url.length() == 0) {
+            // Compare versions. Nightly builds all share the same major.minor.patch
+            // and differ only by commit hash, so there ANY difference is a new build;
+            // Stable must be strictly newer, or a re-tag reads as an update and
+            // installs an older image over a newer one.
+            const bool update_available = (ota_channel == 1)
+                ? (latest_version != FIRMWARE_VERSION)
+                : isSemverNewer(latest_version, FIRMWARE_VERSION);
+
+            if (update_available && download_url.length() == 0) {
                 // Newer release exists but carries no asset this build can install —
                 // don't offer an Install button that would download nothing.
                 if (lbl_ota_status) {
@@ -716,7 +765,7 @@ static void checkForUpdates() {
                 if (btn_install_update) {
                     lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
                 }
-            } else if (latest_version != FIRMWARE_VERSION) {
+            } else if (update_available) {
                 if (lbl_ota_status) {
                     lv_label_set_text_fmt(lbl_ota_status, MDI_DOWNLOAD " Update available: v%s", latest_version.c_str());
                     lv_obj_set_style_text_color(lbl_ota_status, COL_OK, 0);

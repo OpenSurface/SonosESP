@@ -94,9 +94,11 @@ jobs:
     - name: Create merged firmware binary
       if: steps.check_release.outputs.EXISTS == 'false'
       run: |
-        pip install esptool
+        # esptool comes from requirements.txt (installed above, same job) so the
+        # version stays pinned in one place. v5 syntax (hyphens): the v4
+        # spellings still work but are deprecated and slated for removal.
         cd .pio/build/esp32_4inch
-        python -m esptool --chip esp32p4 merge_bin -o ../../../firmware-merged.bin --flash_mode qio --flash_size 16MB 0x0 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin
+        python -m esptool --chip esp32p4 merge-bin -o ../../../firmware-merged.bin --flash-mode qio --flash-size 16MB 0x0 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin
         echo "Merged firmware binary created successfully"
 
     - name: Create release ZIP

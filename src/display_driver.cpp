@@ -157,6 +157,13 @@ bool display_init(void) {
     disp = lv_display_create(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     if (!disp) {
         Serial.println("[Display] ERROR: Failed to create display");
+        // Release the framebuffers. The allocation-failure path above already
+        // frees them; this path stranded 1.5MB (4") / 2.4MB (7") of PSRAM.
+        if (buf1)       { heap_caps_free(buf1);       buf1 = NULL; }
+        if (buf2)       { heap_caps_free(buf2);       buf2 = NULL; }
+#if SCREEN_SIZE == 4
+        if (rotate_buf) { heap_caps_free(rotate_buf); rotate_buf = NULL; }
+#endif
         return false;
     }
 
@@ -266,6 +273,13 @@ bool display_init(void) {
     disp = lv_display_create(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     if (!disp) {
         Serial.println("[Display] ERROR: Failed to create display");
+        // Release the framebuffers. The allocation-failure path above already
+        // frees them; this path stranded 1.5MB (4") / 2.4MB (7") of PSRAM.
+        if (buf1)       { heap_caps_free(buf1);       buf1 = NULL; }
+        if (buf2)       { heap_caps_free(buf2);       buf2 = NULL; }
+#if SCREEN_SIZE == 4
+        if (rotate_buf) { heap_caps_free(rotate_buf); rotate_buf = NULL; }
+#endif
         return false;
     }
 

@@ -21,6 +21,7 @@
 #include "ui_fonts.h"
 #include "nocturne.h"
 #include <math.h>
+#include <string.h>   // memset — clearing the cached widget pointers
 
 const char* wmoCondition(int code);            // ui_clock_screen.cpp
 const char* wmoGlyph(int code, bool night);    // ui_clock_screen.cpp
@@ -68,10 +69,33 @@ static int hhmmToMinutes(const char* s) {
     return (s[0] - '0') * 600 + (s[1] - '0') * 60 + (s[3] - '0') * 10 + (s[4] - '0');
 }
 
+// Every widget here is a descendant of orb_root, so LVGL destroys them all
+// with it. The cached pointers must be cleared too: the build guard keys off
+// orb_root, so a stale non-null root would suppress the rebuild and then hand
+// out dangling children.
+static void orb_root_deleted(lv_event_t*) {
+    orb_root = nullptr;
+    orb_city = nullptr;
+    orb_date = nullptr;
+    orb_time = nullptr;
+    orb_icon = nullptr;
+    orb_temp = nullptr;
+    orb_meta = nullptr;
+    orb_sun = nullptr;
+    orb_rise = nullptr;
+    orb_set = nullptr;
+    orb_curve = nullptr;
+    memset(orb_pt, 0, sizeof(orb_pt));
+    memset(orb_lbl_hr, 0, sizeof(orb_lbl_hr));
+    memset(orb_lbl_ic, 0, sizeof(orb_lbl_ic));
+    memset(orb_lbl_tmp, 0, sizeof(orb_lbl_tmp));
+}
+
 void buildOrbitFace(lv_obj_t* parent) {
     if (orb_root) return;
 
     orb_root = nocFaceRoot(parent);
+    lv_obj_add_event_cb(orb_root, orb_root_deleted, LV_EVENT_DELETE, nullptr);
 
     // ── Header ──────────────────────────────────────────────────────────────
     orb_city = nocLabel(orb_root, &font_text_14, NOC_N400, "");

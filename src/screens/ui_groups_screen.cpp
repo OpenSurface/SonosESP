@@ -81,14 +81,17 @@ void refreshGroupsList() {
         }
         lv_obj_set_style_text_color(icon, isPlaying ? COL_OK : (memberCount > 1 ? COL_ACCENT : COL_TEXT2), 0);
         lv_obj_set_style_text_font(icon, &lv_font_mdi_24, 0);
-        lv_obj_align(icon, LV_ALIGN_LEFT_MID, 5, (isPlaying && hasTrack) ? -18 : -8);
+        lv_obj_align(icon, LV_ALIGN_LEFT_MID, SX(5), (isPlaying && hasTrack) ? SY(-18) : SY(-8));
 
         // Room name (coordinator)
         lv_obj_t* lbl = lv_label_create(btn);
         lv_label_set_text(lbl, dev->roomName.c_str());
         lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
-        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, isPlaying ? 70 : 55, (isPlaying && hasTrack) ? -18 : -8);
+        lv_obj_set_style_text_font(lbl, &font_text_20, 0);
+        // Cap + ellipsize — the Remove button sits at this row's right edge.
+        lv_obj_set_width(lbl, SX(400));
+        lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
+        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, isPlaying ? SX(70) : SX(55), (isPlaying && hasTrack) ? SY(-18) : SY(-8));
 
         // Member count / status subtitle
         lv_obj_t* sub = lv_label_create(btn);
@@ -99,7 +102,7 @@ void refreshGroupsList() {
         }
         lv_obj_set_style_text_color(sub, COL_TEXT2, 0);
         lv_obj_set_style_text_font(sub, &font_text_14, 0);
-        lv_obj_align(sub, LV_ALIGN_LEFT_MID, isPlaying ? 70 : 55, (isPlaying && hasTrack) ? 2 : 12);
+        lv_obj_align(sub, LV_ALIGN_LEFT_MID, isPlaying ? SX(70) : SX(55), (isPlaying && hasTrack) ? SY(2) : SY(12));
 
         // Now playing info (if playing)
         if (isPlaying && hasTrack) {
@@ -141,7 +144,7 @@ void refreshGroupsList() {
                 lv_obj_set_style_pad_all(memBtn, SMIN(10), 0);
                 lv_obj_set_style_bg_color(memBtn, COL_CARD2, 0);
                 lv_obj_set_style_bg_color(memBtn, COL_BTN_PRESSED, LV_STATE_PRESSED);
-                lv_obj_set_style_margin_left(memBtn, 40, 0);
+                lv_obj_set_style_margin_left(memBtn, SX(40), 0);
 
                 lv_obj_t* memIcon = lv_label_create(memBtn);
                 lv_label_set_text(memIcon, MDI_CHEVRON_RIGHT " " MDI_SPEAKER);
@@ -159,7 +162,7 @@ void refreshGroupsList() {
                 lv_obj_t* removeBtn = lv_btn_create(memBtn);
                 lv_obj_set_size(removeBtn, SX(90), SY(35));
                 lv_obj_align(removeBtn, LV_ALIGN_RIGHT_MID, SX(-5), 0);
-                lv_obj_set_style_bg_color(removeBtn, lv_color_hex(0x8B0000), 0);
+                lv_obj_set_style_bg_color(removeBtn, COL_ERROR_SURFACE, 0);
                 lv_obj_set_style_radius(removeBtn, 8, 0);
                 lv_obj_set_user_data(removeBtn, (void*)(intptr_t)j);
 
@@ -219,8 +222,8 @@ void refreshGroupsList() {
                 lv_obj_set_style_radius(addBtn, 10, 0);
                 lv_obj_set_style_shadow_width(addBtn, 0, 0);
                 lv_obj_set_style_pad_all(addBtn, SMIN(10), 0);
-                lv_obj_set_style_bg_color(addBtn, lv_color_hex(0x1E3A1E), 0);  // Dark green hint
-                lv_obj_set_style_bg_color(addBtn, lv_color_hex(0x2A5A2A), LV_STATE_PRESSED);
+                lv_obj_set_style_bg_color(addBtn, COL_OK_SURFACE, 0);  // Dark green hint
+                lv_obj_set_style_bg_color(addBtn, COL_OK_SURFACE_PRESSED, LV_STATE_PRESSED);
 
                 lv_obj_t* addIcon = lv_label_create(addBtn);
                 lv_label_set_text(addIcon, MDI_PLUS " " MDI_SPEAKER);
@@ -305,7 +308,6 @@ void createGroupsScreen() {
         int cnt = sonos.getDeviceCount();
         for (int i = 0; i < cnt; i++) {
             lv_tick_inc(10);
-            lv_timer_handler();
             lv_refr_now(NULL);
         }
         sonos.updateGroupInfo();

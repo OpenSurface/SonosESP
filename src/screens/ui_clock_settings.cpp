@@ -278,7 +278,7 @@ static void style_keyboard_dark(lv_obj_t* kb) {
     lv_obj_set_style_bg_color(kb, CLK_KB_KEY, LV_PART_ITEMS);
     lv_obj_set_style_bg_opa(kb, LV_OPA_COVER, LV_PART_ITEMS);
     lv_obj_set_style_text_color(kb, COL_TEXT, LV_PART_ITEMS);
-    lv_obj_set_style_text_font(kb, &lv_font_montserrat_18, LV_PART_ITEMS);
+    lv_obj_set_style_text_font(kb, &font_text_16, LV_PART_ITEMS);
     lv_obj_set_style_border_color(kb, CLK_KB_KEY_BORD, LV_PART_ITEMS);
     lv_obj_set_style_border_width(kb, 1, LV_PART_ITEMS);
     lv_obj_set_style_radius(kb, 8, LV_PART_ITEMS);

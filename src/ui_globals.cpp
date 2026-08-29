@@ -28,6 +28,10 @@ lv_color_t COL_ERROR = lv_color_hex(0xFF6B6B);
 lv_color_t COL_OK = lv_color_hex(0x4ECB71);
 lv_color_t COL_WARN = lv_color_hex(0xFFA500);
 lv_color_t COL_HEART = lv_color_hex(0xE85D5D);
+lv_color_t COL_ERROR_SURFACE      = lv_color_hex(0x8B0000);
+lv_color_t COL_OK_SURFACE         = lv_color_hex(0x1E3A1E);
+lv_color_t COL_OK_SURFACE_PRESSED = lv_color_hex(0x2A5A2A);
+lv_color_t COL_OK_STRONG          = lv_color_hex(0x2E7D32);
 
 // ============================================================================
 // Core Objects
@@ -51,8 +55,8 @@ bool blur_bg_enabled = true;
 String pending_wifi_ssid;
 String pending_wifi_pass;
 volatile bool wifi_creds_need_save = false;
-uint32_t last_touch_time = 0;
-bool screen_dimmed = false;
+volatile uint32_t last_touch_time = 0;
+volatile bool screen_dimmed = false;
 
 // ============================================================================
 // Screen Objects
@@ -138,7 +142,7 @@ String lyrics_last_track = "";  // Globalised so clock exit can reset it (issue 
 volatile bool art_ready = false;
 volatile bool art_show_placeholder = false;  // Signal UI to show placeholder (art permanently failed)
 SemaphoreHandle_t art_mutex = nullptr;
-uint32_t dominant_color = 0x1a1a1a;
+volatile uint32_t dominant_color = 0x1a1a1a;
 volatile bool color_ready = false;
 int art_offset_x = 0;
 int art_offset_y = 0;
@@ -287,8 +291,6 @@ lv_img_dsc_t         clock_bg_dsc;
 lv_obj_t* scr_clock          = nullptr;
 lv_obj_t* scr_clock_settings = nullptr;
 lv_obj_t* clock_bg_img       = nullptr;
-lv_obj_t* clock_time_lbl     = nullptr;
-lv_obj_t* clock_date_lbl     = nullptr;
 
 // ============================================================================
 // OTA Update State

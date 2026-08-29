@@ -20,6 +20,7 @@
 #include "clock_face.h"
 #include "ui_fonts.h"
 #include "nocturne.h"
+#include <string.h>   // memset — clearing the cached widget pointers
 
 
 
@@ -50,10 +51,29 @@ static lv_obj_t* hz_chip_hr[6]   = {};
 static lv_obj_t* hz_chip_icon[6] = {};
 static lv_obj_t* hz_chip_tmp[6]  = {};
 
+// Every widget here is a descendant of hz_root, so LVGL destroys them all
+// with it. The cached pointers must be cleared too: the build guard keys off
+// hz_root, so a stale non-null root would suppress the rebuild and then hand
+// out dangling children.
+static void hz_root_deleted(lv_event_t*) {
+    hz_root = nullptr;
+    hz_city = nullptr;
+    hz_date = nullptr;
+    hz_time = nullptr;
+    hz_icon = nullptr;
+    hz_temp = nullptr;
+    hz_cond = nullptr;
+    hz_detail = nullptr;
+    memset(hz_chip_hr, 0, sizeof(hz_chip_hr));
+    memset(hz_chip_icon, 0, sizeof(hz_chip_icon));
+    memset(hz_chip_tmp, 0, sizeof(hz_chip_tmp));
+}
+
 void buildHorizonFace(lv_obj_t* parent) {
     if (hz_root) return;                 // built once, then shown/hidden
 
     hz_root = nocFaceRoot(parent);
+    lv_obj_add_event_cb(hz_root, hz_root_deleted, LV_EVENT_DELETE, nullptr);
 
     // Horizon rule — 1px accent line the glow sits under.
     lv_obj_t* rule = lv_obj_create(hz_root);

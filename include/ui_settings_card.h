@@ -8,9 +8,12 @@
  */
 #include "lvgl.h"
 
-// Dark-theme tokens (slightly elevated from screen bg = 0x121212)
-#define SET_CARD_BG     lv_color_hex(0x1A1A1A)
-#define SET_CARD_BORDER lv_color_hex(0x2A2A2A)
+// Dark-theme tokens (slightly elevated from screen bg = COL_SCREEN).
+// Aliases, not literals: these were duplicate 0x1A1A1A / 0x2A2A2A copies of
+// COL_BG / COL_CARD, so retuning the palette silently left the settings cards
+// behind. Both call sites already include ui_common.h, where COL_* is declared.
+#define SET_CARD_BG     COL_BG
+#define SET_CARD_BORDER COL_CARD
 
 // Create a card container with a title + accent underline. Returns the card
 // object so callers can add child controls (flex column layout, scroll disabled).

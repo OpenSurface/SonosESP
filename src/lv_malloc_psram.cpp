@@ -54,7 +54,9 @@ void* lv_malloc_core(size_t size) {
 void* lv_realloc_core(void* p, size_t new_size) {
     // heap_caps_realloc handles cross-region moves (internal→PSRAM) automatically
     void* np = heap_caps_realloc(p, new_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!np && p) np = realloc(p, new_size);  // fallback
+    // The "&& p" meant a realloc-as-malloc (p == NULL) skipped the fallback that
+    // lv_malloc_core has, returning NULL while internal SRAM was still available.
+    if (!np) np = realloc(p, new_size);  // fallback to internal SRAM
     return np;
 }
 

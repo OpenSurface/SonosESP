@@ -47,7 +47,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     lv_obj_set_size(btn_close, SMIN(32), SMIN(32));
     lv_obj_set_pos(btn_close, SX(140), SY(10));
     lv_obj_set_style_bg_color(btn_close, COL_SELECTED, 0);
-    lv_obj_set_style_bg_color(btn_close, lv_color_hex(0x444444), LV_STATE_PRESSED);
+    lv_obj_set_style_bg_color(btn_close, COL_BTN_PRESSED, LV_STATE_PRESSED);
     lv_obj_set_style_radius(btn_close, SMIN(16), 0);
     lv_obj_set_style_shadow_width(btn_close, 0, 0);
     lv_obj_add_event_cb(btn_close, ev_back_main, LV_EVENT_CLICKED, NULL);

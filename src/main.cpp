@@ -129,7 +129,13 @@ void setup() {
                   CLOCK_BG_KEYWORDS[clock_bg_kw_idx].label,
                   clock_12h ? "yes" : "no",
                   clock_weather_enabled ? "on" : "off",
-                  CLOCK_CITIES[clock_weather_city_idx].label);
+                  // Custom is a sentinel index one PAST the array, so it must not
+                  // be dereferenced. Every other consumer special-cases it; this
+                  // boot log did not, and it runs before display_init() — so the
+                  // fault would present as a black screen with no diagnostic.
+                  clock_weather_city_idx == CLOCK_LOC_CUSTOM_IDX
+                      ? (clock_custom_name[0] ? clock_custom_name : "Custom")
+                      : CLOCK_CITIES[clock_weather_city_idx].label);
 
     // Brightness will be set after display_init() is called
     Serial.println("[DISPLAY] ESP32-P4 uses ST7701 backlight control (no PWM needed)");
@@ -585,11 +591,17 @@ static void mainAppTask(void* param) {
                     // Retry WiFi.begin() at 15s: mesh routers (ORBI95 etc.) sometimes miss the
                     // first scan but respond immediately to a second attempt.
                     unsigned long t = millis();
+                    // Latch, not a time window: the old "elapsed >= 15000 && < 15100"
+                    // test stayed true for ~10-20 iterations of this ~5ms loop, firing
+                    // that many WiFi.begin() calls back-to-back at the C6 over SDIO —
+                    // during a DMA-depleted recovery, which is the worst possible moment.
+                    bool begin_retried = false;
                     while (WiFi.status() != WL_CONNECTED && millis() - t < 30000) {
                         lv_tick_inc(5); lv_timer_handler();
                         esp_task_wdt_reset();
                         vTaskDelay(pdMS_TO_TICKS(5));
-                        if (WiFi.status() != WL_CONNECTED && millis() - t >= 15000 && millis() - t < 15100) {
+                        if (!begin_retried && WiFi.status() != WL_CONNECTED && millis() - t >= 15000) {
+                            begin_retried = true;
                             Serial.println("[MAIN] WiFi still not connected at 15s — retrying WiFi.begin()");
                             WiFi.begin(ssid.c_str(), pass.c_str());
                         }

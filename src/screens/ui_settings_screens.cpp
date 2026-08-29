@@ -350,8 +350,9 @@ static void refreshSourcesList(lv_event_t* e) {
         lv_obj_t* name = lv_label_create(btn);
         lv_label_set_text(name, label);
         lv_obj_set_style_text_color(name, COL_TEXT, 0);
-        lv_obj_set_style_text_font(name, &lv_font_montserrat_18, 0);
-        lv_obj_set_width(name, SX(300));
+        lv_obj_set_style_text_font(name, &font_text_20, 0);
+        lv_obj_set_width(name, SX(340));   // widened with the 18->20px font so the
+                                           // same number of characters stays visible
         lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
         lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(40), 0);
 
@@ -392,7 +393,7 @@ static void refreshSourcesList(lv_event_t* e) {
         lv_obj_t* name = lv_label_create(btn);
         lv_label_set_text(name, "Line-In");
         lv_obj_set_style_text_color(name, COL_TEXT, 0);
-        lv_obj_set_style_text_font(name, &lv_font_montserrat_18, 0);
+        lv_obj_set_style_text_font(name, &font_text_20, 0);
         lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(40), 0);
 
         lv_obj_add_event_cb(btn, [](lv_event_t* ev) {
@@ -523,11 +524,11 @@ static void browseLoadMore(lv_event_t* e) {
 }
 
 void createBrowseScreen() {
-    if (scr_browse) {
-        // Per-row ItemData is released by browseItemDeleteCb as LVGL tears down the
-        // subtree — no manual sweep needed (and the old one walked the wrong node).
-        lv_obj_del(scr_browse);
-    }
+    // Keep the outgoing screen alive until the new one is fully built. Deleting
+    // it up-front left lv_display_t::act_scr NULL across browsePopulate()'s
+    // Browse SOAP — a 2s timeout plus a 500ms retry, so several seconds with no
+    // active screen. Build first, delete last; the caller loads immediately after.
+    lv_obj_t* old_browse = scr_browse;
 
     scr_browse = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_browse, COL_SCREEN, 0);
@@ -596,6 +597,11 @@ void createBrowseScreen() {
     browse_list     = list;
     browse_more_btn = nullptr;
     browse_offset   = browsePopulate(list, 0);
+
+    // Now the replacement is populated, retire the old screen. Per-row ItemData
+    // is released by browseItemDeleteCb as LVGL tears down the subtree — no
+    // manual sweep needed (and the old one walked the wrong node).
+    if (old_browse) lv_obj_del(old_browse);
 }
 
 // Appends one page of rows to `list`, starting at `startIndex`. Returns how many
