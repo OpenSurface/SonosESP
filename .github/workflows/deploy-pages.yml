@@ -132,8 +132,8 @@ jobs:
         # canonical per-screen app binaries
         cp .pio/build/esp32_4inch/firmware.bin web-installer/firmware-4inch.bin
         cp .pio/build/esp32_7inch/firmware.bin web-installer/firmware-7inch.bin
-        # legacy alias (manifest.json) — kept during the ~1-month transition, then remove
-        cp .pio/build/esp32_4inch/firmware.bin web-installer/firmware.bin
+        # The legacy manifest.json / firmware.bin alias was removed in v1.15.1:
+        # nothing linked to it, and the <=v1.8.4 fleet it served shows 0 downloads.
         ls -la web-installer/
 
     - name: Verify manifests against published files

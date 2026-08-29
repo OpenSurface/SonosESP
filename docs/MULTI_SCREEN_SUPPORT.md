@@ -34,7 +34,7 @@ Merging it would regress the project years. **We port its board-specific pieces 
 | Display dims/pins | fixed 800×480, ST7701 | `include/display_driver.h`, `include/config.h` |
 | UI layout | absolute pixels for 800×480 | `src/screens/*.cpp` |
 | CI/release | copies `.pio/build/esp32-p4/firmware.bin` | `.github/workflows/build.yml` |
-| Web installer | one `manifest.json` | `web-installer/` |
+| Web installer | `manifest-4inch.json` / `manifest-7inch.json` | `web-installer/` |
 | OTA | matches asset substring `firmware.bin` | `src/ui_handlers.cpp` (`checkForUpdates`) |
 
 Nothing is variant-aware — this is greenfield.
@@ -77,7 +77,6 @@ src/
 web-installer/
   index.html              # screen-selector dropdown → per-variant manifest
   manifest-4inch.json     # 4″ → firmware-4inch.bin
-  manifest.json           # legacy 4″ alias during transition (see §7)
   manifest-7inch.json     # 7″
 assets/7inchScreensavers/ # optional, 7″ screensaver photos
 scripts/embed_photos.py   # optional, build-time photo embed
@@ -253,7 +252,6 @@ auto-distinguish. So:
 - One **screen-selector dropdown** on `index.html` (4″ / 7″) that swaps the manifest the
   `<esp-web-install-button>` points at (the fork does exactly this — "Move screen selector to top").
 - `manifest-4inch.json` → `firmware-4inch.bin`; `manifest-7inch.json` → `firmware-7inch.bin`.
-  (Keep `manifest.json` as a legacy alias of the 4″ during the transition — see §7.)
 - Show the selected board's specs (resolution/model) for confidence.
 
 ---

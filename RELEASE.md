@@ -89,7 +89,6 @@ python bump_version.py nightly
 - Updates all version files:
   - `version.json`
   - `web-installer/manifest-4inch.json` and `web-installer/manifest-7inch.json`
-  - `web-installer/manifest.json` (legacy 4″ alias — removed after the transition)
   - `include/ui_common.h`
 
 **Output:**
@@ -509,7 +508,6 @@ SonosESP/
 ├── web-installer/
 │   ├── manifest-4inch.json               # 4" installer manifest (canonical)
 │   ├── manifest-7inch.json               # 7" installer manifest (BETA)
-│   └── manifest.json                     # legacy 4" alias (remove after transition)
 ├── include/
 │   └── ui_common.h                       # Firmware version constant
 └── .github/workflows/
