@@ -111,8 +111,11 @@ extern bool blur_bg_enabled;
 extern String pending_wifi_ssid;        // issue #85: creds awaiting persistence
 extern String pending_wifi_pass;
 extern volatile bool wifi_creds_need_save;
-extern uint32_t last_touch_time;
-extern bool screen_dimmed;
+// Written by touchSamplerTask (core 0), read/written by checkAutoDim() on
+// mainAppTask (core 1). volatile so core 1 cannot hold a stale cached value and
+// re-dim the screen under the user's finger immediately after a wake.
+extern volatile uint32_t last_touch_time;
+extern volatile bool screen_dimmed;
 
 // Screen objects
 extern lv_obj_t *scr_main, *scr_devices, *scr_queue, *scr_settings;

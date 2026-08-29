@@ -55,8 +55,8 @@ bool blur_bg_enabled = true;
 String pending_wifi_ssid;
 String pending_wifi_pass;
 volatile bool wifi_creds_need_save = false;
-uint32_t last_touch_time = 0;
-bool screen_dimmed = false;
+volatile uint32_t last_touch_time = 0;
+volatile bool screen_dimmed = false;
 
 // ============================================================================
 // Screen Objects

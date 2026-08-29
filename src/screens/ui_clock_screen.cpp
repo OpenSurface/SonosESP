@@ -730,7 +730,11 @@ static void fetchClockWeather() {
                     for (int i = 0; i < 6; i++) {
                         int src = i + skip;
                         const char* ts = (src < arr_sz) ? h_time[src].as<const char*>() : nullptr;
-                        hourly[i].hour = ts ? atoi(ts + 11) : 0;
+                        // Length-check before indexing +11 into the ISO timestamp:
+                        // a short/truncated value ("", "2026") would make atoi read
+                        // past the parsed JSON buffer. The sunrise/sunset parse above
+                        // already guards this way; this loop did not.
+                        hourly[i].hour = (ts && strlen(ts) >= 13) ? atoi(ts + 11) : 0;
                         hourly[i].wmo  = (src < arr_sz) ? h_wmo[src].as<int>()                 : wmo;
                         hourly[i].temp = (src < arr_sz) ? (int)roundf(h_temp[src].as<float>()) : cur_temp;
                     }

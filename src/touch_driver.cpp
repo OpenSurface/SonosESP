@@ -54,7 +54,10 @@ static void touch_begin_hw(void) {
 // a finger is down.
 static bool touch_sample(int32_t* x, int32_t* y) {
     ts.read();
-    if (!ts.isTouched) return false;
+    // Match the 7" branch: isTouched is derived from touches, but check both so a
+    // zero/garbage count can never reach points[0]. (The library loop itself is
+    // bounds-clamped by scripts/patch_gt911_bounds.py.)
+    if (!ts.isTouched || ts.touches <= 0) return false;
 
     // Touch sensor reports physical coordinates in portrait orientation.
     // Physical panel: 480x800 portrait -> LVGL sees: 800x480 landscape.

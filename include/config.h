@@ -268,6 +268,13 @@
 #define NVS_KEY_OTA_PENDING     "ota_pending"    // Auto-reboot OTA flag
 #define NVS_KEY_OTA_URL         "ota_url"        // Saved firmware URL for auto-reboot OTA
 
+// Response-body caps. HTTPClient::getString() reserves from Content-Length, so an
+// oversized (hostile or simply broken) response would allocate that much internal
+// DRAM — the scarcest memory on this board. Both bodies are JSON and are orders of
+// magnitude smaller than these caps in normal operation.
+#define LYRICS_MAX_BODY_BYTES   (64  * 1024)   // lrclib.net is a third-party service
+#define OTA_MAX_JSON_BYTES      (256 * 1024)   // GitHub releases API
+
 // UI colours live in ONE place: the COL_* set in ui_globals.cpp, declared in
 // ui_common.h. A second COLOR_* palette used to sit here with zero references
 // and values that disagreed with the live one (COLOR_ERROR 0xFF0000 vs

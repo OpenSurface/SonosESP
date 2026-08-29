@@ -233,6 +233,10 @@ int SonosController::discoverDevices() {
     // Fetch playing state for each unique zone so the devices screen shows which rooms are active
     Serial.printf("[SONOS] Fetching playing state for %d zone(s)...\n", deviceCount);
     for (int i = 0; i < deviceCount; i++) {
+        // Same reason as the room-name loop above: fetchDevicePlayingState() blocks
+        // for up to its 3s HTTP timeout, and MAX_SONOS_DEVICES is 32 — 11 slow zones
+        // already exceeds the 30s WDT, and this runs on the WDT-subscribed mainAppTask.
+        esp_task_wdt_reset();
         devices[i].isPlaying = fetchDevicePlayingState(&devices[i]);
         Serial.printf("[SONOS]   '%s' (%s): %s\n",
             devices[i].roomName.c_str(), devices[i].ip.toString().c_str(),

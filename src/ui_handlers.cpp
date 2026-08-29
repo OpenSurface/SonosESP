@@ -564,7 +564,17 @@ static void checkForUpdates() {
         httpCode = http.GET();
 
         if (httpCode == 200) {
-            payload = http.getString();
+            // Cap before getString() — it reserves from Content-Length, so an oversized
+            // response would allocate that much internal DRAM. Leaving payload empty
+            // falls into the existing "no payload" path rather than short-circuiting
+            // out of here, which would skip http.end() / client.stop() below.
+            const int body_len = http.getSize();
+            if (body_len > OTA_MAX_JSON_BYTES) {
+                Serial.printf("[OTA] Release JSON too large (%d bytes, cap %d) — ignoring\n",
+                              body_len, OTA_MAX_JSON_BYTES);
+            } else {
+                payload = http.getString();
+            }
         }
 
         http.end();

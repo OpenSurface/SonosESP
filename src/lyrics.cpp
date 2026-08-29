@@ -299,9 +299,22 @@ static void lyricsTaskFunc(void* param) {
             int code = http.GET();
             Serial.printf("[LYRICS] HTTPS ← code=%d in %lums\n", code, millis() - t_lyr_get);
             if (code == 200) {
-                payload = http.getString();
-                Serial.printf("[LYRICS] Payload: %u bytes\n", (unsigned)payload.length());
-                lyrics_retry_count = 0;
+                // Cap the body BEFORE getString(): it reserves from Content-Length, so a
+                // hostile or broken response drives a large Arduino String allocation in
+                // internal DRAM — the scarcest memory here. lrclib is a third-party
+                // service, so this can go wrong without an on-path attacker.
+                // Deliberately NOT an early return: this is an RAII scope, and bailing
+                // out would skip http.end() / client.stop() and orphan network_mutex.
+                // Leaving payload empty falls into the existing empty-payload path.
+                const int body_len = http.getSize();
+                if (body_len > LYRICS_MAX_BODY_BYTES) {
+                    Serial.printf("[LYRICS] Body too large (%d bytes, cap %d) — discarding\n",
+                                  body_len, LYRICS_MAX_BODY_BYTES);
+                } else {
+                    payload = http.getString();
+                    Serial.printf("[LYRICS] Payload: %u bytes\n", (unsigned)payload.length());
+                    lyrics_retry_count = 0;
+                }
             } else {
                 const char* error_msg;
                 switch (code) {
