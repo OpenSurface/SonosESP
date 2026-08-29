@@ -102,11 +102,9 @@ jobs:
         USE_CCACHE: "1"
       run: pio run -e esp32_4inch -e esp32_7inch
 
-    - name: Assemble release assets (per-screen + legacy 4")
+    - name: Assemble release assets (per-screen)
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       run: |
-        # esptool comes from requirements.txt (installed above, same job) so the
-        # version stays pinned in one place.
         VER="${{ steps.get_version.outputs.VERSION }}"
         ROOT="$PWD"
         mkdir -p dist
@@ -116,20 +114,33 @@ jobs:
         for s in 4inch 7inch; do
           OUT=".pio/build/esp32_${s}"
           cp "$OUT/firmware.bin" "dist/firmware-${s}.bin"
-          # full single-image (web-flash) per screen
-          # esptool v5 syntax (hyphens). The v4 spellings (merge_bin,
-          # --flash_mode, --flash_size) still work in v5 but are deprecated and
-          # are slated for removal, which would break the release build silently.
-          python -m esptool --chip esp32p4 merge-bin -o "dist/firmware-merged-${s}.bin" \
-            --flash-mode qio --flash-size 16MB \
-            0x0 "$OUT/bootloader.bin" 0x8000 "$OUT/partitions.bin" 0x10000 "$OUT/firmware.bin"
           (cd "$OUT" && zip -r "$ROOT/dist/sonos-controller-firmware-${s}-v${VER}.zip" bootloader.bin partitions.bin firmware.bin)
         done
-        # LEGACY unsuffixed assets the deployed <=v1.8.4 4" fleet's OTA matches by
-        # the "firmware.bin" substring. Remove ~1 month after the multi-screen release.
-        cp .pio/build/esp32_4inch/firmware.bin dist/firmware.bin
-        cp dist/firmware-merged-4inch.bin dist/firmware-merged.bin
         ls -l dist/
+
+        # DROPPED in v1.15.1 — firmware-merged-*.bin, firmware-merged.bin, firmware.bin
+        #
+        # The merged images were built with `esptool merge-bin` at
+        #   0x0 bootloader / 0x8000 partitions / 0x10000 firmware
+        # which is wrong twice over. The P4 ROM reads the bootloader at 0x2000, not
+        # 0x0, and boot_app0.bin at 0xe000 was omitted entirely — the same omission
+        # fixed for the web installer in "fix(installer): write boot_app0.bin so a
+        # reflash actually takes effect", and which deploy-pages.yml now has an
+        # explicit CI guard against. The merged assets bypassed that guard.
+        #
+        # Nothing consumed them: the web installer flashes the multi-part manifest
+        # (bootloader/partitions/boot_app0/firmware-Ninch), and every merged asset
+        # had 0 downloads on every release. Removing them also takes esptool out of
+        # the release path entirely.
+        #
+        # The legacy unsuffixed firmware.bin existed for the <=v1.8.4 fleet, whose
+        # OTA matched on the "firmware.bin" substring. It also shows 0 downloads on
+        # every release checked (v1.13.0 through v1.15.0) while the per-screen
+        # assets in those same releases show real traffic, so that fleet is gone.
+        #
+        # If a single-file flash image is ever wanted again, do NOT reintroduce
+        # esptool: PlatformIO already emits .pio/build/<env>/firmware.factory.bin
+        # with the correct 0x2000/0x8000/0xe000/0x10000 layout on every build.
 
     - name: Create GitHub Release
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
@@ -140,14 +151,10 @@ jobs:
         files: |
           dist/firmware-4inch.bin
           dist/firmware-7inch.bin
-          dist/firmware-merged-4inch.bin
-          dist/firmware-merged-7inch.bin
           dist/bootloader.bin
           dist/partitions.bin
           dist/sonos-controller-firmware-4inch-v${{ steps.get_version.outputs.VERSION }}.zip
           dist/sonos-controller-firmware-7inch-v${{ steps.get_version.outputs.VERSION }}.zip
-          dist/firmware.bin
-          dist/firmware-merged.bin
         draft: false
         prerelease: false
         generate_release_notes: true

@@ -40,7 +40,7 @@ the same source via PlatformIO envs (see `platformio.ini`):
 | **7″** (BETA) | `esp32_7inch` | GUITION JC1060P470C (JD9165, 1024×600) | `firmware-7inch.bin` |
 
 - `bootloader.bin` / `partitions.bin` are **board-level and identical** across both, so a release ships one shared copy of each.
-- **Legacy `firmware.bin` / `firmware-merged.bin`** (the 4″ build) are still attached to each release for ~1 month — the deployed ≤v1.8.4 fleet's OTA matches the `firmware.bin` substring. Remove after the transition.
+- **Legacy `firmware.bin` / `firmware-merged.bin` were removed in v1.15.1.** Both showed 0 downloads on every release from v1.13.0 onward while the per-screen assets in those same releases saw real traffic, so the ≤v1.8.4 fleet they existed for is gone. The merged images were also malformed (see below).
 - The **7″ is not yet hardware-validated**: it is offered as **BETA via the web installer**, not pushed to the stable OTA fleet. Don't gate a 7″ rollout on `auto-release` until a physical 7″ unit confirms panel/touch bring-up.
 
 ---
@@ -80,7 +80,7 @@ git commit -m "feat: Your feature description"
 ### Step 2: Bump to Nightly Version
 
 ```bash
-python bump_version.py nightly
+python scripts/bump_version.py nightly
 ```
 
 **What this does:**
@@ -89,7 +89,6 @@ python bump_version.py nightly
 - Updates all version files:
   - `version.json`
   - `web-installer/manifest-4inch.json` and `web-installer/manifest-7inch.json`
-  - `web-installer/manifest.json` (legacy 4″ alias — removed after the transition)
   - `include/ui_common.h`
 
 **Output:**
@@ -103,7 +102,7 @@ New version: 1.1.6-nightly.abc1234
   1. Build and test locally: pio run
   2. git add -A && git commit -m "chore: Nightly build 1.1.6-nightly.abc1234"
   3. git push origin main
-  4. python create_nightly.py  # Creates GitHub nightly release
+  4. python scripts/create_nightly.py  # Creates GitHub nightly release
 ```
 
 ### Step 3: Test Locally (Optional but Recommended)
@@ -130,7 +129,7 @@ git push origin main
 ### Step 5: Trigger Nightly Release Workflow
 
 ```bash
-python create_nightly.py
+python scripts/create_nightly.py
 ```
 
 **What this does:**
@@ -192,7 +191,7 @@ https://github.com/OpenSurface/SonosESP/releases
 ```
 
 **Release should contain:**
-- `firmware-merged.bin` - Full flash image
+- (`firmware-merged.bin` was removed in v1.15.1 — see the note on merged images below)
 - `sonos-controller-nightly-v1.1.6-nightly.abc1234.zip` - Individual binaries
 - `firmware.bin` - Application binary
 - `bootloader.bin` - Bootloader
@@ -225,16 +224,16 @@ Choose the appropriate version bump:
 
 ```bash
 # Patch release (1.1.6 -> 1.1.7) - Bug fixes
-python bump_version.py patch
+python scripts/bump_version.py patch
 
 # Minor release (1.1.6 -> 1.2.0) - New features (backward compatible)
-python bump_version.py minor
+python scripts/bump_version.py minor
 
 # Major release (1.1.6 -> 2.0.0) - Breaking changes
-python bump_version.py major
+python scripts/bump_version.py major
 
 # Or specify exact version
-python bump_version.py 1.2.0
+python scripts/bump_version.py 1.2.0
 ```
 
 **Output:**
@@ -305,10 +304,10 @@ gh release list
 
 **Release should contain (both screens — built by `auto-release.yml`):**
 - `firmware-4inch.bin`, `firmware-7inch.bin` — per-screen app binaries
-- `firmware-merged-4inch.bin`, `firmware-merged-7inch.bin` — full single-image (web-flash)
+- ~~`firmware-merged-*.bin`~~ — **removed in v1.15.1.** Built by `esptool merge-bin` at `0x0 bootloader / 0x8000 partitions / 0x10000 firmware`, which is wrong twice: the P4 ROM reads the bootloader at **0x2000**, and **boot_app0.bin at 0xe000 was omitted** — the same omission fixed for the web installer, and which `deploy-pages.yml` now guards against. Nothing consumed them (the installer flashes the multi-part manifest) and they had 0 downloads on every release. If a single-file image is needed again, do **not** reintroduce esptool: PlatformIO already emits `firmware.factory.bin` with the correct layout on every build.
 - `bootloader.bin`, `partitions.bin` — shared (board-level)
 - `sonos-controller-firmware-4inch-v1.2.0.zip`, `…-7inch-v1.2.0.zip`
-- `firmware.bin`, `firmware-merged.bin` — legacy 4″ aliases (fleet OTA; remove after transition)
+- ~~`firmware.bin`, `firmware-merged.bin`~~ — legacy 4″ aliases, **removed in v1.15.1** (transition complete; 0 downloads). Note `firmware.bin` in a **nightly** release is not legacy: it is the asset the Nightly OTA channel installs.
 - Auto-generated release notes
 
 ### Step 6: Test OTA Update
@@ -335,7 +334,7 @@ Common workflow: Test with nightly, then promote to stable.
 
 1. **Bump to stable version:**
    ```bash
-   python bump_version.py 1.2.0
+   python scripts/bump_version.py 1.2.0
    ```
 
 2. **Commit with release notes:**
@@ -407,10 +406,10 @@ Channel preference is saved to NVS (persists across reboots).
 gh release delete v1.1.6-nightly.abc1234 --yes
 
 # Recreate with correct settings
-python create_nightly.py
+python scripts/create_nightly.py
 ```
 
-### Problem: `create_nightly.py` fails - "gh not found"
+### Problem: `scripts/create_nightly.py` fails - "gh not found"
 
 **Cause:** GitHub CLI not installed or not in PATH
 
@@ -462,24 +461,24 @@ git push -f origin main
 ### Version Bump Commands
 
 ```bash
-python bump_version.py patch      # 1.1.6 -> 1.1.7
-python bump_version.py minor      # 1.1.6 -> 1.2.0
-python bump_version.py major      # 1.1.6 -> 2.0.0
-python bump_version.py nightly    # 1.1.6 -> 1.1.6-nightly.abc1234
-python bump_version.py 2.0.0      # Set specific version
+python scripts/bump_version.py patch      # 1.1.6 -> 1.1.7
+python scripts/bump_version.py minor      # 1.1.6 -> 1.2.0
+python scripts/bump_version.py major      # 1.1.6 -> 2.0.0
+python scripts/bump_version.py nightly    # 1.1.6 -> 1.1.6-nightly.abc1234
+python scripts/bump_version.py 2.0.0      # Set specific version
 ```
 
 ### Release Creation
 
 ```bash
 # Nightly (manual)
-python bump_version.py nightly
+python scripts/bump_version.py nightly
 git add -A && git commit -m "chore: Nightly build X.Y.Z-nightly.HASH"
 git push origin main
-python create_nightly.py
+python scripts/create_nightly.py
 
 # Stable (automatic)
-python bump_version.py patch
+python scripts/bump_version.py patch
 git add -A && git commit -m "vX.Y.Z: Description"
 git push origin main
 # Auto-release workflow triggers automatically
@@ -509,7 +508,6 @@ SonosESP/
 ├── web-installer/
 │   ├── manifest-4inch.json               # 4" installer manifest (canonical)
 │   ├── manifest-7inch.json               # 7" installer manifest (BETA)
-│   └── manifest.json                     # legacy 4" alias (remove after transition)
 ├── include/
 │   └── ui_common.h                       # Firmware version constant
 └── .github/workflows/
@@ -529,7 +527,7 @@ Push to main
     ├─ version.json contains "-nightly"?
     │   │
     │   ├─ YES → All auto workflows SKIP
-    │   │         Manual: python create_nightly.py
+    │   │         Manual: python scripts/create_nightly.py
     │   │         Result: Nightly prerelease created
     │   │
     │   └─ NO → All auto workflows RUN

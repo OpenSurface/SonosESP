@@ -91,15 +91,11 @@ jobs:
         USE_CCACHE: "1"
       run: pio run
 
-    - name: Create merged firmware binary
-      if: steps.check_release.outputs.EXISTS == 'false'
-      run: |
-        # esptool comes from requirements.txt (installed above, same job) so the
-        # version stays pinned in one place. v5 syntax (hyphens): the v4
-        # spellings still work but are deprecated and slated for removal.
-        cd .pio/build/esp32_4inch
-        python -m esptool --chip esp32p4 merge-bin -o ../../../firmware-merged.bin --flash-mode qio --flash-size 16MB 0x0 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin
-        echo "Merged firmware binary created successfully"
+    # firmware-merged.bin was dropped in v1.15.1 for the same reason as in
+    # auto-release.yml: esptool merge-bin was placing the bootloader at 0x0 when
+    # the P4 ROM reads it at 0x2000, and omitting boot_app0.bin at 0xe000, so the
+    # image would not boot. Nothing downloaded it. Note that firmware.bin below is
+    # NOT legacy here — it is the asset the Nightly OTA channel actually installs.
 
     - name: Create release ZIP
       if: steps.check_release.outputs.EXISTS == 'false'
@@ -130,7 +126,6 @@ jobs:
           Nightly builds may contain bugs, incomplete features, or breaking changes. Use at your own risk!
 
         files: |
-          firmware-merged.bin
           sonos-controller-nightly-v${{ inputs.version_tag }}.zip
           .pio/build/esp32_4inch/firmware.bin
           .pio/build/esp32_4inch/bootloader.bin
