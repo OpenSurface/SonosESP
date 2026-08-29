@@ -40,7 +40,7 @@ the same source via PlatformIO envs (see `platformio.ini`):
 | **7″** (BETA) | `esp32_7inch` | GUITION JC1060P470C (JD9165, 1024×600) | `firmware-7inch.bin` |
 
 - `bootloader.bin` / `partitions.bin` are **board-level and identical** across both, so a release ships one shared copy of each.
-- **Legacy `firmware.bin` / `firmware-merged.bin`** (the 4″ build) are still attached to each release for ~1 month — the deployed ≤v1.8.4 fleet's OTA matches the `firmware.bin` substring. Remove after the transition.
+- **Legacy `firmware.bin` / `firmware-merged.bin` were removed in v1.15.1.** Both showed 0 downloads on every release from v1.13.0 onward while the per-screen assets in those same releases saw real traffic, so the ≤v1.8.4 fleet they existed for is gone. The merged images were also malformed (see below).
 - The **7″ is not yet hardware-validated**: it is offered as **BETA via the web installer**, not pushed to the stable OTA fleet. Don't gate a 7″ rollout on `auto-release` until a physical 7″ unit confirms panel/touch bring-up.
 
 ---
@@ -192,7 +192,7 @@ https://github.com/OpenSurface/SonosESP/releases
 ```
 
 **Release should contain:**
-- `firmware-merged.bin` - Full flash image
+- (`firmware-merged.bin` was removed in v1.15.1 — see the note on merged images below)
 - `sonos-controller-nightly-v1.1.6-nightly.abc1234.zip` - Individual binaries
 - `firmware.bin` - Application binary
 - `bootloader.bin` - Bootloader
@@ -305,10 +305,10 @@ gh release list
 
 **Release should contain (both screens — built by `auto-release.yml`):**
 - `firmware-4inch.bin`, `firmware-7inch.bin` — per-screen app binaries
-- `firmware-merged-4inch.bin`, `firmware-merged-7inch.bin` — full single-image (web-flash)
+- ~~`firmware-merged-*.bin`~~ — **removed in v1.15.1.** Built by `esptool merge-bin` at `0x0 bootloader / 0x8000 partitions / 0x10000 firmware`, which is wrong twice: the P4 ROM reads the bootloader at **0x2000**, and **boot_app0.bin at 0xe000 was omitted** — the same omission fixed for the web installer, and which `deploy-pages.yml` now guards against. Nothing consumed them (the installer flashes the multi-part manifest) and they had 0 downloads on every release. If a single-file image is needed again, do **not** reintroduce esptool: PlatformIO already emits `firmware.factory.bin` with the correct layout on every build.
 - `bootloader.bin`, `partitions.bin` — shared (board-level)
 - `sonos-controller-firmware-4inch-v1.2.0.zip`, `…-7inch-v1.2.0.zip`
-- `firmware.bin`, `firmware-merged.bin` — legacy 4″ aliases (fleet OTA; remove after transition)
+- ~~`firmware.bin`, `firmware-merged.bin`~~ — legacy 4″ aliases, **removed in v1.15.1** (transition complete; 0 downloads). Note `firmware.bin` in a **nightly** release is not legacy: it is the asset the Nightly OTA channel installs.
 - Auto-generated release notes
 
 ### Step 6: Test OTA Update

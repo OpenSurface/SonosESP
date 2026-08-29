@@ -6,5 +6,7 @@
 # Stable channel, so an upstream major landing mid-release must never be able to
 # change the output (or break the run) without a commit here. Bump on purpose,
 # then watch one full release build before trusting it.
+# esptool removed in v1.15.1: no workflow invokes it any more (the merge-bin step
+# is gone). PlatformIO does not use this one either - it ships its own
+# tool-esptoolpy, which reports v5.2.0 in build output regardless of what pip has.
 platformio==6.1.19
-esptool==5.3.1
