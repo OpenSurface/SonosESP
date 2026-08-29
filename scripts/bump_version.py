@@ -4,11 +4,11 @@ Version Bump Script for SonosESP
 Updates version in all required files automatically.
 
 Usage:
-    python bump_version.py patch    # 1.0.9 -> 1.0.10
-    python bump_version.py minor    # 1.0.9 -> 1.1.0
-    python bump_version.py major    # 1.0.9 -> 2.0.0
-    python bump_version.py nightly  # 1.1.6 -> 1.1.6-nightly.abc1234
-    python bump_version.py 1.2.3    # Set specific version
+    python scripts/bump_version.py patch    # 1.0.9 -> 1.0.10
+    python scripts/bump_version.py minor    # 1.0.9 -> 1.1.0
+    python scripts/bump_version.py major    # 1.0.9 -> 2.0.0
+    python scripts/bump_version.py nightly  # 1.1.6 -> 1.1.6-nightly.abc1234
+    python scripts/bump_version.py 1.2.3    # Set specific version
 """
 
 import json
@@ -120,13 +120,13 @@ def update_regex_file(filepath, pattern, replacement, new_version):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python bump_version.py [patch|minor|major|nightly|X.Y.Z]")
+        print("Usage: python scripts/bump_version.py [patch|minor|major|nightly|X.Y.Z]")
         print("\nExamples:")
-        print("  python bump_version.py patch    # 1.0.9 -> 1.0.10")
-        print("  python bump_version.py minor    # 1.0.9 -> 1.1.0")
-        print("  python bump_version.py major    # 1.0.9 -> 2.0.0")
-        print("  python bump_version.py nightly  # 1.1.6 -> 1.1.6-nightly.abc1234")
-        print("  python bump_version.py 2.0.0    # Set to 2.0.0")
+        print("  python scripts/bump_version.py patch    # 1.0.9 -> 1.0.10")
+        print("  python scripts/bump_version.py minor    # 1.0.9 -> 1.1.0")
+        print("  python scripts/bump_version.py major    # 1.0.9 -> 2.0.0")
+        print("  python scripts/bump_version.py nightly  # 1.1.6 -> 1.1.6-nightly.abc1234")
+        print("  python scripts/bump_version.py 2.0.0    # Set to 2.0.0")
         sys.exit(1)
 
     bump_type = sys.argv[1].lower()
@@ -160,7 +160,7 @@ def main():
         print(f"  1. Build and test locally: pio run")
         print(f"  2. git add -A && git commit -m \"chore: Nightly build {new_version}\"")
         print(f"  3. git push origin main")
-        print(f"  4. python create_nightly.py  # Creates GitHub nightly release")
+        print(f"  4. python scripts/create_nightly.py  # Creates GitHub nightly release")
         print(f"\n[NOTE] Nightly versions won't trigger auto-release workflow")
     else:
         print("\n[STABLE] Next steps:")

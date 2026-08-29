@@ -4,10 +4,10 @@ Create Nightly Release for SonosESP
 Triggers GitHub Actions workflow to build and release a nightly version.
 
 Usage:
-    python create_nightly.py                              # Use current branch + version.json
-    python create_nightly.py --branch feature/my-branch  # Build from specific branch
-    python create_nightly.py --version 1.2.0             # Specify base version explicitly
-    python create_nightly.py --branch feature/x --version 1.3.0  # Both
+    python scripts/create_nightly.py                              # Use current branch + version.json
+    python scripts/create_nightly.py --branch feature/my-branch  # Build from specific branch
+    python scripts/create_nightly.py --version 1.2.0             # Specify base version explicitly
+    python scripts/create_nightly.py --branch feature/x --version 1.3.0  # Both
 """
 
 import json

@@ -80,7 +80,7 @@ git commit -m "feat: Your feature description"
 ### Step 2: Bump to Nightly Version
 
 ```bash
-python bump_version.py nightly
+python scripts/bump_version.py nightly
 ```
 
 **What this does:**
@@ -102,7 +102,7 @@ New version: 1.1.6-nightly.abc1234
   1. Build and test locally: pio run
   2. git add -A && git commit -m "chore: Nightly build 1.1.6-nightly.abc1234"
   3. git push origin main
-  4. python create_nightly.py  # Creates GitHub nightly release
+  4. python scripts/create_nightly.py  # Creates GitHub nightly release
 ```
 
 ### Step 3: Test Locally (Optional but Recommended)
@@ -129,7 +129,7 @@ git push origin main
 ### Step 5: Trigger Nightly Release Workflow
 
 ```bash
-python create_nightly.py
+python scripts/create_nightly.py
 ```
 
 **What this does:**
@@ -224,16 +224,16 @@ Choose the appropriate version bump:
 
 ```bash
 # Patch release (1.1.6 -> 1.1.7) - Bug fixes
-python bump_version.py patch
+python scripts/bump_version.py patch
 
 # Minor release (1.1.6 -> 1.2.0) - New features (backward compatible)
-python bump_version.py minor
+python scripts/bump_version.py minor
 
 # Major release (1.1.6 -> 2.0.0) - Breaking changes
-python bump_version.py major
+python scripts/bump_version.py major
 
 # Or specify exact version
-python bump_version.py 1.2.0
+python scripts/bump_version.py 1.2.0
 ```
 
 **Output:**
@@ -334,7 +334,7 @@ Common workflow: Test with nightly, then promote to stable.
 
 1. **Bump to stable version:**
    ```bash
-   python bump_version.py 1.2.0
+   python scripts/bump_version.py 1.2.0
    ```
 
 2. **Commit with release notes:**
@@ -406,10 +406,10 @@ Channel preference is saved to NVS (persists across reboots).
 gh release delete v1.1.6-nightly.abc1234 --yes
 
 # Recreate with correct settings
-python create_nightly.py
+python scripts/create_nightly.py
 ```
 
-### Problem: `create_nightly.py` fails - "gh not found"
+### Problem: `scripts/create_nightly.py` fails - "gh not found"
 
 **Cause:** GitHub CLI not installed or not in PATH
 
@@ -461,24 +461,24 @@ git push -f origin main
 ### Version Bump Commands
 
 ```bash
-python bump_version.py patch      # 1.1.6 -> 1.1.7
-python bump_version.py minor      # 1.1.6 -> 1.2.0
-python bump_version.py major      # 1.1.6 -> 2.0.0
-python bump_version.py nightly    # 1.1.6 -> 1.1.6-nightly.abc1234
-python bump_version.py 2.0.0      # Set specific version
+python scripts/bump_version.py patch      # 1.1.6 -> 1.1.7
+python scripts/bump_version.py minor      # 1.1.6 -> 1.2.0
+python scripts/bump_version.py major      # 1.1.6 -> 2.0.0
+python scripts/bump_version.py nightly    # 1.1.6 -> 1.1.6-nightly.abc1234
+python scripts/bump_version.py 2.0.0      # Set specific version
 ```
 
 ### Release Creation
 
 ```bash
 # Nightly (manual)
-python bump_version.py nightly
+python scripts/bump_version.py nightly
 git add -A && git commit -m "chore: Nightly build X.Y.Z-nightly.HASH"
 git push origin main
-python create_nightly.py
+python scripts/create_nightly.py
 
 # Stable (automatic)
-python bump_version.py patch
+python scripts/bump_version.py patch
 git add -A && git commit -m "vX.Y.Z: Description"
 git push origin main
 # Auto-release workflow triggers automatically
@@ -527,7 +527,7 @@ Push to main
     ├─ version.json contains "-nightly"?
     │   │
     │   ├─ YES → All auto workflows SKIP
-    │   │         Manual: python create_nightly.py
+    │   │         Manual: python scripts/create_nightly.py
     │   │         Result: Nightly prerelease created
     │   │
     │   └─ NO → All auto workflows RUN
