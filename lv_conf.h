@@ -84,21 +84,21 @@
 /**********************
  * WIDGETS
  *********************/
-#define LV_USE_ANIMIMG 1
+#define LV_USE_ANIMIMG 0  /* unused */
 #define LV_USE_ARC 1
 #define LV_USE_BAR 1
 #define LV_USE_BTN 1
 #define LV_USE_BTNMATRIX 1
 #define LV_USE_CANVAS 0
-#define LV_USE_CHECKBOX 1
+#define LV_USE_CHECKBOX 0  /* unused (was linked: 5 syms) */
 #define LV_USE_DROPDOWN 1
 #define LV_USE_IMG 1
 #define LV_USE_LABEL 1
 #define LV_USE_LINE 1
 #define LV_USE_LIST 1
 #define LV_USE_MENU 0
-#define LV_USE_MSGBOX 1
-#define LV_USE_ROLLER 1
+#define LV_USE_MSGBOX 0  /* unused (was linked: 7 syms) */
+#define LV_USE_ROLLER 0  /* unused (was linked: 7 syms) - dropdown needs LABEL, not ROLLER */
 #define LV_USE_SLIDER 1
 #define LV_USE_SPAN 0
 #define LV_USE_SPINBOX 0
@@ -113,7 +113,7 @@
 #define LV_USE_CHART 0
 #define LV_USE_CALENDAR 0
 #define LV_USE_COLORWHEEL 0
-#define LV_USE_IMGBTN 1
+#define LV_USE_IMGBTN 0  /* unused */
 #define LV_USE_KEYBOARD 1
 #define LV_USE_LED 0
 #define LV_USE_METER 0
@@ -140,14 +140,14 @@
     #define LV_THEME_DEFAULT_GROW 1
     #define LV_THEME_DEFAULT_TRANSITION_TIME 80
 #endif
-#define LV_USE_THEME_SIMPLE 1
+#define LV_USE_THEME_SIMPLE 0  /* unused - THEME_DEFAULT stays, it styles new displays */
 #define LV_USE_THEME_MONO 0
 
 /**********************
  * LAYOUTS
  *********************/
 #define LV_USE_FLEX 1
-#define LV_USE_GRID 1
+#define LV_USE_GRID 0  /* unused - layout is all FLEX (29 uses) */
 
 /**********************
  * FONT SETTINGS
