@@ -228,13 +228,24 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
     static char custom_endpoint[128];
     const char* endpoint;
 
-    // Determine endpoint (no String allocation)
-    if (strstr(service, "AVTransport")) {
+    // Determine endpoint (no String allocation).
+    //
+    // EXACT comparison, deliberately not strstr(): "GroupRenderingControl" CONTAINS
+    // "RenderingControl", so a substring test silently routed group calls to
+    // /MediaRenderer/RenderingControl/Control — the per-speaker endpoint — and the
+    // group action then failed for reasons that looked nothing like the cause.
+    // Any new service added here must be matched exactly for the same reason.
+    if (strcmp(service, "AVTransport") == 0) {
         endpoint = "/MediaRenderer/AVTransport/Control";
-    } else if (strstr(service, "RenderingControl")) {
+    } else if (strcmp(service, "RenderingControl") == 0) {
         endpoint = "/MediaRenderer/RenderingControl/Control";
-    } else if (strstr(service, "ContentDirectory")) {
+    } else if (strcmp(service, "GroupRenderingControl") == 0) {
+        endpoint = "/MediaRenderer/GroupRenderingControl/Control";
+    } else if (strcmp(service, "ContentDirectory") == 0) {
         endpoint = "/MediaServer/ContentDirectory/Control";
+    } else if (strcmp(service, "ZoneGroupTopology") == 0) {
+        // NOT under /MediaRenderer — the topology service sits at the device root.
+        endpoint = "/ZoneGroupTopology/Control";
     } else {
         // Fallback - build endpoint in buffer
         snprintf(custom_endpoint, sizeof(custom_endpoint), "/MediaRenderer/%s/Control", service);
@@ -1448,13 +1459,25 @@ bool SonosController::updatePlaybackState() {
 }
 
 bool SonosController::updateVolume() {
-    String resp = sendSOAP("RenderingControl", "GetVolume", 
-        "<InstanceID>0</InstanceID><Channel>Master</Channel>");
-    if (resp.length() == 0) return false;
-    
     SonosDevice* dev = getCurrentDevice();
     if (!dev) return false;
-    
+
+    // Read back from the same place we wrote to. Without this the slider is set to the
+    // group volume and then, on the next poll, snapped back to the coordinator's own
+    // per-speaker level — which looks exactly like "the volume control does nothing".
+    // No refreshGroupTopology() call here: this runs on the polling task every cycle,
+    // and the cached state is refreshed by the volume/mute paths and the Groups screen.
+    String resp;
+    if (isInMultiSpeakerGroup(dev)) {
+        SonosDevice* coord = groupCoordinatorFor(dev);
+        resp = sendSOAP(coord, "GroupRenderingControl", "GetGroupVolume",
+                        "<InstanceID>0</InstanceID>");
+    } else {
+        resp = sendSOAP("RenderingControl", "GetVolume",
+                        "<InstanceID>0</InstanceID><Channel>Master</Channel>");
+    }
+    if (resp.length() == 0) return false;
+
     if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
         String vol = extractXML(resp, "CurrentVolume");
         if (vol.length() > 0) dev->volume = vol.toInt();
@@ -1618,10 +1641,24 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             break;
 
         case CMD_SET_VOLUME:
-            snprintf(args, sizeof(args),
-                "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>%d</DesiredVolume>",
-                cmd->value);
-            sendSOAP("RenderingControl", "SetVolume", args);
+            // RenderingControl::SetVolume is PER-SPEAKER. Sent to a group's coordinator
+            // it moves only that speaker, which is issue #140 ("volume only affects the
+            // main speaker of the group"). Groups are controlled through a different
+            // service, addressed to the coordinator, and with NO <Channel> argument —
+            // including one returns a UPnP error.
+            refreshGroupTopology();                       // throttled; usually a no-op
+            if (isInMultiSpeakerGroup(dev)) {
+                SonosDevice* coord = groupCoordinatorFor(dev);
+                snprintf(args, sizeof(args),
+                    "<InstanceID>0</InstanceID><DesiredVolume>%d</DesiredVolume>",
+                    cmd->value);
+                sendSOAP(coord, "GroupRenderingControl", "SetGroupVolume", args);
+            } else {
+                snprintf(args, sizeof(args),
+                    "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>%d</DesiredVolume>",
+                    cmd->value);
+                sendSOAP("RenderingControl", "SetVolume", args);
+            }
             if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
                 dev->volume = cmd->value;
                 xSemaphoreGive(deviceMutex);
@@ -1629,10 +1666,22 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             break;
 
         case CMD_SET_MUTE:
-            snprintf(args, sizeof(args),
-                "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredMute>%d</DesiredMute>",
-                cmd->value);
-            sendSOAP("RenderingControl", "SetMute", args);
+            // Same split as SetVolume above — muting a group needs SetGroupMute on the
+            // coordinator, again with no <Channel>. This is the second half of #140:
+            // "even muting doesn't do anything".
+            refreshGroupTopology();
+            if (isInMultiSpeakerGroup(dev)) {
+                SonosDevice* coord = groupCoordinatorFor(dev);
+                snprintf(args, sizeof(args),
+                    "<InstanceID>0</InstanceID><DesiredMute>%d</DesiredMute>",
+                    cmd->value);
+                sendSOAP(coord, "GroupRenderingControl", "SetGroupMute", args);
+            } else {
+                snprintf(args, sizeof(args),
+                    "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredMute>%d</DesiredMute>",
+                    cmd->value);
+                sendSOAP("RenderingControl", "SetMute", args);
+            }
             if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
                 dev->isMuted = (cmd->value == 1);
                 xSemaphoreGive(deviceMutex);
@@ -2102,6 +2151,18 @@ bool SonosController::leaveGroup(int deviceIndex) {
 }
 
 void SonosController::updateGroupInfo() {
+    // Prefer the single-call topology read: one SOAP instead of one per device, and it
+    // reports membership directly rather than inferring it from transport URIs. force=true
+    // because the caller is an explicit user action (opening Groups, or just after a
+    // join/leave) and must not be served stale data.
+    if (refreshGroupTopology(/*force=*/true)) {
+        notifyUI(UPDATE_GROUPS);
+        return;
+    }
+    // Topology unavailable (older firmware, or the call failed) — fall back to the
+    // original per-device inference below.
+    Serial.println("[GROUP] Topology unavailable — falling back to per-device GetMediaInfo");
+
     // Query each device for its group coordinator
     for (int i = 0; i < deviceCount; i++) {
         SonosDevice* dev = &devices[i];
@@ -2147,6 +2208,149 @@ void SonosController::updateGroupInfo() {
     }
 
     notifyUI(UPDATE_GROUPS);
+}
+
+// ============================================================================
+// Group topology — one call, authoritative
+// ----------------------------------------------------------------------------
+// updateGroupInfo() infers grouping from each device's transport URI: one
+// GetMediaInfo per device, 50ms apart, so N SOAPs for N speakers. It is also only
+// ever called from the Groups screen, which means a group created in the Sonos app
+// stays invisible to us until the user happens to open that screen — and the volume
+// slider lives on the main screen.
+//
+// GetZoneGroupState returns the whole topology in a single response:
+//
+//   <ZoneGroup Coordinator="RINCON_A" ID="RINCON_A:1">
+//     <ZoneGroupMember UUID="RINCON_A" ZoneName="Kitchen" .../>
+//     <ZoneGroupMember UUID="RINCON_B" ZoneName="Lounge"  .../>
+//   </ZoneGroup>
+//
+// so coordinator, membership and member count all come from one SOAP.
+// ============================================================================
+bool SonosController::refreshGroupTopology(bool force) {
+    if (!devices || deviceCount == 0) return false;
+
+    // Throttle: topology changes are rare and a stale read is harmless, but this can
+    // be called from UI paths that fire repeatedly (slider drags, screen loads).
+    static unsigned long last_refresh_ms = 0;
+    if (!force && last_refresh_ms != 0 &&
+        (millis() - last_refresh_ms) < GROUP_TOPOLOGY_TTL_MS) {
+        return true;   // cached state is still fresh enough
+    }
+
+    // Goes through sendSOAP so it inherits network_mutex and the SDIO cooldowns.
+    // (fetchTopologyCoordinators() in sonos_discovery.cpp issues its own raw
+    // HTTPClient request and does NOT — that is the known CR-2 discovery path, and
+    // is not a pattern to copy here.)
+    String resp = sendSOAP("ZoneGroupTopology", "GetZoneGroupState", "");
+    if (resp.length() == 0) return false;
+
+    // The ZoneGroupState payload is entity-encoded inside the SOAP body.
+    resp.replace("&lt;", "<");
+    resp.replace("&gt;", ">");
+    resp.replace("&quot;", "\"");
+    resp.replace("&amp;", "&");     // last, or the others double-decode
+    resp.toLowerCase();             // RINCON case varies between firmwares
+
+    // Reset before parsing: a speaker that has left a group must not keep stale
+    // membership from the previous scan.
+    if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(200)) != pdTRUE) return false;
+    for (int i = 0; i < deviceCount; i++) {
+        devices[i].isGroupCoordinator  = true;          // standalone until proven otherwise
+        devices[i].groupCoordinatorUUID = devices[i].rinconID;
+        devices[i].groupMemberCount    = 1;
+    }
+
+    int groups = 0;
+    int scan = 0;
+    while (true) {
+        int gs = resp.indexOf("<zonegroup ", scan);
+        if (gs < 0) break;
+        int ge = resp.indexOf("</zonegroup>", gs);
+        if (ge < 0) break;                              // truncated response
+        String group = resp.substring(gs, ge);
+        scan = ge + 12;
+        groups++;
+
+        // Coordinator of this group
+        int cs = group.indexOf("coordinator=\"");
+        if (cs < 0) continue;
+        cs += 13;
+        int ce = group.indexOf("\"", cs);
+        if (ce <= cs) continue;
+        String coordUuid = group.substring(cs, ce);
+
+        // Members of this group
+        int members = 0;
+        int ms = 0;
+        while (true) {
+            int us = group.indexOf("uuid=\"", ms);
+            if (us < 0) break;
+            us += 6;
+            int ue = group.indexOf("\"", us);
+            if (ue <= us) break;
+            String memberUuid = group.substring(us, ue);
+            ms = ue;
+            members++;
+
+            for (int i = 0; i < deviceCount; i++) {
+                String rid = devices[i].rinconID;
+                rid.toLowerCase();
+                if (rid == memberUuid) {
+                    devices[i].groupCoordinatorUUID = coordUuid;
+                    devices[i].isGroupCoordinator   = (memberUuid == coordUuid);
+                    break;
+                }
+            }
+        }
+
+        // Stamp the member count onto the coordinator, which is what the volume path reads.
+        for (int i = 0; i < deviceCount; i++) {
+            String rid = devices[i].rinconID;
+            rid.toLowerCase();
+            if (rid == coordUuid) { devices[i].groupMemberCount = members; break; }
+        }
+    }
+    xSemaphoreGive(deviceMutex);
+
+    last_refresh_ms = millis();
+    Serial.printf("[GROUP] Topology refreshed: %d group(s) across %d known device(s)\n",
+                  groups, deviceCount);
+    notifyUI(UPDATE_GROUPS);
+    return groups > 0;
+}
+
+SonosDevice* SonosController::groupCoordinatorFor(SonosDevice* dev) {
+    if (!dev) return nullptr;
+    if (dev->isGroupCoordinator) return dev;
+
+    // Snapshot under deviceMutex: refreshGroupTopology() reassigns this String from a
+    // different task, and an Arduino String assignment reallocs — so an unlocked read
+    // here can touch a freed buffer, not merely a stale one. Same class as the
+    // dev->currentURI race fixed in playPlaylist()/playContainer().
+    String want;
+    if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        want = dev->groupCoordinatorUUID;
+        xSemaphoreGive(deviceMutex);
+    }
+    if (want.length() == 0) return dev;
+    want.toLowerCase();
+    for (int i = 0; i < deviceCount; i++) {
+        String rid = devices[i].rinconID;
+        rid.toLowerCase();
+        if (rid == want) return &devices[i];
+    }
+    // Coordinator is a speaker we never discovered (deduped away as a stereo-pair
+    // slave, or off-network). Falling back to dev keeps today's behaviour rather
+    // than dropping the command.
+    return dev;
+}
+
+bool SonosController::isInMultiSpeakerGroup(SonosDevice* dev) {
+    if (!dev) return false;
+    if (!dev->isGroupCoordinator) return true;          // we follow someone => grouped
+    return dev->groupMemberCount > 1;                   // we lead others => grouped
 }
 
 int SonosController::getGroupMemberCount(int coordinatorIndex) {

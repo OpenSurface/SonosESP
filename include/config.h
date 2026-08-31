@@ -272,6 +272,12 @@
 // oversized (hostile or simply broken) response would allocate that much internal
 // DRAM — the scarcest memory on this board. Both bodies are JSON and are orders of
 // magnitude smaller than these caps in normal operation.
+// How long a GetZoneGroupState result is treated as current. Grouping changes are
+// rare and a stale read only costs one wrong-target volume call, so this is set for
+// SDIO quiet rather than freshness. Volume gestures refresh through it, so a slider
+// drag cannot fire a SOAP per movement.
+#define GROUP_TOPOLOGY_TTL_MS   30000
+
 #define LYRICS_MAX_BODY_BYTES   (64  * 1024)   // lrclib.net is a third-party service
 #define OTA_MAX_JSON_BYTES      (256 * 1024)   // GitHub releases API
 
