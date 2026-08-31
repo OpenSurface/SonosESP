@@ -230,6 +230,20 @@ public:
     int getGroupMemberCount(int coordinatorIndex);           // Get number of members in a group
     bool isDeviceInGroup(int deviceIndex, int coordinatorIndex);  // Check if device is in coordinator's group
 
+    // Refresh group membership for EVERY device from a single GetZoneGroupState call.
+    // updateGroupInfo() costs one GetMediaInfo per device (N SOAPs, 50ms apart); this
+    // costs one, and is authoritative rather than inferred from transport URIs.
+    // Throttled internally — call it freely. Returns true if the topology was parsed.
+    bool refreshGroupTopology(bool force = false);
+
+    // The device that owns group state for `dev` — itself when it coordinates, else the
+    // coordinator it follows. Returns `dev` when the coordinator is not in our list.
+    SonosDevice* groupCoordinatorFor(SonosDevice* dev);
+
+    // True when dev participates in a multi-speaker group (as coordinator or member),
+    // i.e. when GroupRenderingControl should be used instead of RenderingControl.
+    bool isInMultiSpeakerGroup(SonosDevice* dev);
+
     // Task management for OTA
     void suspendTasks();  // Delete polling/network tasks for OTA (frees WiFi buffers immediately)
     void resumeTasks();   // Recreate polling/network tasks after OTA (only on failure)
