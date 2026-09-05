@@ -52,14 +52,14 @@ jobs:
 
     - name: Set up Python
       if: steps.check_release.outputs.EXISTS == 'false'
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.11'
         cache: 'pip'
 
     - name: Cache PlatformIO
       if: steps.check_release.outputs.EXISTS == 'false'
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: |
           ~/.platformio
