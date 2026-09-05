@@ -63,6 +63,63 @@ lv_obj_t* addDescLabel(lv_obj_t* parent, const char* text) {
     return lbl;
 }
 
+// ============================================================================
+// Screen header
+// ----------------------------------------------------------------------------
+// Before this helper the settings screens built their heading three different
+// ways, and the title's vertical centre landed in a different place in each:
+//
+//   bare label at y=0        centre ~14px   Sources, Firmware Update
+//   label as first flex kid  centre ~14px   General, Display, Clock
+//   label in a SY(40) row    centre  20px   Speakers, Groups
+//   label in a SY(44) row    centre  22px   WiFi
+//
+// so the heading jumped as you moved between tabs. The two Scan buttons had
+// drifted too: SX(110)xSY(40) r20 on Speakers/Groups, SX(100)xSY(34) r17 on WiFi.
+//
+// One row height, one title alignment, one button spec. Screens that position
+// their content absolutely below the header already use SY(50), which still
+// clears the SY(40) row.
+// ============================================================================
+lv_obj_t* addScreenHeader(lv_obj_t* parent, const char* title, const char* action_text) {
+    lv_obj_t* row = lv_obj_create(parent);
+    lv_obj_set_width(row, lv_pct(100));
+    lv_obj_set_height(row, SY(40));
+    lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(row, 0, 0);
+    lv_obj_set_style_pad_all(row, 0, 0);
+    lv_obj_set_style_margin_bottom(row, SY(12), 0);
+    lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* lbl = lv_label_create(row);
+    lv_label_set_text(lbl, title);
+    lv_obj_set_style_text_font(lbl, &font_text_24, 0);
+    lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
+    lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 0, 0);
+
+    if (!action_text) return nullptr;
+
+    lv_obj_t* btn = lv_button_create(row);
+    lv_obj_set_size(btn, SX(110), SY(38));
+    lv_obj_align(btn, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_set_style_bg_color(btn, COL_ACCENT, 0);
+    lv_obj_set_style_radius(btn, SY(19), 0);
+    lv_obj_set_style_shadow_width(btn, 0, 0);
+
+    lv_obj_t* lbl_btn = lv_label_create(btn);
+    lv_label_set_text(lbl_btn, action_text);
+    // Black on the gold accent - a contrast pairing, not a themed surface.
+    lv_obj_set_style_text_color(lbl_btn, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_text_font(lbl_btn, &lv_font_mdi_16, 0);
+    lv_obj_center(lbl_btn);
+    return btn;
+}
+
+lv_obj_t* screenHeaderActionLabel(lv_obj_t* action_btn) {
+    if (!action_btn || lv_obj_get_child_count(action_btn) == 0) return nullptr;
+    return lv_obj_get_child(action_btn, 0);   // addScreenHeader() adds exactly one
+}
+
 lv_obj_t* addValueLabel(lv_obj_t* parent, const char* text) {
     lv_obj_t* lbl = lv_label_create(parent);
     lv_label_set_text(lbl, text);

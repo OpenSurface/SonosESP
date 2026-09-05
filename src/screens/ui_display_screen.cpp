@@ -31,11 +31,7 @@ void createDisplaySettingsScreen() {
     lv_obj_set_style_pad_row(content, 0, 0);   // cards carry their own margin_bottom
 
     // ── Screen title ─────────────────────────────────────────────────────────
-    lv_obj_t* lbl_title = lv_label_create(content);
-    lv_label_set_text(lbl_title, "Display");
-    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_pad_bottom(lbl_title, SY(12), 0);
+    addScreenHeader(content, "Display", nullptr);
 
     // ────────────────────────────────────────────────────────────────────────
     // CARD — Brightness

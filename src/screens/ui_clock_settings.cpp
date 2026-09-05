@@ -297,11 +297,7 @@ void createClockSettingsScreen() {
     settings_scrollable = content;  // remember for scroll-into-view on keyboard focus
 
     // ── Screen title ─────────────────────────────────────────────────────────
-    lv_obj_t* lbl_title = lv_label_create(content);
-    lv_label_set_text(lbl_title, "Clock");
-    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_pad_bottom(lbl_title, SY(12), 0);
+    addScreenHeader(content, "Clock", nullptr);
 
     // ────────────────────────────────────────────────────────────────────────
     // CARD 1 — Display

@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_settings_card.h"   // addScreenHeader() - shared title row
 #include "ui_fonts.h"
 
 // Forward declaration
@@ -298,26 +299,7 @@ void createGroupsScreen() {
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title + Refresh button row
-    lv_obj_t* title_row = lv_obj_create(content);
-    lv_obj_set_size(title_row, lv_pct(100), SY(40));
-    lv_obj_set_pos(title_row, 0, 0);
-    lv_obj_set_style_bg_opa(title_row, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(title_row, 0, 0);
-    lv_obj_set_style_pad_all(title_row, 0, 0);
-    lv_obj_clear_flag(title_row, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t* lbl_title = lv_label_create(title_row);
-    lv_label_set_text(lbl_title, "Groups");
-    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, 0, 0);
-
-    btn_groups_scan = lv_button_create(title_row);
-    lv_obj_set_size(btn_groups_scan, SX(110), SY(40));
-    lv_obj_align(btn_groups_scan, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_obj_set_style_bg_color(btn_groups_scan, COL_ACCENT, 0);
-    lv_obj_set_style_radius(btn_groups_scan, 20, 0);
-    lv_obj_set_style_shadow_width(btn_groups_scan, 0, 0);
+    btn_groups_scan = addScreenHeader(content, "Groups", MDI_REFRESH " Scan");
     lv_obj_add_event_cb(btn_groups_scan, [](lv_event_t* e) {
         // Disable button during scan
         lv_obj_add_state(btn_groups_scan, LV_STATE_DISABLED);

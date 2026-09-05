@@ -35,3 +35,16 @@ lv_obj_t* addValueLabel(lv_obj_t* parent, const char* text);
 // style calls were duplicated in ui_display_screen.cpp (x3) and ui_clock_settings.cpp,
 // and the copies had already drifted from each other's geometry.
 lv_obj_t* addSlider(lv_obj_t* parent, int min, int max, int value);
+
+// The screen title row every settings screen starts with, plus an optional
+// right-aligned action button ("Scan"). Pass nullptr for action_text when the
+// screen has no action; returns the button, or nullptr when there is none.
+//
+// There were three separate title patterns before this, putting the title's
+// vertical centre at 14px, 20px or 22px depending on the screen, so the heading
+// visibly jumped as you moved between tabs. See the .cpp for the breakdown.
+lv_obj_t* addScreenHeader(lv_obj_t* parent, const char* title, const char* action_text);
+
+// The action button's text label, for screens that retarget it (WiFi swaps
+// "Scan" for "Scanning..."). Null-safe; returns nullptr for a header with no action.
+lv_obj_t* screenHeaderActionLabel(lv_obj_t* action_btn);

@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_settings_card.h"   // addScreenHeader() - shared title row
 #include "ui_fonts.h"
 
 // Forward declaration
@@ -21,11 +22,7 @@ void createOTAScreen() {
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title
-    lv_obj_t* lbl_title = lv_label_create(content);
-    lv_label_set_text(lbl_title, "Firmware Update");
-    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_pos(lbl_title, 0, 0);
+    addScreenHeader(content, "Firmware Update", nullptr);
 
     // Version info card
     lv_obj_t* card_version = lv_obj_create(content);
