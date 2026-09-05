@@ -11,6 +11,7 @@
 #include "clock_face.h"
 #include "ui_theme.h"
 #include <esp_flash.h>
+#include <esp_system.h>   // esp_reset_reason()
 #include <esp_task_wdt.h>
 #include "ui_fonts.h"
 #include "screenshot.h"
@@ -26,10 +27,43 @@ static TaskHandle_t mainAppTaskHandle = nullptr;
 static void mainAppTask(void* param);            // forward declaration — defined after loop()
 static void deferredDiscoveryTask(void* param);  // forward declaration — one-shot, runs off mainAppTask
 
+// Why the chip started. Printed on every boot because the console is USB CDC:
+// the peripheral belongs to the chip, so a reset tears the port down and anything
+// the panic handler printed on the way out is lost before it reaches the host. The
+// serial log of a spontaneous reboot therefore shows a clean run, a dropped port,
+// and a fresh boot - with no indication of what happened. This survives the reset
+// and says which it was.
+static void logResetReason() {
+    esp_reset_reason_t r = esp_reset_reason();
+    const char* why;
+    const char* note = "";
+    switch (r) {
+        case ESP_RST_POWERON:  why = "POWERON";   note = " - power applied, or the reset button"; break;
+        case ESP_RST_SW:       why = "SW";        note = " - deliberate esp_restart() (OTA, settings)"; break;
+        case ESP_RST_PANIC:    why = "PANIC";     note = " - CRASH: exception or assert"; break;
+        case ESP_RST_INT_WDT:  why = "INT_WDT";   note = " - interrupt watchdog: ISR or critical section ran too long"; break;
+        case ESP_RST_TASK_WDT: why = "TASK_WDT";  note = " - task watchdog: a subscribed task stopped feeding it"; break;
+        case ESP_RST_WDT:      why = "OTHER_WDT"; note = " - another watchdog"; break;
+        case ESP_RST_BROWNOUT: why = "BROWNOUT";  note = " - SUPPLY DIPPED: cable, PSU or USB port"; break;
+        case ESP_RST_DEEPSLEEP: why = "DEEPSLEEP"; break;
+        case ESP_RST_EXT:      why = "EXT";       note = " - external reset pin"; break;
+        case ESP_RST_SDIO:     why = "SDIO";      break;
+        default:               why = "UNKNOWN";   break;
+    }
+    Serial.printf("[BOOT] Reset reason: %s (%d)%s\n", why, (int)r, note);
+
+    // Anything other than a power-on or a reset we asked for is a fault worth
+    // calling out, so it is greppable in a user's pasted log.
+    if (r != ESP_RST_POWERON && r != ESP_RST_SW && r != ESP_RST_EXT) {
+        Serial.println("[BOOT] *** PREVIOUS RUN ENDED ABNORMALLY ***");
+    }
+}
+
 void setup() {
     Serial.begin(SERIAL_BAUD_RATE);
     delay(500);
     Serial.println("\n=== SONOS CONTROLLER ===");
+    logResetReason();
     Serial.printf("Free heap: %d, PSRAM: %d\n", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
     // Detect flash chip - auto-suspend only works with specific chips
