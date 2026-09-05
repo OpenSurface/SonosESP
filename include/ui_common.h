@@ -78,6 +78,7 @@ extern lv_color_t COL_BORDER;
 extern lv_color_t COL_TEXT;          // primary
 extern lv_color_t COL_TEXT2;         // secondary
 extern lv_color_t COL_TEXT3;         // tertiary / hint
+extern lv_color_t COL_TEXT_FAINT;    // faint status text laid over artwork
 
 // Semantic — these carry meaning, so they are not interchangeable with the
 // accent even when they happen to look similar.

@@ -63,6 +63,40 @@ lv_obj_t* addDescLabel(lv_obj_t* parent, const char* text) {
     return lbl;
 }
 
+lv_obj_t* addValueLabel(lv_obj_t* parent, const char* text) {
+    lv_obj_t* lbl = lv_label_create(parent);
+    lv_label_set_text(lbl, text);
+    lv_obj_set_style_text_font(lbl, &font_text_14, 0);
+    lv_obj_set_style_text_color(lbl, COL_ACCENT, 0);
+    return lbl;
+}
+
+lv_obj_t* addSlider(lv_obj_t* parent, int min, int max, int value) {
+    lv_obj_t* s = lv_slider_create(parent);
+    lv_obj_set_width(s, lv_pct(100));
+    lv_obj_set_height(s, SY(20));
+    lv_slider_set_range(s, min, max);
+    lv_slider_set_value(s, value, LV_ANIM_OFF);
+    lv_obj_set_style_bg_color(s, COL_SELECTED, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s, COL_ACCENT, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(s, COL_ACCENT, LV_PART_KNOB);
+    lv_obj_set_style_radius(s, 10, LV_PART_MAIN);
+    lv_obj_set_style_radius(s, 10, LV_PART_INDICATOR);
+    lv_obj_set_style_pad_all(s, SMIN(2), LV_PART_KNOB);
+
+    // Inset the travel by the knob radius.
+    //
+    // LVGL centres the knob on the value position within the MAIN part's inner
+    // area, and lets it overhang the ends. With no horizontal padding the knob at
+    // minimum is centred exactly on the track's left edge, so half of it hangs
+    // outside the control — visible on Display's "Auto-dim after: 0 sec" and on
+    // Clock's "Inactivity timeout", where the knob sits left of every other
+    // element's margin. Padding MAIN by the knob's radius moves the travel inward
+    // so both end positions land fully inside the track.
+    lv_obj_set_style_pad_hor(s, SY(20) / 2 + SMIN(2), LV_PART_MAIN);
+    return s;
+}
+
 lv_obj_t* addSwitch(lv_obj_t* parent, bool initial) {
     lv_obj_t* sw = lv_switch_create(parent);
     lv_obj_set_size(sw, SX(50), SY(26));

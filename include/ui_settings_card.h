@@ -27,3 +27,11 @@ lv_obj_t* addDescLabel(lv_obj_t* parent, const char* text);
 
 // Styled switch matching the project's accent theme.
 lv_obj_t* addSwitch(lv_obj_t* parent, bool initial);
+
+// Accent-coloured current-value line (the "96%" / "1 min" under a setting label).
+lv_obj_t* addValueLabel(lv_obj_t* parent, const char* text);
+
+// Styled slider. Use this rather than hand-rolling lv_slider_create: the eleven
+// style calls were duplicated in ui_display_screen.cpp (x3) and ui_clock_settings.cpp,
+// and the copies had already drifted from each other's geometry.
+lv_obj_t* addSlider(lv_obj_t* parent, int min, int max, int value);
