@@ -30,7 +30,8 @@ void refreshDeviceList() {
         for (int j = 0; j < cnt; j++) {
             if (j == i) continue;
             SonosDevice* member = sonos.getDevice(j);
-            if (member && member->groupCoordinatorUUID == dev->rinconID) {
+            if (member && SonosController::uuidEquals(member->groupCoordinatorUUID,
+                                                      dev->rinconID)) {
                 memberCount++;
             }
         }
@@ -113,7 +114,8 @@ void refreshDeviceList() {
             for (int j = 0; j < cnt; j++) {
                 if (j == i) continue;
                 SonosDevice* member = sonos.getDevice(j);
-                if (!member || member->groupCoordinatorUUID != dev->rinconID) continue;
+                if (!member ||
+                    !SonosController::uuidEquals(member->groupCoordinatorUUID, dev->rinconID)) continue;
 
                 lv_obj_t* memBtn = lv_btn_create(list_devices);
                 lv_obj_set_size(memBtn, lv_pct(95), SY(50));
@@ -165,7 +167,8 @@ void refreshDeviceList() {
         bool coordinatorFound = false;
         for (int j = 0; j < cnt; j++) {
             SonosDevice* coord = sonos.getDevice(j);
-            if (coord && coord->rinconID == dev->groupCoordinatorUUID) {
+            if (coord && SonosController::uuidEquals(coord->rinconID,
+                                                     dev->groupCoordinatorUUID)) {
                 coordinatorFound = true;
                 break;
             }

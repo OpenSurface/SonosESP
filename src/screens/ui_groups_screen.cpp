@@ -42,7 +42,8 @@ void refreshGroupsList() {
         int memberCount = 0;
         for (int j = 0; j < cnt; j++) {
             SonosDevice* member = sonos.getDevice(j);
-            if (member && (j == i || member->groupCoordinatorUUID == dev->rinconID)) {
+            if (member && (j == i ||
+                SonosController::uuidEquals(member->groupCoordinatorUUID, dev->rinconID))) {
                 memberCount++;
             }
         }
@@ -133,7 +134,8 @@ void refreshGroupsList() {
             for (int j = 0; j < cnt; j++) {
                 if (j == i) continue;  // Skip coordinator
                 SonosDevice* member = sonos.getDevice(j);
-                if (!member || member->groupCoordinatorUUID != dev->rinconID) continue;
+                if (!member ||
+                    !SonosController::uuidEquals(member->groupCoordinatorUUID, dev->rinconID)) continue;
 
                 // Member item (indented)
                 lv_obj_t* memBtn = lv_btn_create(list_groups);
@@ -204,20 +206,31 @@ void refreshGroupsList() {
             lv_obj_set_style_text_font(hdrLbl, &font_text_16, 0);
             lv_obj_align(hdrLbl, LV_ALIGN_LEFT_MID, 0, 0);
 
-            // Show standalone speakers (not in any group except their own)
+            // Every speaker that is not already in this group is a valid target — not
+            // just the standalone ones. Requiring isGroupCoordinator here meant that once
+            // speakers were grouped they vanished from this list, so with everything in
+            // one group it came up empty and there was no way to rearrange anything
+            // (issue #140 follow-up). Sonos itself lets you pull a speaker straight from
+            // one group into another.
             for (int i = 0; i < cnt; i++) {
                 if (i == selected_group_coordinator) continue;
                 SonosDevice* dev = sonos.getDevice(i);
                 if (!dev) continue;
 
                 // Skip if already in the selected group
-                if (dev->groupCoordinatorUUID == coordinator->rinconID) continue;
+                if (SonosController::uuidEquals(dev->groupCoordinatorUUID,
+                                                coordinator->rinconID)) continue;
 
-                // Only show if standalone (is own coordinator)
-                if (!dev->isGroupCoordinator) continue;
+                // Where is it now? Drives the label, so the tap is never a surprise.
+                int otherMembers = dev->isGroupCoordinator
+                                 ? sonos.getGroupMemberCount(i) : 0;
+                bool leadsGroup  = (otherMembers > 1);
+                bool followsOther = !dev->isGroupCoordinator;
+                SonosDevice* otherCoord = followsOther ? sonos.groupCoordinatorFor(dev) : nullptr;
 
                 lv_obj_t* addBtn = lv_btn_create(list_groups);
-                lv_obj_set_size(addBtn, SX(720), SY(55));
+                // Taller only when a second line is rendered below the room name.
+                lv_obj_set_size(addBtn, SX(720), (leadsGroup || followsOther) ? SY(68) : SY(55));
                 lv_obj_set_user_data(addBtn, (void*)(intptr_t)i);
                 lv_obj_set_style_radius(addBtn, 10, 0);
                 lv_obj_set_style_shadow_width(addBtn, 0, 0);
@@ -235,14 +248,37 @@ void refreshGroupsList() {
                 lv_label_set_text_fmt(addLbl, "Add %s", dev->roomName.c_str());
                 lv_obj_set_style_text_color(addLbl, COL_TEXT, 0);
                 lv_obj_set_style_text_font(addLbl, &font_text_16, 0);
-                lv_obj_align(addLbl, LV_ALIGN_LEFT_MID, SX(60), 0);
+                lv_obj_set_width(addLbl, SX(560));
+                lv_label_set_long_mode(addLbl, LV_LABEL_LONG_DOT);
+                lv_obj_align(addLbl, LV_ALIGN_LEFT_MID,
+                             SX(60), (leadsGroup || followsOther) ? SY(-9) : 0);
+
+                // Second line only when the speaker is coming from somewhere, so the
+                // common standalone case looks exactly as it did before.
+                if (leadsGroup) {
+                    lv_obj_t* sub2 = lv_label_create(addBtn);
+                    lv_label_set_text_fmt(sub2, "brings %d more with it", otherMembers - 1);
+                    lv_obj_set_style_text_color(sub2, COL_TEXT2, 0);
+                    lv_obj_set_style_text_font(sub2, &font_text_12, 0);
+                    lv_obj_align(sub2, LV_ALIGN_LEFT_MID, SX(60), SY(9));
+                } else if (followsOther && otherCoord && otherCoord != dev) {
+                    lv_obj_t* sub2 = lv_label_create(addBtn);
+                    lv_label_set_text_fmt(sub2, "currently in %s", otherCoord->roomName.c_str());
+                    lv_obj_set_style_text_color(sub2, COL_TEXT2, 0);
+                    lv_obj_set_style_text_font(sub2, &font_text_12, 0);
+                    lv_obj_set_width(sub2, SX(560));
+                    lv_label_set_long_mode(sub2, LV_LABEL_LONG_DOT);
+                    lv_obj_align(sub2, LV_ALIGN_LEFT_MID, SX(60), SY(9));
+                }
 
                 lv_obj_add_event_cb(addBtn, [](lv_event_t* e) {
                     int idx = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
                     if (selected_group_coordinator >= 0) {
                         lv_label_set_text(lbl_groups_status, "Adding to group...");
                         lv_refr_now(NULL);
-                        sonos.joinGroup(idx, selected_group_coordinator);
+                        // Cascade: if this speaker coordinates its own group, its members
+                        // come along rather than being stranded behind it.
+                        sonos.joinGroupCascade(idx, selected_group_coordinator);
                         vTaskDelay(pdMS_TO_TICKS(500));
                         sonos.updateGroupInfo();
                         refreshGroupsList();
