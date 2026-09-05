@@ -353,7 +353,7 @@ void createGroupsScreen() {
 
     // Groups list
     list_groups = lv_obj_create(content);
-    lv_obj_set_size(list_groups, lv_pct(100), SY(380));
+    lv_obj_set_size(list_groups, lv_pct(100), SETTINGS_LIST_H(75));
     lv_obj_set_pos(list_groups, 0, SY(75));
     lv_obj_set_style_bg_color(list_groups, COL_BG, 0);
     lv_obj_set_style_border_width(list_groups, 0, 0);

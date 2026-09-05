@@ -118,7 +118,7 @@ def check_geometry(findings):
                     continue
                 args = line[m.end():]
                 # Drop anything already wrapped in a scaling macro or a percentage.
-                cleaned = re.sub(r'\b(SX|SY|SMIN)\s*\([^)]*\)', '', args)
+                cleaned = re.sub(r'\b(SX|SY|SMIN|SETTINGS_LIST_H)\s*\([^)]*\)', '', args)
                 cleaned = re.sub(r'lv_pct\s*\([^)]*\)', '', cleaned)
                 cleaned = re.sub(r'LV_(SIZE_CONTENT|PCT|ALIGN_[A-Z_]+)', '', cleaned)
                 bare = [t for t in re.findall(r'(?<![\w.])(-?\d+)(?![\w.])', cleaned)
@@ -166,6 +166,61 @@ def check_parts(findings):
                         (path, n, 'dropdown built but LV_PART_SELECTED is never styled'))
 
 
+# Usable inner height of the settings content area, in design pixels. Must track
+# SETTINGS_INNER_H in include/ui_settings_card.h.
+SETTINGS_INNER_H = 432
+
+
+def check_content_overflow(findings):
+    """A child positioned + sized past the settings content area's inner height.
+
+    This is the defect that clipped the last row of four different lists: the
+    author subtracted from the content's OUTER height (480) and forgot the 24px
+    padding at top and bottom, so every one of them ended at 455 inside a 432-tall
+    box. Cheap to check, and it is the one layout class decidable from source.
+    """
+    pos_re = re.compile(r'lv_obj_set_pos\s*\(\s*(\w+)\s*,[^,]+,\s*SY\(\s*(\d+)\s*\)')
+    size_re = re.compile(r'lv_obj_set_size\s*\(\s*(\w+)\s*,[^,]+,\s*SY\(\s*(\d+)\s*\)')
+    sidebar_re = re.compile(r'(\w+)\s*=\s*createSettingsSidebar\s*\(')
+    child_re = re.compile(r'(\w+)\s*=\s*lv_\w+_create\s*\(\s*(\w+)\s*\)')
+    for path in source_files():
+        with open(path, encoding='utf-8', errors='replace') as fh:
+            lines = [strip_comment(l) for l in fh]
+        if 'createSettingsSidebar' not in ''.join(lines):
+            continue
+
+        # Only objects parented to the sidebar's content area live in the padded
+        # 432-tall box. ui_settings_screens.cpp also builds the full-screen Queue
+        # directly on scr_queue, which is 480 tall with no padding - checking that
+        # against 432 is a false positive, not a defect.
+        content_vars, in_content = set(), set()
+        for line in lines:
+            m = sidebar_re.search(line)
+            if m:
+                content_vars.add(m.group(1))
+            m = child_re.search(line)
+            if m and m.group(2) in content_vars:
+                in_content.add(m.group(1))
+
+        tops, sizes = {}, {}
+        for n, line in enumerate(lines, 1):
+            m = pos_re.search(line)
+            if m and m.group(1) in in_content:
+                tops[m.group(1)] = (n, int(m.group(2)))
+            m = size_re.search(line)
+            if m and m.group(1) in in_content:
+                sizes[m.group(1)] = (n, int(m.group(2)))
+        for var, (n, h) in sizes.items():
+            if var not in tops:
+                continue
+            top = tops[var][1]
+            if top + h > SETTINGS_INNER_H:
+                findings['content-overflow'].append(
+                    (path, n, '%s: top %d + height %d = %d, past the %d inner height '
+                              '- use SETTINGS_LIST_H(%d)'
+                     % (var, top, h, top + h, SETTINGS_INNER_H, top)))
+
+
 def check_helper_bypass(findings):
     """Settings screens hand-rolling a widget that already has a shared helper."""
     helpers = {
@@ -196,6 +251,7 @@ def main():
     check_colours(findings, palette)
     check_geometry(findings)
     check_parts(findings)
+    check_content_overflow(findings)
     check_helper_bypass(findings)
 
     order = [
@@ -203,6 +259,7 @@ def main():
         ('colour-repeated-unnamed',   'Repeated literal that should be a token'),
         ('unstyled-scrollbar',        'Visible scrollbar, never styled (light-theme leak)'),
         ('unstyled-dropdown-selection', 'Dropdown selection never styled (light-theme leak)'),
+        ('content-overflow',          'Child overflows the settings content area'),
         ('helper-bypassed',           'Shared helper bypassed'),
         ('geometry-unscaled',         'Raw pixels, will not scale to the 7in panel'),
         ('colour-one-off',            'One-off literal (informational)'),

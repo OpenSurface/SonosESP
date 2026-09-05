@@ -119,8 +119,11 @@ void createWiFiScreen() {
     // ── Network list (y=140, h=340) — always BELOW strip, never overlaps ───────
     // With keyboard (175px from bottom) list shows y=140..300 = 160px ≈ 3 items
     // pw_strip at y=76..132 stays fully visible above keyboard
+    // Height was SY(340), ending at 480 - but the content area is only 432 tall
+    // once its SMIN(24) padding is taken off, so the last 48px of the list, and
+    // whichever network happened to sit there, were clipped away.
     list_wifi = lv_list_create(content);
-    lv_obj_set_size(list_wifi, lv_pct(100), SY(340));
+    lv_obj_set_size(list_wifi, lv_pct(100), SETTINGS_LIST_H(140));
     lv_obj_set_pos(list_wifi, 0, SY(140));
     lv_obj_set_style_bg_color(list_wifi, COL_SCREEN, 0);
     lv_obj_set_style_border_width(list_wifi, 0, 0);

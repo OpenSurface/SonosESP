@@ -15,6 +15,26 @@
 #define SET_CARD_BG     COL_BG
 #define SET_CARD_BORDER COL_CARD
 
+// ── Content-area geometry ───────────────────────────────────────────────────
+// createSettingsSidebar() returns a content area of SY(480) with SMIN(24) padding
+// on every side, so the usable inner height is 480 - 24 - 24 = 432 design pixels.
+// Children are positioned relative to that inner box, NOT to the full 480.
+//
+// Four screens got this wrong the same way — they sized their list to end at 455,
+// having subtracted from 480 and forgotten the padding — so the last row of each
+// list was clipped by 23px:
+//
+//   Speakers / Groups   pos SY(75) + height SY(380) = 455
+//   Sources  / Browse   pos SY(50) + height SY(405) = 455
+//
+// SETTINGS_LIST_H(top) computes the height that reaches the bottom exactly. The
+// arithmetic is exact on both panels: SMIN uses the smaller of the two scale
+// factors, which is the vertical one (1.25 vs 1.28 on the 7"), so it matches SY.
+#define SETTINGS_CONTENT_H   480
+#define SETTINGS_CONTENT_PAD 24
+#define SETTINGS_INNER_H     (SETTINGS_CONTENT_H - 2 * SETTINGS_CONTENT_PAD)   // 432
+#define SETTINGS_LIST_H(top) SY(SETTINGS_INNER_H - (top))
+
 // Create a card container with a title + accent underline. Returns the card
 // object so callers can add child controls (flex column layout, scroll disabled).
 lv_obj_t* addCard(lv_obj_t* parent, const char* title);

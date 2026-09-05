@@ -433,7 +433,7 @@ void createSourcesScreen() {
     // Scrollable list
     lv_obj_t* list = lv_obj_create(content);
     lv_obj_set_pos(list, 0, SY(50));
-    lv_obj_set_size(list, lv_pct(100), SY(405));
+    lv_obj_set_size(list, lv_pct(100), SETTINGS_LIST_H(50));
     lv_obj_set_style_bg_color(list, COL_BG, 0);
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_set_style_pad_all(list, 0, 0);
@@ -583,7 +583,7 @@ void createBrowseScreen() {
     // Content list
     lv_obj_t* list = lv_obj_create(content);
     lv_obj_set_pos(list, 0, SY(50));
-    lv_obj_set_size(list, lv_pct(100), SY(405));
+    lv_obj_set_size(list, lv_pct(100), SETTINGS_LIST_H(50));
     lv_obj_set_style_bg_color(list, COL_BG, 0);
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_set_style_pad_all(list, 0, 0);
