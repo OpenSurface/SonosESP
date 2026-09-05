@@ -284,8 +284,16 @@ def main():
                 print('         ... %d more' % (len(hits) - len(shown)))
         print()
 
-    print('TOTAL: %d finding(s)' % total)
-    if strict and total:
+    # Informational categories never fail the build: a one-off literal may be a
+    # deliberate semantic colour (the WHO UV index scale, a per-theme backdrop).
+    # Gating CI on those would train people to ignore the linter.
+    INFORMATIONAL = {'colour-one-off'}
+    actionable = sum(len(findings[k]) for k, _ in order if k not in INFORMATIONAL)
+
+    print('TOTAL: %d finding(s) - %d actionable, %d informational'
+          % (total, actionable, total - actionable))
+    if strict and actionable:
+        print('FAIL: %d actionable finding(s)' % actionable)
         return 1
     return 0
 
