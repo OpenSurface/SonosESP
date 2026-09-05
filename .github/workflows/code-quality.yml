@@ -41,8 +41,60 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # tee, so the summary step below can format the results. pipefail keeps the
+      # job failing on a test failure rather than reporting tee's exit status.
       - name: Run host tests
-        run: pio test -e native
+        shell: bash
+        run: |
+          set -o pipefail
+          pio test -e native 2>&1 | tee test-output.txt
+
+      # Renders the results on the run's Summary page. Without this the only way
+      # to see which tests ran is to open the job and read raw log lines, which
+      # nobody does until something is already broken.
+      - name: Test results summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Host unit tests"
+            echo
+            if [ ! -f test-output.txt ]; then
+              echo "No test output - the build stage failed before any test ran."
+              exit 0
+            fi
+
+            # Anchored on the file.cpp:NNN: prefix so the per-suite roll-up lines
+            # ("native:test_topology [PASSED]") are not counted as extra tests.
+            passed=$(grep -cE '\.cpp:[0-9]+:.*\[PASSED\]' test-output.txt || true)
+            failed=$(grep -cE '\.cpp:[0-9]+:.*\[FAILED\]' test-output.txt || true)
+            ignored=$(grep -cE '\.cpp:[0-9]+:.*\[IGNORED\]' test-output.txt || true)
+
+            echo "| | Count |"
+            echo "|---|---|"
+            echo "| Passed | $passed |"
+            echo "| Failed | $failed |"
+            echo "| Ignored | $ignored |"
+            echo
+
+            if [ "$failed" -gt 0 ]; then
+              echo "### Failures"
+              echo
+              echo '```'
+              grep -E '\[FAILED\]' test-output.txt | sed 's/^[0-9T:.-]*Z //' || true
+              echo '```'
+              echo
+            fi
+
+            echo "<details><summary>All tests</summary>"
+            echo
+            echo "| Test | Result |"
+            echo "|---|---|"
+            sed -nE 's/^.*\.cpp:[0-9]+:[[:space:]]*([A-Za-z0-9_]+).*\[(PASSED|FAILED|IGNORED)\].*$/| `\1` | \2 |/p' \
+              test-output.txt || true
+            echo
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================
   # Job 0b: UI consistency linter
@@ -66,7 +118,22 @@ jobs:
           python-version: '3.11'
 
       - name: Run ui_lint
-        run: python tools/ui_lint.py --strict
+        shell: bash
+        run: |
+          set -o pipefail
+          python tools/ui_lint.py --strict 2>&1 | tee ui-lint.txt
+
+      - name: UI lint summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## UI consistency"
+            echo
+            echo '```'
+            cat ui-lint.txt 2>/dev/null || echo "no output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================
   # Job 1: cppcheck — static bug analysis
