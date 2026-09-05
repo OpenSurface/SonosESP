@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_settings_card.h"   // addScreenHeader() - shared title row
 #include "ui_fonts.h"
 
 // Forward declaration
@@ -30,7 +31,8 @@ void refreshDeviceList() {
         for (int j = 0; j < cnt; j++) {
             if (j == i) continue;
             SonosDevice* member = sonos.getDevice(j);
-            if (member && member->groupCoordinatorUUID == dev->rinconID) {
+            if (member && SonosController::uuidEquals(member->groupCoordinatorUUID,
+                                                      dev->rinconID)) {
                 memberCount++;
             }
         }
@@ -113,7 +115,8 @@ void refreshDeviceList() {
             for (int j = 0; j < cnt; j++) {
                 if (j == i) continue;
                 SonosDevice* member = sonos.getDevice(j);
-                if (!member || member->groupCoordinatorUUID != dev->rinconID) continue;
+                if (!member ||
+                    !SonosController::uuidEquals(member->groupCoordinatorUUID, dev->rinconID)) continue;
 
                 lv_obj_t* memBtn = lv_btn_create(list_devices);
                 lv_obj_set_size(memBtn, lv_pct(95), SY(50));
@@ -165,7 +168,8 @@ void refreshDeviceList() {
         bool coordinatorFound = false;
         for (int j = 0; j < cnt; j++) {
             SonosDevice* coord = sonos.getDevice(j);
-            if (coord && coord->rinconID == dev->groupCoordinatorUUID) {
+            if (coord && SonosController::uuidEquals(coord->rinconID,
+                                                     dev->groupCoordinatorUUID)) {
                 coordinatorFound = true;
                 break;
             }
@@ -216,32 +220,8 @@ void createDevicesScreen() {
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title + Scan button row
-    lv_obj_t* title_row = lv_obj_create(content);
-    lv_obj_set_size(title_row, lv_pct(100), SY(40));
-    lv_obj_set_pos(title_row, 0, 0);
-    lv_obj_set_style_bg_opa(title_row, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(title_row, 0, 0);
-    lv_obj_set_style_pad_all(title_row, 0, 0);
-    lv_obj_clear_flag(title_row, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t* lbl_title = lv_label_create(title_row);
-    lv_label_set_text(lbl_title, "Speakers");
-    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, 0, 0);
-
-    btn_sonos_scan = lv_button_create(title_row);
-    lv_obj_set_size(btn_sonos_scan, SX(110), SY(40));
-    lv_obj_align(btn_sonos_scan, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_obj_set_style_bg_color(btn_sonos_scan, COL_ACCENT, 0);
-    lv_obj_set_style_radius(btn_sonos_scan, 20, 0);
-    lv_obj_set_style_shadow_width(btn_sonos_scan, 0, 0);
+    btn_sonos_scan = addScreenHeader(content, "Speakers", MDI_REFRESH " Scan");
     lv_obj_add_event_cb(btn_sonos_scan, ev_discover, LV_EVENT_CLICKED, NULL);
-    lv_obj_t* lbl_scan = lv_label_create(btn_sonos_scan);
-    lv_label_set_text(lbl_scan, MDI_REFRESH " Scan");
-    lv_obj_set_style_text_color(lbl_scan, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_text_font(lbl_scan, &lv_font_mdi_16, 0);
-    lv_obj_center(lbl_scan);
 
     // Status label
     lbl_status = lv_label_create(content);
@@ -252,7 +232,7 @@ void createDevicesScreen() {
 
     // Devices list
     list_devices = lv_list_create(content);
-    lv_obj_set_size(list_devices, lv_pct(100), SY(380));
+    lv_obj_set_size(list_devices, lv_pct(100), SETTINGS_LIST_H(75));
     lv_obj_set_pos(list_devices, 0, SY(75));
     lv_obj_set_style_bg_color(list_devices, COL_BG, 0);
     lv_obj_set_style_border_width(list_devices, 0, 0);

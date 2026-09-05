@@ -2120,6 +2120,45 @@ bool SonosController::joinGroup(int deviceIndex, int coordinatorIndex) {
     return success;
 }
 
+// Move a speaker into another group, taking its own group members along.
+//
+// The Groups screen used to offer only standalone speakers as join targets, so this case
+// could not arise from the UI. Now that a speaker already in another group can be picked,
+// joining just that one speaker would strand the rest of its group behind a coordinator
+// that is no longer theirs. Sonos would eventually elect a replacement, but the user
+// asked for the group to move, so move it.
+int SonosController::joinGroupCascade(int deviceIndex, int coordinatorIndex) {
+    if (deviceIndex < 0 || deviceIndex >= deviceCount) return 0;
+    if (coordinatorIndex < 0 || coordinatorIndex >= deviceCount) return 0;
+    if (deviceIndex == coordinatorIndex) return 0;
+
+    // Snapshot the followers BEFORE the first join — joinGroup() rewrites the very
+    // membership fields this loop reads.
+    int followers[MAX_SONOS_DEVICES];
+    int followerCount = 0;
+    if (devices[deviceIndex].isGroupCoordinator) {
+        String lead = devices[deviceIndex].rinconID;
+        for (int i = 0; i < deviceCount && followerCount < MAX_SONOS_DEVICES; i++) {
+            if (i == deviceIndex || i == coordinatorIndex) continue;
+            if (uuidEquals(devices[i].groupCoordinatorUUID, lead)) followers[followerCount++] = i;
+        }
+    }
+
+    int moved = 0;
+    if (joinGroup(deviceIndex, coordinatorIndex)) moved++;
+
+    for (int i = 0; i < followerCount; i++) {
+        vTaskDelay(pdMS_TO_TICKS(150));      // same spacing as the other group SOAP loops
+        if (joinGroup(followers[i], coordinatorIndex)) moved++;
+    }
+
+    if (followerCount > 0) {
+        Serial.printf("[GROUP] Cascaded %d of %d speaker(s) into %s\n",
+                      moved, followerCount + 1, devices[coordinatorIndex].roomName.c_str());
+    }
+    return moved;
+}
+
 bool SonosController::leaveGroup(int deviceIndex) {
     if (deviceIndex < 0 || deviceIndex >= deviceCount) return false;
 
@@ -2178,7 +2217,8 @@ void SonosController::updateGroupInfo() {
                 // Check if this device is following another (x-rincon:RINCON_xxx format)
                 if (currentURI.startsWith("x-rincon:")) {
                     // Extract coordinator RINCON from URI
-                    dev->groupCoordinatorUUID = currentURI.substring(9);  // Skip "x-rincon:"
+                    // Canonicalised for the same reason as the topology path.
+                    dev->groupCoordinatorUUID = canonicalUuid(currentURI.substring(9));
                     dev->isGroupCoordinator = false;
                 } else {
                     // Not following anyone - either standalone or is a coordinator
@@ -2197,7 +2237,7 @@ void SonosController::updateGroupInfo() {
         if (devices[i].isGroupCoordinator) {
             int count = 1;  // Count self
             for (int j = 0; j < deviceCount; j++) {
-                if (i != j && devices[j].groupCoordinatorUUID == devices[i].rinconID) {
+                if (i != j && uuidEquals(devices[j].groupCoordinatorUUID, devices[i].rinconID)) {
                     count++;
                 }
             }
@@ -2208,6 +2248,58 @@ void SonosController::updateGroupInfo() {
     }
 
     notifyUI(UPDATE_GROUPS);
+}
+
+// ============================================================================
+// RINCON UUID comparison — read this before touching group membership
+// ----------------------------------------------------------------------------
+// rinconID is stored exactly as the speaker's device description spells it
+// (<UDN>uuid:RINCON_B8E937...</UDN> — uppercase). But we learn the SAME id from other
+// sources that do not agree on case:
+//
+//   - refreshGroupTopology() lowercases its whole GetZoneGroupState response before
+//     parsing, because RINCON case varies between firmwares;
+//   - fetchTopologyCoordinators() in sonos_discovery.cpp lowercases too;
+//   - the x-rincon: transport URI carries whatever the speaker felt like sending.
+//
+// Eight places across the controller and the UI decided membership with a plain
+// case-sensitive String ==, e.g.
+//
+//     member->groupCoordinatorUUID == dev->rinconID          (ui_groups_screen.cpp)
+//
+// In v1.15.1 refreshGroupTopology() started storing its lowercase UUIDs directly, and
+// all eight silently returned false: the group row rendered "Standalone", its member
+// list came up empty, and so did "Add speakers" — the follow-up report on issue #140,
+// "12 speakers, 1 group" with nothing under it.
+//
+// Two layers, because fixing only one leaves the trap armed:
+//
+//   uuidEquals()   — every membership comparison goes through it, so a future writer
+//                    storing an odd casing cannot break the screens again. This is the
+//                    layer that matters. Never write `a == b` on a RINCON id.
+//   canonicalUuid() — normalises on the way IN, so what is stored is tidy and any code
+//                    that formats a UUID into a URI gets the spelling Sonos expects.
+// ============================================================================
+bool SonosController::uuidEquals(const String& a, const String& b) {
+    size_t n = a.length();
+    if (n != b.length()) return false;
+    const char* pa = a.c_str();
+    const char* pb = b.c_str();
+    for (size_t i = 0; i < n; i++) {
+        char ca = pa[i], cb = pb[i];
+        if (ca >= 'A' && ca <= 'Z') ca += 32;    // ASCII-only by construction: RINCON ids
+        if (cb >= 'A' && cb <= 'Z') cb += 32;    // are [A-Za-z0-9_]. No ctype, no locale.
+        if (ca != cb) return false;
+    }
+    return true;
+}
+
+String SonosController::canonicalUuid(const String& uuid) {
+    if (uuid.length() == 0) return uuid;
+    for (int i = 0; i < deviceCount; i++) {
+        if (uuidEquals(devices[i].rinconID, uuid)) return devices[i].rinconID;
+    }
+    return uuid;   // a speaker we never discovered — keep what the topology said
 }
 
 // ============================================================================
@@ -2273,33 +2365,45 @@ bool SonosController::refreshGroupTopology(bool force) {
         scan = ge + 12;
         groups++;
 
-        // Coordinator of this group
+        // Coordinator of this group. `resp` was lowercased for parsing, so keep both
+        // spellings: coordLower to match against the payload, coordUuid (canonical) to
+        // STORE — see canonicalUuid() above for why that distinction is load-bearing.
         int cs = group.indexOf("coordinator=\"");
         if (cs < 0) continue;
         cs += 13;
         int ce = group.indexOf("\"", cs);
         if (ce <= cs) continue;
-        String coordUuid = group.substring(cs, ce);
+        String coordLower = group.substring(cs, ce);
+        String coordUuid  = canonicalUuid(coordLower);
 
-        // Members of this group
+        // Members of this group.
+        //
+        // Iterate <ZoneGroupMember> elements rather than every uuid=" in the blob: a home
+        // theatre member carries nested <Satellite UUID="..."/> children for its sub and
+        // surrounds, and counting those inflated groupMemberCount — enough to make a
+        // STANDALONE Beam + Sub + two surrounds report as a four-speaker group.
         int members = 0;
         int ms = 0;
         while (true) {
-            int us = group.indexOf("uuid=\"", ms);
-            if (us < 0) break;
-            us += 6;
-            int ue = group.indexOf("\"", us);
-            if (ue <= us) break;
-            String memberUuid = group.substring(us, ue);
-            ms = ue;
+            int mstart = group.indexOf("<zonegroupmember ", ms);
+            if (mstart < 0) break;
+            int mend = group.indexOf(">", mstart);      // attributes end at the first '>'
+            if (mend < 0) break;
+            String attrs = group.substring(mstart, mend);
+            ms = mend;
             members++;
 
+            int us = attrs.indexOf("uuid=\"");
+            if (us < 0) continue;
+            us += 6;
+            int ue = attrs.indexOf("\"", us);
+            if (ue <= us) continue;
+            String memberUuid = attrs.substring(us, ue);   // lowercase — matching only
+
             for (int i = 0; i < deviceCount; i++) {
-                String rid = devices[i].rinconID;
-                rid.toLowerCase();
-                if (rid == memberUuid) {
+                if (uuidEquals(devices[i].rinconID, memberUuid)) {
                     devices[i].groupCoordinatorUUID = coordUuid;
-                    devices[i].isGroupCoordinator   = (memberUuid == coordUuid);
+                    devices[i].isGroupCoordinator   = uuidEquals(memberUuid, coordLower);
                     break;
                 }
             }
@@ -2307,9 +2411,10 @@ bool SonosController::refreshGroupTopology(bool force) {
 
         // Stamp the member count onto the coordinator, which is what the volume path reads.
         for (int i = 0; i < deviceCount; i++) {
-            String rid = devices[i].rinconID;
-            rid.toLowerCase();
-            if (rid == coordUuid) { devices[i].groupMemberCount = members; break; }
+            if (uuidEquals(devices[i].rinconID, coordLower)) {
+                devices[i].groupMemberCount = members;
+                break;
+            }
         }
     }
     xSemaphoreGive(deviceMutex);
@@ -2335,11 +2440,8 @@ SonosDevice* SonosController::groupCoordinatorFor(SonosDevice* dev) {
         xSemaphoreGive(deviceMutex);
     }
     if (want.length() == 0) return dev;
-    want.toLowerCase();
     for (int i = 0; i < deviceCount; i++) {
-        String rid = devices[i].rinconID;
-        rid.toLowerCase();
-        if (rid == want) return &devices[i];
+        if (uuidEquals(devices[i].rinconID, want)) return &devices[i];
     }
     // Coordinator is a speaker we never discovered (deduped away as a stereo-pair
     // slave, or off-network). Falling back to dev keeps today's behaviour rather
@@ -2362,7 +2464,7 @@ int SonosController::getGroupMemberCount(int coordinatorIndex) {
     int count = 1;  // Count coordinator itself
     for (int i = 0; i < deviceCount; i++) {
         if (i != coordinatorIndex &&
-            devices[i].groupCoordinatorUUID == coordinator->rinconID) {
+            uuidEquals(devices[i].groupCoordinatorUUID, coordinator->rinconID)) {
             count++;
         }
     }
@@ -2378,5 +2480,5 @@ bool SonosController::isDeviceInGroup(int deviceIndex, int coordinatorIndex) {
     SonosDevice* device = &devices[deviceIndex];
     SonosDevice* coordinator = &devices[coordinatorIndex];
 
-    return (device->groupCoordinatorUUID == coordinator->rinconID);
+    return uuidEquals(device->groupCoordinatorUUID, coordinator->rinconID);
 }

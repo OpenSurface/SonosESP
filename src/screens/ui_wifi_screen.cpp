@@ -8,6 +8,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_settings_card.h"   // addScreenHeader() - shared title row
 #include "ui_fonts.h"
 
 // Forward declaration
@@ -32,32 +33,10 @@ void createWiFiScreen() {
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // ── Title row ──────────────────────────────────────────────────────────────
-    lv_obj_t* title_row = lv_obj_create(content);
-    lv_obj_set_size(title_row, lv_pct(100), SY(44));
-    lv_obj_set_pos(title_row, 0, 0);
-    lv_obj_set_style_bg_opa(title_row, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(title_row, 0, 0);
-    lv_obj_set_style_pad_all(title_row, 0, 0);
-    lv_obj_clear_flag(title_row, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t* lbl_title = lv_label_create(title_row);
-    lv_label_set_text(lbl_title, "WiFi");
-    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, 0, 0);
-
-    btn_wifi_scan = lv_button_create(title_row);
-    lv_obj_set_size(btn_wifi_scan, SX(100), SY(34));
-    lv_obj_align(btn_wifi_scan, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_obj_set_style_bg_color(btn_wifi_scan, COL_ACCENT, 0);
-    lv_obj_set_style_radius(btn_wifi_scan, 17, 0);
-    lv_obj_set_style_shadow_width(btn_wifi_scan, 0, 0);
+    btn_wifi_scan = addScreenHeader(content, "WiFi", MDI_REFRESH " Scan");
     lv_obj_add_event_cb(btn_wifi_scan, ev_wifi_scan, LV_EVENT_CLICKED, NULL);
-    lbl_scan_text = lv_label_create(btn_wifi_scan);
-    lv_label_set_text(lbl_scan_text, MDI_REFRESH " Scan");
-    lv_obj_set_style_text_color(lbl_scan_text, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_text_font(lbl_scan_text, &lv_font_mdi_16, 0);
-    lv_obj_center(lbl_scan_text);
+    // The scan button's label is retargeted while scanning ("Scanning...").
+    lbl_scan_text = screenHeaderActionLabel(btn_wifi_scan);
 
     // ── Status label (y=50) ────────────────────────────────────────────────────
     lbl_wifi_status = lv_label_create(content);
@@ -140,8 +119,11 @@ void createWiFiScreen() {
     // ── Network list (y=140, h=340) — always BELOW strip, never overlaps ───────
     // With keyboard (175px from bottom) list shows y=140..300 = 160px ≈ 3 items
     // pw_strip at y=76..132 stays fully visible above keyboard
+    // Height was SY(340), ending at 480 - but the content area is only 432 tall
+    // once its SMIN(24) padding is taken off, so the last 48px of the list, and
+    // whichever network happened to sit there, were clipped away.
     list_wifi = lv_list_create(content);
-    lv_obj_set_size(list_wifi, lv_pct(100), SY(340));
+    lv_obj_set_size(list_wifi, lv_pct(100), SETTINGS_LIST_H(140));
     lv_obj_set_pos(list_wifi, 0, SY(140));
     lv_obj_set_style_bg_color(list_wifi, COL_SCREEN, 0);
     lv_obj_set_style_border_width(list_wifi, 0, 0);

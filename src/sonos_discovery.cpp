@@ -78,6 +78,14 @@ int SonosController::discoverDevices() {
                     if (!exists && deviceCount < MAX_SONOS_DEVICES) {
                         devices[deviceCount].ip = ip;
                         devices[deviceCount].roomName = ip.toString();
+                        // Identity MUST be cleared with the rest of the slot. deviceCount
+                        // was reset to 0 at the top of this scan, so slot 0 is very often
+                        // the fast-boot cached speaker — and getRoomName() below leaves
+                        // rinconID untouched when the description fetch fails. Without this
+                        // line an unidentified responder inherits the previous occupant's
+                        // RINCON, two entries then claim the same id, and the Groups screen
+                        // renders a phantom speaker named by its bare IP.
+                        devices[deviceCount].rinconID = "";
                         devices[deviceCount].isPlaying = false;
                         devices[deviceCount].volume = 50;
                         devices[deviceCount].isMuted = false;
@@ -145,6 +153,42 @@ int SonosController::discoverDevices() {
         lv_refr_now(NULL);
     }
 
+    // Drop anything that answered SSDP but never resolved into a real speaker.
+    //
+    // udp.begin(1900) binds the SSDP multicast port, so this socket also receives
+    // unsolicited NOTIFY/ssdp:alive traffic from the whole LAN, not just replies to our
+    // M-SEARCH. Anything whose payload merely contains "sonos" or "zoneplayer" is accepted
+    // above. A real ZonePlayer answers /xml/device_description.xml with a room name and a
+    // UDN; something that answers neither is not a speaker we can drive — every group,
+    // queue and favourite URI is built from the RINCON id.
+    //
+    // Conservative on purpose: a device is only dropped when it has NO RINCON *and*
+    // getRoomName() never replaced the placeholder name (roomName is still the raw IP).
+    // A speaker that names itself but loses its UDN to a transient failure is kept.
+    {
+        int kept = 0;
+        for (int i = 0; i < deviceCount; i++) {
+            bool identified = devices[i].rinconID.length() > 0 ||
+                              devices[i].roomName != devices[i].ip.toString();
+            if (identified) {
+                if (i != kept) devices[kept] = devices[i];
+                kept++;
+            } else {
+                Serial.printf("[SONOS]   [DROPPED] %s answered SSDP but has no room name or "
+                              "RINCON — not a controllable ZonePlayer\n",
+                              devices[i].ip.toString().c_str());
+            }
+        }
+        if (kept != deviceCount) {
+            Serial.printf("[SONOS] Dropped %d unidentified responder(s)\n", deviceCount - kept);
+            deviceCount = kept;
+        }
+        if (deviceCount == 0) {
+            Serial.println("[SONOS] No identifiable Sonos devices after filtering");
+            return 0;
+        }
+    }
+
     // Fetch zone group topology to identify coordinator IPs for stereo pairs / bonded zones.
     // Both speakers in a stereo pair respond to SSDP with the same room name, but only the
     // coordinator IP accepts commands. SSDP response order is non-deterministic, so we must
@@ -190,7 +234,20 @@ int SonosController::discoverDevices() {
             normalizedExisting.trim();
             normalizedExisting.toLowerCase();
 
-            if (normalizedExisting == normalizedCurrent) {
+            // Same room name OR same RINCON. Name alone was not enough: an entry that
+            // failed its description fetch keeps the placeholder IP as its name, so it
+            // never collided with the real speaker it was duplicating.
+            bool sameName = (normalizedExisting == normalizedCurrent);
+            bool sameUuid = devices[i].rinconID.length() > 0 &&
+                            SonosController::uuidEquals(devices[j].rinconID, devices[i].rinconID);
+
+            if (sameName || sameUuid) {
+                if (sameUuid && !sameName) {
+                    Serial.printf("[SONOS]   [SAME RINCON] '%s' (%s) and '%s' (%s) share %s\n",
+                        devices[i].roomName.c_str(), devices[i].ip.toString().c_str(),
+                        devices[j].roomName.c_str(), devices[j].ip.toString().c_str(),
+                        devices[i].rinconID.c_str());
+                }
                 isDuplicate = true;
                 if (iIsCoord && !isCoordinator(devices[j])) {
                     // Current (i) is the coordinator; existing (j) is the slave — swap

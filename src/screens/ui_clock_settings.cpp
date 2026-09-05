@@ -75,19 +75,10 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
     return dd;
 }
 
-static lv_obj_t* makeSlider(lv_obj_t* parent, int min, int max, int value) {
-    lv_obj_t* s = lv_slider_create(parent);
-    lv_obj_set_width(s, lv_pct(100));
-    lv_obj_set_height(s, SY(20));
-    lv_slider_set_range(s, min, max);
-    lv_slider_set_value(s, value, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(s, COL_SELECTED, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(s, COL_ACCENT, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_color(s, COL_ACCENT, LV_PART_KNOB);
-    lv_obj_set_style_radius(s, 10, LV_PART_MAIN);
-    lv_obj_set_style_radius(s, 10, LV_PART_INDICATOR);
-    lv_obj_set_style_pad_all(s, SMIN(2), LV_PART_KNOB);
-    return s;
+// Slider styling now lives in addSlider() (ui_settings_card.cpp) so Display and
+// Clock cannot drift apart again; this stays as a thin alias for the call sites.
+static inline lv_obj_t* makeSlider(lv_obj_t* parent, int min, int max, int value) {
+    return addSlider(parent, min, max, value);
 }
 
 static lv_obj_t* makeTextarea(lv_obj_t* parent, const char* initial,
@@ -306,11 +297,7 @@ void createClockSettingsScreen() {
     settings_scrollable = content;  // remember for scroll-into-view on keyboard focus
 
     // ── Screen title ─────────────────────────────────────────────────────────
-    lv_obj_t* lbl_title = lv_label_create(content);
-    lv_label_set_text(lbl_title, "Clock");
-    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_pad_bottom(lbl_title, SY(12), 0);
+    addScreenHeader(content, "Clock", nullptr);
 
     // ────────────────────────────────────────────────────────────────────────
     // CARD 1 — Display

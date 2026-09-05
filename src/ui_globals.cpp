@@ -23,6 +23,7 @@ lv_color_t COL_BORDER = lv_color_hex(0x555555);
 lv_color_t COL_TEXT = lv_color_hex(0xFFFFFF);
 lv_color_t COL_TEXT2 = lv_color_hex(0x888888);
 lv_color_t COL_TEXT3 = lv_color_hex(0xAAAAAA);
+lv_color_t COL_TEXT_FAINT = lv_color_hex(0x666666);
 lv_color_t COL_ACCENT = lv_color_hex(0xD4A84B);
 lv_color_t COL_ERROR = lv_color_hex(0xFF6B6B);
 lv_color_t COL_OK = lv_color_hex(0x4ECB71);

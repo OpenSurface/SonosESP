@@ -28,11 +28,7 @@ void createGeneralScreen() {
     lv_obj_set_style_pad_row(content, 0, 0);
 
     // ── Screen title ─────────────────────────────────────────────────────────
-    lv_obj_t* lbl_title = lv_label_create(content);
-    lv_label_set_text(lbl_title, "General");
-    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_style_pad_bottom(lbl_title, SY(12), 0);
+    addScreenHeader(content, "General", nullptr);
 
     // ────────────────────────────────────────────────────────────────────────
     // CARD — Lyrics

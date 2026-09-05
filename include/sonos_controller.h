@@ -225,6 +225,11 @@ public:
 
     // Group management
     bool joinGroup(int deviceIndex, int coordinatorIndex);   // Join device to coordinator's group
+
+    // Join a device to a coordinator, bringing its own group with it. Plain joinGroup()
+    // repoints one speaker; if that speaker was itself coordinating others, they would be
+    // left following a coordinator that has moved. Returns the number of speakers moved.
+    int joinGroupCascade(int deviceIndex, int coordinatorIndex);
     bool leaveGroup(int deviceIndex);                        // Remove device from its group (make standalone)
     void updateGroupInfo();                                  // Refresh group membership info for all devices
     int getGroupMemberCount(int coordinatorIndex);           // Get number of members in a group
@@ -235,6 +240,16 @@ public:
     // costs one, and is authoritative rather than inferred from transport URIs.
     // Throttled internally — call it freely. Returns true if the topology was parsed.
     bool refreshGroupTopology(bool force = false);
+
+    // Compare two RINCON UUIDs. ALWAYS use this instead of ==; RINCON case is not
+    // stable across the sources we read it from, and a case-sensitive compare is what
+    // broke the Groups screen in v1.15.1. Allocation-free, so it is safe in render loops.
+    static bool uuidEquals(const String& a, const String& b);
+
+    // Canonical spelling of a RINCON UUID: the discovered device's own rinconID when we
+    // know that speaker, else the input unchanged. Group UUIDs are stored through this so
+    // the data is clean at rest; uuidEquals() is what makes reads safe regardless.
+    String canonicalUuid(const String& uuid);
 
     // The device that owns group state for `dev` — itself when it coordinates, else the
     // coordinator it follows. Returns `dev` when the coordinator is not in our list.

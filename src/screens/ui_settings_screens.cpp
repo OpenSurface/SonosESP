@@ -5,6 +5,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_settings_card.h"   // addScreenHeader() - shared title row
 #include "config.h"
 #include "ui_fonts.h"
 
@@ -427,16 +428,12 @@ void createSourcesScreen() {
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title
-    lv_obj_t* lbl_title = lv_label_create(content);
-    lv_label_set_text(lbl_title, "Sources");
-    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_set_pos(lbl_title, 0, 0);
+    addScreenHeader(content, "Sources", nullptr);
 
     // Scrollable list
     lv_obj_t* list = lv_obj_create(content);
     lv_obj_set_pos(list, 0, SY(50));
-    lv_obj_set_size(list, lv_pct(100), SY(405));
+    lv_obj_set_size(list, lv_pct(100), SETTINGS_LIST_H(50));
     lv_obj_set_style_bg_color(list, COL_BG, 0);
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_set_style_pad_all(list, 0, 0);
@@ -586,7 +583,7 @@ void createBrowseScreen() {
     // Content list
     lv_obj_t* list = lv_obj_create(content);
     lv_obj_set_pos(list, 0, SY(50));
-    lv_obj_set_size(list, lv_pct(100), SY(405));
+    lv_obj_set_size(list, lv_pct(100), SETTINGS_LIST_H(50));
     lv_obj_set_style_bg_color(list, COL_BG, 0);
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_set_style_pad_all(list, 0, 0);
