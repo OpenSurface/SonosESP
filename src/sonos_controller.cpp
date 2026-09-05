@@ -4,6 +4,7 @@
  */
 
 #include "sonos_controller.h"
+#include "sonos_topology.h"   // parser under host test (test/test_topology)
 #include "config.h"
 #include "ui_network_guard.h"
 #include <HTTPClient.h>
@@ -2281,17 +2282,7 @@ void SonosController::updateGroupInfo() {
 //                    that formats a UUID into a URI gets the spelling Sonos expects.
 // ============================================================================
 bool SonosController::uuidEquals(const String& a, const String& b) {
-    size_t n = a.length();
-    if (n != b.length()) return false;
-    const char* pa = a.c_str();
-    const char* pb = b.c_str();
-    for (size_t i = 0; i < n; i++) {
-        char ca = pa[i], cb = pb[i];
-        if (ca >= 'A' && ca <= 'Z') ca += 32;    // ASCII-only by construction: RINCON ids
-        if (cb >= 'A' && cb <= 'Z') cb += 32;    // are [A-Za-z0-9_]. No ctype, no locale.
-        if (ca != cb) return false;
-    }
-    return true;
+    return sonos_topology::uuidEquals(a.c_str(), a.length(), b.c_str(), b.length());
 }
 
 String SonosController::canonicalUuid(const String& uuid) {
@@ -2338,12 +2329,15 @@ bool SonosController::refreshGroupTopology(bool force) {
     String resp = sendSOAP("ZoneGroupTopology", "GetZoneGroupState", "");
     if (resp.length() == 0) return false;
 
-    // The ZoneGroupState payload is entity-encoded inside the SOAP body.
-    resp.replace("&lt;", "<");
-    resp.replace("&gt;", ">");
-    resp.replace("&quot;", "\"");
-    resp.replace("&amp;", "&");     // last, or the others double-decode
-    resp.toLowerCase();             // RINCON case varies between firmwares
+    // Decode + parse through sonos_topology.h, which is framework-free and covered
+    // by host tests (test/test_topology). Both defects fixed in v1.15.2 lived in
+    // this parsing - the case-sensitive comparison and the satellite miscount - so
+    // it is the part that most needed to become testable off-device.
+    //
+    // decodeInPlace() resolves the entity encoding and lowercases in ONE pass. The
+    // four String::replace() calls it replaces were order-dependent: &amp; had to
+    // run last or "&amp;lt;" double-decoded into a tag the payload never contained.
+    size_t declen = sonos_topology::decodeInPlace(&resp[0], resp.length());
 
     // Reset before parsing: a speaker that has left a group must not keep stale
     // membership from the previous scan.
@@ -2354,65 +2348,52 @@ bool SonosController::refreshGroupTopology(bool force) {
         devices[i].groupMemberCount    = 1;
     }
 
-    int groups = 0;
-    int scan = 0;
-    while (true) {
-        int gs = resp.indexOf("<zonegroup ", scan);
-        if (gs < 0) break;
-        int ge = resp.indexOf("</zonegroup>", gs);
-        if (ge < 0) break;                              // truncated response
-        String group = resp.substring(gs, ge);
-        scan = ge + 12;
-        groups++;
+    // static, not stack: this runs on the polling task (SONOS_POLL_TASK_STACK) and
+    // the network task, and this project has a history of stack-pressure faults.
+    // Safe because every access below is inside the deviceMutex we now hold.
+    static sonos_topology::Group  s_groups[MAX_SONOS_DEVICES];
+    static sonos_topology::Slice  s_members[MAX_SONOS_DEVICES * 2];
 
-        // Coordinator of this group. `resp` was lowercased for parsing, so keep both
-        // spellings: coordLower to match against the payload, coordUuid (canonical) to
-        // STORE — see canonicalUuid() above for why that distinction is load-bearing.
-        int cs = group.indexOf("coordinator=\"");
-        if (cs < 0) continue;
-        cs += 13;
-        int ce = group.indexOf("\"", cs);
-        if (ce <= cs) continue;
-        String coordLower = group.substring(cs, ce);
-        String coordUuid  = canonicalUuid(coordLower);
+    int groups = sonos_topology::parseZoneGroups(
+        resp.c_str(), declen,
+        s_groups,  MAX_SONOS_DEVICES,
+        s_members, MAX_SONOS_DEVICES * 2);
 
-        // Members of this group.
+    for (int g = 0; g < groups; g++) {
+        const sonos_topology::Slice& coord = s_groups[g].coordinator;
+
+        // Canonical spelling to STORE; the parsed slice is lowercase and is only
+        // ever used for matching. See canonicalUuid() for why that matters.
         //
-        // Iterate <ZoneGroupMember> elements rather than every uuid=" in the blob: a home
-        // theatre member carries nested <Satellite UUID="..."/> children for its sub and
-        // surrounds, and counting those inflated groupMemberCount — enough to make a
-        // STANDALONE Beam + Sub + two surrounds report as a four-speaker group.
-        int members = 0;
-        int ms = 0;
-        while (true) {
-            int mstart = group.indexOf("<zonegroupmember ", ms);
-            if (mstart < 0) break;
-            int mend = group.indexOf(">", mstart);      // attributes end at the first '>'
-            if (mend < 0) break;
-            String attrs = group.substring(mstart, mend);
-            ms = mend;
-            members++;
+        // Copied through a bounded buffer, NOT String(coord.ptr): the slice points
+        // into the response and is not null-terminated, so that would read to the
+        // end of the whole payload and allocate it before trimming.
+        char cbuf[64];
+        size_t clen = coord.len < sizeof(cbuf) - 1 ? coord.len : sizeof(cbuf) - 1;
+        memcpy(cbuf, coord.ptr, clen);
+        cbuf[clen] = '\0';
+        String coordUuid = canonicalUuid(String(cbuf));
 
-            int us = attrs.indexOf("uuid=\"");
-            if (us < 0) continue;
-            us += 6;
-            int ue = attrs.indexOf("\"", us);
-            if (ue <= us) continue;
-            String memberUuid = attrs.substring(us, ue);   // lowercase — matching only
-
+        for (int m = 0; m < s_groups[g].memberCount; m++) {
+            const sonos_topology::Slice& mem = s_members[s_groups[g].firstMember + m];
             for (int i = 0; i < deviceCount; i++) {
-                if (uuidEquals(devices[i].rinconID, memberUuid)) {
+                if (sonos_topology::uuidEquals(devices[i].rinconID.c_str(),
+                                               devices[i].rinconID.length(),
+                                               mem.ptr, mem.len)) {
                     devices[i].groupCoordinatorUUID = coordUuid;
-                    devices[i].isGroupCoordinator   = uuidEquals(memberUuid, coordLower);
+                    devices[i].isGroupCoordinator =
+                        sonos_topology::uuidEquals(mem.ptr, mem.len, coord.ptr, coord.len);
                     break;
                 }
             }
         }
 
-        // Stamp the member count onto the coordinator, which is what the volume path reads.
+        // Member count belongs on the coordinator - that is what the volume path reads.
         for (int i = 0; i < deviceCount; i++) {
-            if (uuidEquals(devices[i].rinconID, coordLower)) {
-                devices[i].groupMemberCount = members;
+            if (sonos_topology::uuidEquals(devices[i].rinconID.c_str(),
+                                           devices[i].rinconID.length(),
+                                           coord.ptr, coord.len)) {
+                devices[i].groupMemberCount = s_groups[g].memberCount;
                 break;
             }
         }
