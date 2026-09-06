@@ -18,10 +18,15 @@ const cards = [
 ]
 
 // The toggle swaps the spec row. Values match docs/guide/hardware.md.
+// Prices are a rough guide checked Sept 2026 and they move, so the wording is
+// "about" and the link is a SEARCH by part number, not a listing URL -
+// individual AliExpress listings go dead constantly, a search does not.
 const panel = ref<4 | 7>(4)
 const spec = computed(() => panel.value === 4
-  ? { part: 'JC4880P433C', screen: '4″ · 480×480' }
-  : { part: 'JC1060P470C', screen: '7″ · 1024×600' })
+  ? { part: 'JC4880P443C', screen: '4″ · 800×480', price: '~$32' }
+  : { part: 'JC1060P470C', screen: '7″ · 1024×600', price: '~$37' })
+const buyUrl = computed(
+  () => `https://www.aliexpress.com/w/wholesale-${spec.value.part}.html`)
 
 const steps = [
   { n: '01', t: 'Plug it in',   d: 'USB-C to your computer. Chrome, Edge or Opera.' },
@@ -92,7 +97,7 @@ const showcaseUrl =
       <div class="col-a">
         <div class="hw-shot">
           <img :src="withBase('/panel.png')"
-               alt="GUITION JC4880P433C ESP32-P4 touchscreen panel, shown front and back"
+               alt="GUITION JC4880P443C ESP32-P4 touchscreen panel, shown front and back"
                width="636" height="608" loading="lazy" />
         </div>
       </div>
@@ -116,9 +121,17 @@ const showcaseUrl =
           <div class="cell"><span class="k">Part</span><span class="v">{{ spec.part }}</span></div>
           <div class="cell"><span class="k">Screen</span><span class="v nowrap">{{ spec.screen }}</span></div>
           <div class="cell"><span class="k">Cable</span><span class="v">USB-C</span></div>
+          <div class="cell"><span class="k">Price</span><span class="v nowrap">{{ spec.price }}</span></div>
         </div>
 
-        <a class="ulink" :href="withBase('/guide/hardware')">Which one to buy &#8594;</a>
+        <p class="pricenote">
+          About <strong>$30&#8211;40</strong> shipped, depending on the seller and the day.
+        </p>
+
+        <div class="hw-links">
+          <a class="ulink" :href="buyUrl" target="_blank" rel="noopener">Find it on AliExpress &#8594;</a>
+          <a class="ulink" :href="withBase('/guide/hardware')">Which one to buy &#8594;</a>
+        </div>
       </div>
     </div>
   </section>
@@ -245,7 +258,7 @@ const showcaseUrl =
 .ulink {
   display: inline-block; margin-top: 22px; font-size: 14.5px; font-weight: 500;
   color: var(--se-accent-text); text-decoration: none;
-  border-bottom: 1px solid oklch(.78 .13 42 / .35); padding-bottom: 2px;
+  border-bottom: 1px solid rgba(224, 178, 82, .35); padding-bottom: 2px;
 }
 .ulink:hover { color: var(--se-accent-hover); }
 
@@ -292,6 +305,10 @@ const showcaseUrl =
   background: rgba(242, 236, 228, .015);
 }
 .hw-shot img { display: block; width: 100%; height: auto; border-radius: 16px; }
+.pricenote { margin: 14px 0 0; font-size: .9rem; color: rgba(242, 236, 228, .58); }
+.pricenote strong { color: rgba(242, 236, 228, .82); font-weight: 600; }
+.hw-links { display: flex; flex-wrap: wrap; gap: 22px; }
+.hw-links .ulink { margin-top: 18px; }
 
 .seg {
   display: inline-flex; gap: 4px; margin-top: 28px; padding: 4px;
@@ -376,7 +393,7 @@ const showcaseUrl =
   padding: clamp(28px, 4vw, 48px); border-radius: 20px;
   border: 1px solid rgba(242, 236, 228, .1);
   background:
-    radial-gradient(80% 140% at 100% 0%, oklch(.7 .16 40 / .14), transparent 70%),
+    radial-gradient(80% 140% at 100% 0%, rgba(224, 178, 82, .16), transparent 70%),
     rgba(242, 236, 228, .025);
   display: flex; flex-wrap: wrap; gap: 28px;
   align-items: center; justify-content: space-between;
@@ -384,7 +401,7 @@ const showcaseUrl =
 .sup-copy { flex: 1 1 420px; min-width: 0; }
 .sup-copy .body { max-width: 58ch; margin-top: 16px; }
 .btn.kofi { background: var(--se-accent); color: #17120f; padding: 15px 26px; }
-.btn.kofi:hover { background: oklch(.76 .15 42); transform: translateY(-1px); }
+.btn.kofi:hover { background: var(--se-accent-hover); transform: translateY(-1px); }
 
 /* ---- footer ---- */
 .site-foot {

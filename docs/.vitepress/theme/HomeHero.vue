@@ -160,8 +160,8 @@ onMounted(async () => {
 .bloom {
   position: absolute; inset: -10% -20% 30% -20%; pointer-events: none;
   background:
-    radial-gradient(52% 60% at 22% 8%, oklch(.7 .16 40 / .2), transparent 70%),
-    radial-gradient(46% 54% at 82% 4%, oklch(.74 .12 72 / .15), transparent 72%);
+    radial-gradient(52% 60% at 22% 8%, var(--se-bloom-a), transparent 70%),
+    radial-gradient(46% 54% at 82% 4%, var(--se-bloom-b), transparent 72%);
 }
 .hero-inner {
   position: relative; max-width: 1180px; margin: 0 auto;
@@ -184,7 +184,7 @@ h1 {
   margin: 0; font-size: clamp(2.6rem, 6.4vw, 4.5rem); line-height: .98;
   letter-spacing: -.035em; font-weight: 600; text-wrap: balance;
 }
-.accent { color: oklch(.72 .16 40); }
+.accent { color: var(--se-gold); }
 
 .lede {
   margin: 26px 0 0; max-width: 46ch; font-size: clamp(1rem, 1.3vw, 1.12rem);

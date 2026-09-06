@@ -56,7 +56,18 @@ export default defineConfig({
     }
   },
 
+  // The design is a single dark surface - there is no light variant of it, and
+  // half-applying it would leave the docs in one palette and the home page in
+  // another. force-dark also drops the appearance toggle from the nav.
+  appearance: 'force-dark',
+
   themeConfig: {
+    // VPNavBarTitle renders this with v-html, so the wordmark can be markup and
+    // "ESP" can carry the firmware's gold. Doing it here rather than through a
+    // component in the nav-bar-title-before slot: that slot sits INSIDE the
+    // title's own <a>, so the two could both render and did.
+    siteTitle: 'Sonos<span class="site-esp">ESP</span>',
+
     nav: [
       { text: 'Install', link: '/guide/install' },
       { text: 'Features', link: '/guide/features' },
