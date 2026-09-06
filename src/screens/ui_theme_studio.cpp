@@ -441,6 +441,27 @@ void buildStudioPlayer() {
 
     // Neutral fill, not gold: the canvas keeps one action colour, and volume is
     // not the action on this screen.
-    slider_vol = studioSlider(panel_right, SP_R + 34, SP_VOL_Y, SP_RW - 34,
+    // Narrowed to leave room for the readout the canvas puts at the end of the row.
+    slider_vol = studioSlider(panel_right, SP_R + 34, SP_VOL_Y, SP_RW - 34 - 40,
                               ST_TEXT_BRIGHT, ev_vol_slider);
+
+    // Volume readout. Kept in step from the slider itself rather than from
+    // updateUI(), which only writes slider_vol and has no label for this.
+    lv_obj_t* lbl_vol = stLabel(panel_right, &font_text_14, ST_TEXT3, "--");
+    lv_obj_set_width(lbl_vol, SX(32));
+    lv_obj_set_style_text_align(lbl_vol, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_set_pos(lbl_vol, SX(SP_RIGHT - 32), SY(SP_VOL_Y - 6));
+    lv_obj_set_user_data(slider_vol, lbl_vol);
+    lv_obj_add_event_cb(slider_vol, [](lv_event_t* e) {
+        lv_obj_t* sl = (lv_obj_t*)lv_event_get_target(e);
+        lv_obj_t* l  = (lv_obj_t*)lv_obj_get_user_data(sl);
+        if (l) lv_label_set_text_fmt(l, "%d", (int)lv_slider_get_value(sl));
+    }, LV_EVENT_VALUE_CHANGED, NULL);
+
+    // ── Overlays ────────────────────────────────────────────────────────────
+    // Created LAST so they sit above both panels with no z-order juggling, and
+    // parented to the screen rather than to a panel — setLineInMode() and
+    // setTvAudioMode() hide panel children wholesale, which would take an open
+    // overlay down with them.
+    studioBuildOverlays(scr_main);
 }

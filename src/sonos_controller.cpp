@@ -544,6 +544,17 @@ void SonosController::setVolume(int vol) {
     xQueueSend(commandQueue, &cmd, 0);
 }
 
+void SonosController::setDeviceVolume(int deviceIndex, int vol) {
+    vol = constrain(vol, 0, 100);
+    CommandRequest_t cmd = { CMD_SET_DEVICE_VOLUME, vol, deviceIndex };
+    xQueueSend(commandQueue, &cmd, 0);
+}
+
+void SonosController::clearQueue() {
+    CommandRequest_t cmd = { CMD_CLEAR_QUEUE, 0, 0 };
+    xQueueSend(commandQueue, &cmd, 0);
+}
+
 void SonosController::volumeUp(int step) {
     SonosDevice* d = getCurrentDevice();
     if (d) setVolume(d->volume + step);
@@ -1662,6 +1673,43 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             }
             if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
                 dev->volume = cmd->value;
+                xSemaphoreGive(deviceMutex);
+            }
+            break;
+
+        case CMD_SET_DEVICE_VOLUME: {
+            // Same group split as CMD_SET_VOLUME above (issue #140): a speaker in
+            // a multi-speaker group is moved via the coordinator's
+            // GroupRenderingControl with NO <Channel>, otherwise via its own
+            // RenderingControl. The only difference here is the target — an
+            // arbitrary device rather than the selected one.
+            SonosDevice* target = getDevice(cmd->value2);
+            if (!target) break;
+            refreshGroupTopology();
+            if (isInMultiSpeakerGroup(target)) {
+                SonosDevice* coord = groupCoordinatorFor(target);
+                snprintf(args, sizeof(args),
+                    "<InstanceID>0</InstanceID><DesiredVolume>%d</DesiredVolume>",
+                    cmd->value);
+                sendSOAP(coord, "GroupRenderingControl", "SetGroupVolume", args);
+            } else {
+                snprintf(args, sizeof(args),
+                    "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>%d</DesiredVolume>",
+                    cmd->value);
+                sendSOAP(target, "RenderingControl", "SetVolume", args);
+            }
+            if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
+                target->volume = cmd->value;
+                xSemaphoreGive(deviceMutex);
+            }
+            break;
+        }
+
+        case CMD_CLEAR_QUEUE:
+            sendSOAP("AVTransport", "RemoveAllTracksFromQueue", "<InstanceID>0</InstanceID>");
+            if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
+                dev->queueSize = 0;
+                dev->totalTracks = 0;
                 xSemaphoreGive(deviceMutex);
             }
             break;

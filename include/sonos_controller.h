@@ -29,7 +29,9 @@ typedef enum {
     CMD_UPDATE_QUEUE,   // Refresh queue from network (safe: runs in network task, not UI thread)
     CMD_UPDATE_STATE,
     CMD_JOIN_GROUP,
-    CMD_LEAVE_GROUP
+    CMD_LEAVE_GROUP,
+    CMD_SET_DEVICE_VOLUME,   // value = level, value2 = device index
+    CMD_CLEAR_QUEUE
 } SonosCommand_e;
 
 typedef struct {
@@ -197,6 +199,19 @@ public:
 
     // Volume control (non-blocking, queued)
     void setVolume(int volume);
+
+    // Volume for a speaker that is NOT the current one — the per-row sliders on
+    // Speakers, Groups and the Rooms overlay.
+    //
+    // Queued like every other command, so the SOAP call happens on the Sonos
+    // task and never on the LVGL thread. Group semantics match setVolume():
+    // a member of a multi-speaker group is moved through its coordinator's
+    // GroupRenderingControl, not its own RenderingControl.
+    void setDeviceVolume(int deviceIndex, int volume);
+
+    // Empties the current queue (AVTransport::RemoveAllTracksFromQueue).
+    void clearQueue();
+
     void volumeUp(int step = 5);
     void volumeDown(int step = 5);
     void setMute(bool mute);

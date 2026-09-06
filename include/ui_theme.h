@@ -87,4 +87,15 @@ void buildAmbientPlayer(void);     // ui_theme_ambient.cpp
 void buildImmersivePlayer(void);   // ui_theme_immersive.cpp
 void buildStudioPlayer(void);      // ui_theme_studio.cpp
 
+// ── Studio overlays (ui_studio_overlays.cpp) ────────────────────────────────
+// The canvas draws Queue and Rooms OVER the player rather than as their own
+// screens. These are built by buildStudioPlayer() and are inert for every other
+// theme: the show functions return false when the Studio player is not built,
+// so ev_queue()/ev_devices() fall through to their original screen loads.
+void studioBuildOverlays(lv_obj_t* screen);
+bool studioShowQueue(void);
+bool studioShowRooms(void);
+void studioHideOverlay(void);
+bool studioOverlayOpen(void);
+
 #endif // UI_THEME_H

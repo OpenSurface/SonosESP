@@ -45,7 +45,9 @@ void refreshDeviceList() {
 
         // Create main button - taller if it has subtitle
         lv_obj_t* btn = lv_btn_create(list_devices);
-        lv_obj_set_size(btn, lv_pct(100), hasGroup || isPlaying ? SY(70) : SY(60));
+        // Taller than before: the row now carries an inline volume slider under
+        // its label block, which the canvas puts on every speaker row.
+        lv_obj_set_size(btn, lv_pct(100), hasGroup || isPlaying ? SY(96) : SY(86));
         lv_obj_set_user_data(btn, (void*)(intptr_t)i);
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
@@ -70,7 +72,7 @@ void refreshDeviceList() {
         }
         lv_obj_set_style_text_color(icon, isPlaying ? ST_ACCENT : (isSelected ? ST_ACCENT : ST_TEXT3), 0);
         lv_obj_set_style_text_font(icon, &font_icon_24, 0);
-        lv_obj_align(icon, LV_ALIGN_LEFT_MID, SX(5), hasGroup || isPlaying ? SY(-8) : 0);
+        lv_obj_align(icon, LV_ALIGN_TOP_LEFT, SX(5), hasGroup || isPlaying ? SY(6) : SY(10));
 
         // Room name
         lv_obj_t* lbl = lv_label_create(btn);
@@ -83,7 +85,7 @@ void refreshDeviceList() {
         // content box left by the 216 rail.
         lv_obj_set_width(lbl, SX(360));
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
-        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, hasGroup ? SX(55) : SX(45), hasGroup || isPlaying ? SY(-8) : 0);
+        lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, hasGroup ? SX(55) : SX(45), hasGroup || isPlaying ? SY(4) : SY(8));
 
         // Subtitle: group info or playing status
         if (hasGroup || isPlaying) {
@@ -97,7 +99,7 @@ void refreshDeviceList() {
             }
             lv_obj_set_style_text_color(sub, isPlaying ? ST_LIVE : ST_TEXT3, 0);
             lv_obj_set_style_text_font(sub, &font_icon_16, 0);
-            lv_obj_align(sub, LV_ALIGN_LEFT_MID, hasGroup ? SX(55) : SX(45), SY(12));
+            lv_obj_align(sub, LV_ALIGN_TOP_LEFT, hasGroup ? SX(55) : SX(45), SY(28));
         }
 
         // Volume level, read-only. The design draws a slider on each row, but
@@ -110,14 +112,14 @@ void refreshDeviceList() {
         lv_label_set_text_fmt(vol, "%d", dev->volume);
         lv_obj_set_style_text_color(vol, ST_TEXT3, 0);
         lv_obj_set_style_text_font(vol, &font_text_14, 0);
-        lv_obj_align(vol, LV_ALIGN_RIGHT_MID, SX(-32), 0);
+        lv_obj_align(vol, LV_ALIGN_TOP_RIGHT, SX(-32), hasGroup || isPlaying ? SY(10) : SY(14));
 
         // Right arrow indicator
         lv_obj_t* arrow = lv_label_create(btn);
         lv_label_set_text(arrow, ST_IC_CHEV);
         lv_obj_set_style_text_color(arrow, ST_TEXT3, 0);
         lv_obj_set_style_text_font(arrow, &font_icon_24, 0);
-        lv_obj_align(arrow, LV_ALIGN_RIGHT_MID, SX(-5), 0);
+        lv_obj_align(arrow, LV_ALIGN_TOP_RIGHT, SX(-5), hasGroup || isPlaying ? SY(8) : SY(12));
 
         lv_obj_add_event_cb(btn, [](lv_event_t* e) {
             int idx = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
@@ -125,6 +127,38 @@ void refreshDeviceList() {
             sonos.startTasks();
             lv_screen_load(scr_main);
         }, LV_EVENT_CLICKED, NULL);
+
+        // ── Inline volume ───────────────────────────────────────────────────
+        // A child of the row button, so it takes the drag before the row's
+        // CLICKED handler sees it — tapping the row still selects the speaker,
+        // dragging the slider does not.
+        lv_obj_t* vol_sl = lv_slider_create(btn);
+        lv_obj_set_size(vol_sl, lv_pct(88), SY(6));
+        lv_obj_align(vol_sl, LV_ALIGN_BOTTOM_LEFT, SX(5), SY(-10));
+        lv_slider_set_range(vol_sl, 0, 100);
+        lv_slider_set_value(vol_sl, dev->volume, LV_ANIM_OFF);
+        lv_obj_set_style_bg_color(vol_sl, ST_GROOVE, LV_PART_MAIN);
+        lv_obj_set_style_radius(vol_sl, SMIN(3), LV_PART_MAIN);
+        lv_obj_set_style_bg_color(vol_sl, isSelected ? ST_ACCENT : ST_TEXT3, LV_PART_INDICATOR);
+        lv_obj_set_style_radius(vol_sl, SMIN(3), LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(vol_sl, isSelected ? ST_ACCENT : ST_TEXT3, LV_PART_KNOB);
+        lv_obj_set_style_pad_all(vol_sl, SMIN(6), LV_PART_KNOB);
+        lv_obj_set_user_data(vol_sl, vol);          // the number to keep in step
+
+        // Live while dragging so the number tracks the knob...
+        lv_obj_add_event_cb(vol_sl, [](lv_event_t* e) {
+            lv_obj_t* s = (lv_obj_t*)lv_event_get_target(e);
+            lv_obj_t* n = (lv_obj_t*)lv_obj_get_user_data(s);
+            if (n) lv_label_set_text_fmt(n, "%d", (int)lv_slider_get_value(s));
+        }, LV_EVENT_VALUE_CHANGED, NULL);
+
+        // ...but the SOAP call only on release. VALUE_CHANGED fires per pixel of
+        // travel and would queue a command for every one of them.
+        lv_obj_add_event_cb(vol_sl, [](lv_event_t* e) {
+            lv_obj_t* s = (lv_obj_t*)lv_event_get_target(e);
+            int idx = (int)(intptr_t)lv_event_get_user_data(e);
+            sonos.setDeviceVolume(idx, lv_slider_get_value(s));
+        }, LV_EVENT_RELEASED, (void*)(intptr_t)i);
 
         // Show group members as indented sub-items
         if (hasGroup) {

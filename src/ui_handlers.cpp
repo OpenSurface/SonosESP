@@ -124,6 +124,9 @@ void ev_queue_item(lv_event_t* e) {
 // Navigation Event Handlers
 // ============================================================================
 void ev_devices(lv_event_t* e) {
+    // Studio draws Rooms as a modal over the player. Returns false for every
+    // other theme, which then loads the Speakers screen as before.
+    if (studioShowRooms()) return;
     lv_screen_load(scr_devices);
 }
 
@@ -143,6 +146,9 @@ void ev_queue(lv_event_t* e) {
     queue_fetch_start_index = start;
     queue_fetch_requested   = true;
     refreshQueueList();
+    // Studio draws the queue as a drawer over the player. The windowed fetch above
+    // is requested either way, so the drawer and the screen show the same data.
+    if (studioShowQueue()) return;
     lv_screen_load(scr_queue);
 }
 
@@ -2150,6 +2156,12 @@ void updateUI() {
     // Volume slider update
     if (!dragging_vol && d->volume != ui_vol && slider_vol) {
         lv_slider_set_value(slider_vol, d->volume, LV_ANIM_OFF);
+        // LVGL does not raise VALUE_CHANGED for a programmatic set, and the
+        // Studio player hangs its volume readout off exactly that event. Raising
+        // it here keeps the number in step when the volume moves from the app or
+        // another controller. ev_vol_slider ignores VALUE_CHANGED (it only acts
+        // on PRESSING/RELEASED), so no command is issued.
+        lv_obj_send_event(slider_vol, LV_EVENT_VALUE_CHANGED, NULL);
         ui_vol = d->volume;
     }
 
