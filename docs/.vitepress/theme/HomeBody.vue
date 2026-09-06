@@ -11,8 +11,14 @@ const cards = [
   { t: 'Multi-room and groups',
     d: 'Switch zones with live indicators for what is playing where. Create and break speaker groups from the panel.' },
   { t: 'Clock, weather, themes',
-    d: 'Four clock faces with a six-hour forecast, three player themes, and auto-dimming when you walk away.' },
+    d: 'Five clock faces with a six-hour forecast, three player themes, and auto-dimming when you walk away.' },
 ]
+
+// Photos people have sent in of their own panels. Empty by design: these are
+// other people's builds, so nothing goes in here that was not actually submitted
+// and credited. To add one, drop the file in docs/public/community/ and append
+// { src, who, note } below - the section hides itself while the list is empty.
+const community: { src: string; who: string; note?: string }[] = []
 
 const steps = [
   { n: 'Plug it in',  d: 'USB-C to your computer. Chrome, Edge or Opera.' },
@@ -48,6 +54,36 @@ const steps = [
       </article>
     </section>
 
+    <!--
+      What you actually need to buy. The three steps below open with "plug it in",
+      which quietly assumes you already own a panel - this is the piece that was
+      missing, and the render shows the board is a finished product rather than a
+      bare PCB you have to assemble.
+    -->
+    <section class="hardware">
+      <div class="hw-shot">
+        <img :src="withBase('/panel.png')"
+             alt="GUITION JC4880P433C ESP32-P4 touchscreen panel, shown front and back"
+             width="636" height="608" loading="lazy" />
+      </div>
+      <div class="hw-copy">
+        <p class="kicker">What you need</p>
+        <h2>One off-the-shelf panel</h2>
+        <p>
+          A GUITION ESP32-P4 touchscreen and a USB-C cable. That is the whole bill
+          of materials — no soldering, no breakout boards, no case to print. It
+          arrives as a finished unit running a demo launcher, and SonosESP replaces
+          that.
+        </p>
+        <ul class="chips">
+          <li>4″ JC4880P433C</li>
+          <li>7″ JC1060P470C</li>
+          <li>USB-C</li>
+        </ul>
+        <a class="link" :href="withBase('/guide/hardware')">Which one to buy →</a>
+      </div>
+    </section>
+
     <section class="steps">
       <h2 class="steps-title">Running in three steps</h2>
       <ol>
@@ -57,6 +93,20 @@ const steps = [
         </li>
       </ol>
       <a class="btn" :href="withBase('/guide/install')">Install it now</a>
+    </section>
+
+    <section v-if="community.length" class="community">
+      <div class="com-head">
+        <p class="kicker">Community builds</p>
+        <h2>Where people put theirs</h2>
+      </div>
+      <ul class="com-grid">
+        <li v-for="c in community" :key="c.src">
+          <img :src="withBase(c.src)" :alt="'SonosESP panel built by ' + c.who"
+               loading="lazy" />
+          <p class="com-cap"><strong>{{ c.who }}</strong><span v-if="c.note"> · {{ c.note }}</span></p>
+        </li>
+      </ul>
     </section>
 
     <section class="support">
@@ -136,8 +186,41 @@ const steps = [
 }
 .btn:hover { transform: translateY(-2px); }
 
+/* ---- hardware ---- */
+/* Image first in the source so it leads on narrow screens - the render is the
+   point of this section, and a wall of text above it buries it. */
+.hardware {
+  display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); gap: 40px;
+  align-items: center; padding: 36px 40px; border-radius: 20px; margin-bottom: 20px;
+  border: 1px solid var(--vp-c-divider);
+  background:
+    radial-gradient(110% 130% at 100% 0%, color-mix(in srgb, #2f4d86 12%, transparent), transparent 60%),
+    var(--vp-c-bg-soft);
+}
+.hw-shot img { display: block; width: 100%; height: auto; }
+.hardware h2 { margin: 0 0 14px; font-size: clamp(1.4rem, 2.5vw, 1.9rem); line-height: 1.15; letter-spacing: -.025em; border: 0; padding: 0; }
+.hardware p { margin: 0 0 18px; color: var(--vp-c-text-2); line-height: 1.65; }
+.hardware .chips { margin-bottom: 18px; }
+
+/* ---- community ---- */
+.community { margin-bottom: 20px; }
+.com-head { margin-bottom: 22px; }
+.community h2 { margin: 0; border: 0; padding: 0; font-size: clamp(1.4rem, 2.4vw, 1.8rem); letter-spacing: -.02em; }
+.com-grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 18px;
+}
+.com-grid li { margin: 0; }
+.com-grid img {
+  display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+  border-radius: 14px; border: 1px solid var(--vp-c-divider); background: var(--vp-c-bg-soft);
+}
+.com-cap { margin: 10px 2px 0; font-size: .85rem; color: var(--vp-c-text-3); line-height: 1.5; }
+.com-cap strong { color: var(--vp-c-text-2); font-weight: 600; }
+
 @media (max-width: 860px) {
   .lead-card { grid-template-columns: 1fr; gap: 26px; padding: 30px; }
+  .hardware { grid-template-columns: 1fr; gap: 26px; padding: 30px; }
   .steps { padding: 34px 24px; }
 }
 @media (prefers-reduced-motion: reduce) { .card, .btn { transition: none; } }
