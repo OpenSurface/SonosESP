@@ -54,7 +54,7 @@ lv_obj_t* addDescLabel(lv_obj_t* parent, const char* text);
 lv_obj_t* addSwitch(lv_obj_t* parent, bool initial);
 
 // ── Setting rows ────────────────────────────────────────────────────────────
-// From the "SonosESP Studio" design canvas: the control belongs to the RIGHT of
+// From the "SonosESP Amber" design canvas: the control belongs to the RIGHT of
 // its label, not underneath it.
 //
 // The stacked form (addSettingLabel → addDescLabel → addSwitch, each a separate

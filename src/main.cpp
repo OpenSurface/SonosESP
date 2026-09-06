@@ -267,7 +267,7 @@ void setup() {
     setBrightness(brightness_level);
     Serial.printf("[DISPLAY] Initial brightness: %d%%\n", brightness_level);
 
-    // Studio boot sequence (design artboard 1a). Owns the screen, the progress
+    // Amber boot sequence (design artboard 1a). Owns the screen, the progress
     // hairline and the four subsystem check lines; see ui_boot_screen.h.
     bootScreenCreate();
     bootScreenProgress(10);  // Initial display

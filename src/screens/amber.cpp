@@ -1,14 +1,14 @@
 /**
- * Shared primitives for the Studio look — implementations for studio.h.
+ * Shared primitives for the Amber look — implementations for amber.h.
  */
-#include "studio.h"
+#include "amber.h"
 #include "ui_fonts.h"
 
-lv_obj_t* stRect(lv_obj_t* parent, int w, int h, lv_color_t col) {
-    return stRoundRect(parent, w, h, 0, col);
+lv_obj_t* ambRect(lv_obj_t* parent, int w, int h, lv_color_t col) {
+    return ambRoundRect(parent, w, h, 0, col);
 }
 
-lv_obj_t* stRoundRect(lv_obj_t* parent, int w, int h, int radius, lv_color_t col) {
+lv_obj_t* ambRoundRect(lv_obj_t* parent, int w, int h, int radius, lv_color_t col) {
     lv_obj_t* o = lv_obj_create(parent);
     // Sizes arrive in design space. A 1px hairline must stay 1px on both panels
     // rather than scaling to 1.25 and rounding to either 1 or 2 unpredictably,
@@ -24,7 +24,7 @@ lv_obj_t* stRoundRect(lv_obj_t* parent, int w, int h, int radius, lv_color_t col
     return o;
 }
 
-lv_obj_t* stLabel(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,
+lv_obj_t* ambLabel(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,
                   const char* txt) {
     lv_obj_t* l = lv_label_create(parent);
     lv_label_set_text(l, txt);
@@ -33,8 +33,8 @@ lv_obj_t* stLabel(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,
     return l;
 }
 
-lv_obj_t* stCaption(lv_obj_t* parent, lv_color_t col, const char* txt, int track) {
-    lv_obj_t* l = stLabel(parent, &font_text_12, col, txt);
+lv_obj_t* ambCaption(lv_obj_t* parent, lv_color_t col, const char* txt, int track) {
+    lv_obj_t* l = ambLabel(parent, &font_text_12, col, txt);
     lv_obj_set_style_text_letter_space(l, track, 0);
     return l;
 }

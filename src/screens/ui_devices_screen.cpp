@@ -6,8 +6,8 @@
 #include "ui_common.h"
 #include "ui_settings_card.h"   // addScreenHeader() - shared title row
 #include "ui_fonts.h"
-#include "studio_icons.h"
-#include "studio.h"
+#include "amber_icons.h"
+#include "amber.h"
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -53,12 +53,12 @@ void refreshDeviceList() {
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_pad_all(btn, SMIN(12), 0);
 
-        lv_obj_set_style_bg_color(btn, isSelected ? ST_BORDER : ST_CARD, 0);
-        lv_obj_set_style_bg_color(btn, ST_BORDER, LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(btn, isSelected ? AMB_BORDER : AMB_CARD, 0);
+        lv_obj_set_style_bg_color(btn, AMB_BORDER, LV_STATE_PRESSED);
 
         if (isSelected) {
             lv_obj_set_style_border_width(btn, 2, 0);
-            lv_obj_set_style_border_color(btn, ST_ACCENT, 0);
+            lv_obj_set_style_border_color(btn, AMB_ACCENT, 0);
         } else {
             lv_obj_set_style_border_width(btn, 0, 0);
         }
@@ -66,18 +66,18 @@ void refreshDeviceList() {
         // Speaker icon - show double icon for groups
         lv_obj_t* icon = lv_label_create(btn);
         if (hasGroup) {
-            lv_label_set_text(icon, ST_IC_GROUPS);
+            lv_label_set_text(icon, AMB_IC_GROUPS);
         } else {
-            lv_label_set_text(icon, ST_IC_SPEAKER);
+            lv_label_set_text(icon, AMB_IC_SPEAKER);
         }
-        lv_obj_set_style_text_color(icon, isPlaying ? ST_ACCENT : (isSelected ? ST_ACCENT : ST_TEXT3), 0);
+        lv_obj_set_style_text_color(icon, isPlaying ? AMB_ACCENT : (isSelected ? AMB_ACCENT : AMB_TEXT3), 0);
         lv_obj_set_style_text_font(icon, &font_icon_24, 0);
         lv_obj_align(icon, LV_ALIGN_TOP_LEFT, SX(5), hasGroup || isPlaying ? SY(6) : SY(10));
 
         // Room name
         lv_obj_t* lbl = lv_label_create(btn);
         lv_label_set_text(lbl, dev->roomName.c_str());
-        lv_obj_set_style_text_color(lbl, ST_TEXT, 0);
+        lv_obj_set_style_text_color(lbl, AMB_TEXT, 0);
         lv_obj_set_style_text_font(lbl, &font_text_20, 0);
         // Cap + ellipsize: these labels had no width limit at all, so a long
         // room name ran under the chevron. Generous — only bites past ~40 chars.
@@ -91,13 +91,13 @@ void refreshDeviceList() {
         if (hasGroup || isPlaying) {
             lv_obj_t* sub = lv_label_create(btn);
             if (hasGroup && isPlaying) {
-                lv_label_set_text_fmt(sub, ST_IC_PLAY " Playing  " ST_IC_SPEAKER " +%d speakers", memberCount - 1);
+                lv_label_set_text_fmt(sub, AMB_IC_PLAY " Playing  " AMB_IC_SPEAKER " +%d speakers", memberCount - 1);
             } else if (hasGroup) {
-                lv_label_set_text_fmt(sub, ST_IC_SPEAKER " +%d speaker%s", memberCount - 1, memberCount > 2 ? "s" : "");
+                lv_label_set_text_fmt(sub, AMB_IC_SPEAKER " +%d speaker%s", memberCount - 1, memberCount > 2 ? "s" : "");
             } else {
-                lv_label_set_text(sub, ST_IC_PLAY " Playing");
+                lv_label_set_text(sub, AMB_IC_PLAY " Playing");
             }
-            lv_obj_set_style_text_color(sub, isPlaying ? ST_LIVE : ST_TEXT3, 0);
+            lv_obj_set_style_text_color(sub, isPlaying ? AMB_LIVE : AMB_TEXT3, 0);
             lv_obj_set_style_text_font(sub, &font_icon_16, 0);
             lv_obj_align(sub, LV_ALIGN_TOP_LEFT, hasGroup ? SX(55) : SX(45), SY(28));
         }
@@ -110,14 +110,14 @@ void refreshDeviceList() {
         lv_obj_t* vol = lv_label_create(btn);
         lv_label_set_text_fmt(vol, "%d", dev->volume);
         if (!isSelected) lv_obj_add_flag(vol, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_style_text_color(vol, ST_TEXT3, 0);
+        lv_obj_set_style_text_color(vol, AMB_TEXT3, 0);
         lv_obj_set_style_text_font(vol, &font_text_14, 0);
         lv_obj_align(vol, LV_ALIGN_TOP_RIGHT, SX(-32), hasGroup || isPlaying ? SY(10) : SY(14));
 
         // Right arrow indicator
         lv_obj_t* arrow = lv_label_create(btn);
-        lv_label_set_text(arrow, ST_IC_CHEV);
-        lv_obj_set_style_text_color(arrow, ST_TEXT3, 0);
+        lv_label_set_text(arrow, AMB_IC_CHEV);
+        lv_obj_set_style_text_color(arrow, AMB_TEXT3, 0);
         lv_obj_set_style_text_font(arrow, &font_icon_24, 0);
         lv_obj_align(arrow, LV_ALIGN_TOP_RIGHT, SX(-5), hasGroup || isPlaying ? SY(8) : SY(12));
 
@@ -137,11 +137,11 @@ void refreshDeviceList() {
         lv_obj_align(vol_sl, LV_ALIGN_BOTTOM_LEFT, SX(5), SY(-10));
         lv_slider_set_range(vol_sl, 0, 100);
         lv_slider_set_value(vol_sl, dev->volume, LV_ANIM_OFF);
-        lv_obj_set_style_bg_color(vol_sl, ST_GROOVE, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(vol_sl, AMB_GROOVE, LV_PART_MAIN);
         lv_obj_set_style_radius(vol_sl, SMIN(3), LV_PART_MAIN);
-        lv_obj_set_style_bg_color(vol_sl, isSelected ? ST_ACCENT : ST_TEXT3, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(vol_sl, isSelected ? AMB_ACCENT : AMB_TEXT3, LV_PART_INDICATOR);
         lv_obj_set_style_radius(vol_sl, SMIN(3), LV_PART_INDICATOR);
-        lv_obj_set_style_bg_color(vol_sl, isSelected ? ST_ACCENT : ST_TEXT3, LV_PART_KNOB);
+        lv_obj_set_style_bg_color(vol_sl, isSelected ? AMB_ACCENT : AMB_TEXT3, LV_PART_KNOB);
         lv_obj_set_style_pad_all(vol_sl, SMIN(6), LV_PART_KNOB);
         lv_obj_set_user_data(vol_sl, vol);          // the number to keep in step
         // Not just hidden — a hidden slider still cannot be pressed, but leaving
@@ -177,27 +177,27 @@ void refreshDeviceList() {
                 lv_obj_set_style_radius(memBtn, 8, 0);
                 lv_obj_set_style_shadow_width(memBtn, 0, 0);
                 lv_obj_set_style_pad_all(memBtn, SMIN(10), 0);
-                lv_obj_set_style_bg_color(memBtn, ST_RAISED, 0);
-                lv_obj_set_style_bg_color(memBtn, ST_BORDER, LV_STATE_PRESSED);
+                lv_obj_set_style_bg_color(memBtn, AMB_RAISED, 0);
+                lv_obj_set_style_bg_color(memBtn, AMB_BORDER, LV_STATE_PRESSED);
                 lv_obj_set_style_margin_left(memBtn, SX(40), 0);
 
                 // Linking icon
                 lv_obj_t* memIcon = lv_label_create(memBtn);
-                lv_label_set_text(memIcon, ST_IC_CHEV " " ST_IC_SPEAKER);
-                lv_obj_set_style_text_color(memIcon, ST_TEXT3, 0);
+                lv_label_set_text(memIcon, AMB_IC_CHEV " " AMB_IC_SPEAKER);
+                lv_obj_set_style_text_color(memIcon, AMB_TEXT3, 0);
                 lv_obj_set_style_text_font(memIcon, &font_icon_16, 0);
                 lv_obj_align(memIcon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
                 lv_obj_t* memLbl = lv_label_create(memBtn);
                 lv_label_set_text(memLbl, member->roomName.c_str());
-                lv_obj_set_style_text_color(memLbl, ST_TEXT, 0);
+                lv_obj_set_style_text_color(memLbl, AMB_TEXT, 0);
                 lv_obj_set_style_text_font(memLbl, &font_text_16, 0);
                 lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, SX(55), 0);
 
                 // "Grouped" badge
                 lv_obj_t* badge = lv_label_create(memBtn);
                 lv_label_set_text(badge, "Grouped");
-                lv_obj_set_style_text_color(badge, ST_TEXT3, 0);
+                lv_obj_set_style_text_color(badge, AMB_TEXT3, 0);
                 lv_obj_set_style_text_font(badge, &font_text_12, 0);
                 lv_obj_align(badge, LV_ALIGN_RIGHT_MID, SX(-10), 0);
 
@@ -238,17 +238,17 @@ void refreshDeviceList() {
             lv_obj_set_style_radius(btn, 12, 0);
             lv_obj_set_style_shadow_width(btn, 0, 0);
             lv_obj_set_style_pad_all(btn, SMIN(15), 0);
-            lv_obj_set_style_bg_color(btn, isSelected ? ST_BORDER : ST_CARD, 0);
+            lv_obj_set_style_bg_color(btn, isSelected ? AMB_BORDER : AMB_CARD, 0);
 
             lv_obj_t* icon = lv_label_create(btn);
-            lv_label_set_text(icon, ST_IC_SPEAKER);
-            lv_obj_set_style_text_color(icon, ST_TEXT3, 0);
+            lv_label_set_text(icon, AMB_IC_SPEAKER);
+            lv_obj_set_style_text_color(icon, AMB_TEXT3, 0);
             lv_obj_set_style_text_font(icon, &font_icon_24, 0);
             lv_obj_align(icon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
             lv_obj_t* lbl = lv_label_create(btn);
             lv_label_set_text(lbl, dev->roomName.c_str());
-            lv_obj_set_style_text_color(lbl, ST_TEXT, 0);
+            lv_obj_set_style_text_color(lbl, AMB_TEXT, 0);
             lv_obj_set_style_text_font(lbl, &font_text_20, 0);
             lv_obj_set_width(lbl, SX(430));
             lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
@@ -266,28 +266,28 @@ void refreshDeviceList() {
 
 void createDevicesScreen() {
     scr_devices = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_devices, ST_BG, 0);
+    lv_obj_set_style_bg_color(scr_devices, AMB_BG, 0);
 
     // Create sidebar and get content area (Speakers is index 1)
     lv_obj_t* content = createSettingsSidebar(scr_devices, 1);
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title + Scan button row
-    btn_sonos_scan = addScreenHeader(content, "Speakers", ST_IC_REFRESH " Scan");
+    btn_sonos_scan = addScreenHeader(content, "Speakers", AMB_IC_REFRESH " Scan");
     lv_obj_add_event_cb(btn_sonos_scan, ev_discover, LV_EVENT_CLICKED, NULL);
 
     // Status label
     lbl_status = lv_label_create(content);
     lv_obj_set_pos(lbl_status, 0, SY(50));
     lv_label_set_text(lbl_status, "Tap Scan to find speakers");
-    lv_obj_set_style_text_color(lbl_status, ST_TEXT3, 0);
+    lv_obj_set_style_text_color(lbl_status, AMB_TEXT3, 0);
     lv_obj_set_style_text_font(lbl_status, &font_icon_16, 0);
 
     // Devices list
     list_devices = lv_list_create(content);
     lv_obj_set_size(list_devices, lv_pct(100), SETTINGS_LIST_H(75));
     lv_obj_set_pos(list_devices, 0, SY(75));
-    lv_obj_set_style_bg_color(list_devices, ST_PANEL, 0);
+    lv_obj_set_style_bg_color(list_devices, AMB_PANEL, 0);
     lv_obj_set_style_border_width(list_devices, 0, 0);
     lv_obj_set_style_radius(list_devices, 0, 0);
     lv_obj_set_style_pad_all(list_devices, 0, 0);
@@ -296,7 +296,7 @@ void createDevicesScreen() {
     // Professional scrollbar styling
     lv_obj_set_style_pad_right(list_devices, SX(8), LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_opa(list_devices, LV_OPA_30, LV_PART_SCROLLBAR);
-    lv_obj_set_style_bg_color(list_devices, ST_TEXT3, LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_color(list_devices, AMB_TEXT3, LV_PART_SCROLLBAR);
     lv_obj_set_style_width(list_devices, 6, LV_PART_SCROLLBAR);
     lv_obj_set_style_radius(list_devices, 3, LV_PART_SCROLLBAR);
 
@@ -304,8 +304,8 @@ void createDevicesScreen() {
     spinner_scan = lv_spinner_create(content);
     lv_obj_set_size(spinner_scan, SMIN(100), SMIN(100));
     lv_obj_center(spinner_scan);
-    lv_obj_set_style_arc_color(spinner_scan, ST_ACCENT, LV_PART_INDICATOR);
-    lv_obj_set_style_arc_color(spinner_scan, ST_BORDER, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(spinner_scan, AMB_ACCENT, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(spinner_scan, AMB_BORDER, LV_PART_MAIN);
     lv_obj_set_style_arc_width(spinner_scan, 10, LV_PART_INDICATOR);
     lv_obj_set_style_arc_width(spinner_scan, 10, LV_PART_MAIN);
     lv_obj_set_style_arc_rounded(spinner_scan, true, LV_PART_INDICATOR);

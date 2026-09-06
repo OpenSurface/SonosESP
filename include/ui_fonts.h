@@ -47,14 +47,14 @@ extern lv_font_t font_text_24;
 extern lv_font_t font_text_32;
 extern lv_font_t font_text_48;
 
-// Studio icon faces — the design canvas's own SVG icons, rasterised into LVGL
-// fonts (see scripts/gen_studio_icons.h and include/studio_icons.h).
+// Amber icon faces — the design canvas's own SVG icons, rasterised into LVGL
+// fonts (see scripts/gen_amber_icons.h and include/amber_icons.h).
 //
 // Same DESIGN-SIZE convention as font_text_*: font_icon_24 means "the icon face
 // for design size 24", which resolves to a larger face on the 7".
 //
 // Each carries a text fallback, so a label may mix a glyph and ASCII in one
-// string — ST_IC_REFRESH " Scan" renders the icon from the Studio face and the
+// string — AMB_IC_REFRESH " Scan" renders the icon from the Amber face and the
 // word from Montserrat. Without it the ASCII would be tofu: unlike the MDI
 // fonts, the icon faces hold icons ONLY.
 extern lv_font_t font_icon_16;
@@ -62,7 +62,7 @@ extern lv_font_t font_icon_24;
 extern lv_font_t font_icon_32;
 extern lv_font_t font_icon_40;
 
-// Sky glyphs for the Studio screensaver face. No fallback: they are never mixed
+// Sky glyphs for the Amber screensaver face. No fallback: they are never mixed
 // with text.
 extern lv_font_t font_icon_wx_32;
 extern lv_font_t font_icon_wx_64;

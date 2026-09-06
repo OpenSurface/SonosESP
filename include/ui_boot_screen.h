@@ -1,5 +1,5 @@
 /**
- * Studio boot sequence — artboard 1a of "SonosESP Boot + Screensaver".
+ * Amber boot sequence — artboard 1a of "SonosESP Boot + Screensaver".
  *
  * Replaces the logo-and-bar splash with a staged reveal: wordmark, then a
  * header with a progress hairline and four subsystem check lines that land as

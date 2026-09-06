@@ -124,9 +124,9 @@ void ev_queue_item(lv_event_t* e) {
 // Navigation Event Handlers
 // ============================================================================
 void ev_devices(lv_event_t* e) {
-    // Studio draws Rooms as a modal over the player. Returns false for every
+    // Amber draws Rooms as a modal over the player. Returns false for every
     // other theme, which then loads the Speakers screen as before.
-    if (studioShowRooms()) return;
+    if (amberShowRooms()) return;
     lv_screen_load(scr_devices);
 }
 
@@ -146,9 +146,9 @@ void ev_queue(lv_event_t* e) {
     queue_fetch_start_index = start;
     queue_fetch_requested   = true;
     refreshQueueList();
-    // Studio draws the queue as a drawer over the player. The windowed fetch above
+    // Amber draws the queue as a drawer over the player. The windowed fetch above
     // is requested either way, so the drawer and the screen show the same data.
-    if (studioShowQueue()) return;
+    if (amberShowQueue()) return;
     lv_screen_load(scr_queue);
 }
 
@@ -2162,7 +2162,7 @@ void updateUI() {
     if (!dragging_vol && d->volume != ui_vol && slider_vol) {
         lv_slider_set_value(slider_vol, d->volume, LV_ANIM_OFF);
         // LVGL does not raise VALUE_CHANGED for a programmatic set, and the
-        // Studio player hangs its volume readout off exactly that event. Raising
+        // Amber player hangs its volume readout off exactly that event. Raising
         // it here keeps the number in step when the volume moves from the app or
         // another controller. ev_vol_slider ignores VALUE_CHANGED (it only acts
         // on PRESSING/RELEASED), so no command is issued.
@@ -2193,13 +2193,13 @@ void updateUI() {
         lv_obj_t* lbl = lv_obj_get_child(btn_repeat, 0);
         // The FONT is the builder's business, not this function's. Hardcoding
         // lv_font_mdi_32 here stamped Classic's face onto whichever theme was
-        // active — Studio's 32px icon face on the 4", and on the 7" it pinned the
+        // active — Amber's 32px icon face on the 4", and on the 7" it pinned the
         // repeat glyph at 32 while every neighbour scaled to 40. The glyph itself
         // is safe to write: font_icon_* chains through MDI, so MDI_REPEAT_ONCE
         // resolves whichever theme built the button.
         //
         // Colour goes through the theme accessors, added for exactly this, so
-        // Studio keeps its warm gold instead of being handed COL_ACCENT.
+        // Amber keeps its warm gold instead of being handed COL_ACCENT.
         const bool on = (s_repeat == "ONE" || s_repeat == "ALL");
         lv_label_set_text(lbl, s_repeat == "ONE" ? MDI_REPEAT_ONCE : MDI_REPEAT);
         lv_obj_set_style_text_color(lbl, on ? themeAccentColor() : themeMutedColor(), 0);
@@ -2244,8 +2244,8 @@ void processUpdates() {
     // Auto-refresh queue list if the queue screen is visible when new data arrives
     if (queue_updated) {
         if (lv_screen_active() == scr_queue) refreshQueueList();
-        // The Studio drawer floats over scr_main, so the screen check above can
+        // The Amber drawer floats over scr_main, so the screen check above can
         // never be true for it.
-        studioRefreshQueue();
+        amberRefreshQueue();
     }
 }

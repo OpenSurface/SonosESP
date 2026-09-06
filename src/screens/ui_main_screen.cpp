@@ -10,7 +10,7 @@
  */
 
 #include "ui_common.h"
-#include "ui_theme.h"    // studioBuildOverlays() - the queue drawer / rooms modal
+#include "ui_theme.h"    // amberBuildOverlays() - the queue drawer / rooms modal
 #include "lyrics.h"      // the LRC toggle
 #include "lyrics.h"
 #include "ui_icons.h"
@@ -487,5 +487,5 @@ void buildClassicPlayer() {
     // LAST, so they sit above every widget above; parented to the screen rather
     // than to a panel, because setLineInMode()/setTvAudioMode() hide panel
     // children wholesale and would take an open overlay with them.
-    studioBuildOverlays(scr_main);
+    amberBuildOverlays(scr_main);
 }

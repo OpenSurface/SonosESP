@@ -6,8 +6,8 @@
 #include "ui_common.h"
 #include "ui_settings_card.h"   // addScreenHeader() - shared title row
 #include "ui_fonts.h"
-#include "studio_icons.h"
-#include "studio.h"
+#include "amber_icons.h"
+#include "amber.h"
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -63,15 +63,15 @@ void refreshGroupsList() {
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_pad_all(btn, SMIN(12), 0);
 
-        lv_obj_set_style_bg_color(btn, isSelected ? ST_BORDER : ST_CARD, 0);
-        lv_obj_set_style_bg_color(btn, ST_BORDER, LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(btn, isSelected ? AMB_BORDER : AMB_CARD, 0);
+        lv_obj_set_style_bg_color(btn, AMB_BORDER, LV_STATE_PRESSED);
 
         if (isSelected) {
             lv_obj_set_style_border_width(btn, 2, 0);
-            lv_obj_set_style_border_color(btn, ST_ACCENT, 0);
+            lv_obj_set_style_border_color(btn, AMB_ACCENT, 0);
         } else if (isPlaying) {
             lv_obj_set_style_border_width(btn, 2, 0);
-            lv_obj_set_style_border_color(btn, ST_LIVE, 0);
+            lv_obj_set_style_border_color(btn, AMB_LIVE, 0);
         } else {
             lv_obj_set_style_border_width(btn, 0, 0);
         }
@@ -79,18 +79,18 @@ void refreshGroupsList() {
         // Group icon with playing indicator
         lv_obj_t* icon = lv_label_create(btn);
         if (isPlaying) {
-            lv_label_set_text(icon, memberCount > 1 ? ST_IC_PLAY " " ST_IC_GROUPS : ST_IC_PLAY " " ST_IC_SPEAKER);
+            lv_label_set_text(icon, memberCount > 1 ? AMB_IC_PLAY " " AMB_IC_GROUPS : AMB_IC_PLAY " " AMB_IC_SPEAKER);
         } else {
-            lv_label_set_text(icon, memberCount > 1 ? ST_IC_GROUPS : ST_IC_SPEAKER);
+            lv_label_set_text(icon, memberCount > 1 ? AMB_IC_GROUPS : AMB_IC_SPEAKER);
         }
-        lv_obj_set_style_text_color(icon, isPlaying ? ST_LIVE : (memberCount > 1 ? ST_ACCENT : ST_TEXT3), 0);
+        lv_obj_set_style_text_color(icon, isPlaying ? AMB_LIVE : (memberCount > 1 ? AMB_ACCENT : AMB_TEXT3), 0);
         lv_obj_set_style_text_font(icon, &font_icon_24, 0);
         lv_obj_align(icon, LV_ALIGN_LEFT_MID, SX(5), (isPlaying && hasTrack) ? SY(-18) : SY(-8));
 
         // Room name (coordinator)
         lv_obj_t* lbl = lv_label_create(btn);
         lv_label_set_text(lbl, dev->roomName.c_str());
-        lv_obj_set_style_text_color(lbl, ST_TEXT, 0);
+        lv_obj_set_style_text_color(lbl, AMB_TEXT, 0);
         lv_obj_set_style_text_font(lbl, &font_text_20, 0);
         // Cap + ellipsize — the Remove button sits at this row's right edge.
         lv_obj_set_width(lbl, SX(400));
@@ -104,7 +104,7 @@ void refreshGroupsList() {
         } else {
             lv_label_set_text(sub, "Standalone");
         }
-        lv_obj_set_style_text_color(sub, ST_TEXT3, 0);
+        lv_obj_set_style_text_color(sub, AMB_TEXT3, 0);
         lv_obj_set_style_text_font(sub, &font_text_14, 0);
         lv_obj_align(sub, LV_ALIGN_LEFT_MID, isPlaying ? SX(70) : SX(55), (isPlaying && hasTrack) ? SY(2) : SY(12));
 
@@ -120,7 +120,7 @@ void refreshGroupsList() {
                 trackInfo = trackInfo.substring(0, 42) + "...";
             }
             lv_label_set_text(nowPlaying, trackInfo.c_str());
-            lv_obj_set_style_text_color(nowPlaying, ST_LIVE, 0);
+            lv_obj_set_style_text_color(nowPlaying, AMB_LIVE, 0);
             lv_obj_set_style_text_font(nowPlaying, &font_text_12, 0);
             lv_obj_align(nowPlaying, LV_ALIGN_LEFT_MID, SX(70), SY(22));
         }
@@ -147,19 +147,19 @@ void refreshGroupsList() {
                 lv_obj_set_style_radius(memBtn, 8, 0);
                 lv_obj_set_style_shadow_width(memBtn, 0, 0);
                 lv_obj_set_style_pad_all(memBtn, SMIN(10), 0);
-                lv_obj_set_style_bg_color(memBtn, ST_RAISED, 0);
-                lv_obj_set_style_bg_color(memBtn, ST_BORDER, LV_STATE_PRESSED);
+                lv_obj_set_style_bg_color(memBtn, AMB_RAISED, 0);
+                lv_obj_set_style_bg_color(memBtn, AMB_BORDER, LV_STATE_PRESSED);
                 lv_obj_set_style_margin_left(memBtn, SX(40), 0);
 
                 lv_obj_t* memIcon = lv_label_create(memBtn);
-                lv_label_set_text(memIcon, ST_IC_CHEV " " ST_IC_SPEAKER);
-                lv_obj_set_style_text_color(memIcon, ST_TEXT3, 0);
+                lv_label_set_text(memIcon, AMB_IC_CHEV " " AMB_IC_SPEAKER);
+                lv_obj_set_style_text_color(memIcon, AMB_TEXT3, 0);
                 lv_obj_set_style_text_font(memIcon, &font_icon_16, 0);
                 lv_obj_align(memIcon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
                 lv_obj_t* memLbl = lv_label_create(memBtn);
                 lv_label_set_text(memLbl, member->roomName.c_str());
-                lv_obj_set_style_text_color(memLbl, ST_TEXT, 0);
+                lv_obj_set_style_text_color(memLbl, AMB_TEXT, 0);
                 lv_obj_set_style_text_font(memLbl, &font_text_16, 0);
                 lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, SX(60), 0);
 
@@ -173,7 +173,7 @@ void refreshGroupsList() {
 
                 lv_obj_t* removeLbl = lv_label_create(removeBtn);
                 lv_label_set_text(removeLbl, "Remove");
-                lv_obj_set_style_text_color(removeLbl, ST_TEXT, 0);
+                lv_obj_set_style_text_color(removeLbl, AMB_TEXT, 0);
                 lv_obj_set_style_text_font(removeLbl, &font_text_14, 0);
                 lv_obj_center(removeLbl);
 
@@ -198,14 +198,14 @@ void refreshGroupsList() {
             // Header for available speakers
             lv_obj_t* hdr = lv_obj_create(list_groups);
             lv_obj_set_size(hdr, lv_pct(100), SY(40));
-            lv_obj_set_style_bg_color(hdr, ST_PANEL, 0);
+            lv_obj_set_style_bg_color(hdr, AMB_PANEL, 0);
             lv_obj_set_style_border_width(hdr, 0, 0);
             lv_obj_set_style_pad_all(hdr, SMIN(10), 0);
             lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
 
             lv_obj_t* hdrLbl = lv_label_create(hdr);
             lv_label_set_text_fmt(hdrLbl, "Add speakers to \"%s\":", coordinator->roomName.c_str());
-            lv_obj_set_style_text_color(hdrLbl, ST_ACCENT, 0);
+            lv_obj_set_style_text_color(hdrLbl, AMB_ACCENT, 0);
             lv_obj_set_style_text_font(hdrLbl, &font_text_16, 0);
             lv_obj_align(hdrLbl, LV_ALIGN_LEFT_MID, 0, 0);
 
@@ -242,14 +242,14 @@ void refreshGroupsList() {
                 lv_obj_set_style_bg_color(addBtn, COL_OK_SURFACE_PRESSED, LV_STATE_PRESSED);
 
                 lv_obj_t* addIcon = lv_label_create(addBtn);
-                lv_label_set_text(addIcon, ST_IC_PLUS " " ST_IC_SPEAKER);
-                lv_obj_set_style_text_color(addIcon, ST_LIVE, 0);
+                lv_label_set_text(addIcon, AMB_IC_PLUS " " AMB_IC_SPEAKER);
+                lv_obj_set_style_text_color(addIcon, AMB_LIVE, 0);
                 lv_obj_set_style_text_font(addIcon, &font_icon_24, 0);
                 lv_obj_align(addIcon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
                 lv_obj_t* addLbl = lv_label_create(addBtn);
                 lv_label_set_text_fmt(addLbl, "Add %s", dev->roomName.c_str());
-                lv_obj_set_style_text_color(addLbl, ST_TEXT, 0);
+                lv_obj_set_style_text_color(addLbl, AMB_TEXT, 0);
                 lv_obj_set_style_text_font(addLbl, &font_text_16, 0);
                 lv_obj_set_width(addLbl, lv_pct(78));
                 lv_label_set_long_mode(addLbl, LV_LABEL_LONG_DOT);
@@ -261,13 +261,13 @@ void refreshGroupsList() {
                 if (leadsGroup) {
                     lv_obj_t* sub2 = lv_label_create(addBtn);
                     lv_label_set_text_fmt(sub2, "brings %d more with it", otherMembers - 1);
-                    lv_obj_set_style_text_color(sub2, ST_TEXT3, 0);
+                    lv_obj_set_style_text_color(sub2, AMB_TEXT3, 0);
                     lv_obj_set_style_text_font(sub2, &font_text_12, 0);
                     lv_obj_align(sub2, LV_ALIGN_LEFT_MID, SX(60), SY(9));
                 } else if (followsOther && otherCoord && otherCoord != dev) {
                     lv_obj_t* sub2 = lv_label_create(addBtn);
                     lv_label_set_text_fmt(sub2, "currently in %s", otherCoord->roomName.c_str());
-                    lv_obj_set_style_text_color(sub2, ST_TEXT3, 0);
+                    lv_obj_set_style_text_color(sub2, AMB_TEXT3, 0);
                     lv_obj_set_style_text_font(sub2, &font_text_12, 0);
                     lv_obj_set_width(sub2, lv_pct(78));
                     lv_label_set_long_mode(sub2, LV_LABEL_LONG_DOT);
@@ -294,18 +294,18 @@ void refreshGroupsList() {
 
 void createGroupsScreen() {
     scr_groups = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_groups, ST_BG, 0);
+    lv_obj_set_style_bg_color(scr_groups, AMB_BG, 0);
 
     // Create sidebar and get content area (Groups is index 2)
     lv_obj_t* content = createSettingsSidebar(scr_groups, 2);
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
     // Title + Refresh button row
-    btn_groups_scan = addScreenHeader(content, "Groups", ST_IC_REFRESH " Scan");
+    btn_groups_scan = addScreenHeader(content, "Groups", AMB_IC_REFRESH " Scan");
     lv_obj_add_event_cb(btn_groups_scan, [](lv_event_t* e) {
         // Disable button during scan
         lv_obj_add_state(btn_groups_scan, LV_STATE_DISABLED);
-        lv_obj_set_style_bg_color(btn_groups_scan, ST_BORDER, LV_STATE_DISABLED);
+        lv_obj_set_style_bg_color(btn_groups_scan, AMB_BORDER, LV_STATE_DISABLED);
 
         // Show spinner
         if (spinner_groups_scan) {
@@ -315,13 +315,13 @@ void createGroupsScreen() {
 
         // If no speakers discovered yet, run speaker discovery first
         if (sonos.getDeviceCount() == 0) {
-            lv_label_set_text(lbl_groups_status, ST_IC_REFRESH " Discovering speakers...");
+            lv_label_set_text(lbl_groups_status, AMB_IC_REFRESH " Discovering speakers...");
             lv_refr_now(NULL);  // Force immediate refresh to show spinner
             sonos.discoverDevices();
         }
 
         // Now update group info
-        lv_label_set_text(lbl_groups_status, ST_IC_REFRESH " Updating groups...");
+        lv_label_set_text(lbl_groups_status, AMB_IC_REFRESH " Updating groups...");
         lv_refr_now(NULL);  // Force immediate refresh
 
         // Update group info with UI updates
@@ -338,21 +338,21 @@ void createGroupsScreen() {
             lv_obj_add_flag(spinner_groups_scan, LV_OBJ_FLAG_HIDDEN);
         }
         lv_obj_clear_state(btn_groups_scan, LV_STATE_DISABLED);
-        lv_obj_set_style_bg_color(btn_groups_scan, ST_ACCENT, 0);
+        lv_obj_set_style_bg_color(btn_groups_scan, AMB_ACCENT, 0);
     }, LV_EVENT_CLICKED, NULL);
 
     // Status label
     lbl_groups_status = lv_label_create(content);
     lv_obj_set_pos(lbl_groups_status, 0, SY(50));
     lv_label_set_text(lbl_groups_status, "Tap a group to manage it");
-    lv_obj_set_style_text_color(lbl_groups_status, ST_TEXT3, 0);
+    lv_obj_set_style_text_color(lbl_groups_status, AMB_TEXT3, 0);
     lv_obj_set_style_text_font(lbl_groups_status, &font_icon_16, 0);
 
     // Groups list
     list_groups = lv_obj_create(content);
     lv_obj_set_size(list_groups, lv_pct(100), SETTINGS_LIST_H(75));
     lv_obj_set_pos(list_groups, 0, SY(75));
-    lv_obj_set_style_bg_color(list_groups, ST_PANEL, 0);
+    lv_obj_set_style_bg_color(list_groups, AMB_PANEL, 0);
     lv_obj_set_style_border_width(list_groups, 0, 0);
     lv_obj_set_style_radius(list_groups, 0, 0);
     lv_obj_set_style_pad_all(list_groups, 0, 0);
@@ -362,7 +362,7 @@ void createGroupsScreen() {
     // Scrollbar styling
     lv_obj_set_style_pad_right(list_groups, SX(8), LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_opa(list_groups, LV_OPA_30, LV_PART_SCROLLBAR);
-    lv_obj_set_style_bg_color(list_groups, ST_TEXT3, LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_color(list_groups, AMB_TEXT3, LV_PART_SCROLLBAR);
     lv_obj_set_style_width(list_groups, 6, LV_PART_SCROLLBAR);
     lv_obj_set_style_radius(list_groups, 3, LV_PART_SCROLLBAR);
 
@@ -370,8 +370,8 @@ void createGroupsScreen() {
     spinner_groups_scan = lv_spinner_create(content);
     lv_obj_set_size(spinner_groups_scan, SMIN(100), SMIN(100));
     lv_obj_center(spinner_groups_scan);
-    lv_obj_set_style_arc_color(spinner_groups_scan, ST_ACCENT, LV_PART_INDICATOR);
-    lv_obj_set_style_arc_color(spinner_groups_scan, ST_BORDER, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(spinner_groups_scan, AMB_ACCENT, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(spinner_groups_scan, AMB_BORDER, LV_PART_MAIN);
     lv_obj_set_style_arc_width(spinner_groups_scan, 10, LV_PART_INDICATOR);
     lv_obj_set_style_arc_width(spinner_groups_scan, 10, LV_PART_MAIN);
     lv_obj_set_style_arc_rounded(spinner_groups_scan, true, LV_PART_INDICATOR);

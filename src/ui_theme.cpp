@@ -11,7 +11,7 @@
 #include "ui_theme.h"
 #include "config.h"
 #include "lyrics.h"
-#include "studio.h"
+#include "amber.h"
 
 // ── Registry ────────────────────────────────────────────────────────────────
 //                                                                   art:  size   x                     y
@@ -26,9 +26,9 @@ const ThemeDef THEMES[] = {
 
     // Edge-to-edge artwork column, so the art is positioned at the origin rather
     // than inset. Flat ground: this theme never tints from the artwork.
-    { "Studio",
+    { "Amber",
       "Flat panel, artwork column, controls always visible",
-      THEME_BG_FLAT,          344,      0,                 0,                 buildStudioPlayer },
+      THEME_BG_FLAT,          344,      0,                 0,                 buildAmberPlayer },
 };
 const uint8_t THEME_COUNT = (uint8_t)(sizeof(THEMES) / sizeof(THEMES[0]));
 
@@ -37,10 +37,10 @@ uint8_t active_theme = 0;
 // Bump when the meaning of a persisted index changes.
 #define THEME_SCHEMA 1
 
-// v0 numbering was Classic=0, Ambient=1, Immersive=2, Studio=3. Ambient has been
-// removed — Studio covers the same ground (a flat, non-blurred panel with the
+// v0 numbering was Classic=0, Ambient=1, Immersive=2, Amber=3. Ambient has been
+// removed — Amber covers the same ground (a flat, non-blurred panel with the
 // lyrics off the artwork) and does it to a drawn design. Without this rewrite an
-// Ambient user would land on Immersive and an Immersive user on Studio, purely
+// Ambient user would land on Immersive and an Immersive user on Amber, purely
 // because the rows shifted down.
 //
 // Runs once; the marker key stops it re-running and clobbering a later
@@ -53,9 +53,9 @@ void themeMigrate(void) {
         int mapped;
         switch (old_idx) {
             case 0:  mapped = 0; break;   // Classic stays put
-            case 1:  mapped = 2; break;   // Ambient (removed) -> Studio
+            case 1:  mapped = 2; break;   // Ambient (removed) -> Amber
             case 2:  mapped = 1; break;   // Immersive moves down one
-            case 3:  mapped = 2; break;   // Studio moves down one
+            case 3:  mapped = 2; break;   // Amber moves down one
             default: mapped = 0; break;
         }
         wifiPrefs.putInt(NVS_KEY_THEME, mapped);
@@ -69,9 +69,9 @@ const ThemeDef* themeCurrent(void) {
 }
 
 lv_label_long_mode_t themeTitleLongMode(void) {
-    // Studio gives the title a two-line box and truncates; every other theme
+    // Amber gives the title a two-line box and truncates; every other theme
     // scrolls a single line.
-    return themeCurrent()->build == buildStudioPlayer ? LV_LABEL_LONG_DOT
+    return themeCurrent()->build == buildAmberPlayer ? LV_LABEL_LONG_DOT
                                                       : LV_LABEL_LONG_SCROLL_CIRCULAR;
 }
 
@@ -80,11 +80,11 @@ bool themeUsesArtAccent(void) {
 }
 
 lv_color_t themeAccentColor(void) {
-    return themeCurrent()->bg == THEME_BG_FLAT ? ST_ACCENT : COL_ACCENT;
+    return themeCurrent()->bg == THEME_BG_FLAT ? AMB_ACCENT : COL_ACCENT;
 }
 
 lv_color_t themeMutedColor(void) {
-    return themeCurrent()->bg == THEME_BG_FLAT ? ST_TEXT3 : COL_TEXT2;
+    return themeCurrent()->bg == THEME_BG_FLAT ? AMB_TEXT3 : COL_TEXT2;
 }
 
 bool themeUsesBlurBg(void) {
@@ -149,7 +149,7 @@ void themeApplyBackdrop(uint32_t rgb) {
             break;
 
         case THEME_BG_FLAT:
-            // Fixed palette ground. Studio's whole point is that the panel does
+            // Fixed palette ground. Amber's whole point is that the panel does
             // not change colour with the album, so there is nothing to apply.
             break;
 

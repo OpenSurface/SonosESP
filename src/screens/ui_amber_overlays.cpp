@@ -1,5 +1,5 @@
 /**
- * Studio overlays — the Queue drawer and Rooms modal from the design canvas.
+ * Amber overlays — the Queue drawer and Rooms modal from the design canvas.
  *
  * The canvas draws these OVER the player, not as separate screens: a scrim dims
  * the player, a 400px drawer slides against the right edge for the queue, and a
@@ -8,8 +8,8 @@
  *
  * ── How they hook in without disturbing the other themes ───────────────────
  * ev_queue() and ev_devices() are shared by every theme. Each now asks
- * studioShowQueue() / studioShowRooms() first: those return false unless the
- * Studio player is the built theme, in which case the handlers fall through to
+ * amberShowQueue() / amberShowRooms() first: those return false unless the
+ * Amber player is the built theme, in which case the handlers fall through to
  * the original lv_screen_load(). Classic, Ambient and Immersive are untouched.
  *
  * ── Why the overlays live on their own layer ───────────────────────────────
@@ -22,8 +22,8 @@
 #include "ui_common.h"
 #include "ui_theme.h"
 #include "ui_fonts.h"
-#include "studio.h"
-#include "studio_icons.h"
+#include "amber.h"
+#include "amber_icons.h"
 
 // ── Geometry, 800x480 design space ──────────────────────────────────────────
 #define OV_DRAWER_W    400
@@ -50,7 +50,7 @@ static lv_obj_t* ov_owner = nullptr;
 // (themeSet() deletes the whole screen).
 //
 // The owner check is NOT paranoia. themeSet() builds the NEW player before it
-// deletes the old one, and both Classic and Studio now build overlays — so the
+// deletes the old one, and both Classic and Amber now build overlays — so the
 // old screen's delete callback fires AFTER the new overlays have already been
 // stored here, and without this it would null out the live set. The symptom
 // would be overlays that work until the first theme switch and then silently
@@ -68,16 +68,16 @@ static lv_obj_t* ovCloseBtn(lv_obj_t* parent, int d) {
     lv_obj_t* b = lv_button_create(parent);
     lv_obj_set_size(b, SMIN(d), SMIN(d));
     lv_obj_set_style_radius(b, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(b, ST_RAISED, 0);
-    lv_obj_set_style_bg_color(b, ST_BORDER, LV_STATE_PRESSED);
+    lv_obj_set_style_bg_color(b, AMB_RAISED, 0);
+    lv_obj_set_style_bg_color(b, AMB_BORDER, LV_STATE_PRESSED);
     lv_obj_set_style_border_width(b, 0, 0);
     lv_obj_set_style_shadow_width(b, 0, 0);
     lv_obj_set_style_pad_all(b, 0, 0);
-    lv_obj_add_event_cb(b, [](lv_event_t*) { studioHideOverlay(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(b, [](lv_event_t*) { amberHideOverlay(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico = lv_label_create(b);
-    lv_label_set_text(ico, ST_IC_X);
+    lv_label_set_text(ico, AMB_IC_X);
     lv_obj_set_style_text_font(ico, &font_icon_16, 0);
-    lv_obj_set_style_text_color(ico, ST_TEXT2, 0);
+    lv_obj_set_style_text_color(ico, AMB_TEXT2, 0);
     lv_obj_center(ico);
     return b;
 }
@@ -91,8 +91,8 @@ static lv_obj_t* ovPill(lv_obj_t* parent, const char* icon, const char* text,
     lv_obj_set_style_radius(b, SMIN(10), 0);
     lv_obj_set_style_bg_opa(b, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(b, 1, 0);
-    lv_obj_set_style_border_color(b, ST_BORDER, 0);
-    lv_obj_set_style_bg_color(b, ST_CARD, LV_STATE_PRESSED);
+    lv_obj_set_style_border_color(b, AMB_BORDER, 0);
+    lv_obj_set_style_bg_color(b, AMB_CARD, LV_STATE_PRESSED);
     lv_obj_set_style_bg_opa(b, LV_OPA_COVER, LV_STATE_PRESSED);
     lv_obj_set_style_shadow_width(b, 0, 0);
     lv_obj_set_style_pad_all(b, 0, 0);
@@ -101,7 +101,7 @@ static lv_obj_t* ovPill(lv_obj_t* parent, const char* icon, const char* text,
     lv_obj_t* l = lv_label_create(b);
     lv_label_set_text_fmt(l, "%s  %s", icon, text);
     lv_obj_set_style_text_font(l, &font_icon_16, 0);
-    lv_obj_set_style_text_color(l, ST_TEXT2, 0);
+    lv_obj_set_style_text_color(l, AMB_TEXT2, 0);
     lv_obj_center(l);
     return b;
 }
@@ -111,11 +111,11 @@ static void ovBuildQueue(lv_obj_t* parent) {
     ov_queue = lv_obj_create(parent);
     lv_obj_set_size(ov_queue, SX(OV_DRAWER_W), SY(480));
     lv_obj_set_pos(ov_queue, SX(800 - OV_DRAWER_W), 0);
-    lv_obj_set_style_bg_color(ov_queue, ST_BG_DRAWER, 0);
+    lv_obj_set_style_bg_color(ov_queue, AMB_BG_DRAWER, 0);
     lv_obj_set_style_radius(ov_queue, 0, 0);
     lv_obj_set_style_border_width(ov_queue, 1, 0);
     lv_obj_set_style_border_side(ov_queue, LV_BORDER_SIDE_LEFT, 0);
-    lv_obj_set_style_border_color(ov_queue, ST_BORDER, 0);
+    lv_obj_set_style_border_color(ov_queue, AMB_BORDER, 0);
     lv_obj_set_style_pad_all(ov_queue, 0, 0);
     lv_obj_remove_flag(ov_queue, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
@@ -128,16 +128,16 @@ static void ovBuildQueue(lv_obj_t* parent) {
     lv_obj_set_style_radius(head, 0, 0);
     lv_obj_set_style_border_width(head, 1, 0);
     lv_obj_set_style_border_side(head, LV_BORDER_SIDE_BOTTOM, 0);
-    lv_obj_set_style_border_color(head, ST_LINE, 0);
+    lv_obj_set_style_border_color(head, AMB_LINE, 0);
     lv_obj_set_style_pad_hor(head, SX(18), 0);
     lv_obj_set_style_pad_ver(head, 0, 0);
     lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(head, LV_OBJ_FLAG_CLICKABLE);
 
-    lv_obj_t* title = stLabel(head, &font_text_20, ST_TEXT, "Queue");
+    lv_obj_t* title = ambLabel(head, &font_text_20, AMB_TEXT, "Queue");
     lv_obj_align(title, LV_ALIGN_LEFT_MID, 0, SY(-10));
 
-    ov_queue_sub = stLabel(head, &font_text_12, ST_TEXT3, "");
+    ov_queue_sub = ambLabel(head, &font_text_12, AMB_TEXT3, "");
     lv_obj_align(ov_queue_sub, LV_ALIGN_LEFT_MID, 0, SY(12));
 
     lv_obj_t* x = ovCloseBtn(head, 40);
@@ -153,7 +153,7 @@ static void ovBuildQueue(lv_obj_t* parent) {
     lv_obj_set_style_pad_all(ov_queue_list, 0, 0);
     lv_obj_set_style_pad_row(ov_queue_list, 0, 0);
     lv_obj_set_flex_flow(ov_queue_list, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_bg_color(ov_queue_list, ST_BORDER, LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_color(ov_queue_list, AMB_BORDER, LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_opa(ov_queue_list, LV_OPA_60, LV_PART_SCROLLBAR);
     lv_obj_set_style_width(ov_queue_list, SX(4), LV_PART_SCROLLBAR);
 
@@ -165,7 +165,7 @@ static void ovBuildQueue(lv_obj_t* parent) {
     lv_obj_set_style_radius(foot, 0, 0);
     lv_obj_set_style_border_width(foot, 1, 0);
     lv_obj_set_style_border_side(foot, LV_BORDER_SIDE_TOP, 0);
-    lv_obj_set_style_border_color(foot, ST_LINE, 0);
+    lv_obj_set_style_border_color(foot, AMB_LINE, 0);
     lv_obj_set_style_pad_hor(foot, SX(18), 0);
     lv_obj_set_style_pad_ver(foot, SY(12), 0);
     lv_obj_set_style_pad_column(foot, SX(10), 0);
@@ -173,7 +173,7 @@ static void ovBuildQueue(lv_obj_t* parent) {
     lv_obj_remove_flag(foot, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(foot, LV_OBJ_FLAG_CLICKABLE);
 
-    ovPill(foot, ST_IC_SHUFFLE, "Shuffle", [](lv_event_t*) {
+    ovPill(foot, AMB_IC_SHUFFLE, "Shuffle", [](lv_event_t*) {
         SonosDevice* d = sonos.getCurrentDevice();
         if (d) sonos.setShuffle(!d->shuffleMode);
     });
@@ -186,7 +186,7 @@ static void ovBuildQueue(lv_obj_t* parent) {
     // Arming rather than a modal: a confirmation dialog over a drawer that is
     // itself over the player is two layers of overlay for one destructive verb,
     // and the label can say what the next tap will do just as clearly.
-    ov_clear_btn = ovPill(foot, ST_IC_X, "Clear", [](lv_event_t* e) {
+    ov_clear_btn = ovPill(foot, AMB_IC_X, "Clear", [](lv_event_t* e) {
         lv_obj_t* b = (lv_obj_t*)lv_event_get_target(e);
         lv_obj_t* l = lv_obj_get_child(b, 0);
         const bool armed = ov_clear_armed_ms &&
@@ -194,15 +194,15 @@ static void ovBuildQueue(lv_obj_t* parent) {
         if (!armed) {
             ov_clear_armed_ms = millis();
             if (l) {
-                lv_label_set_text(l, ST_IC_X "  Sure?");
-                lv_obj_set_style_text_color(l, ST_ACCENT, 0);
+                lv_label_set_text(l, AMB_IC_X "  Sure?");
+                lv_obj_set_style_text_color(l, AMB_ACCENT, 0);
             }
-            lv_obj_set_style_border_color(b, ST_ACCENT, 0);
+            lv_obj_set_style_border_color(b, AMB_ACCENT, 0);
             return;
         }
         ov_clear_armed_ms = 0;
         sonos.clearQueue();
-        studioHideOverlay();
+        amberHideOverlay();
     });
 }
 
@@ -214,9 +214,9 @@ static void ovFillQueue(void) {
     ov_clear_armed_ms = 0;
     if (ov_clear_btn && lv_obj_get_child_count(ov_clear_btn)) {
         lv_obj_t* l = lv_obj_get_child(ov_clear_btn, 0);
-        lv_label_set_text_fmt(l, "%s  %s", ST_IC_X, "Clear");
-        lv_obj_set_style_text_color(l, ST_TEXT2, 0);
-        lv_obj_set_style_border_color(ov_clear_btn, ST_BORDER, 0);
+        lv_label_set_text_fmt(l, "%s  %s", AMB_IC_X, "Clear");
+        lv_obj_set_style_text_color(l, AMB_TEXT2, 0);
+        lv_obj_set_style_border_color(ov_clear_btn, AMB_BORDER, 0);
     }
 
     lv_obj_clean(ov_queue_list);
@@ -240,37 +240,37 @@ static void ovFillQueue(void) {
         lv_obj_set_size(row, SX(OV_DRAWER_W), SY(56));
         lv_obj_set_style_radius(row, 0, 0);
         lv_obj_set_style_shadow_width(row, 0, 0);
-        lv_obj_set_style_bg_color(row, playing ? ST_CARD : ST_BG_DRAWER, 0);
-        lv_obj_set_style_bg_color(row, ST_CARD, LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(row, playing ? AMB_CARD : AMB_BG_DRAWER, 0);
+        lv_obj_set_style_bg_color(row, AMB_CARD, LV_STATE_PRESSED);
         lv_obj_set_style_pad_hor(row, SX(18), 0);
         lv_obj_set_style_pad_ver(row, 0, 0);
         // The playing row carries a gold left edge, exactly as the canvas draws it.
         lv_obj_set_style_border_width(row, playing ? 3 : 0, 0);
         lv_obj_set_style_border_side(row, LV_BORDER_SIDE_LEFT, 0);
-        lv_obj_set_style_border_color(row, ST_ACCENT, 0);
+        lv_obj_set_style_border_color(row, AMB_ACCENT, 0);
         lv_obj_set_user_data(row, (void*)(intptr_t)it->trackNumber);
         lv_obj_add_event_cb(row, [](lv_event_t* e) {
             int n = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
             sonos.playQueueItem(n);
-            studioHideOverlay();
+            amberHideOverlay();
         }, LV_EVENT_CLICKED, NULL);
 
         // The playing row swaps its track number for a play glyph.
         lv_obj_t* lead = lv_label_create(row);
         if (playing) {
-            lv_label_set_text(lead, ST_IC_PLAY);
+            lv_label_set_text(lead, AMB_IC_PLAY);
             lv_obj_set_style_text_font(lead, &font_icon_16, 0);
-            lv_obj_set_style_text_color(lead, ST_ACCENT, 0);
+            lv_obj_set_style_text_color(lead, AMB_ACCENT, 0);
         } else {
             lv_label_set_text_fmt(lead, "%d", it->trackNumber);
             lv_obj_set_style_text_font(lead, &font_text_12, 0);
-            lv_obj_set_style_text_color(lead, ST_TEXT3, 0);
+            lv_obj_set_style_text_color(lead, AMB_TEXT3, 0);
         }
         lv_obj_align(lead, LV_ALIGN_LEFT_MID, 0, 0);
 
         lv_obj_t* dur = nullptr;
         if (it->duration.length()) {
-            dur = stLabel(row, &font_text_12, ST_TEXT3, it->duration.c_str());
+            dur = ambLabel(row, &font_text_12, AMB_TEXT3, it->duration.c_str());
             lv_obj_set_width(dur, SX(52));
             lv_label_set_long_mode(dur, LV_LABEL_LONG_CLIP);
             lv_obj_set_style_text_align(dur, LV_TEXT_ALIGN_RIGHT, 0);
@@ -278,13 +278,13 @@ static void ovFillQueue(void) {
         }
         const int tw = OV_DRAWER_W - 36 - 26 - (dur ? 60 : 0);
 
-        lv_obj_t* t = stLabel(row, &font_text_14, playing ? ST_ACCENT : ST_TEXT,
+        lv_obj_t* t = ambLabel(row, &font_text_14, playing ? AMB_ACCENT : AMB_TEXT,
                               it->title.c_str());
         lv_obj_set_width(t, SX(tw));
         lv_label_set_long_mode(t, LV_LABEL_LONG_DOT);
         lv_obj_align(t, LV_ALIGN_LEFT_MID, SX(26), SY(-9));
 
-        lv_obj_t* a = stLabel(row, &font_text_12, ST_TEXT3, it->artist.c_str());
+        lv_obj_t* a = ambLabel(row, &font_text_12, AMB_TEXT3, it->artist.c_str());
         lv_obj_set_width(a, SX(tw));
         lv_label_set_long_mode(a, LV_LABEL_LONG_DOT);
         lv_obj_align(a, LV_ALIGN_LEFT_MID, SX(26), SY(11));
@@ -296,10 +296,10 @@ static void ovBuildRooms(lv_obj_t* parent) {
     ov_rooms = lv_obj_create(parent);
     lv_obj_set_size(ov_rooms, SX(OV_ROOMS_W), LV_SIZE_CONTENT);
     lv_obj_set_pos(ov_rooms, SX(OV_ROOMS_X), SY(OV_ROOMS_Y));
-    lv_obj_set_style_bg_color(ov_rooms, ST_MODAL, 0);
+    lv_obj_set_style_bg_color(ov_rooms, AMB_MODAL, 0);
     lv_obj_set_style_radius(ov_rooms, SMIN(16), 0);
     lv_obj_set_style_border_width(ov_rooms, 1, 0);
-    lv_obj_set_style_border_color(ov_rooms, ST_BORDER, 0);
+    lv_obj_set_style_border_color(ov_rooms, AMB_BORDER, 0);
     lv_obj_set_style_pad_all(ov_rooms, 0, 0);
     lv_obj_set_style_max_height(ov_rooms, SY(400), 0);
     lv_obj_remove_flag(ov_rooms, LV_OBJ_FLAG_SCROLLABLE);
@@ -312,13 +312,13 @@ static void ovBuildRooms(lv_obj_t* parent) {
     lv_obj_set_style_radius(head, 0, 0);
     lv_obj_set_style_border_width(head, 1, 0);
     lv_obj_set_style_border_side(head, LV_BORDER_SIDE_BOTTOM, 0);
-    lv_obj_set_style_border_color(head, ST_LINE, 0);
+    lv_obj_set_style_border_color(head, AMB_LINE, 0);
     lv_obj_set_style_pad_hor(head, SX(20), 0);
     lv_obj_set_style_pad_ver(head, 0, 0);
     lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(head, LV_OBJ_FLAG_CLICKABLE);
 
-    lv_obj_t* t = stLabel(head, &font_text_20, ST_TEXT, "Rooms");
+    lv_obj_t* t = ambLabel(head, &font_text_20, AMB_TEXT, "Rooms");
     lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_t* x = ovCloseBtn(head, 38);
     lv_obj_align(x, LV_ALIGN_RIGHT_MID, 0, 0);
@@ -357,10 +357,10 @@ static void ovFillRooms(void) {
 
         lv_obj_t* card = lv_obj_create(ov_rooms_list);
         lv_obj_set_size(card, lv_pct(100), SY(OV_ROW_H));
-        lv_obj_set_style_bg_color(card, sel ? ST_RAISED : ST_MODAL, 0);
+        lv_obj_set_style_bg_color(card, sel ? AMB_RAISED : AMB_MODAL, 0);
         lv_obj_set_style_radius(card, SMIN(12), 0);
         lv_obj_set_style_border_width(card, sel ? 1 : 0, 0);
-        lv_obj_set_style_border_color(card, ST_ACCENT_DIM, 0);
+        lv_obj_set_style_border_color(card, AMB_ACCENT_DIM, 0);
         lv_obj_set_style_pad_hor(card, SX(14), 0);
         lv_obj_set_style_pad_ver(card, 0, 0);
         lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
@@ -380,14 +380,14 @@ static void ovFillRooms(void) {
             int idx = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
             sonos.selectDevice(idx);
             sonos.startTasks();
-            studioHideOverlay();
+            amberHideOverlay();
         }, LV_EVENT_CLICKED, NULL);
 
-        lv_obj_t* ico = stLabel(hit, &font_icon_24, sel ? ST_ACCENT : ST_TEXT3,
-                                ST_IC_SPEAKER);
+        lv_obj_t* ico = ambLabel(hit, &font_icon_24, sel ? AMB_ACCENT : AMB_TEXT3,
+                                AMB_IC_SPEAKER);
         lv_obj_align(ico, LV_ALIGN_LEFT_MID, 0, 0);
 
-        lv_obj_t* name = stLabel(hit, &font_text_16, sel ? ST_TEXT : ST_TEXT2,
+        lv_obj_t* name = ambLabel(hit, &font_text_16, sel ? AMB_TEXT : AMB_TEXT2,
                                  d->roomName.c_str());
         lv_obj_set_width(name, SX(160));
         lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
@@ -399,7 +399,7 @@ static void ovFillRooms(void) {
             snprintf(sub, sizeof(sub), "Playing · %s", d->currentArtist.c_str());
         else
             snprintf(sub, sizeof(sub), "%s", d->isPlaying ? "Playing" : "Idle");
-        lv_obj_t* st = stLabel(hit, &font_text_12, d->isPlaying ? ST_LIVE : ST_TEXT3, sub);
+        lv_obj_t* st = ambLabel(hit, &font_text_12, d->isPlaying ? AMB_LIVE : AMB_TEXT3, sub);
         lv_obj_set_width(st, SX(160));
         lv_label_set_long_mode(st, LV_LABEL_LONG_DOT);
         lv_obj_align(st, LV_ALIGN_LEFT_MID, SX(34), SY(11));
@@ -416,11 +416,11 @@ static void ovFillRooms(void) {
         lv_obj_align(sl, LV_ALIGN_RIGHT_MID, 0, 0);
         lv_slider_set_range(sl, 0, 100);
         lv_slider_set_value(sl, d->volume, LV_ANIM_OFF);
-        lv_obj_set_style_bg_color(sl, ST_GROOVE, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(sl, AMB_GROOVE, LV_PART_MAIN);
         lv_obj_set_style_radius(sl, SMIN(3), LV_PART_MAIN);
-        lv_obj_set_style_bg_color(sl, sel ? ST_ACCENT : ST_TEXT3, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(sl, sel ? AMB_ACCENT : AMB_TEXT3, LV_PART_INDICATOR);
         lv_obj_set_style_radius(sl, SMIN(3), LV_PART_INDICATOR);
-        lv_obj_set_style_bg_color(sl, sel ? ST_ACCENT : ST_TEXT3, LV_PART_KNOB);
+        lv_obj_set_style_bg_color(sl, sel ? AMB_ACCENT : AMB_TEXT3, LV_PART_KNOB);
         lv_obj_set_style_pad_all(sl, SMIN(6), LV_PART_KNOB);
         // RELEASED, not VALUE_CHANGED: the latter fires on every pixel of a drag
         // and would put a SOAP call on the command queue for each one.
@@ -428,14 +428,14 @@ static void ovFillRooms(void) {
     }
 
     if (cnt == 0) {
-        lv_obj_t* l = stLabel(ov_rooms_list, &font_text_14, ST_TEXT3,
+        lv_obj_t* l = ambLabel(ov_rooms_list, &font_text_14, AMB_TEXT3,
                               "No speakers found - scan in Settings");
         lv_obj_set_width(l, lv_pct(100));
     }
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
-void studioBuildOverlays(lv_obj_t* screen) {
+void amberBuildOverlays(lv_obj_t* screen) {
     // The scrim dims the player and swallows taps outside the panels, so tapping
     // the background dismisses — which is how the canvas behaves.
     ov_scrim = lv_obj_create(screen);
@@ -448,7 +448,7 @@ void studioBuildOverlays(lv_obj_t* screen) {
     lv_obj_remove_flag(ov_scrim, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(ov_scrim, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_event_cb(ov_scrim, [](lv_event_t*) { studioHideOverlay(); },
+    lv_obj_add_event_cb(ov_scrim, [](lv_event_t*) { amberHideOverlay(); },
                         LV_EVENT_CLICKED, NULL);
 
     ovBuildQueue(screen);
@@ -460,11 +460,11 @@ void studioBuildOverlays(lv_obj_t* screen) {
     // the only dismissal paths, so leaving via the screensaver or Settings and
     // coming back landed you on the player with a stale panel still over it.
     lv_obj_add_event_cb(screen, [](lv_event_t* e) {
-        if (lv_event_get_code(e) == LV_EVENT_SCREEN_LOADED) studioHideOverlay();
+        if (lv_event_get_code(e) == LV_EVENT_SCREEN_LOADED) amberHideOverlay();
     }, LV_EVENT_SCREEN_LOADED, nullptr);
 }
 
-bool studioShowQueue(void) {
+bool amberShowQueue(void) {
     if (!ov_queue || !ov_scrim) return false;
     // Mutually exclusive. In practice the scrim makes the other trigger
     // unreachable while one is open, but nothing enforces that, and two stacked
@@ -478,7 +478,7 @@ bool studioShowQueue(void) {
     return true;
 }
 
-bool studioShowRooms(void) {
+bool amberShowRooms(void) {
     if (!ov_rooms || !ov_scrim) return false;
     if (ov_queue) lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
     ovFillRooms();
@@ -489,23 +489,23 @@ bool studioShowRooms(void) {
     return true;
 }
 
-void studioRefreshQueue(void) {
+void amberRefreshQueue(void) {
     // ev_queue() requests a windowed fetch and opens the drawer immediately, so
     // the drawer is filled from whatever was cached at that moment. The fetch
     // lands asynchronously on the Sonos task; the only existing refresh hook is
-    // gated on scr_queue being the ACTIVE screen, which it never is under Studio
+    // gated on scr_queue being the ACTIVE screen, which it never is under Amber
     // because the drawer floats over scr_main. Without this the drawer showed
     // "Queue is empty" until it was closed and reopened.
     if (!ov_queue || lv_obj_has_flag(ov_queue, LV_OBJ_FLAG_HIDDEN)) return;
     ovFillQueue();
 }
 
-void studioHideOverlay(void) {
+void amberHideOverlay(void) {
     if (ov_scrim) lv_obj_add_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
     if (ov_queue) lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
     if (ov_rooms) lv_obj_add_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
 }
 
-bool studioOverlayOpen(void) {
+bool amberOverlayOpen(void) {
     return ov_scrim && !lv_obj_has_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
 }

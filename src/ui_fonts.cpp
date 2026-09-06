@@ -1,6 +1,6 @@
 #include "ui_fonts.h"
 #include "config.h"   // DISPLAY_WIDTH (resolved from SCREEN_SIZE)
-#include "studio_icons.h"   // the generated Studio icon faces
+#include "amber_icons.h"   // the generated Amber icon faces
 
 LV_FONT_DECLARE(lv_font_latinext_12);
 LV_FONT_DECLARE(lv_font_latinext_14);
@@ -43,12 +43,12 @@ static lv_font_t mdi_fb_40;
 // ── The icon fallback chain ─────────────────────────────────────────────────
 //
 //     font_icon_N  ->  mdi_fb_N  ->  font_text_N  ->  lv_font_latinext_N
-//     (Studio icons)   (MDI icons)   (ASCII)         (accented Latin)
+//     (Amber icons)   (MDI icons)   (ASCII)         (accented Latin)
 //
 // LVGL resolves .fallback recursively at glyph lookup, so one font handles every
 // character a label can be given. That matters more than it looks:
 //
-//   - The Studio faces hold ICONS ONLY. Without a chain, "ST_IC_REFRESH \" Scan\""
+//   - The Amber faces hold ICONS ONLY. Without a chain, "AMB_IC_REFRESH \" Scan\""
 //     would render the icon and then four tofu boxes.
 //   - A handful of glyphs have no counterpart in the design canvas (MDI_ALERT,
 //     MDI_ARROW_LEFT, the line-in/TV heroes). They stay on MDI and still resolve.
@@ -92,12 +92,12 @@ void uiFontsInit(void) {
     WIRE(mdi_fb_32, lv_font_mdi_40, font_text_24);
     WIRE(mdi_fb_40, lv_font_mdi_40, font_text_32);
 
-    WIRE(font_icon_16, lv_font_studio_24, mdi_fb_16);   // 16 -> 20, snapped to 24
-    WIRE(font_icon_24, lv_font_studio_32, mdi_fb_24);   // 24 -> 30, snapped to 32
-    WIRE(font_icon_32, lv_font_studio_40, mdi_fb_32);   // 32 -> 40
-    WIRE(font_icon_40, lv_font_studio_40, mdi_fb_40);   // 40 -> 50, held at 40
-    font_icon_wx_32 = lv_font_studio_wx_64;                // 32 -> 40, snapped to 64
-    font_icon_wx_64 = lv_font_studio_wx_64;
+    WIRE(font_icon_16, lv_font_amber_24, mdi_fb_16);   // 16 -> 20, snapped to 24
+    WIRE(font_icon_24, lv_font_amber_32, mdi_fb_24);   // 24 -> 30, snapped to 32
+    WIRE(font_icon_32, lv_font_amber_40, mdi_fb_32);   // 32 -> 40
+    WIRE(font_icon_40, lv_font_amber_40, mdi_fb_40);   // 40 -> 50, held at 40
+    font_icon_wx_32 = lv_font_amber_wx_64;                // 32 -> 40, snapped to 64
+    font_icon_wx_64 = lv_font_amber_wx_64;
 #else
     // ── 4" (800x480) — the design space, so every name is its literal size ──
     WIRE(font_text_12, lv_font_montserrat_12, lv_font_latinext_12);
@@ -113,11 +113,11 @@ void uiFontsInit(void) {
     WIRE(mdi_fb_32, lv_font_mdi_32, font_text_24);
     WIRE(mdi_fb_40, lv_font_mdi_40, font_text_32);
 
-    WIRE(font_icon_16, lv_font_studio_16, mdi_fb_16);
-    WIRE(font_icon_24, lv_font_studio_24, mdi_fb_24);
-    WIRE(font_icon_32, lv_font_studio_32, mdi_fb_32);
-    WIRE(font_icon_40, lv_font_studio_40, mdi_fb_40);
-    font_icon_wx_32 = lv_font_studio_wx_32;
-    font_icon_wx_64 = lv_font_studio_wx_64;
+    WIRE(font_icon_16, lv_font_amber_16, mdi_fb_16);
+    WIRE(font_icon_24, lv_font_amber_24, mdi_fb_24);
+    WIRE(font_icon_32, lv_font_amber_32, mdi_fb_32);
+    WIRE(font_icon_40, lv_font_amber_40, mdi_fb_40);
+    font_icon_wx_32 = lv_font_amber_wx_32;
+    font_icon_wx_64 = lv_font_amber_wx_64;
 #endif
 }

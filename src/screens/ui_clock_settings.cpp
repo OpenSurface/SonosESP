@@ -25,7 +25,7 @@
 #include "clock_face.h"
 #include "ui_settings_card.h"  // shared card helpers: addCard, addSettingLabel, addDescLabel, addSwitch
 #include "ui_fonts.h"
-#include "studio.h"
+#include "amber.h"
 
 // Forward declaration (defined in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -34,11 +34,11 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // Clock-specific theme tokens (form inputs + keyboard, not in the shared header
 // because only this screen uses them so far)
 // ─────────────────────────────────────────────────────────────────────────────
-#define CLK_INPUT_BG    ST_RAISED
-#define CLK_INPUT_BORD  ST_RAISED
-#define CLK_KB_BG       ST_PANEL
-#define CLK_KB_KEY      ST_CARD
-#define CLK_KB_KEY_BORD ST_RAISED
+#define CLK_INPUT_BG    AMB_RAISED
+#define CLK_INPUT_BORD  AMB_RAISED
+#define CLK_KB_BG       AMB_PANEL
+#define CLK_KB_KEY      AMB_CARD
+#define CLK_KB_KEY_BORD AMB_RAISED
 
 // Location method indices (UI-level — derived from clock_weather_city_idx)
 #define LOC_METHOD_AUTO    0
@@ -52,7 +52,7 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
     lv_dropdown_set_selected(dd, selected);
     lv_obj_set_width(dd, lv_pct(100));
     lv_obj_set_style_bg_color(dd, CLK_INPUT_BG, 0);
-    lv_obj_set_style_text_color(dd, ST_TEXT, 0);
+    lv_obj_set_style_text_color(dd, AMB_TEXT, 0);
     lv_obj_set_style_text_font(dd, &font_text_14, 0);
     lv_obj_set_style_border_color(dd, CLK_INPUT_BORD, 0);
     lv_obj_set_style_radius(dd, 8, 0);
@@ -61,15 +61,15 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
     // The highlighted row in the OPEN list is LV_PART_SELECTED. Styling only the
     // list (below) leaves this part to LVGL's default theme, which is light — so
     // the list renders dark with a white selection bar. See ui_ota_screen.cpp.
-    lv_obj_set_style_bg_color(dd, ST_RAISED, LV_PART_SELECTED);
-    lv_obj_set_style_bg_color(dd, ST_ACCENT,
+    lv_obj_set_style_bg_color(dd, AMB_RAISED, LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(dd, AMB_ACCENT,
         (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
-    lv_obj_set_style_text_color(dd, ST_TEXT, LV_PART_SELECTED);
+    lv_obj_set_style_text_color(dd, AMB_TEXT, LV_PART_SELECTED);
     lv_obj_t* list = lv_dropdown_get_list(dd);
     if (list) {
         lv_obj_set_height(list, SY(260));
-        lv_obj_set_style_bg_color(list, ST_RAISED, 0);
-        lv_obj_set_style_text_color(list, ST_TEXT, 0);
+        lv_obj_set_style_bg_color(list, AMB_RAISED, 0);
+        lv_obj_set_style_text_color(list, AMB_TEXT, 0);
         lv_obj_set_style_text_font(list, &font_text_14, 0);
         lv_obj_set_style_border_color(list, CLK_INPUT_BORD, 0);
     }
@@ -93,7 +93,7 @@ static lv_obj_t* makeTextarea(lv_obj_t* parent, const char* initial,
     if (max_len > 0) lv_textarea_set_max_length(ta, max_len);
     lv_obj_set_width(ta, lv_pct(100));
     lv_obj_set_style_bg_color(ta, CLK_INPUT_BG, 0);
-    lv_obj_set_style_text_color(ta, ST_TEXT, 0);
+    lv_obj_set_style_text_color(ta, AMB_TEXT, 0);
     lv_obj_set_style_text_font(ta, &font_text_14, 0);
     lv_obj_set_style_border_color(ta, CLK_INPUT_BORD, 0);
     lv_obj_set_style_border_width(ta, 1, 0);
@@ -269,16 +269,16 @@ static void style_keyboard_dark(lv_obj_t* kb) {
     // Key buttons
     lv_obj_set_style_bg_color(kb, CLK_KB_KEY, LV_PART_ITEMS);
     lv_obj_set_style_bg_opa(kb, LV_OPA_COVER, LV_PART_ITEMS);
-    lv_obj_set_style_text_color(kb, ST_TEXT, LV_PART_ITEMS);
+    lv_obj_set_style_text_color(kb, AMB_TEXT, LV_PART_ITEMS);
     lv_obj_set_style_text_font(kb, &font_text_16, LV_PART_ITEMS);
     lv_obj_set_style_border_color(kb, CLK_KB_KEY_BORD, LV_PART_ITEMS);
     lv_obj_set_style_border_width(kb, 1, LV_PART_ITEMS);
     lv_obj_set_style_radius(kb, 8, LV_PART_ITEMS);
 
     // Pressed-key feedback
-    lv_obj_set_style_bg_color(kb, ST_ACCENT,
+    lv_obj_set_style_bg_color(kb, AMB_ACCENT,
         (lv_style_selector_t)((uint32_t)LV_PART_ITEMS | (uint32_t)LV_STATE_PRESSED));
-    lv_obj_set_style_text_color(kb, ST_ON_ACCENT,
+    lv_obj_set_style_text_color(kb, AMB_ON_ACCENT,
         (lv_style_selector_t)((uint32_t)LV_PART_ITEMS | (uint32_t)LV_STATE_PRESSED));
 }
 
@@ -287,7 +287,7 @@ static void style_keyboard_dark(lv_obj_t* kb) {
 // ============================================================================
 void createClockSettingsScreen() {
     scr_clock_settings = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_clock_settings, ST_BG, 0);
+    lv_obj_set_style_bg_color(scr_clock_settings, AMB_BG, 0);
 
     // Sidebar — Clock is index 6
     lv_obj_t* content = createSettingsSidebar(scr_clock_settings, 6);
@@ -516,10 +516,10 @@ void createClockSettingsScreen() {
         custom_loc_card = lv_obj_create(card);
         lv_obj_set_width(custom_loc_card, lv_pct(100));
         lv_obj_set_height(custom_loc_card, LV_SIZE_CONTENT);
-        lv_obj_set_style_bg_color(custom_loc_card, ST_BG, 0);
+        lv_obj_set_style_bg_color(custom_loc_card, AMB_BG, 0);
         lv_obj_set_style_bg_opa(custom_loc_card, LV_OPA_COVER, 0);
         lv_obj_set_style_radius(custom_loc_card, 10, 0);
-        lv_obj_set_style_border_color(custom_loc_card, ST_ACCENT, 0);
+        lv_obj_set_style_border_color(custom_loc_card, AMB_ACCENT, 0);
         lv_obj_set_style_border_width(custom_loc_card, 1, 0);
         lv_obj_set_style_pad_all(custom_loc_card, SMIN(12), 0);
         lv_obj_set_style_pad_row(custom_loc_card, SY(6), 0);
@@ -530,7 +530,7 @@ void createClockSettingsScreen() {
         lv_obj_t* sub_title = lv_label_create(custom_loc_card);
         lv_label_set_text(sub_title, "Custom coordinates");
         lv_obj_set_style_text_font(sub_title, &font_text_14, 0);
-        lv_obj_set_style_text_color(sub_title, ST_ACCENT, 0);
+        lv_obj_set_style_text_color(sub_title, AMB_ACCENT, 0);
 
         addSettingLabel(custom_loc_card, "Latitude (-90 to 90)");
         // Initialize from atomic float; format with 4 decimal places

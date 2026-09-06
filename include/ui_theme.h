@@ -61,20 +61,20 @@ const ThemeDef* themeCurrent(void);
 
 // The long mode lbl_title should return to when a mode overlay (line-in, TV)
 // clears. Those handlers used to hardcode LV_LABEL_LONG_SCROLL_CIRCULAR, which
-// silently undid Studio's deliberate wrap-and-truncate title for the rest of the
+// silently undid Amber's deliberate wrap-and-truncate title for the rest of the
 // session — the canvas is explicit that the title must not side-scroll.
 lv_label_long_mode_t themeTitleLongMode(void);
 
 // False for a theme whose accents are FIXED. The art-colour animation recolours
 // the progress bar, its knob and the transport's pressed states from the album,
-// which is the whole point of the ambient themes and completely wrong for Studio:
+// which is the whole point of the ambient themes and completely wrong for Amber:
 // its palette is one deliberate gold, and having the bar drift through whatever
 // the sleeve happens to be clashes with every other accent on the screen.
 bool themeUsesArtAccent(void);
 
 // The active theme's accent and muted tiers. Shared code (updateLyricsStatus()
 // and anything after it) has to style widgets that live in whichever palette the
-// current player was built from — Studio's warm ST_* or the original COL_* — and
+// current player was built from — Amber's warm AMB_* or the original COL_* — and
 // has no business knowing which.
 lv_color_t themeAccentColor(void);
 lv_color_t themeMutedColor(void);
@@ -109,18 +109,18 @@ void themeApplyArtGeometry(lv_obj_t* img);
 // Builders (registry entries point at these).
 void buildClassicPlayer(void);     // ui_main_screen.cpp
 void buildImmersivePlayer(void);   // ui_theme_immersive.cpp
-void buildStudioPlayer(void);      // ui_theme_studio.cpp
+void buildAmberPlayer(void);      // ui_theme_amber.cpp
 
-// ── Studio overlays (ui_studio_overlays.cpp) ────────────────────────────────
+// ── Amber overlays (ui_amber_overlays.cpp) ────────────────────────────────
 // The canvas draws Queue and Rooms OVER the player rather than as their own
-// screens. These are built by buildStudioPlayer() and are inert for every other
-// theme: the show functions return false when the Studio player is not built,
+// screens. These are built by buildAmberPlayer() and are inert for every other
+// theme: the show functions return false when the Amber player is not built,
 // so ev_queue()/ev_devices() fall through to their original screen loads.
-void studioBuildOverlays(lv_obj_t* screen);
-bool studioShowQueue(void);
-bool studioShowRooms(void);
-void studioHideOverlay(void);
-void studioRefreshQueue(void);   // no-op unless the queue drawer is open
-bool studioOverlayOpen(void);
+void amberBuildOverlays(lv_obj_t* screen);
+bool amberShowQueue(void);
+bool amberShowRooms(void);
+void amberHideOverlay(void);
+void amberRefreshQueue(void);   // no-op unless the queue drawer is open
+bool amberOverlayOpen(void);
 
 #endif // UI_THEME_H

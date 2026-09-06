@@ -104,7 +104,7 @@ void setTvAudioMode(bool enable) {
 
         if (lbl_album) lv_obj_clear_flag(lbl_album, LV_OBJ_FLAG_HIDDEN);
 
-        // Restore the ACTIVE THEME's long mode, not a hardcoded one. Studio gives
+        // Restore the ACTIVE THEME's long mode, not a hardcoded one. Amber gives
         // the title a two-line truncating box; forcing scroll here left it
         // side-scrolling for the rest of the session after a single line-in play,
         // recoverable only by switching theme.

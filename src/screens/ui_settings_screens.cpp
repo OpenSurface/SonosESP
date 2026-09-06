@@ -8,8 +8,8 @@
 #include "ui_settings_card.h"   // addScreenHeader() - shared title row
 #include "config.h"
 #include "ui_fonts.h"
-#include "studio_icons.h"
-#include "studio.h"
+#include "amber_icons.h"
+#include "amber.h"
 
 // Forward declaration for sidebar (now in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -41,8 +41,8 @@ void refreshQueueList() {
 
         lv_obj_t* btn = lv_btn_create(list_queue);
         lv_obj_set_size(btn, SX(727), SY(60));  // Full width, uniform height
-        lv_obj_set_style_bg_color(btn, isPlaying ? ST_RAISED : ST_PANEL, 0);
-        lv_obj_set_style_bg_color(btn, ST_CARD, LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(btn, isPlaying ? AMB_RAISED : AMB_PANEL, 0);
+        lv_obj_set_style_bg_color(btn, AMB_CARD, LV_STATE_PRESSED);
         lv_obj_set_style_radius(btn, 0, 0);  // No rounded corners - clean list
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_pad_all(btn, SMIN(12), 0);
@@ -54,7 +54,7 @@ void refreshQueueList() {
             lv_obj_set_style_border_width(btn, 0, 0);
             lv_obj_set_style_border_side(btn, LV_BORDER_SIDE_LEFT, 0);
             lv_obj_set_style_border_width(btn, 3, 0);
-            lv_obj_set_style_border_color(btn, ST_ACCENT, 0);
+            lv_obj_set_style_border_color(btn, AMB_ACCENT, 0);
         } else {
             lv_obj_set_style_border_width(btn, 0, 0);
         }
@@ -62,13 +62,13 @@ void refreshQueueList() {
         // Play icon for currently playing track OR track number
         lv_obj_t* num = lv_label_create(btn);
         if (isPlaying) {
-            lv_label_set_text(num, ST_IC_PLAY);
+            lv_label_set_text(num, AMB_IC_PLAY);
             lv_obj_set_style_text_font(num, &font_icon_16, 0);
         } else {
             lv_label_set_text_fmt(num, "%d", trackNum);
             lv_obj_set_style_text_font(num, &font_text_14, 0);
         }
-        lv_obj_set_style_text_color(num, isPlaying ? ST_ACCENT : ST_TEXT3, 0);
+        lv_obj_set_style_text_color(num, isPlaying ? AMB_ACCENT : AMB_TEXT3, 0);
         lv_obj_align(num, LV_ALIGN_LEFT_MID, SX(5), 0);
 
         // Duration, right-aligned. Sonos already reports it per queue item and
@@ -78,7 +78,7 @@ void refreshQueueList() {
         if (item->duration.length()) {
             dur = lv_label_create(btn);
             lv_label_set_text(dur, item->duration.c_str());
-            lv_obj_set_style_text_color(dur, ST_TEXT3, 0);
+            lv_obj_set_style_text_color(dur, AMB_TEXT3, 0);
             lv_obj_set_style_text_font(dur, &font_text_12, 0);
             // CLIP, not DOT: an ellipsised duration reads as a glitch.
             lv_obj_set_width(dur, SX(60));
@@ -91,7 +91,7 @@ void refreshQueueList() {
         // Title - highlight when playing
         lv_obj_t* title = lv_label_create(btn);
         lv_label_set_text(title, item->title.c_str());
-        lv_obj_set_style_text_color(title, isPlaying ? ST_ACCENT : ST_TEXT, 0);
+        lv_obj_set_style_text_color(title, isPlaying ? AMB_ACCENT : AMB_TEXT, 0);
         lv_obj_set_style_text_font(title, &font_text_16, 0);
         lv_obj_set_width(title, SX(text_w));
         lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
@@ -100,7 +100,7 @@ void refreshQueueList() {
         // Artist - subtle gray
         lv_obj_t* artist = lv_label_create(btn);
         lv_label_set_text(artist, item->artist.c_str());
-        lv_obj_set_style_text_color(artist, ST_TEXT3, 0);
+        lv_obj_set_style_text_color(artist, AMB_TEXT3, 0);
         lv_obj_set_style_text_font(artist, &font_text_12, 0);
         lv_obj_set_width(artist, SX(text_w));
         lv_label_set_long_mode(artist, LV_LABEL_LONG_DOT);
@@ -111,13 +111,13 @@ void refreshQueueList() {
 void createQueueScreen() {
     scr_queue = lv_obj_create(NULL);
     // The canvas draws the queue as a drawer, one step darker than a panel.
-    lv_obj_set_style_bg_color(scr_queue, ST_BG_DRAWER, 0);
+    lv_obj_set_style_bg_color(scr_queue, AMB_BG_DRAWER, 0);
 
     // Professional header
     lv_obj_t* header = lv_obj_create(scr_queue);
     lv_obj_set_size(header, SX(800), SY(70));
     lv_obj_set_pos(header, 0, 0);
-    lv_obj_set_style_bg_color(header, ST_RAISED, 0);
+    lv_obj_set_style_bg_color(header, AMB_RAISED, 0);
     lv_obj_set_style_border_width(header, 0, 0);
     lv_obj_set_style_radius(header, 0, 0);
     lv_obj_set_style_pad_all(header, 0, 0);
@@ -129,14 +129,14 @@ void createQueueScreen() {
     lv_obj_t* lbl_title = lv_label_create(header);
     lv_label_set_text(lbl_title, "Queue");
     lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_title, ST_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_title, AMB_TEXT, 0);
     lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, SX(30), SY(-11));
 
     // Refresh button in header
     lv_obj_t* btn_refresh = lv_button_create(header);
     lv_obj_set_size(btn_refresh, SMIN(50), SMIN(50));
     lv_obj_align(btn_refresh, LV_ALIGN_RIGHT_MID, SX(-80), 0);
-    lv_obj_set_style_bg_color(btn_refresh, ST_BORDER, 0);
+    lv_obj_set_style_bg_color(btn_refresh, AMB_BORDER, 0);
     lv_obj_set_style_radius(btn_refresh, 25, 0);
     lv_obj_set_style_shadow_width(btn_refresh, 0, 0);
     lv_obj_add_event_cb(btn_refresh, [](lv_event_t* e) {
@@ -154,8 +154,8 @@ void createQueueScreen() {
         queue_fetch_requested   = true;
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_refresh = lv_label_create(btn_refresh);
-    lv_label_set_text(ico_refresh, ST_IC_REFRESH);
-    lv_obj_set_style_text_color(ico_refresh, ST_TEXT, 0);
+    lv_label_set_text(ico_refresh, AMB_IC_REFRESH);
+    lv_obj_set_style_text_color(ico_refresh, AMB_TEXT, 0);
     lv_obj_set_style_text_font(ico_refresh, &font_icon_24, 0);
     lv_obj_center(ico_refresh);
 
@@ -163,19 +163,19 @@ void createQueueScreen() {
     lv_obj_t* btn_close = lv_button_create(header);
     lv_obj_set_size(btn_close, SMIN(50), SMIN(50));
     lv_obj_align(btn_close, LV_ALIGN_RIGHT_MID, SX(-20), 0);
-    lv_obj_set_style_bg_color(btn_close, ST_BORDER, 0);
+    lv_obj_set_style_bg_color(btn_close, AMB_BORDER, 0);
     lv_obj_set_style_radius(btn_close, 25, 0);
     lv_obj_set_style_shadow_width(btn_close, 0, 0);
     lv_obj_add_event_cb(btn_close, ev_back_main, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_close = lv_label_create(btn_close);
-    lv_label_set_text(ico_close, ST_IC_X);
-    lv_obj_set_style_text_color(ico_close, ST_TEXT, 0);
+    lv_label_set_text(ico_close, AMB_IC_X);
+    lv_obj_set_style_text_color(ico_close, AMB_TEXT, 0);
     lv_obj_set_style_text_font(ico_close, &font_icon_24, 0);
     lv_obj_center(ico_close);
 
     lbl_queue_status = lv_label_create(header);
     lv_label_set_text(lbl_queue_status, "Loading...");
-    lv_obj_set_style_text_color(lbl_queue_status, ST_TEXT3, 0);
+    lv_obj_set_style_text_color(lbl_queue_status, AMB_TEXT3, 0);
     lv_obj_set_style_text_font(lbl_queue_status, &font_text_12, 0);
     lv_obj_align(lbl_queue_status, LV_ALIGN_LEFT_MID, SX(30), SY(11));
 
@@ -185,7 +185,7 @@ void createQueueScreen() {
     // buys the list 30 design pixels — half a row.
     lv_obj_set_size(list_queue, SX(730), SY(390));
     lv_obj_set_pos(list_queue, SX(35), SY(85));
-    lv_obj_set_style_bg_color(list_queue, ST_PANEL, 0);
+    lv_obj_set_style_bg_color(list_queue, AMB_PANEL, 0);
     lv_obj_set_style_border_width(list_queue, 0, 0);
     lv_obj_set_style_radius(list_queue, 0, 0);
     lv_obj_set_style_pad_all(list_queue, 0, 0);
@@ -194,7 +194,7 @@ void createQueueScreen() {
     // Modern thin scrollbar on the right edge
     lv_obj_set_style_pad_right(list_queue, SX(3), LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_opa(list_queue, LV_OPA_COVER, LV_PART_SCROLLBAR);
-    lv_obj_set_style_bg_color(list_queue, ST_ACCENT, LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_color(list_queue, AMB_ACCENT, LV_PART_SCROLLBAR);
     lv_obj_set_style_width(list_queue, 3, LV_PART_SCROLLBAR);
     lv_obj_set_style_radius(list_queue, 0, LV_PART_SCROLLBAR);
 }
@@ -230,15 +230,15 @@ struct SourceMeta {
 };
 
 static const SourceMeta SOURCE_META[] = {
-    {"A:",  "A:",    "Music Library",   ST_IC_MUSIC},
-    {"S:",  "S:",    "Music Shares",    ST_IC_FOLDER},
-    {"SQ:", "SQ:",   "Sonos Playlists", ST_IC_QUEUE},
+    {"A:",  "A:",    "Music Library",   AMB_IC_MUSIC},
+    {"S:",  "S:",    "Music Shares",    AMB_IC_FOLDER},
+    {"SQ:", "SQ:",   "Sonos Playlists", AMB_IC_QUEUE},
     // FV: contains a single child, FV:2, itself titled "Favorites" — so browsing
     // FV: costs a tap to reach a row with the same name as the one just tapped.
     // FV:2 is the conventional Sonos favorites container and is what other
     // controllers use. If a household ever differs, the row lands on the existing
     // "No items found" state rather than failing.
-    {"FV:", "FV:2",  "Favorites",       ST_IC_MUSIC},
+    {"FV:", "FV:2",  "Favorites",       AMB_IC_MUSIC},
     // R: reports TotalMatches=0 at its OWN root — browsing it shows nothing at
     // all — while the content lives one level down at R:0, which holds BOTH
     // "Radio Stations" (R:0/0) and "Radio Shows" (R:0/1).
@@ -246,10 +246,10 @@ static const SourceMeta SOURCE_META[] = {
     // Deliberately R:0 and not R:0/0: jumping straight to the stations saves a
     // tap but silently hides Radio Shows, which is where podcasts live. Costing
     // one tap to not hide a whole category is the right trade.
-    {"R:",  "R:0",   "Internet Radio",  ST_IC_RADIO},
+    {"R:",  "R:0",   "Internet Radio",  AMB_IC_RADIO},
     // Q: lists "Queue Instance 0/1" wrappers nobody wants to see. Q:0 is the
     // queue that is actually playing.
-    {"Q:",  "Q:0",   "Queue",           ST_IC_SPEAKER},
+    {"Q:",  "Q:0",   "Queue",           AMB_IC_SPEAKER},
 };
 static const int SOURCE_META_COUNT = sizeof(SOURCE_META) / sizeof(SOURCE_META[0]);
 
@@ -350,7 +350,7 @@ static void refreshSourcesList(lv_event_t* e) {
         }
 
         const char* label    = meta ? meta->label    : title.c_str();
-        const char* icon     = meta ? meta->icon     : ST_IC_FOLDER;
+        const char* icon     = meta ? meta->icon     : AMB_IC_FOLDER;
         String      browseID = meta ? meta->browseID : id;
         if (browseID.length() == 0) continue;
 
@@ -364,24 +364,24 @@ static void refreshSourcesList(lv_event_t* e) {
         lv_obj_set_size(btn, SX(SOURCE_TILE_W), SY(74));
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
-        lv_obj_set_style_bg_color(btn, ST_CARD, 0);
-        lv_obj_set_style_bg_color(btn, ST_BORDER, LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(btn, AMB_CARD, 0);
+        lv_obj_set_style_bg_color(btn, AMB_BORDER, LV_STATE_PRESSED);
         lv_obj_set_style_border_width(btn, 1, 0);
-        lv_obj_set_style_border_color(btn, ST_BORDER, 0);
+        lv_obj_set_style_border_color(btn, AMB_BORDER, 0);
         lv_obj_set_style_pad_all(btn, SMIN(15), 0);
         lv_obj_set_user_data(btn, idCopy);
         lv_obj_add_event_cb(btn, sourceRowDeleteCb, LV_EVENT_DELETE, NULL);
 
         lv_obj_t* ico = lv_label_create(btn);
         lv_label_set_text(ico, icon);
-        lv_obj_set_style_text_color(ico, ST_ACCENT, 0);
+        lv_obj_set_style_text_color(ico, AMB_ACCENT, 0);
         lv_obj_set_style_text_font(ico, &font_icon_24, 0);
         lv_obj_align(ico, LV_ALIGN_LEFT_MID, SX(5), 0);
 
         // Child index 1 — the click handler reads the title back from here.
         lv_obj_t* name = lv_label_create(btn);
         lv_label_set_text(name, label);
-        lv_obj_set_style_text_color(name, ST_TEXT, 0);
+        lv_obj_set_style_text_color(name, AMB_TEXT, 0);
         lv_obj_set_style_text_font(name, &font_text_16, 0);
         // Sized to the tile rather than the old full-width row. Two lines of
         // font_text_16 fit the 74px tile, so a long source name wraps and
@@ -415,23 +415,23 @@ static void refreshSourcesList(lv_event_t* e) {
         lv_obj_set_size(btn, SX(SOURCE_TILE_W), SY(74));
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
-        lv_obj_set_style_bg_color(btn, ST_CARD, 0);
-        lv_obj_set_style_bg_color(btn, ST_BORDER, LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(btn, AMB_CARD, 0);
+        lv_obj_set_style_bg_color(btn, AMB_BORDER, LV_STATE_PRESSED);
         lv_obj_set_style_border_width(btn, 1, 0);
-        lv_obj_set_style_border_color(btn, ST_BORDER, 0);
+        lv_obj_set_style_border_color(btn, AMB_BORDER, 0);
         lv_obj_set_style_pad_all(btn, SMIN(15), 0);
 
         lv_obj_t* ico = lv_label_create(btn);
         // MDI_WAVEFORM is the line-in hero glyph but exists only at 40/80, so at
         // mdi_24 it renders as a tofu box. MDI_BROADCAST is in this size.
         lv_label_set_text(ico, MDI_BROADCAST);
-        lv_obj_set_style_text_color(ico, ST_ACCENT, 0);
+        lv_obj_set_style_text_color(ico, AMB_ACCENT, 0);
         lv_obj_set_style_text_font(ico, &font_icon_24, 0);
         lv_obj_align(ico, LV_ALIGN_LEFT_MID, SX(5), 0);
 
         lv_obj_t* name = lv_label_create(btn);
         lv_label_set_text(name, "Line-In");
-        lv_obj_set_style_text_color(name, ST_TEXT, 0);
+        lv_obj_set_style_text_color(name, AMB_TEXT, 0);
         lv_obj_set_style_text_font(name, &font_text_16, 0);
         lv_obj_set_width(name, SX(SOURCE_TILE_W - 66));
         lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
@@ -453,7 +453,7 @@ static void refreshSourcesList(lv_event_t* e) {
         lv_label_set_text(lbl, sonos.getCurrentDevice()
                                ? "No sources found"
                                : "No Sonos device connected");
-        lv_obj_set_style_text_color(lbl, ST_TEXT3, 0);
+        lv_obj_set_style_text_color(lbl, AMB_TEXT3, 0);
         lv_obj_set_style_text_font(lbl, &font_text_16, 0);
     }
     Serial.printf("[SOURCES] %d source(s) listed\n", shown);
@@ -461,7 +461,7 @@ static void refreshSourcesList(lv_event_t* e) {
 
 void createSourcesScreen() {
     scr_sources = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_sources, ST_BG, 0);
+    lv_obj_set_style_bg_color(scr_sources, AMB_BG, 0);
 
     // Create sidebar and get content area (Sources is index 3)
     lv_obj_t* content = createSettingsSidebar(scr_sources, 3);
@@ -474,7 +474,7 @@ void createSourcesScreen() {
     lv_obj_t* list = lv_obj_create(content);
     lv_obj_set_pos(list, 0, SY(50));
     lv_obj_set_size(list, lv_pct(100), SETTINGS_LIST_H(50));
-    lv_obj_set_style_bg_color(list, ST_PANEL, 0);
+    lv_obj_set_style_bg_color(list, AMB_PANEL, 0);
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_set_style_pad_all(list, 0, 0);
     // Two-column tile grid, per the design canvas. Sources are a small fixed set
@@ -537,11 +537,11 @@ static int browsePopulate(lv_obj_t* list, int startIndex);
 // one at this size renders a tofu box, not an icon. Genres used MDI_WAVEFORM and
 // showed exactly that. A genre is just a container, so it takes the folder.
 static const char* browseIconFor(const String& cls, bool isContainer) {
-    if (cls.indexOf("musicAlbum") >= 0)        return ST_IC_MUSIC;
-    if (cls.indexOf("playlistContainer") >= 0) return ST_IC_QUEUE;
-    if (cls.indexOf("audioBroadcast") >= 0)    return ST_IC_RADIO;
-    if (cls.indexOf("musicTrack") >= 0)        return ST_IC_MUSIC;
-    return isContainer ? ST_IC_FOLDER : ST_IC_MUSIC;
+    if (cls.indexOf("musicAlbum") >= 0)        return AMB_IC_MUSIC;
+    if (cls.indexOf("playlistContainer") >= 0) return AMB_IC_QUEUE;
+    if (cls.indexOf("audioBroadcast") >= 0)    return AMB_IC_RADIO;
+    if (cls.indexOf("musicTrack") >= 0)        return AMB_IC_MUSIC;
+    return isContainer ? AMB_IC_FOLDER : AMB_IC_MUSIC;
 }
 
 // "Music Library > Artists" — the levels above the one being shown. Empty at the
@@ -572,7 +572,7 @@ void createBrowseScreen() {
     lv_obj_t* old_browse = scr_browse;
 
     scr_browse = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_browse, ST_BG, 0);
+    lv_obj_set_style_bg_color(scr_browse, AMB_BG, 0);
 
     // Create sidebar and get content area (Sources is index 3)
     lv_obj_t* content = createSettingsSidebar(scr_browse, 3);
@@ -585,17 +585,17 @@ void createBrowseScreen() {
     lv_obj_set_size(btn_back, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_back, 0, 0);
     lv_obj_set_style_radius(btn_back, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(btn_back, ST_ON_ACCENT, 0);
+    lv_obj_set_style_bg_color(btn_back, AMB_ON_ACCENT, 0);
     lv_obj_set_style_bg_opa(btn_back, LV_OPA_20, 0);
     lv_obj_set_style_border_width(btn_back, 1, 0);
-    lv_obj_set_style_border_color(btn_back, ST_TEXT, 0);
+    lv_obj_set_style_border_color(btn_back, AMB_TEXT, 0);
     lv_obj_set_style_border_opa(btn_back, LV_OPA_40, 0);
     lv_obj_set_style_shadow_width(btn_back, 0, 0);
     lv_obj_set_ext_click_area(btn_back, 8);
     lv_obj_add_event_cb(btn_back, [](lv_event_t* e) { browseBack(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_back = lv_label_create(btn_back);
     lv_label_set_text(ico_back, MDI_ARROW_LEFT);
-    lv_obj_set_style_text_color(ico_back, ST_TEXT, 0);
+    lv_obj_set_style_text_color(ico_back, AMB_TEXT, 0);
     lv_obj_set_style_text_font(ico_back, &font_icon_24, 0);
     lv_obj_center(ico_back);
 
@@ -607,7 +607,7 @@ void createBrowseScreen() {
         lv_obj_t* lbl_trail = lv_label_create(content);
         lv_label_set_text(lbl_trail, trail.c_str());
         lv_obj_set_style_text_font(lbl_trail, &font_text_12, 0);
-        lv_obj_set_style_text_color(lbl_trail, ST_TEXT3, 0);
+        lv_obj_set_style_text_color(lbl_trail, AMB_TEXT3, 0);
         lv_obj_set_pos(lbl_trail, SX(48), SY(2));
         lv_obj_set_width(lbl_trail, SX(520));
         lv_label_set_long_mode(lbl_trail, LV_LABEL_LONG_DOT);
@@ -619,7 +619,7 @@ void createBrowseScreen() {
     lv_obj_t* lbl_title = lv_label_create(content);
     lv_label_set_text(lbl_title, current_browse_title.c_str());
     lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_title, ST_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_title, AMB_TEXT, 0);
     lv_obj_set_pos(lbl_title, SX(48), nested ? SY(18) : SY(4));
     lv_obj_set_width(lbl_title, SX(520));
     lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_DOT);
@@ -628,7 +628,7 @@ void createBrowseScreen() {
     lv_obj_t* list = lv_obj_create(content);
     lv_obj_set_pos(list, 0, SY(50));
     lv_obj_set_size(list, lv_pct(100), SETTINGS_LIST_H(50));
-    lv_obj_set_style_bg_color(list, ST_PANEL, 0);
+    lv_obj_set_style_bg_color(list, AMB_PANEL, 0);
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_set_style_pad_all(list, 0, 0);
     lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
@@ -659,7 +659,7 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
         if (startIndex == 0) {
             lv_obj_t* lbl_empty = lv_label_create(list);
             lv_label_set_text(lbl_empty, "No items found");
-            lv_obj_set_style_text_color(lbl_empty, ST_TEXT3, 0);
+            lv_obj_set_style_text_color(lbl_empty, AMB_TEXT3, 0);
         }
         return 0;
     }
@@ -704,8 +704,8 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
         lv_obj_set_size(btn, lv_pct(100), SY(60));
         lv_obj_set_style_radius(btn, 10, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
-        lv_obj_set_style_bg_color(btn, ST_CARD, 0);
-        lv_obj_set_style_bg_color(btn, ST_BORDER, LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(btn, AMB_CARD, 0);
+        lv_obj_set_style_bg_color(btn, AMB_BORDER, LV_STATE_PRESSED);
         lv_obj_set_style_pad_all(btn, SMIN(15), 0);
 
         struct ItemData {
@@ -737,13 +737,13 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
 
         lv_obj_t* icon = lv_label_create(btn);
         lv_label_set_text(icon, browseIconFor(sonos.extractXML(itemXML, "upnp:class"), isContainer));
-        lv_obj_set_style_text_color(icon, ST_ACCENT, 0);
+        lv_obj_set_style_text_color(icon, AMB_ACCENT, 0);
         lv_obj_set_style_text_font(icon, &font_icon_16, 0);
         lv_obj_align(icon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
         lv_obj_t* lbl = lv_label_create(btn);
         lv_label_set_text(lbl, title.c_str());
-        lv_obj_set_style_text_color(lbl, ST_TEXT, 0);
+        lv_obj_set_style_text_color(lbl, AMB_TEXT, 0);
         lv_obj_set_style_text_font(lbl, &font_text_16, 0);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, SX(40), 0);
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_SCROLL_CIRCULAR);
@@ -847,7 +847,7 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
     if (itemCount == 0 && startIndex == 0) {
         lv_obj_t* lbl_empty = lv_label_create(list);
         lv_label_set_text(lbl_empty, "No items found");
-        lv_obj_set_style_text_color(lbl_empty, ST_TEXT3, 0);
+        lv_obj_set_style_text_color(lbl_empty, AMB_TEXT3, 0);
     }
 
     // A full page means there is probably more. browseContent() returns only the
@@ -859,15 +859,15 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
         lv_obj_set_size(browse_more_btn, lv_pct(100), SY(50));
         lv_obj_set_style_radius(browse_more_btn, 10, 0);
         lv_obj_set_style_shadow_width(browse_more_btn, 0, 0);
-        lv_obj_set_style_bg_color(browse_more_btn, ST_PANEL, 0);
-        lv_obj_set_style_bg_color(browse_more_btn, ST_BORDER, LV_STATE_PRESSED);
+        lv_obj_set_style_bg_color(browse_more_btn, AMB_PANEL, 0);
+        lv_obj_set_style_bg_color(browse_more_btn, AMB_BORDER, LV_STATE_PRESSED);
         lv_obj_set_style_border_width(browse_more_btn, 1, 0);
-        lv_obj_set_style_border_color(browse_more_btn, ST_BORDER, 0);
+        lv_obj_set_style_border_color(browse_more_btn, AMB_BORDER, 0);
         lv_obj_add_event_cb(browse_more_btn, browseLoadMore, LV_EVENT_CLICKED, NULL);
 
         lv_obj_t* lbl_more = lv_label_create(browse_more_btn);
         lv_label_set_text_fmt(lbl_more, "Load more  (%d shown)", startIndex + itemCount);
-        lv_obj_set_style_text_color(lbl_more, ST_ACCENT, 0);
+        lv_obj_set_style_text_color(lbl_more, AMB_ACCENT, 0);
         lv_obj_set_style_text_font(lbl_more, &font_text_16, 0);
         lv_obj_center(lbl_more);
     }

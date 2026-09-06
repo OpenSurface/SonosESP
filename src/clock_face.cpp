@@ -15,10 +15,10 @@ void monolithTick(const struct tm* now);
 lv_obj_t* horizonRoot(void);
 lv_obj_t* orbitRoot(void);
 lv_obj_t* monolithRoot(void);
-void buildStudioFace(lv_obj_t* parent);
-void studioFaceTick(const struct tm* now);
-lv_obj_t* studioFaceRoot(void);
-void studioFaceBackdrop(lv_obj_t* root, bool over_photo);
+void buildAmberFace(lv_obj_t* parent);
+void amberFaceTick(const struct tm* now);
+lv_obj_t* amberFaceRoot(void);
+void amberFaceBackdrop(lv_obj_t* root, bool over_photo);
 
 // ---------------------------------------------------------------------------
 // The registry. Adding a face is one row.
@@ -39,9 +39,9 @@ const ClockFaceDef CLOCK_FACES[] = {
       true,  buildHorizonFace,    horizonTick,    horizonRoot },
     // Paints its own warm ground rather than the Nocturne gradient, but still
     // takes the photo backdrop when it is switched on.
-    { "Studio",   "Warm flat clock with weather, forecast and the paused track",
-      true,  buildStudioFace,     studioFaceTick, studioFaceRoot,
-      studioFaceBackdrop },
+    { "Amber",   "Warm flat clock with weather, forecast and the paused track",
+      true,  buildAmberFace,     amberFaceTick, amberFaceRoot,
+      amberFaceBackdrop },
 };
 
 const uint8_t CLOCK_FACE_COUNT = (uint8_t)(sizeof(CLOCK_FACES) / sizeof(CLOCK_FACES[0]));

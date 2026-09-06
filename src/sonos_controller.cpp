@@ -1508,12 +1508,29 @@ bool SonosController::updateTransportSettings() {
     if (!dev) return false;
     
     if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
+        // PlayMode is ONE field encoding BOTH axes, and its six values do not
+        // decompose by substring:
+        //
+        //   NORMAL              no shuffle, no repeat
+        //   REPEAT_ALL          no shuffle, repeat all
+        //   REPEAT_ONE          no shuffle, repeat one
+        //   SHUFFLE_NOREPEAT    shuffle,    no repeat
+        //   SHUFFLE             shuffle,    repeat ALL   <- not "shuffle only"
+        //   SHUFFLE_REPEAT_ONE  shuffle,    repeat one
+        //
+        // The old test asked indexOf("REPEAT"), which is TRUE for
+        // "SHUFFLE_NOREPEAT" - the word sits inside "NOREPEAT". So turning shuffle
+        // on in the Sonos app lit repeat-all here too. The mirror mistake: bare
+        // "SHUFFLE" scored no repeat, when it actually means repeat all.
+        //
+        // Exact match, no substrings.
         String mode = extractXML(resp, "PlayMode");
-        dev->shuffleMode = (mode.indexOf("SHUFFLE") >= 0);
-        
-        if (mode.indexOf("REPEAT_ONE") >= 0) dev->repeatMode = "ONE";
-        else if (mode.indexOf("REPEAT") >= 0) dev->repeatMode = "ALL";
-        else dev->repeatMode = "NONE";
+        if      (mode == "SHUFFLE_REPEAT_ONE") { dev->shuffleMode = true;  dev->repeatMode = "ONE";  }
+        else if (mode == "SHUFFLE_NOREPEAT")   { dev->shuffleMode = true;  dev->repeatMode = "NONE"; }
+        else if (mode == "SHUFFLE")            { dev->shuffleMode = true;  dev->repeatMode = "ALL";  }
+        else if (mode == "REPEAT_ONE")         { dev->shuffleMode = false; dev->repeatMode = "ONE";  }
+        else if (mode == "REPEAT_ALL")         { dev->shuffleMode = false; dev->repeatMode = "ALL";  }
+        else                                   { dev->shuffleMode = false; dev->repeatMode = "NONE"; }
         
         xSemaphoreGive(deviceMutex);
         notifyUI(UPDATE_TRANSPORT);
@@ -1628,6 +1645,21 @@ bool SonosController::updateQueue(int startIndex) {
 // ============================================================================
 // Command Processing
 // ============================================================================
+// Both axes -> the single PlayMode value Sonos accepts. See the decode table in
+// updateTransportSettings(); the asymmetry worth remembering is that bare
+// "SHUFFLE" means shuffle PLUS repeat-all, and shuffle with no repeat is the
+// longer "SHUFFLE_NOREPEAT".
+static const char* composePlayMode(bool shuffle, const String& repeat) {
+    if (shuffle) {
+        if (repeat == "ONE") return "SHUFFLE_REPEAT_ONE";
+        if (repeat == "ALL") return "SHUFFLE";
+        return "SHUFFLE_NOREPEAT";
+    }
+    if (repeat == "ONE") return "REPEAT_ONE";
+    if (repeat == "ALL") return "REPEAT_ALL";
+    return "NORMAL";
+}
+
 void SonosController::processCommand(CommandRequest_t* cmd) {
     SonosDevice* dev = getCurrentDevice();
     if (!dev) return;
@@ -1760,21 +1792,26 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             }
             break;
 
+        // Both setters compose the COMBINED value, because that is what
+        // SetPlayMode takes. Sending bare "SHUFFLE" to turn shuffle on also
+        // turned repeat-all on, and sending "REPEAT_ALL" to change repeat
+        // silently turned shuffle off — each control was wiping the other axis.
         case CMD_SET_SHUFFLE: {
-            const char* mode = (cmd->value == 1) ? "SHUFFLE" : "NORMAL";
             snprintf(args, sizeof(args),
-                "<InstanceID>0</InstanceID><NewPlayMode>%s</NewPlayMode>", mode);
+                "<InstanceID>0</InstanceID><NewPlayMode>%s</NewPlayMode>",
+                composePlayMode(cmd->value == 1, dev->repeatMode));
             sendSOAP("AVTransport", "SetPlayMode", args);
             updateTransportSettings();
             break;
         }
 
         case CMD_SET_REPEAT: {
-            const char* mode = "NORMAL";
-            if (cmd->value == 1) mode = "REPEAT_ONE";
-            else if (cmd->value == 2) mode = "REPEAT_ALL";
+            const char* rp = "NONE";
+            if (cmd->value == 1) rp = "ONE";
+            else if (cmd->value == 2) rp = "ALL";
             snprintf(args, sizeof(args),
-                "<InstanceID>0</InstanceID><NewPlayMode>%s</NewPlayMode>", mode);
+                "<InstanceID>0</InstanceID><NewPlayMode>%s</NewPlayMode>",
+                composePlayMode(dev->shuffleMode, rp));
             sendSOAP("AVTransport", "SetPlayMode", args);
             updateTransportSettings();
             break;

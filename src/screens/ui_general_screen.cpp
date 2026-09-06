@@ -12,14 +12,14 @@
 #include "ui_settings_card.h"
 #include "ui_theme.h"
 #include "ui_fonts.h"
-#include "studio.h"
+#include "amber.h"
 
 // Forward declaration (defined in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 
 void createGeneralScreen() {
     scr_general = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_general, ST_BG, 0);
+    lv_obj_set_style_bg_color(scr_general, AMB_BG, 0);
 
     // Sidebar — General is index 0
     lv_obj_t* content = createSettingsSidebar(scr_general, 0);
@@ -79,23 +79,23 @@ void createGeneralScreen() {
         // Explicit width: the control slot sizes to its content, so a percentage
         // here would resolve against nothing.
         lv_obj_set_width(dd, SX(200));
-        lv_obj_set_style_bg_color(dd, ST_CARD, 0);
-        lv_obj_set_style_text_color(dd, ST_TEXT, 0);
+        lv_obj_set_style_bg_color(dd, AMB_CARD, 0);
+        lv_obj_set_style_text_color(dd, AMB_TEXT, 0);
         lv_obj_set_style_text_font(dd, &font_text_14, 0);
-        lv_obj_set_style_border_color(dd, ST_RAISED, 0);
+        lv_obj_set_style_border_color(dd, AMB_RAISED, 0);
         lv_obj_set_style_radius(dd, 8, 0);
         lv_obj_set_style_pad_all(dd, SMIN(10), 0);
         // Highlighted row in the OPEN list. Styling only the list leaves this to
         // LVGL's default (light) theme — dark list, white selection bar.
-        lv_obj_set_style_bg_color(dd, ST_RAISED, LV_PART_SELECTED);
-        lv_obj_set_style_bg_color(dd, ST_ACCENT,
+        lv_obj_set_style_bg_color(dd, AMB_RAISED, LV_PART_SELECTED);
+        lv_obj_set_style_bg_color(dd, AMB_ACCENT,
             (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
-        lv_obj_set_style_text_color(dd, ST_TEXT, LV_PART_SELECTED);
+        lv_obj_set_style_text_color(dd, AMB_TEXT, LV_PART_SELECTED);
         if (lv_obj_t* list = lv_dropdown_get_list(dd)) {
-            lv_obj_set_style_bg_color(list, ST_RAISED, 0);
-            lv_obj_set_style_text_color(list, ST_TEXT, 0);
+            lv_obj_set_style_bg_color(list, AMB_RAISED, 0);
+            lv_obj_set_style_text_color(list, AMB_TEXT, 0);
             lv_obj_set_style_text_font(list, &font_text_14, 0);
-            lv_obj_set_style_border_color(list, ST_RAISED, 0);
+            lv_obj_set_style_border_color(list, AMB_RAISED, 0);
         }
         lv_obj_add_event_cb(dd, [](lv_event_t* e) {
             lv_obj_t* d = (lv_obj_t*)lv_event_get_target(e);

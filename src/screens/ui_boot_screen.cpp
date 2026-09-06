@@ -1,5 +1,5 @@
 /**
- * Studio boot sequence (artboard 1a) — implementation for ui_boot_screen.h.
+ * Amber boot sequence (artboard 1a) — implementation for ui_boot_screen.h.
  *
  * ── Why there is not a single lv_anim in this file ──────────────────────────
  * The design specifies the whole sequence as opacity/translate tweens "LVGL can
@@ -35,9 +35,9 @@
 #include "ui_common.h"
 #include "ui_boot_screen.h"
 #include "ui_fonts.h"
-#include "studio_icons.h"
+#include "amber_icons.h"
 #include "ui_icons.h"
-#include "studio.h"
+#include "amber.h"
 #include "config.h"
 
 // ── Grid ────────────────────────────────────────────────────────────────────
@@ -114,9 +114,9 @@ static lv_obj_t* bootWordmark(lv_obj_t* parent, const lv_font_t* font, int track
     lv_obj_set_style_pad_column(row, 0, 0);
     lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t* a = stLabel(row, font, ST_TEXT, "Sonos");
+    lv_obj_t* a = ambLabel(row, font, AMB_TEXT, "Sonos");
     lv_obj_set_style_text_letter_space(a, track, 0);
-    lv_obj_t* b = stLabel(row, font, ST_ACCENT, "ESP");
+    lv_obj_t* b = ambLabel(row, font, AMB_ACCENT, "ESP");
     lv_obj_set_style_text_letter_space(b, track, 0);
     return row;
 }
@@ -125,7 +125,7 @@ void bootScreenCreate(void) {
     bt_revealed = false;
     bt_shown_ms = millis();
     bt_scr = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(bt_scr, ST_BG, 0);
+    lv_obj_set_style_bg_color(bt_scr, AMB_BG, 0);
     lv_obj_set_style_border_width(bt_scr, 0, 0);
     lv_obj_set_style_pad_all(bt_scr, 0, 0);
     lv_obj_remove_flag(bt_scr, LV_OBJ_FLAG_SCROLLABLE);
@@ -143,7 +143,7 @@ void bootScreenCreate(void) {
     lv_obj_remove_flag(bt_wordmark, LV_OBJ_FLAG_SCROLLABLE);
 
     bootWordmark(bt_wordmark, &font_text_48, -1);
-    stCaption(bt_wordmark, ST_TEXT3, "TOUCHSCREEN SONOS CONTROLLER", 5);
+    ambCaption(bt_wordmark, AMB_TEXT3, "TOUCHSCREEN SONOS CONTROLLER", 5);
 
     // ── Stage 2: header, progress, checks, meter, footer ────────────────────
     // Built now but held transparent, so the reveal is a fade and not a layout
@@ -167,15 +167,15 @@ void bootScreenCreate(void) {
     lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
 
     bootWordmark(head, &font_text_20, 0);
-    lv_obj_t* ver = stCaption(head, ST_TEXT3, "v" FIRMWARE_VERSION, 2);
+    lv_obj_t* ver = ambCaption(head, AMB_TEXT3, "v" FIRMWARE_VERSION, 2);
     lv_obj_set_style_pad_left(ver, SX(8), 0);
 
     // Progress hairline. The canvas groove is 0x221F1B — one green step from
-    // ST_LINE, which RGB565 cannot resolve, so the token is used instead.
-    lv_obj_t* groove = stRoundRect(bt_header, BT_PROG_W, 3, 2, ST_LINE);
+    // AMB_LINE, which RGB565 cannot resolve, so the token is used instead.
+    lv_obj_t* groove = ambRoundRect(bt_header, BT_PROG_W, 3, 2, AMB_LINE);
     lv_obj_set_pos(groove, SX(BT_PAD), SY(BT_PROG_Y));
 
-    bt_fill = stRoundRect(bt_header, BT_PROG_W, 3, 2, ST_ACCENT);
+    bt_fill = ambRoundRect(bt_header, BT_PROG_W, 3, 2, AMB_ACCENT);
     lv_obj_set_pos(bt_fill, SX(BT_PAD), SY(BT_PROG_Y));
     lv_obj_set_width(bt_fill, 0);
 
@@ -195,25 +195,25 @@ void bootScreenCreate(void) {
         lv_obj_set_style_opa(row, LV_OPA_TRANSP, 0);
         lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
-        lv_obj_t* chip = stRoundRect(row, 22, 22, 11, ST_ACCENT_WASH);
-        lv_obj_t* tick = stLabel(chip, &font_icon_16, ST_ACCENT, ST_SC_CHECK);
+        lv_obj_t* chip = ambRoundRect(row, 22, 22, 11, AMB_ACCENT_WASH);
+        lv_obj_t* tick = ambLabel(chip, &font_icon_16, AMB_ACCENT, AMB_SC_CHECK);
         lv_obj_center(tick);
 
-        stLabel(row, &font_text_16, ST_TEXT, kLabel[i]);
+        ambLabel(row, &font_text_16, AMB_TEXT, kLabel[i]);
 
-        lv_obj_t* rule = stRect(row, 2, 1, ST_LINE_SOFT);
+        lv_obj_t* rule = ambRect(row, 2, 1, AMB_LINE_SOFT);
         lv_obj_set_flex_grow(rule, 1);
 
-        bt_value[i] = stLabel(row, &font_text_14, ST_TEXT3, "");
+        bt_value[i] = ambLabel(row, &font_text_14, AMB_TEXT3, "");
         bt_row[i] = row;
     }
 
-    bt_status = stLabel(bt_header, &font_text_14, ST_ACCENT, "");
+    bt_status = ambLabel(bt_header, &font_text_14, AMB_ACCENT, "");
     lv_obj_set_pos(bt_status, SX(BT_PAD), SY(BT_STATUS_Y));
     lv_obj_add_flag(bt_status, LV_OBJ_FLAG_HIDDEN);
 
     // ── Footer ──────────────────────────────────────────────────────────────
-    lv_obj_t* foot = stLabel(bt_header, &font_text_12, ST_TEXT3,
+    lv_obj_t* foot = ambLabel(bt_header, &font_text_12, AMB_TEXT3,
                              "ESP32-P4 · " PANEL_SIZE_LABEL " · 16 MB flash / 32 MB PSRAM");
     lv_obj_set_pos(foot, SX(BT_PAD), SY(BT_FOOT_Y));
 

@@ -9,7 +9,7 @@
 
 #include "ui_common.h"
 #include "ui_fonts.h"
-#include "studio.h"
+#include "amber.h"
 #include "ui_settings_card.h"
 #include "ui_theme.h"
 
@@ -21,7 +21,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // ============================================================================
 void createDisplaySettingsScreen() {
     scr_display = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_display, ST_BG, 0);
+    lv_obj_set_style_bg_color(scr_display, AMB_BG, 0);
 
     // Create sidebar and get content area (Display is index 4)
     lv_obj_t* content = createSettingsSidebar(scr_display, 4);
