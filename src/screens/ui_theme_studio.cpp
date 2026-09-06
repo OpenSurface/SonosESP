@@ -59,7 +59,11 @@
 
 static lv_obj_t* sp_shelf_next = nullptr;   // the "NEXT" block
 static lv_obj_t* sp_lyric_slot = nullptr;   // the lyrics overlay's wrapper
+static lv_obj_t* sp_lyric_cur  = nullptr;   // the current line, auto-fitted
 static lv_timer_t* sp_shelf_timer = nullptr;
+
+// Defined below, next to the reasoning for it; used by shelfSwapCb() above it.
+static void spFitLyric(lv_obj_t* lbl, const char* text);
 
 // ── Shelf ownership ─────────────────────────────────────────────────────────
 // The canvas shows Next-up and the lyrics as mutually exclusive occupants of the
@@ -75,6 +79,52 @@ static void shelfSwapCb(lv_timer_t*) {
     const bool lyrics_showing = lyr && !lv_obj_has_flag(lyr, LV_OBJ_FLAG_HIDDEN);
     if (lyrics_showing) lv_obj_add_flag(sp_shelf_next, LV_OBJ_FLAG_HIDDEN);
     else                lv_obj_remove_flag(sp_shelf_next, LV_OBJ_FLAG_HIDDEN);
+
+    // Refit when the line changes. Compared by content rather than by index so a
+    // repeated line (choruses repeat) does not re-measure, and a track change
+    // that lands on the same index does.
+    if (!lyrics_showing || !sp_lyric_cur) return;
+    static String last;
+    const char* cur = lyricsCurrentText();
+    if (cur && last != cur) {
+        last = cur;
+        spFitLyric(sp_lyric_cur, cur);
+    }
+}
+
+// ── Fitting the lyric to its box ────────────────────────────────────────────
+// A lyric line is whatever the songwriter wrote — "Now I see your thinned face at
+// the window" is 44 characters, and plenty run to 60. At 20px in a 304px column
+// that is three rows, and a fixed font can only answer by ellipsising, which is
+// the worst outcome available: the END of the line is the part that rhymes, and
+// it is the part "..." eats.
+//
+// So the font is chosen per line instead. Measure the string at each size and
+// take the largest that fits the box in full. Most lines keep 20px, a long one
+// steps to 16, a very long one to 14 — and at 14px in three rows the box holds
+// roughly 165 characters, which no sung line reaches. In practice nothing
+// truncates any more.
+//
+// Cheap enough to do per line change: lv_text_get_size() is a glyph-metric walk
+// over ~50 characters, and lines change every few seconds at most.
+static void spFitLyric(lv_obj_t* lbl, const char* text) {
+    if (!lbl || !text || !*text) return;
+
+    static const lv_font_t* const ladder[] = {
+        &font_text_20, &font_text_16, &font_text_14, &font_text_12
+    };
+    const int32_t w = lv_obj_get_width(lbl);
+    const int32_t h = lv_obj_get_height(lbl);
+    if (w <= 0 || h <= 0) return;   // not laid out yet
+
+    for (uint8_t i = 0; i < sizeof(ladder) / sizeof(ladder[0]); i++) {
+        lv_point_t sz;
+        lv_text_get_size(&sz, text, ladder[i], 0, 0, w, LV_TEXT_FLAG_NONE);
+        if (sz.y <= h || i == sizeof(ladder) / sizeof(ladder[0]) - 1) {
+            lv_obj_set_style_text_font(lbl, ladder[i], 0);
+            return;
+        }
+    }
 }
 
 // The timer outlives no screen: themeSet() deletes the old scr_main wholesale,
@@ -83,6 +133,7 @@ static void sp_screen_deleted(lv_event_t*) {
     if (sp_shelf_timer) { lv_timer_del(sp_shelf_timer); sp_shelf_timer = nullptr; }
     sp_shelf_next = nullptr;
     sp_lyric_slot = nullptr;
+    sp_lyric_cur  = nullptr;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -278,8 +329,14 @@ void buildStudioPlayer() {
         lv_obj_set_style_radius(lyr, 0, 0);
         lv_obj_set_style_pad_all(lyr, 0, 0);
         lv_obj_set_size(lyr, SX(SP_ART), SY(SP_SHELF_H - 14));
+        // Pin it to the top of the slot. createLyricsOverlay() bottom-aligns with
+        // a -30 offset, which for a 122-tall block in a 136-tall slot put its top
+        // edge 16px ABOVE the slot — so the first row was clipped by the shelf's
+        // own boundary before anything else got a say.
+        lv_obj_align(lyr, LV_ALIGN_TOP_LEFT, 0, SY(8));
         lv_obj_set_style_pad_left(lyr, SX(SP_SHELF_PAD), 0);
         lv_obj_set_style_pad_right(lyr, SX(SP_SHELF_PAD), 0);
+        lv_obj_set_style_pad_row(lyr, SY(4), 0);
 
         // Children are prev / current / next, in creation order. The canvas sets
         // the current line at 21/600 with the neighbours at 13.
@@ -306,9 +363,13 @@ void buildStudioPlayer() {
         // The current line is PURE WHITE rather than ST_TEXT (#F5F1EA). Against
         // #0E0D0C at 20px this is the one string on the panel worth the extra
         // contrast, and the neighbours sit a tier down so the eye lands on it.
+        // THREE rows for the current line, not two, and the font is fitted to them
+        // per line by spFitLyric(). LONG_DOT stays as a backstop only — at the
+        // bottom of the ladder the box holds far more than any sung line, so it
+        // should never actually trim.
         const lv_font_t* fonts[3] = { &font_text_12, &font_text_20, &font_text_12 };
         const lv_color_t cols[3]  = { ST_TEXT3, ST_TEXT_HI, ST_TEXT2 };
-        const int        rows[3]  = { 0,             56,            20 };
+        const int        rows[3]  = { 0,             78,            20 };
         for (int i = 0; i < 3; i++) {
             lv_obj_t* l = lv_obj_get_child(lyr, i);
             if (!l) continue;
@@ -319,6 +380,7 @@ void buildStudioPlayer() {
             lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
             lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_LEFT, 0);
         }
+        sp_lyric_cur = lv_obj_get_child(lyr, 1);
     }
 
     lbl_lyrics_status = lv_label_create(panel_art);
