@@ -6,7 +6,7 @@ for you.
 
 |  | 4-inch (stable) | 7-inch (beta) |
 |---|---|---|
-| Board | GUITION JC4880P433C | GUITION JC1060P470C |
+| Board | GUITION JC4880P443C | GUITION JC1060P470C |
 | Display | 800×480, ST7701 | 1024×600, JD9165 |
 | Touch | GT911 capacitive | GT911 capacitive |
 | Processor | ESP32-P4, 400 MHz dual-core | ESP32-P4, 400 MHz dual-core |

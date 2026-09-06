@@ -70,7 +70,7 @@
 #endif
 
 #if SCREEN_SIZE == 4
-    // GUITION JC4880P433C — ST7701 MIPI DSI
+    // GUITION JC4880P443C — ST7701 MIPI DSI
     #define DISPLAY_WIDTH       800     // LVGL width (landscape)
     #define DISPLAY_HEIGHT      480     // LVGL height (landscape)
     #define PANEL_WIDTH         480     // Physical panel width (portrait)

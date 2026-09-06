@@ -9,7 +9,7 @@ First off, thank you for considering contributing to SonosESP! It's people like 
 Before creating bug reports, please check existing issues to avoid duplicates. When you create a bug report, include as many details as possible:
 
 **Bug Report Template:**
-- **Device**: GUITION JC4880P433C (ESP32-P4 + ESP32-C6) or your specific board
+- **Device**: GUITION JC4880P443C (ESP32-P4 + ESP32-C6) or your specific board
 - **Firmware Version**: (e.g., v1.2.1)
 - **Description**: Clear description of the issue
 - **Steps to Reproduce**: Numbered list of steps
@@ -45,7 +45,7 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 ### Hardware Requirements
 
-- **Board**: GUITION JC4880P433C (ESP32-P4 + ESP32-C6 via SDIO)
+- **Board**: GUITION JC4880P443C (ESP32-P4 + ESP32-C6 via SDIO)
 - **Display**: ST7701 MIPI DSI (480x800 portrait, rendered 800x480 landscape)
 - **PSRAM**: 32MB OPI at 200MHz
 - **Sonos System**: For testing
