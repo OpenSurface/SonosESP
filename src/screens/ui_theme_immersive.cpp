@@ -25,6 +25,8 @@
  */
 
 #include "ui_common.h"
+#include "ui_theme.h"        // amberBuildOverlays() - the queue drawer / rooms modal
+#include "amber_icons.h"
 #include "lyrics.h"
 #include "ui_icons.h"
 #include "ui_theme.h"
@@ -421,11 +423,29 @@ void buildImmersivePlayer() {
     lv_obj_set_style_text_opa(lbl_device_name, LV_OPA_60, 0);
     lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
 
-    // Right-aligned header buttons: settings hugs the right margin, queue sits 12 left.
+    // Right-aligned header buttons: settings hugs the right margin, then queue,
+    // then the lyrics indicator, each 12 left of the last.
     roundBtn(panel_right, MDI_COG, &lv_font_mdi_24, IM_RIGHT - 46, IM_HEAD_Y + 6, 46, ev_settings, true);
     btn_queue = roundBtn(panel_right, MDI_PLAYLIST, &lv_font_mdi_24,
                          IM_RIGHT - 46 - 12 - 46, IM_HEAD_Y + 6, 46, ev_queue, true);
     lv_obj_set_ext_click_area(btn_queue, 8);
+
+    // Lyrics indicator, same as Amber and SonosESP carry. Immersive was the only
+    // theme without one, so its header could not tell you whether the track had
+    // synced lyrics — on the theme whose whole point is a large lyric stage.
+    //
+    // Not a toggle: that setting is in Settings > General, and a second control
+    // for it only creates a way for the two to disagree. updateLyricsStatus()
+    // lights it; see btn_lyrics in ui_common.h.
+    btn_lyrics = roundBtn(panel_right, "", &font_text_12,
+                          IM_RIGHT - (46 + 12) * 2 - 46, IM_HEAD_Y + 6, 46, NULL, true);
+    lv_obj_remove_flag(btn_lyrics, LV_OBJ_FLAG_CLICKABLE);
+    if (lv_obj_get_child_count(btn_lyrics)) {
+        lv_obj_t* l = lv_obj_get_child(btn_lyrics, 0);
+        lv_label_set_text(l, "LRC");
+        lv_obj_set_style_text_letter_space(l, 1, 0);
+        lv_obj_set_style_text_color(l, COL_TEXT2, 0);
+    }
 
     lbl_lyrics_status = lv_label_create(panel_right);
     lv_label_set_text(lbl_lyrics_status, "");
@@ -609,4 +629,15 @@ void buildImmersivePlayer() {
     lv_label_set_long_mode(lbl_next_artist, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(lbl_next_artist, &font_text_12, 0);
     park(lbl_next_artist);
+
+    // ── Overlays ────────────────────────────────────────────────────────────
+    // Queue and Rooms as a drawer and a modal over the player, the same as Amber
+    // and SonosESP. Immersive was still pushing them as full screens, which threw
+    // away the transport — on the one theme where the backdrop IS the design.
+    //
+    // Built LAST so they stack above everything above, and parented to the screen
+    // rather than a panel: setLineInMode()/setTvAudioMode() hide panel children
+    // wholesale and would take an open overlay with them.
+    amberBuildOverlays(scr_main);
+
 }

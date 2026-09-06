@@ -1679,9 +1679,12 @@ static bool updateConnectionState(SonosDevice* d) {
             if (panel_art)   lv_obj_set_style_bg_color(panel_art,   COL_BG, 0);
             if (panel_right) lv_obj_set_style_bg_color(panel_right, COL_BG, 0);
 
+            // PLAY, not pause. This is the "nothing is playing" path — it clears
+            // the title to "Not Playing" and then drew a pause glyph, offering to
+            // pause silence. The font is the builder's business too; forcing
+            // lv_font_mdi_40 here overrode whichever face the active theme chose.
             lv_obj_t* lbl = lv_obj_get_child(btn_play, 0);
-            lv_label_set_text(lbl, MDI_PAUSE);
-            lv_obj_set_style_text_font(lbl, &lv_font_mdi_40, 0);
+            lv_label_set_text(lbl, MDI_PLAY);
             lv_obj_center(lbl);
 
             ui_title = "";
