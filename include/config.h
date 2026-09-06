@@ -76,6 +76,7 @@
     #define PANEL_WIDTH         480     // Physical panel width (portrait)
     #define PANEL_HEIGHT        800     // Physical panel height (portrait)
     #define DISPLAY_MODEL       "ST7701 4\" (800x480)"
+    #define PANEL_SIZE_LABEL    "4\""   // short form for the settings rail / boot footer
     #define LCD_RST             5       // Reset GPIO for ST7701
     #define TOUCH_GT911_SDA     7
     #define TOUCH_GT911_SCL     8
@@ -93,6 +94,7 @@
     #define PANEL_WIDTH         1024    // Physical panel width (no rotation)
     #define PANEL_HEIGHT        600     // Physical panel height (no rotation)
     #define DISPLAY_MODEL       "JD9165 7\" (1024x600)"
+    #define PANEL_SIZE_LABEL    "7\""   // short form for the settings rail / boot footer
     #define LCD_RST             23      // Reset GPIO for JD9165 (CoopsInChina fork)
     #define TOUCH_GT911_SDA     7
     #define TOUCH_GT911_SCL     8

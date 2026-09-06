@@ -1,9 +1,9 @@
 /**
  * General Settings Screen — card-based dark theme.
  *
- * Currently a single "Lyrics" card with the synced-lyrics toggle. Uses the
- * shared card helpers from ui_settings_card.h so this stays consistent with
- * the Clock settings screen.
+ * Lyrics and player-theme selection. Uses the shared card and row helpers from
+ * ui_settings_card.h, so the control for each setting sits to the RIGHT of its
+ * label rather than underneath it — see the row comment in that header.
  */
 
 #include "ui_common.h"
@@ -36,10 +36,10 @@ void createGeneralScreen() {
     {
         lv_obj_t* card = addCard(content, "Lyrics");
 
-        addSettingLabel(card, "Show synced lyrics");
-        addDescLabel(card, "Display time-synced lyrics over the album art (LRCLIB, no API key)");
-
-        lv_obj_t* sw_lyrics = addSwitch(card, lyrics_enabled);
+        lv_obj_t* slot = addSettingRow(card, "Show synced lyrics",
+                                       "Time-synced from LRCLIB. No API key needed.",
+                                       false);
+        lv_obj_t* sw_lyrics = addSwitch(slot, lyrics_enabled);
         lv_obj_add_event_cb(sw_lyrics, [](lv_event_t* e) {
             lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
             lyrics_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
@@ -56,18 +56,15 @@ void createGeneralScreen() {
     {
         lv_obj_t* card = addCard(content, "Theme");
 
-        addSettingLabel(card, "Player appearance");
-
-        // Description label reflects whichever theme is currently selected.
+        // The row's description IS the selected theme's description, so it is
+        // retargeted from the dropdown's callback rather than being a separate
+        // label under the control.
+        lv_obj_t* slot = addSettingRow(card, "Player appearance",
+                                       THEMES[active_theme].desc, false);
         static lv_obj_t* lbl_theme_desc;
-        lbl_theme_desc = lv_label_create(card);
-        lv_label_set_text(lbl_theme_desc, THEMES[active_theme].desc);
-        lv_obj_set_style_text_font(lbl_theme_desc, &font_text_12, 0);
-        lv_obj_set_style_text_color(lbl_theme_desc, COL_TEXT2, 0);
-        lv_obj_set_width(lbl_theme_desc, lv_pct(100));
-        lv_label_set_long_mode(lbl_theme_desc, LV_LABEL_LONG_WRAP);
+        lbl_theme_desc = settingRowDesc(slot);
 
-        // Build the "A\nB\nC" option string from the registry.
+        // Build the option string from the registry.
         static char theme_opts[192];
         theme_opts[0] = '\0';
         for (uint8_t i = 0; i < THEME_COUNT; i++) {
@@ -75,17 +72,18 @@ void createGeneralScreen() {
             strncat(theme_opts, THEMES[i].name, sizeof(theme_opts) - strlen(theme_opts) - 1);
         }
 
-        lv_obj_t* dd = lv_dropdown_create(card);
+        lv_obj_t* dd = lv_dropdown_create(slot);
         lv_dropdown_set_options(dd, theme_opts);
         lv_dropdown_set_selected(dd, active_theme);
-        lv_obj_set_width(dd, lv_pct(100));
+        // Explicit width: the control slot sizes to its content, so a percentage
+        // here would resolve against nothing.
+        lv_obj_set_width(dd, SX(200));
         lv_obj_set_style_bg_color(dd, COL_CARD, 0);
         lv_obj_set_style_text_color(dd, COL_TEXT, 0);
         lv_obj_set_style_text_font(dd, &font_text_14, 0);
         lv_obj_set_style_border_color(dd, COL_BTN, 0);
         lv_obj_set_style_radius(dd, 8, 0);
         lv_obj_set_style_pad_all(dd, SMIN(10), 0);
-        lv_obj_set_style_margin_top(dd, 4, 0);
         // Highlighted row in the OPEN list. Styling only the list leaves this to
         // LVGL's default (light) theme — dark list, white selection bar.
         lv_obj_set_style_bg_color(dd, COL_MENU, LV_PART_SELECTED);
@@ -106,7 +104,5 @@ void createGeneralScreen() {
             themeSet(sel);
             if (lbl_theme_desc) lv_label_set_text(lbl_theme_desc, THEMES[active_theme].desc);
         }, LV_EVENT_VALUE_CHANGED, NULL);
-
-        addDescLabel(card, "Applies immediately. Classic keeps the original blurred-art look.");
     }
 }

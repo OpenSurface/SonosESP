@@ -30,9 +30,14 @@
 // SETTINGS_LIST_H(top) computes the height that reaches the bottom exactly. The
 // arithmetic is exact on both panels: SMIN uses the smaller of the two scale
 // factors, which is the vertical one (1.25 vs 1.28 on the 7"), so it matches SY.
-#define SETTINGS_CONTENT_H   480
+// The content area is 424 tall, not the full 480: the now-playing dock added by
+// createSettingsSidebar() takes the bottom 56 so transport control survives a
+// trip into Settings. Every screen's list height derives from these, so that
+// change landed without editing any of them — which is the reason the arithmetic
+// was centralised here in the first place.
+#define SETTINGS_CONTENT_H   424
 #define SETTINGS_CONTENT_PAD 24
-#define SETTINGS_INNER_H     (SETTINGS_CONTENT_H - 2 * SETTINGS_CONTENT_PAD)   // 432
+#define SETTINGS_INNER_H     (SETTINGS_CONTENT_H - 2 * SETTINGS_CONTENT_PAD)   // 376
 #define SETTINGS_LIST_H(top) SY(SETTINGS_INNER_H - (top))
 
 // Create a card container with a title + accent underline. Returns the card
@@ -47,6 +52,40 @@ lv_obj_t* addDescLabel(lv_obj_t* parent, const char* text);
 
 // Styled switch matching the project's accent theme.
 lv_obj_t* addSwitch(lv_obj_t* parent, bool initial);
+
+// ── Setting rows ────────────────────────────────────────────────────────────
+// From the "SonosESP Studio" design canvas: the control belongs to the RIGHT of
+// its label, not underneath it.
+//
+// The stacked form (addSettingLabel → addDescLabel → addSwitch, each a separate
+// full-width child) left the right half of every settings page empty while
+// pushing content off the bottom, so Display and Clock both scrolled for want of
+// space they already had. A row puts the label and description in a flexible
+// left block and the control in a fixed slot on the right.
+//
+// addSettingRow returns the CONTROL SLOT — create the switch/dropdown/label in
+// it, and it will sit right-aligned and vertically centred against the label.
+//
+//     lv_obj_t* slot = addSettingRow(card, "Show synced lyrics",
+//                                    "Time-synced from LRCLIB. No API key.", true);
+//     lv_obj_t* sw   = addSwitch(slot, lyrics_enabled);
+//
+// `separator` draws the hairline under the row; pass false for the last row in
+// a card, which already has the card's own edge below it.
+lv_obj_t* addSettingRow(lv_obj_t* parent, const char* title, const char* desc,
+                        bool separator);
+
+// The description label of the row owning `slot`, so callers can retarget its
+// text later (the theme and clock-face pickers rewrite theirs on change).
+// Returns nullptr when the row was created without a description.
+lv_obj_t* settingRowDesc(lv_obj_t* slot);
+
+// A slider's label, current value and track, laid out as the canvas draws them:
+// title on the left and the accent value right-aligned on the same line, with
+// the full-width track beneath. Returns the row — pass it to addSlider(). The
+// accent value label is written to *out_value for the event callback to update.
+lv_obj_t* addSliderRow(lv_obj_t* parent, const char* title, const char* desc,
+                       bool separator, lv_obj_t** out_value);
 
 // Accent-coloured current-value line (the "96%" / "1 min" under a setting label).
 lv_obj_t* addValueLabel(lv_obj_t* parent, const char* text);

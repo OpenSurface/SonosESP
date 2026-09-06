@@ -170,3 +170,153 @@ lv_obj_t* addSwitch(lv_obj_t* parent, bool initial) {
     if (initial) lv_obj_add_state(sw, LV_STATE_CHECKED);
     return sw;
 }
+
+// ============================================================================
+// Setting rows — label block left, control right
+// ----------------------------------------------------------------------------
+// See the block comment in ui_settings_card.h for why the stacked form was
+// replaced. Both builders below share one skeleton:
+//
+//   row (flex ROW, cross-axis CENTER, hairline underneath)
+//     +- block (flex COLUMN, flex_grow 1)   title, then optional description
+//     +- slot  (SIZE_CONTENT)               whatever the caller creates
+//
+// The description wraps, so the row's height is CONTENT and the hairline
+// follows it down rather than clipping a two-line description.
+// ============================================================================
+
+// Shared skeleton. Returns the row; `out_block` receives the left column.
+static lv_obj_t* settingRowShell(lv_obj_t* parent, bool separator, lv_obj_t** out_block) {
+    lv_obj_t* row = lv_obj_create(parent);
+    lv_obj_set_width(row, lv_pct(100));
+    lv_obj_set_height(row, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_radius(row, 0, 0);
+    lv_obj_set_style_pad_hor(row, 0, 0);
+    lv_obj_set_style_pad_ver(row, SY(11), 0);
+    lv_obj_set_style_pad_column(row, SX(16), 0);
+    lv_obj_set_style_border_width(row, separator ? 1 : 0, 0);
+    lv_obj_set_style_border_side(row, LV_BORDER_SIDE_BOTTOM, 0);
+    lv_obj_set_style_border_color(row, COL_CARD, 0);
+    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
+                          LV_FLEX_ALIGN_CENTER);
+    lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t* block = lv_obj_create(row);
+    lv_obj_remove_style_all(block);
+    lv_obj_set_height(block, LV_SIZE_CONTENT);
+    lv_obj_set_flex_grow(block, 1);
+    lv_obj_set_flex_flow(block, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(block, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_row(block, SY(3), 0);
+    lv_obj_remove_flag(block, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(block, LV_OBJ_FLAG_CLICKABLE);
+
+    *out_block = block;
+    return row;
+}
+
+// The row's title, at the canvas's 16/500.
+static void settingRowTitle(lv_obj_t* block, const char* text) {
+    lv_obj_t* lbl = lv_label_create(block);
+    lv_label_set_text(lbl, text);
+    lv_obj_set_style_text_font(lbl, &font_text_16, 0);
+    lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
+}
+
+// The row's description, wrapping to the block's width.
+static void settingRowDescCreate(lv_obj_t* block, const char* text) {
+    if (!text) return;
+    lv_obj_t* lbl = lv_label_create(block);
+    lv_label_set_text(lbl, text);
+    lv_obj_set_style_text_font(lbl, &font_text_12, 0);
+    lv_obj_set_style_text_color(lbl, COL_TEXT2, 0);
+    lv_obj_set_width(lbl, lv_pct(100));
+    lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);
+}
+
+lv_obj_t* addSettingRow(lv_obj_t* parent, const char* title, const char* desc,
+                        bool separator) {
+    lv_obj_t* block = nullptr;
+    lv_obj_t* row = settingRowShell(parent, separator, &block);
+    settingRowTitle(block, title);
+    settingRowDescCreate(block, desc);
+
+    lv_obj_t* slot = lv_obj_create(row);
+    lv_obj_remove_style_all(slot);
+    lv_obj_set_size(slot, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(slot, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(slot, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER,
+                          LV_FLEX_ALIGN_CENTER);
+    lv_obj_remove_flag(slot, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(slot, LV_OBJ_FLAG_CLICKABLE);
+    return slot;
+}
+
+lv_obj_t* settingRowDesc(lv_obj_t* slot) {
+    if (!slot) return nullptr;
+    lv_obj_t* row = lv_obj_get_parent(slot);
+    if (!row || lv_obj_get_child_count(row) == 0) return nullptr;
+    lv_obj_t* block = lv_obj_get_child(row, 0);      // the label column
+    // Child 0 is the title; a description, when there is one, is child 1.
+    if (!block || lv_obj_get_child_count(block) < 2) return nullptr;
+    return lv_obj_get_child(block, 1);
+}
+
+lv_obj_t* addSliderRow(lv_obj_t* parent, const char* title, const char* desc,
+                       bool separator, lv_obj_t** out_value) {
+    // A slider spans the row rather than sitting beside its label, so this one
+    // is a COLUMN: the title line (with the value right-aligned on it) above the
+    // full-width track the caller adds.
+    lv_obj_t* row = lv_obj_create(parent);
+    lv_obj_set_width(row, lv_pct(100));
+    lv_obj_set_height(row, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_radius(row, 0, 0);
+    lv_obj_set_style_pad_hor(row, 0, 0);
+    lv_obj_set_style_pad_ver(row, SY(11), 0);
+    lv_obj_set_style_pad_row(row, SY(4), 0);
+    lv_obj_set_style_border_width(row, separator ? 1 : 0, 0);
+    lv_obj_set_style_border_side(row, LV_BORDER_SIDE_BOTTOM, 0);
+    lv_obj_set_style_border_color(row, COL_CARD, 0);
+    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_START);
+    lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t* head = lv_obj_create(row);
+    lv_obj_remove_style_all(head);
+    lv_obj_set_width(head, lv_pct(100));
+    lv_obj_set_height(head, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(head, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(head, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END,
+                          LV_FLEX_ALIGN_CENTER);
+    lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(head, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t* lbl = lv_label_create(head);
+    lv_label_set_text(lbl, title);
+    lv_obj_set_style_text_font(lbl, &font_text_16, 0);
+    lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
+    lv_obj_set_flex_grow(lbl, 1);
+
+    lv_obj_t* val = lv_label_create(head);
+    lv_label_set_text(val, "");
+    lv_obj_set_style_text_font(val, &font_text_14, 0);
+    lv_obj_set_style_text_color(val, COL_ACCENT, 0);
+    if (out_value) *out_value = val;
+
+    if (desc) {
+        lv_obj_t* d = lv_label_create(row);
+        lv_label_set_text(d, desc);
+        lv_obj_set_style_text_font(d, &font_text_12, 0);
+        lv_obj_set_style_text_color(d, COL_TEXT2, 0);
+        lv_obj_set_width(d, lv_pct(100));
+        lv_label_set_long_mode(d, LV_LABEL_LONG_WRAP);
+    }
+    return row;
+}
