@@ -402,6 +402,10 @@ void studioBuildOverlays(lv_obj_t* screen) {
 
 bool studioShowQueue(void) {
     if (!ov_queue || !ov_scrim) return false;
+    // Mutually exclusive. In practice the scrim makes the other trigger
+    // unreachable while one is open, but nothing enforces that, and two stacked
+    // panels would be a confusing way to find out.
+    if (ov_rooms) lv_obj_add_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
     ovFillQueue();
     lv_obj_remove_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
@@ -412,6 +416,7 @@ bool studioShowQueue(void) {
 
 bool studioShowRooms(void) {
     if (!ov_rooms || !ov_scrim) return false;
+    if (ov_queue) lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
     ovFillRooms();
     lv_obj_remove_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
