@@ -21,7 +21,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "1.15.2"
+#define FIRMWARE_VERSION "2.0.0"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -54,8 +54,6 @@
 #define NETWORK_MUTEX_TIMEOUT_MS 5000    // Timeout for acquiring network mutex (SOAP)
 #define NETWORK_MUTEX_TIMEOUT_ART_MS 10000 // Longer timeout for album art downloads
 
-// Sonos logo declaration
-LV_IMG_DECLARE(Sonos_idnu60bqes_1);
 
 // ============================================================================
 // Color Theme - extern declarations
@@ -126,6 +124,11 @@ extern lv_obj_t *scr_clock, *scr_clock_settings;
 // Main screen UI elements
 extern lv_obj_t *img_album, *lbl_title, *lbl_artist, *lbl_album, *lbl_time, *lbl_time_remaining;
 extern lv_obj_t *lbl_lyrics_status;  // Lyrics status indicator (top of album art)
+// The "LRC" chip in the player header. An INDICATOR, not a control: it lights
+// when the current track actually has synced lyrics. Turning lyrics on and off
+// belongs in Settings > General and having two places to do it invites them to
+// disagree. NULL for a theme that has no such chip.
+extern lv_obj_t *btn_lyrics;
 extern lv_obj_t *btn_play, *btn_prev, *btn_next, *btn_mute, *btn_shuffle, *btn_repeat, *btn_queue;
 extern lv_obj_t *slider_progress, *slider_vol;
 extern lv_obj_t *panel_right, *panel_art;

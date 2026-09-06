@@ -225,6 +225,11 @@ static inline uint8_t lerp8(uint8_t a, uint8_t b, int t) {
 
 // Apply interpolated color to all UI elements (called by LVGL animation engine)
 static void color_anim_cb(void* var, int32_t t) {
+    // A flat theme paints its own fixed palette. Letting this run would drag the
+    // progress bar, its knob and the transport's pressed colours through the
+    // album's dominant colour, next to a gold play button that never moves.
+    if (!themeUsesArtAccent()) return;
+
     uint8_t r = lerp8((current_bg_color >> 16) & 0xFF, (target_bg_color >> 16) & 0xFF, t);
     uint8_t g = lerp8((current_bg_color >> 8) & 0xFF, (target_bg_color >> 8) & 0xFF, t);
     uint8_t b = lerp8(current_bg_color & 0xFF, target_bg_color & 0xFF, t);

@@ -1,15 +1,15 @@
 /**
  * Display Settings Screen — card-based dark theme.
  *
- * Was the odd one out: bare labels and full-bleed sliders straight on the screen
- * background while General and Clock used the grouped cards from
- * ui_settings_card.h. It now uses the same helpers, so the three settings screens
- * share one layout language — card, title, accent underline, controls inset by the
- * card's padding instead of running edge to edge.
+ * Brightness, auto-dim and the blurred-artwork backdrop. Uses the shared card
+ * and row helpers from ui_settings_card.h: sliders carry their label and accent
+ * value on one line with the track beneath (addSliderRow), and the backdrop
+ * toggle sits to the right of its label (addSettingRow).
  */
 
 #include "ui_common.h"
 #include "ui_fonts.h"
+#include "amber.h"
 #include "ui_settings_card.h"
 #include "ui_theme.h"
 
@@ -21,7 +21,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // ============================================================================
 void createDisplaySettingsScreen() {
     scr_display = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_display, COL_SCREEN, 0);
+    lv_obj_set_style_bg_color(scr_display, AMB_BG, 0);
 
     // Create sidebar and get content area (Display is index 4)
     lv_obj_t* content = createSettingsSidebar(scr_display, 4);
@@ -40,14 +40,12 @@ void createDisplaySettingsScreen() {
         lv_obj_t* card = addCard(content, "Brightness");
 
         // Screen brightness
-        addSettingLabel(card, "Screen brightness");
-
         static lv_obj_t* lbl_brightness_val;
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%d%%", brightness_level);
-        lbl_brightness_val = addValueLabel(card, buf);
+        lv_obj_t* row = addSliderRow(card, "Screen brightness", nullptr,
+                                     true, &lbl_brightness_val);
+        lv_label_set_text_fmt(lbl_brightness_val, "%d%%", brightness_level);
 
-        lv_obj_t* slider_brightness = addSlider(card, 10, 100, brightness_level);
+        lv_obj_t* slider_brightness = addSlider(row, 10, 100, brightness_level);
         lv_obj_add_event_cb(slider_brightness, [](lv_event_t* e) {
             lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
             int val = lv_slider_get_value(slider);
@@ -56,14 +54,13 @@ void createDisplaySettingsScreen() {
         }, LV_EVENT_VALUE_CHANGED, lbl_brightness_val);
 
         // Dimmed brightness
-        addSettingLabel(card, "Dimmed brightness");
-        addDescLabel(card, "Level the screen drops to once the auto-dim timer expires");
-
         static lv_obj_t* lbl_dimmed_brightness_val;
-        snprintf(buf, sizeof(buf), "%d%%", brightness_dimmed);
-        lbl_dimmed_brightness_val = addValueLabel(card, buf);
+        lv_obj_t* row_dim = addSliderRow(card, "Dimmed brightness",
+                                         "Level the screen drops to once the auto-dim timer expires",
+                                         false, &lbl_dimmed_brightness_val);
+        lv_label_set_text_fmt(lbl_dimmed_brightness_val, "%d%%", brightness_dimmed);
 
-        lv_obj_t* slider_dimmed_brightness = addSlider(card, 5, 50, brightness_dimmed);
+        lv_obj_t* slider_dimmed_brightness = addSlider(row_dim, 5, 50, brightness_dimmed);
         lv_obj_add_event_cb(slider_dimmed_brightness, [](lv_event_t* e) {
             lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
             brightness_dimmed = lv_slider_get_value(slider);
@@ -79,15 +76,13 @@ void createDisplaySettingsScreen() {
     {
         lv_obj_t* card = addCard(content, "Auto-dim");
 
-        addSettingLabel(card, "Auto-dim after");
-        addDescLabel(card, "Idle time before the screen dims. 0 disables dimming.");
-
         static lv_obj_t* lbl_dim_timeout_val;
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%d sec", autodim_timeout);
-        lbl_dim_timeout_val = addValueLabel(card, buf);
+        lv_obj_t* row = addSliderRow(card, "Auto-dim after",
+                                     "Idle time before the screen dims. 0 disables dimming.",
+                                     false, &lbl_dim_timeout_val);
+        lv_label_set_text_fmt(lbl_dim_timeout_val, "%d sec", autodim_timeout);
 
-        lv_obj_t* slider_dim_timeout = addSlider(card, 0, 300, autodim_timeout);
+        lv_obj_t* slider_dim_timeout = addSlider(row, 0, 300, autodim_timeout);
         lv_obj_add_event_cb(slider_dim_timeout, [](lv_event_t* e) {
             lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
             autodim_timeout = lv_slider_get_value(slider);
@@ -102,13 +97,10 @@ void createDisplaySettingsScreen() {
     {
         lv_obj_t* card = addCard(content, "Player background");
 
-        addSettingLabel(card, "Blurred album art");
-        addDescLabel(card,
-                     "Fills the screen behind the player with a blurred copy of "
-                     "the artwork. Used by the Classic theme; the others paint "
-                     "their own backdrop.");
-
-        lv_obj_t* sw_blur = addSwitch(card, blur_bg_enabled);
+        lv_obj_t* slot = addSettingRow(card, "Blurred album art",
+                                       "Classic theme only - the others paint their own backdrop",
+                                       false);
+        lv_obj_t* sw_blur = addSwitch(slot, blur_bg_enabled);
         lv_obj_add_event_cb(sw_blur, [](lv_event_t* e) {
             lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
             blur_bg_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);

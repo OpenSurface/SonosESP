@@ -32,6 +32,11 @@ typedef void (*ClockFaceBuildFn)(lv_obj_t* parent);
 // Per-second update. NULL = the shared clock_tick_cb handles it.
 typedef void (*ClockFaceTickFn)(const struct tm* now);
 
+// Paints the face's ground. `over_photo` is true when the photo backdrop is
+// enabled AND this face opted into it, in which case the root has to become
+// translucent or the photo is invisible behind it.
+typedef void (*ClockFaceBackdropFn)(lv_obj_t* root, bool over_photo);
+
 // Returns the face's root container. applyClockStyle() shows/hides by walking
 // scr_clock's children, so it only needs to know which child belongs to the
 // active face. NULL for legacy faces.
@@ -46,6 +51,7 @@ typedef struct {
     ClockFaceBuildFn build;
     ClockFaceTickFn  tick;
     ClockFaceRootFn  root;
+    ClockFaceBackdropFn backdrop;   // NULL = the shared Nocturne ground
 } ClockFaceDef;
 
 extern const ClockFaceDef CLOCK_FACES[];

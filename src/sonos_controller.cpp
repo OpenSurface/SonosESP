@@ -544,6 +544,17 @@ void SonosController::setVolume(int vol) {
     xQueueSend(commandQueue, &cmd, 0);
 }
 
+void SonosController::setDeviceVolume(int deviceIndex, int vol) {
+    vol = constrain(vol, 0, 100);
+    CommandRequest_t cmd = { CMD_SET_DEVICE_VOLUME, vol, deviceIndex };
+    xQueueSend(commandQueue, &cmd, 0);
+}
+
+void SonosController::clearQueue() {
+    CommandRequest_t cmd = { CMD_CLEAR_QUEUE, 0, 0 };
+    xQueueSend(commandQueue, &cmd, 0);
+}
+
 void SonosController::volumeUp(int step) {
     SonosDevice* d = getCurrentDevice();
     if (d) setVolume(d->volume + step);
@@ -1497,12 +1508,29 @@ bool SonosController::updateTransportSettings() {
     if (!dev) return false;
     
     if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
+        // PlayMode is ONE field encoding BOTH axes, and its six values do not
+        // decompose by substring:
+        //
+        //   NORMAL              no shuffle, no repeat
+        //   REPEAT_ALL          no shuffle, repeat all
+        //   REPEAT_ONE          no shuffle, repeat one
+        //   SHUFFLE_NOREPEAT    shuffle,    no repeat
+        //   SHUFFLE             shuffle,    repeat ALL   <- not "shuffle only"
+        //   SHUFFLE_REPEAT_ONE  shuffle,    repeat one
+        //
+        // The old test asked indexOf("REPEAT"), which is TRUE for
+        // "SHUFFLE_NOREPEAT" - the word sits inside "NOREPEAT". So turning shuffle
+        // on in the Sonos app lit repeat-all here too. The mirror mistake: bare
+        // "SHUFFLE" scored no repeat, when it actually means repeat all.
+        //
+        // Exact match, no substrings.
         String mode = extractXML(resp, "PlayMode");
-        dev->shuffleMode = (mode.indexOf("SHUFFLE") >= 0);
-        
-        if (mode.indexOf("REPEAT_ONE") >= 0) dev->repeatMode = "ONE";
-        else if (mode.indexOf("REPEAT") >= 0) dev->repeatMode = "ALL";
-        else dev->repeatMode = "NONE";
+        if      (mode == "SHUFFLE_REPEAT_ONE") { dev->shuffleMode = true;  dev->repeatMode = "ONE";  }
+        else if (mode == "SHUFFLE_NOREPEAT")   { dev->shuffleMode = true;  dev->repeatMode = "NONE"; }
+        else if (mode == "SHUFFLE")            { dev->shuffleMode = true;  dev->repeatMode = "ALL";  }
+        else if (mode == "REPEAT_ONE")         { dev->shuffleMode = false; dev->repeatMode = "ONE";  }
+        else if (mode == "REPEAT_ALL")         { dev->shuffleMode = false; dev->repeatMode = "ALL";  }
+        else                                   { dev->shuffleMode = false; dev->repeatMode = "NONE"; }
         
         xSemaphoreGive(deviceMutex);
         notifyUI(UPDATE_TRANSPORT);
@@ -1580,6 +1608,26 @@ bool SonosController::updateQueue(int startIndex) {
             dev->queue[dev->queueSize].album = decodeHTML(extractXMLRange(result, "upnp:album", itemStart, itemEnd));
             dev->queue[dev->queueSize].albumArtURL = decodeHTML(extractXMLRange(result, "upnp:albumArtURI", itemStart, itemEnd));
             dev->queue[dev->queueSize].trackNumber = startIndex + dev->queueSize + 1;  // 1-based absolute position
+
+            // Duration lives as an ATTRIBUTE on <res>, not as its own element, so
+            // extractXMLRange() cannot reach it — which is why this field was
+            // declared but never filled, and why the queue's duration column had
+            // nothing to render. Sonos emits duration="H:MM:SS"; the hours are
+            // dropped when zero so a normal track reads "3:47".
+            dev->queue[dev->queueSize].duration = "";
+            int resPos = result.indexOf("<res ", itemStart);
+            if (resPos > 0 && resPos < itemEnd) {
+                int dPos = result.indexOf("duration=\"", resPos);
+                if (dPos > 0 && dPos < itemEnd) {
+                    dPos += 10;
+                    int dEnd = result.indexOf('"', dPos);
+                    if (dEnd > dPos) {
+                        String dur = result.substring(dPos, dEnd);
+                        if (dur.startsWith("0:")) dur = dur.substring(2);
+                        dev->queue[dev->queueSize].duration = dur;
+                    }
+                }
+            }
             dev->queueSize++;
 
             pos = itemEnd + 7;
@@ -1597,6 +1645,21 @@ bool SonosController::updateQueue(int startIndex) {
 // ============================================================================
 // Command Processing
 // ============================================================================
+// Both axes -> the single PlayMode value Sonos accepts. See the decode table in
+// updateTransportSettings(); the asymmetry worth remembering is that bare
+// "SHUFFLE" means shuffle PLUS repeat-all, and shuffle with no repeat is the
+// longer "SHUFFLE_NOREPEAT".
+static const char* composePlayMode(bool shuffle, const String& repeat) {
+    if (shuffle) {
+        if (repeat == "ONE") return "SHUFFLE_REPEAT_ONE";
+        if (repeat == "ALL") return "SHUFFLE";
+        return "SHUFFLE_NOREPEAT";
+    }
+    if (repeat == "ONE") return "REPEAT_ONE";
+    if (repeat == "ALL") return "REPEAT_ALL";
+    return "NORMAL";
+}
+
 void SonosController::processCommand(CommandRequest_t* cmd) {
     SonosDevice* dev = getCurrentDevice();
     if (!dev) return;
@@ -1666,6 +1729,46 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             }
             break;
 
+        case CMD_SET_DEVICE_VOLUME: {
+            // Same group split as CMD_SET_VOLUME above (issue #140): a speaker in
+            // a multi-speaker group is moved via the coordinator's
+            // GroupRenderingControl with NO <Channel>, otherwise via its own
+            // RenderingControl. The only difference here is the target — an
+            // arbitrary device rather than the selected one.
+            SonosDevice* target = getDevice(cmd->value2);
+            if (!target) break;
+            refreshGroupTopology();
+            if (isInMultiSpeakerGroup(target)) {
+                SonosDevice* coord = groupCoordinatorFor(target);
+                snprintf(args, sizeof(args),
+                    "<InstanceID>0</InstanceID><DesiredVolume>%d</DesiredVolume>",
+                    cmd->value);
+                sendSOAP(coord, "GroupRenderingControl", "SetGroupVolume", args);
+            } else {
+                snprintf(args, sizeof(args),
+                    "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>%d</DesiredVolume>",
+                    cmd->value);
+                sendSOAP(target, "RenderingControl", "SetVolume", args);
+            }
+            if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
+                target->volume = cmd->value;
+                xSemaphoreGive(deviceMutex);
+            }
+            break;
+        }
+
+        case CMD_CLEAR_QUEUE:
+            sendSOAP("AVTransport", "RemoveAllTracksFromQueue", "<InstanceID>0</InstanceID>");
+            if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
+                dev->queueSize = 0;
+                dev->totalTracks = 0;
+                xSemaphoreGive(deviceMutex);
+            }
+            // Every other queue-mutating command notifies; without this the list
+            // still showed the tracks it had just deleted.
+            notifyUI(UPDATE_QUEUE);
+            break;
+
         case CMD_SET_MUTE:
             // Same split as SetVolume above — muting a group needs SetGroupMute on the
             // coordinator, again with no <Channel>. This is the second half of #140:
@@ -1689,21 +1792,26 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             }
             break;
 
+        // Both setters compose the COMBINED value, because that is what
+        // SetPlayMode takes. Sending bare "SHUFFLE" to turn shuffle on also
+        // turned repeat-all on, and sending "REPEAT_ALL" to change repeat
+        // silently turned shuffle off — each control was wiping the other axis.
         case CMD_SET_SHUFFLE: {
-            const char* mode = (cmd->value == 1) ? "SHUFFLE" : "NORMAL";
             snprintf(args, sizeof(args),
-                "<InstanceID>0</InstanceID><NewPlayMode>%s</NewPlayMode>", mode);
+                "<InstanceID>0</InstanceID><NewPlayMode>%s</NewPlayMode>",
+                composePlayMode(cmd->value == 1, dev->repeatMode));
             sendSOAP("AVTransport", "SetPlayMode", args);
             updateTransportSettings();
             break;
         }
 
         case CMD_SET_REPEAT: {
-            const char* mode = "NORMAL";
-            if (cmd->value == 1) mode = "REPEAT_ONE";
-            else if (cmd->value == 2) mode = "REPEAT_ALL";
+            const char* rp = "NONE";
+            if (cmd->value == 1) rp = "ONE";
+            else if (cmd->value == 2) rp = "ALL";
             snprintf(args, sizeof(args),
-                "<InstanceID>0</InstanceID><NewPlayMode>%s</NewPlayMode>", mode);
+                "<InstanceID>0</InstanceID><NewPlayMode>%s</NewPlayMode>",
+                composePlayMode(dev->shuffleMode, rp));
             sendSOAP("AVTransport", "SetPlayMode", args);
             updateTransportSettings();
             break;

@@ -15,6 +15,10 @@ void monolithTick(const struct tm* now);
 lv_obj_t* horizonRoot(void);
 lv_obj_t* orbitRoot(void);
 lv_obj_t* monolithRoot(void);
+void buildAmberFace(lv_obj_t* parent);
+void amberFaceTick(const struct tm* now);
+lv_obj_t* amberFaceRoot(void);
+void amberFaceBackdrop(lv_obj_t* root, bool over_photo);
 
 // ---------------------------------------------------------------------------
 // The registry. Adding a face is one row.
@@ -26,13 +30,18 @@ lv_obj_t* monolithRoot(void);
 // ---------------------------------------------------------------------------
 const ClockFaceDef CLOCK_FACES[] = {
     { "StandBy",  "Oversized overlapping digits, tinted from the album art",
-      true,  nullptr,            nullptr,       nullptr },
+      true,  nullptr,             nullptr,        nullptr },
     { "Orbit",    "Light clock with a live sun-path arc and temperature curve",
-      true,  buildOrbitFace,     orbitTick,     orbitRoot },
+      true,  buildOrbitFace,      orbitTick,      orbitRoot },
     { "Monolith", "Hours stacked over minutes, with a details column",
-      true,  buildMonolithFace,  monolithTick,  monolithRoot },
+      true,  buildMonolithFace,   monolithTick,   monolithRoot },
     { "Horizon",  "Centred clock over an ambient glow, with a 6-hour forecast",
-      true,  buildHorizonFace,   horizonTick,   horizonRoot },
+      true,  buildHorizonFace,    horizonTick,    horizonRoot },
+    // Paints its own warm ground rather than the Nocturne gradient, but still
+    // takes the photo backdrop when it is switched on.
+    { "Amber",   "Warm flat clock with weather, forecast and the paused track",
+      true,  buildAmberFace,     amberFaceTick, amberFaceRoot,
+      amberFaceBackdrop },
 };
 
 const uint8_t CLOCK_FACE_COUNT = (uint8_t)(sizeof(CLOCK_FACES) / sizeof(CLOCK_FACES[0]));

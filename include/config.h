@@ -76,6 +76,7 @@
     #define PANEL_WIDTH         480     // Physical panel width (portrait)
     #define PANEL_HEIGHT        800     // Physical panel height (portrait)
     #define DISPLAY_MODEL       "ST7701 4\" (800x480)"
+    #define PANEL_SIZE_LABEL    "4\""   // short form for the settings rail / boot footer
     #define LCD_RST             5       // Reset GPIO for ST7701
     #define TOUCH_GT911_SDA     7
     #define TOUCH_GT911_SCL     8
@@ -93,6 +94,7 @@
     #define PANEL_WIDTH         1024    // Physical panel width (no rotation)
     #define PANEL_HEIGHT        600     // Physical panel height (no rotation)
     #define DISPLAY_MODEL       "JD9165 7\" (1024x600)"
+    #define PANEL_SIZE_LABEL    "7\""   // short form for the settings rail / boot footer
     #define LCD_RST             23      // Reset GPIO for JD9165 (CoopsInChina fork)
     #define TOUCH_GT911_SDA     7
     #define TOUCH_GT911_SCL     8
@@ -260,7 +262,14 @@
 #define NVS_KEY_PANEL_OK        "panel_ok"       // 1 = user confirmed the picture
 #define NVS_KEY_AUTODIM         "autodim_sec"
 #define NVS_KEY_THEME           "theme"         // player theme index (see ui_theme.h)
-#define DEFAULT_THEME           0               // 0 = Classic (unchanged original look)
+#define NVS_KEY_THEME_VER       "theme_v"       // theme-index schema version (<=15 chars)
+// Index into THEMES[] (ui_theme.cpp): 0 SonosESP, 1 Immersive, 2 Amber.
+//
+// ONLY applies to a device with no saved choice — themeLoad() passes this as the
+// getInt() fallback, so anyone who has ever picked a theme keeps it. A fresh
+// flash does not erase NVS either, so this changes what NEW installs look like,
+// not what existing users wake up to.
+#define DEFAULT_THEME           2               // Amber
 #define NVS_KEY_OTA_CHANNEL     "ota_channel"
 #define NVS_KEY_CACHED_DEVICE   "cached_dev"
 #define NVS_KEY_LYRICS          "lyrics"
@@ -303,10 +312,14 @@
 #define CLOCK_STYLE_ORBIT      1  // Nocturne: sun-path arc + temperature curve
 #define CLOCK_STYLE_MONOLITH   2  // Nocturne: stacked HH/MM, details grid, forecast rail
 #define CLOCK_STYLE_HORIZON    3  // Nocturne: centred clock, ambient glow, forecast chips
+#define CLOCK_STYLE_AMBER     4  // Amber: warm flat clock, weather column, paused track
 // StandBy is the default face: existing users have no clk_style key in NVS, so
 // they pick up this default on upgrade and get the new clock without touching
 // settings. Anyone who explicitly selects Classic has the key written and keeps it.
-#define CLOCK_DEFAULT_STYLE    CLOCK_STYLE_HORIZON
+// Same rule as DEFAULT_THEME: the fallback for a device that has never chosen a
+// face. Amber matches the default player, so a new install is one design system
+// from the boot screen through to the screensaver.
+#define CLOCK_DEFAULT_STYLE    CLOCK_STYLE_AMBER
 
 #define CLOCK_DEFAULT_MODE       0    // Disabled by default
 #define CLOCK_DEFAULT_TIMEOUT    5    // 5 minutes inactivity before clock

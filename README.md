@@ -4,7 +4,7 @@
 
 **A touchscreen Sonos controller for ESP32-P4.**
 
-A wall-mount or desktop remote for Sonos speakers: album art, synced lyrics, full library browsing, multi-room control, weather and four screensaver clock faces — on a 4″ or 7″ panel, with over-the-air updates.
+A wall-mount or desktop remote for Sonos speakers: album art, synced lyrics, full library browsing, multi-room control, weather and five screensaver clock faces — on a 4″ or 7″ panel, with over-the-air updates.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-Ready-blue.svg)](https://platformio.org/)
@@ -39,7 +39,9 @@ A wall-mount or desktop remote for Sonos speakers: album art, synced lyrics, ful
 - **Album art** — ESP32-P4 hardware JPEG decoder, with PNG and progressive-JPEG support, bilinear scaling and automatic dominant-colour extraction
 - **Synced lyrics** — time-synced from [LRCLIB](https://lrclib.net/), with auto-hide and colour matching
 - **Accented characters throughout** — titles, artists, lyrics, menus, dropdowns and the on-screen keyboard all render Latin-1 and Latin Extended-A correctly (Beyoncé, Björk, Sigur Rós) rather than substituting plain letters
-- **Three player themes** and **four screensaver faces** — see below
+- **Three player themes** and **five screensaver faces** — see below
+- **Queue and Rooms as overlays** — both open over the player instead of replacing it, so the transport stays reachable
+- **Per-speaker volume** — adjust the selected room from the Speakers list or the Rooms overlay
 - **Weather** — current conditions and a 6-hour forecast from [Open-Meteo](https://open-meteo.com/), no API key
 - **Auto-dim** — configurable idle timeout and dimmed brightness
 
@@ -83,9 +85,13 @@ Switch in **Settings → General → Theme**. Adding one is a single registry en
 
 | Theme | Look |
 |---|---|
-| **SonosESP** *(default)* | The original: blurred album art fills the screen behind the player. The backdrop can be turned off in Display settings |
-| **Ambient** | Backdrop tinted from the artwork, artwork left with lyrics beneath it, pill-shaped room selector |
+| **Amber** *(default)* | Flat warm panel with one gold accent. Artwork edge to edge down the left with a shelf beneath it for the next track or the synced lyric; every control permanently visible on the right |
+| **SonosESP** | The original: blurred album art fills the screen behind the player. The backdrop can be turned off in Display settings |
 | **Immersive** | Full-bleed colour, compact header, and a large animated lyric stage where each line fades in |
+
+> **Ambient was removed in v2.0.0.** Amber covers the same ground — a flat panel
+> with the lyrics off the artwork — and does it to a drawn design. Devices set to
+> Ambient move to Amber automatically; nothing else changes theme.
 
 ## Screensaver themes
 
@@ -96,7 +102,8 @@ weather overlay. Adding one is a single registry entry — see
 
 | Theme | Look |
 |---|---|
-| **Horizon** *(default)* | Centred clock over an ambient glow, one-line weather summary, 6-hour forecast as pill chips |
+| **Amber** *(default)* | Hours over minutes with a seconds hairline, a weather column, a 6-hour rail, and the paused track in the corner. Matches the Amber player |
+| **Horizon** | Centred clock over an ambient glow, one-line weather summary, 6-hour forecast as pill chips |
 | **Orbit** | Clock alongside a live sun-path arc tracking real sunrise and sunset, forecast drawn as a temperature curve |
 | **Monolith** | Hours stacked over minutes, a details column for humidity, wind, UV and sun times, and a forecast rail |
 | **StandBy** | Oversized overlapping digits tinted from the current album art |

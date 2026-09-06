@@ -346,7 +346,11 @@ void buildImmersivePlayer() {
     img_album = lv_img_create(panel_art);
     lv_obj_set_size(img_album, SMIN(IM_ART), SMIN(IM_ART));
     lv_obj_set_pos(img_album, SX(IM_MARGIN), SY(IM_HEAD_Y));
-    // Square artwork, no blur shadow — see the note in ui_theme_ambient.cpp:
+    // Square artwork, no blur shadow. shadow_width in LVGL is a BLUR RADIUS, not
+    // an outline: it spreads equally from every corner point, so a shadow renders
+    // with visibly rounded corners around a square image however the radius is
+    // set. Zeroing the radius could never fix that, and it drops the most
+    // expensive draw on this screen — blur is pure software here.
     // shadow_width is a blur radius, so it always renders rounded corners around a
     // square image. A 1px outline gives definition without that artefact.
     lv_obj_set_style_radius(img_album, 0, 0);

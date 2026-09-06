@@ -82,6 +82,7 @@ lv_obj_t *lbl_title = nullptr;
 lv_obj_t *lbl_artist = nullptr;
 lv_obj_t *lbl_album = nullptr;
 lv_obj_t *lbl_lyrics_status = nullptr;
+lv_obj_t *btn_lyrics = nullptr;
 lv_obj_t *lbl_time = nullptr;
 lv_obj_t *lbl_time_remaining = nullptr;
 lv_obj_t *btn_play = nullptr;

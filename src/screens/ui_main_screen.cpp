@@ -10,6 +10,8 @@
  */
 
 #include "ui_common.h"
+#include "ui_theme.h"    // amberBuildOverlays() - the queue drawer / rooms modal
+#include "lyrics.h"      // the LRC toggle
 #include "lyrics.h"
 #include "ui_icons.h"
 #include "ui_theme.h"
@@ -153,6 +155,8 @@ void buildClassicPlayer() {
     lv_obj_set_style_transform_scale_y(btn_back, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transition(btn_back, &trans_btn, LV_STATE_PRESSED);
     lv_obj_set_style_transition(btn_back, &trans_btn, 0);
+    // Opens the Rooms modal now rather than the Speakers screen — ev_devices
+    // routes to the overlay when one has been built (see the end of this builder).
     lv_obj_add_event_cb(btn_back, ev_devices, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_back = lv_label_create(btn_back);
     lv_label_set_text(ico_back, MDI_ARROW_LEFT);
@@ -227,6 +231,24 @@ void buildClassicPlayer() {
     lv_label_set_text(lbl_artist, "");
     lv_obj_set_style_text_color(lbl_artist, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_artist, &font_text_16, 0);
+
+    // ── Lyrics indicator ────────────────────────────────────────────────────
+    // Lit when the current track actually has synced lyrics. Deliberately NOT a
+    // toggle: that setting lives in Settings > General, and a second control for
+    // it would only create a way for the two to disagree. Not clickable, so it
+    // does not offer press feedback for something it will not do.
+    // updateLyricsStatus() drives it; see btn_lyrics in ui_common.h.
+    lv_obj_t* btn_lrc = lv_btn_create(panel_right);
+    lv_obj_set_size(btn_lrc, SMIN(38), SMIN(38));
+    lv_obj_set_pos(btn_lrc, SX(205), SY(18));
+    headerCircle(btn_lrc);
+    lv_obj_remove_flag(btn_lrc, LV_OBJ_FLAG_CLICKABLE);
+    btn_lyrics = btn_lrc;
+    lv_obj_t* ico_lrc = lv_label_create(btn_lrc);
+    lv_label_set_text(ico_lrc, "LRC");
+    lv_obj_set_style_text_font(ico_lrc, &font_text_12, 0);
+    lv_obj_set_style_text_color(ico_lrc, COL_TEXT2, 0);
+    lv_obj_center(ico_lrc);
 
     // Queue/Playlist button — aligned with artist row
     btn_queue = lv_btn_create(panel_right);
@@ -458,4 +480,12 @@ void buildClassicPlayer() {
             sonos.next();
         }
     }, LV_EVENT_ALL, NULL);
+
+    // ── Overlays ────────────────────────────────────────────────────────────
+    // The queue drawer and rooms modal, so the queue button and the room control
+    // stop replacing the whole screen and the transport stays reachable. Built
+    // LAST, so they sit above every widget above; parented to the screen rather
+    // than to a panel, because setLineInMode()/setTvAudioMode() hide panel
+    // children wholesale and would take an open overlay with them.
+    amberBuildOverlays(scr_main);
 }

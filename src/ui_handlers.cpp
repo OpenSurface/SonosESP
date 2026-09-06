@@ -124,6 +124,9 @@ void ev_queue_item(lv_event_t* e) {
 // Navigation Event Handlers
 // ============================================================================
 void ev_devices(lv_event_t* e) {
+    // Amber draws Rooms as a modal over the player. Returns false for every
+    // other theme, which then loads the Speakers screen as before.
+    if (amberShowRooms()) return;
     lv_screen_load(scr_devices);
 }
 
@@ -143,11 +146,19 @@ void ev_queue(lv_event_t* e) {
     queue_fetch_start_index = start;
     queue_fetch_requested   = true;
     refreshQueueList();
+    // Amber draws the queue as a drawer over the player. The windowed fetch above
+    // is requested either way, so the drawer and the screen show the same data.
+    if (amberShowQueue()) return;
     lv_screen_load(scr_queue);
 }
 
 void ev_settings(lv_event_t* e) {
-    lv_screen_load(scr_settings);
+    // General, not Speakers. createSettingsScreen() aliases scr_settings to
+    // scr_devices because it runs BEFORE createGeneralScreen() and needs a screen
+    // that already exists; by the time anyone taps the gear, General is built.
+    // The design canvas opens Settings on General, and it is the page whose
+    // controls are least likely to need a network round-trip to be meaningful.
+    lv_screen_load(scr_general ? scr_general : scr_settings);
 }
 
 void ev_back_main(lv_event_t* e) {
@@ -431,7 +442,7 @@ void ev_wifi_connect(lv_event_t* e) {
         } else if (status == WL_CONNECTION_LOST) {
             reason = "Connection lost";
         } else if (status == WL_DISCONNECTED) {
-            reason = "Connection timeout — check password and try again";
+            reason = "Connection timeout - check password and try again";
         }
 
         lv_label_set_text_fmt(lbl_wifi_status, MDI_ALERT " Failed: %s", reason);
@@ -627,7 +638,7 @@ static void checkForUpdates() {
                             lv_obj_set_style_text_color(lbl_ota_status, COL_ERROR, 0);
                         }
                         if (lbl_latest_version) {
-                            lv_label_set_text(lbl_latest_version, "Latest (Nightly): None");
+                            lv_label_set_text(lbl_latest_version, "None");
                         }
                         return;
                     }
@@ -660,7 +671,7 @@ static void checkForUpdates() {
                     lv_obj_set_style_text_color(lbl_ota_status, COL_ERROR, 0);
                 }
                 if (lbl_latest_version) {
-                    lv_label_set_text(lbl_latest_version, "Latest (Stable): None");
+                    lv_label_set_text(lbl_latest_version, "None");
                 }
                 return;
             }
@@ -679,7 +690,7 @@ static void checkForUpdates() {
                         lv_obj_set_style_text_color(lbl_ota_status, COL_OK, 0);
                     }
                     if (lbl_latest_version) {
-                        lv_label_set_text_fmt(lbl_latest_version, "Latest (Nightly): v%s", current_version.c_str());
+                        lv_label_set_text_fmt(lbl_latest_version, "v%s", current_version.c_str());
                     }
                     if (btn_install_update) {
                         lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
@@ -691,7 +702,7 @@ static void checkForUpdates() {
                         lv_obj_set_style_text_color(lbl_ota_status, COL_ERROR, 0);
                     }
                     if (lbl_latest_version) {
-                        lv_label_set_text(lbl_latest_version, "Latest (Nightly): None");
+                        lv_label_set_text(lbl_latest_version, "None");
                     }
                 }
                 return;
@@ -699,9 +710,9 @@ static void checkForUpdates() {
 
             if (lbl_latest_version) {
                 if (isPrerelease && ota_channel == 1) {
-                    lv_label_set_text_fmt(lbl_latest_version, "Latest (%s): v%s (prerelease)", channelName, latest_version.c_str());
+                    lv_label_set_text_fmt(lbl_latest_version, "v%s (pre)", latest_version.c_str());
                 } else {
-                    lv_label_set_text_fmt(lbl_latest_version, "Latest (%s): v%s", channelName, latest_version.c_str());
+                    lv_label_set_text_fmt(lbl_latest_version, "v%s", latest_version.c_str());
                 }
             }
 
@@ -1539,7 +1550,7 @@ void ev_check_update(lv_event_t* e) {
 void ev_install_update(lv_event_t* e) {
     if (download_url.isEmpty()) {
         if (lbl_ota_status) {
-            lv_label_set_text(lbl_ota_status, MDI_ALERT " No firmware URL — check for updates first");
+            lv_label_set_text(lbl_ota_status, MDI_ALERT " No firmware URL - check for updates first");
             lv_obj_set_style_text_color(lbl_ota_status, COL_ERROR, 0);
         }
         return;
@@ -2150,6 +2161,12 @@ void updateUI() {
     // Volume slider update
     if (!dragging_vol && d->volume != ui_vol && slider_vol) {
         lv_slider_set_value(slider_vol, d->volume, LV_ANIM_OFF);
+        // LVGL does not raise VALUE_CHANGED for a programmatic set, and the
+        // Amber player hangs its volume readout off exactly that event. Raising
+        // it here keeps the number in step when the volume moves from the app or
+        // another controller. ev_vol_slider ignores VALUE_CHANGED (it only acts
+        // on PRESSING/RELEASED), so no command is issued.
+        lv_obj_send_event(slider_vol, LV_EVENT_VALUE_CHANGED, NULL);
         ui_vol = d->volume;
     }
 
@@ -2174,19 +2191,18 @@ void updateUI() {
     // Repeat
     if (s_repeat != ui_repeat) {
         lv_obj_t* lbl = lv_obj_get_child(btn_repeat, 0);
-        if (s_repeat == "ONE") {
-            lv_label_set_text(lbl, MDI_REPEAT_ONCE);
-            lv_obj_set_style_text_font(lbl, &lv_font_mdi_32, 0);
-            lv_obj_set_style_text_color(lbl, COL_ACCENT, 0);
-        } else if (s_repeat == "ALL") {
-            lv_label_set_text(lbl, MDI_REPEAT);
-            lv_obj_set_style_text_font(lbl, &lv_font_mdi_32, 0);
-            lv_obj_set_style_text_color(lbl, COL_ACCENT, 0);
-        } else {
-            lv_label_set_text(lbl, MDI_REPEAT);
-            lv_obj_set_style_text_font(lbl, &lv_font_mdi_32, 0);
-            lv_obj_set_style_text_color(lbl, COL_TEXT2, 0);
-        }
+        // The FONT is the builder's business, not this function's. Hardcoding
+        // lv_font_mdi_32 here stamped Classic's face onto whichever theme was
+        // active — Amber's 32px icon face on the 4", and on the 7" it pinned the
+        // repeat glyph at 32 while every neighbour scaled to 40. The glyph itself
+        // is safe to write: font_icon_* chains through MDI, so MDI_REPEAT_ONCE
+        // resolves whichever theme built the button.
+        //
+        // Colour goes through the theme accessors, added for exactly this, so
+        // Amber keeps its warm gold instead of being handed COL_ACCENT.
+        const bool on = (s_repeat == "ONE" || s_repeat == "ALL");
+        lv_label_set_text(lbl, s_repeat == "ONE" ? MDI_REPEAT_ONCE : MDI_REPEAT);
+        lv_obj_set_style_text_color(lbl, on ? themeAccentColor() : themeMutedColor(), 0);
         ui_repeat = s_repeat;
     }
 
@@ -2226,5 +2242,10 @@ void processUpdates() {
     if (need && (millis() - lastUpdate > 200)) { updateUI(); lastUpdate = millis(); }
     else displayCompletedArt();  // Run even without Sonos events (e.g. art ready while polling suppressed)
     // Auto-refresh queue list if the queue screen is visible when new data arrives
-    if (queue_updated && lv_screen_active() == scr_queue) refreshQueueList();
+    if (queue_updated) {
+        if (lv_screen_active() == scr_queue) refreshQueueList();
+        // The Amber drawer floats over scr_main, so the screen check above can
+        // never be true for it.
+        amberRefreshQueue();
+    }
 }

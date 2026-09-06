@@ -25,6 +25,7 @@
 #include "clock_face.h"
 #include "ui_settings_card.h"  // shared card helpers: addCard, addSettingLabel, addDescLabel, addSwitch
 #include "ui_fonts.h"
+#include "amber.h"
 
 // Forward declaration (defined in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -33,11 +34,11 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // Clock-specific theme tokens (form inputs + keyboard, not in the shared header
 // because only this screen uses them so far)
 // ─────────────────────────────────────────────────────────────────────────────
-#define CLK_INPUT_BG    COL_MENU
-#define CLK_INPUT_BORD  COL_BTN
-#define CLK_KB_BG       COL_BG
-#define CLK_KB_KEY      COL_CARD
-#define CLK_KB_KEY_BORD COL_BTN
+#define CLK_INPUT_BG    AMB_RAISED
+#define CLK_INPUT_BORD  AMB_RAISED
+#define CLK_KB_BG       AMB_PANEL
+#define CLK_KB_KEY      AMB_CARD
+#define CLK_KB_KEY_BORD AMB_RAISED
 
 // Location method indices (UI-level — derived from clock_weather_city_idx)
 #define LOC_METHOD_AUTO    0
@@ -51,7 +52,7 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
     lv_dropdown_set_selected(dd, selected);
     lv_obj_set_width(dd, lv_pct(100));
     lv_obj_set_style_bg_color(dd, CLK_INPUT_BG, 0);
-    lv_obj_set_style_text_color(dd, COL_TEXT, 0);
+    lv_obj_set_style_text_color(dd, AMB_TEXT, 0);
     lv_obj_set_style_text_font(dd, &font_text_14, 0);
     lv_obj_set_style_border_color(dd, CLK_INPUT_BORD, 0);
     lv_obj_set_style_radius(dd, 8, 0);
@@ -60,15 +61,15 @@ static lv_obj_t* makeDropdown(lv_obj_t* parent, const char* options,
     // The highlighted row in the OPEN list is LV_PART_SELECTED. Styling only the
     // list (below) leaves this part to LVGL's default theme, which is light — so
     // the list renders dark with a white selection bar. See ui_ota_screen.cpp.
-    lv_obj_set_style_bg_color(dd, COL_MENU, LV_PART_SELECTED);
-    lv_obj_set_style_bg_color(dd, COL_ACCENT,
+    lv_obj_set_style_bg_color(dd, AMB_RAISED, LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(dd, AMB_ACCENT,
         (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
-    lv_obj_set_style_text_color(dd, COL_TEXT, LV_PART_SELECTED);
+    lv_obj_set_style_text_color(dd, AMB_TEXT, LV_PART_SELECTED);
     lv_obj_t* list = lv_dropdown_get_list(dd);
     if (list) {
         lv_obj_set_height(list, SY(260));
-        lv_obj_set_style_bg_color(list, COL_MENU, 0);
-        lv_obj_set_style_text_color(list, COL_TEXT, 0);
+        lv_obj_set_style_bg_color(list, AMB_RAISED, 0);
+        lv_obj_set_style_text_color(list, AMB_TEXT, 0);
         lv_obj_set_style_text_font(list, &font_text_14, 0);
         lv_obj_set_style_border_color(list, CLK_INPUT_BORD, 0);
     }
@@ -92,7 +93,7 @@ static lv_obj_t* makeTextarea(lv_obj_t* parent, const char* initial,
     if (max_len > 0) lv_textarea_set_max_length(ta, max_len);
     lv_obj_set_width(ta, lv_pct(100));
     lv_obj_set_style_bg_color(ta, CLK_INPUT_BG, 0);
-    lv_obj_set_style_text_color(ta, COL_TEXT, 0);
+    lv_obj_set_style_text_color(ta, AMB_TEXT, 0);
     lv_obj_set_style_text_font(ta, &font_text_14, 0);
     lv_obj_set_style_border_color(ta, CLK_INPUT_BORD, 0);
     lv_obj_set_style_border_width(ta, 1, 0);
@@ -268,16 +269,16 @@ static void style_keyboard_dark(lv_obj_t* kb) {
     // Key buttons
     lv_obj_set_style_bg_color(kb, CLK_KB_KEY, LV_PART_ITEMS);
     lv_obj_set_style_bg_opa(kb, LV_OPA_COVER, LV_PART_ITEMS);
-    lv_obj_set_style_text_color(kb, COL_TEXT, LV_PART_ITEMS);
+    lv_obj_set_style_text_color(kb, AMB_TEXT, LV_PART_ITEMS);
     lv_obj_set_style_text_font(kb, &font_text_16, LV_PART_ITEMS);
     lv_obj_set_style_border_color(kb, CLK_KB_KEY_BORD, LV_PART_ITEMS);
     lv_obj_set_style_border_width(kb, 1, LV_PART_ITEMS);
     lv_obj_set_style_radius(kb, 8, LV_PART_ITEMS);
 
     // Pressed-key feedback
-    lv_obj_set_style_bg_color(kb, COL_ACCENT,
+    lv_obj_set_style_bg_color(kb, AMB_ACCENT,
         (lv_style_selector_t)((uint32_t)LV_PART_ITEMS | (uint32_t)LV_STATE_PRESSED));
-    lv_obj_set_style_text_color(kb, lv_color_hex(0x000000),
+    lv_obj_set_style_text_color(kb, AMB_ON_ACCENT,
         (lv_style_selector_t)((uint32_t)LV_PART_ITEMS | (uint32_t)LV_STATE_PRESSED));
 }
 
@@ -286,7 +287,7 @@ static void style_keyboard_dark(lv_obj_t* kb) {
 // ============================================================================
 void createClockSettingsScreen() {
     scr_clock_settings = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_clock_settings, COL_SCREEN, 0);
+    lv_obj_set_style_bg_color(scr_clock_settings, AMB_BG, 0);
 
     // Sidebar — Clock is index 6
     lv_obj_t* content = createSettingsSidebar(scr_clock_settings, 6);
@@ -305,28 +306,31 @@ void createClockSettingsScreen() {
     {
         lv_obj_t* card = addCard(content, "Display");
 
-        addSettingLabel(card, "Activate clock");
-        addDescLabel(card, "Choose when the clock/screensaver should appear");
-        lv_obj_t* dd_mode = makeDropdown(card,
+        lv_obj_t* slot_mode = addSettingRow(card, "Activate clock",
+            "When the panel should fall back to a clock face", true);
+        // Shorter labels. "After inactivity (nothing playing)" is 34 characters and
+        // did not fit 206px, so the closed dropdown drew its text straight over
+        // the chevron. The bracketed qualifier is what matters; "After
+        // inactivity" was repeated on three of the four and carried nothing.
+        lv_obj_t* dd_mode = makeDropdown(slot_mode,
             "Disabled\n"
-            "After inactivity\n"
-            "After inactivity (paused only)\n"
-            "After inactivity (nothing playing)",
+            "On inactivity\n"
+            "When paused\n"
+            "When stopped",
             (uint16_t)clock_mode, false);
+        lv_obj_set_width(dd_mode, SX(206));
         lv_obj_add_event_cb(dd_mode, [](lv_event_t* e) {
             lv_obj_t* dd = (lv_obj_t*)lv_event_get_target(e);
             clock_mode = (int)lv_dropdown_get_selected(dd);
             wifiPrefs.putInt(NVS_KEY_CLOCK_MODE, clock_mode);
         }, LV_EVENT_VALUE_CHANGED, NULL);
 
-        addSettingLabel(card, "Inactivity timeout");
         static lv_obj_t* lbl_timeout_val;
-        lbl_timeout_val = lv_label_create(card);
+        lv_obj_t* row_timeout = addSliderRow(card, "Inactivity timeout", nullptr,
+                                             true, &lbl_timeout_val);
         lv_label_set_text_fmt(lbl_timeout_val, "%d min", clock_timeout_min);
-        lv_obj_set_style_text_color(lbl_timeout_val, COL_ACCENT, 0);
-        lv_obj_set_style_text_font(lbl_timeout_val, &font_text_14, 0);
 
-        lv_obj_t* sl_timeout = makeSlider(card, 1, 60, clock_timeout_min);
+        lv_obj_t* sl_timeout = makeSlider(row_timeout, 1, 60, clock_timeout_min);
         lv_obj_add_event_cb(sl_timeout, [](lv_event_t* e) {
             lv_obj_t* s = (lv_obj_t*)lv_event_get_target(e);
             clock_timeout_min = lv_slider_get_value(s);
@@ -335,9 +339,9 @@ void createClockSettingsScreen() {
             wifiPrefs.putInt(NVS_KEY_CLOCK_TIMEOUT, clock_timeout_min);
         }, LV_EVENT_VALUE_CHANGED, lbl_timeout_val);
 
-        addSettingLabel(card, "12-hour format (AM/PM)");
-        addDescLabel(card, "Off = 24-hour clock");
-        lv_obj_t* sw_12h = addSwitch(card, clock_12h);
+        lv_obj_t* slot_12h = addSettingRow(card, "12-hour format",
+                                           "Off = 24-hour clock", true);
+        lv_obj_t* sw_12h = addSwitch(slot_12h, clock_12h);
         lv_obj_add_event_cb(sw_12h, [](lv_event_t* e) {
             lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
             clock_12h = lv_obj_has_state(sw, LV_STATE_CHECKED);
@@ -346,9 +350,11 @@ void createClockSettingsScreen() {
 
         // Options and description come from the CLOCK_FACES[] registry, so a new
         // face appears here automatically (see clock_face.h).
-        addSettingLabel(card, "Theme");
-        lv_obj_t* lbl_face_desc = addDescLabel(card, clockFaceCurrent()->desc);
-        lv_obj_t* dd_style = makeDropdown(card, clockFaceOptions(), (uint16_t)clock_style, false);
+        lv_obj_t* slot_face = addSettingRow(card, "Face", clockFaceCurrent()->desc, false);
+        lv_obj_t* lbl_face_desc = settingRowDesc(slot_face);
+        lv_obj_t* dd_style = makeDropdown(slot_face, clockFaceOptions(),
+                                          (uint16_t)clock_style, false);
+        lv_obj_set_width(dd_style, SX(206));
         lv_obj_set_user_data(dd_style, lbl_face_desc);
         lv_obj_add_event_cb(dd_style, [](lv_event_t* e) {
             lv_obj_t* dd = (lv_obj_t*)lv_event_get_target(e);
@@ -367,16 +373,16 @@ void createClockSettingsScreen() {
     {
         lv_obj_t* card = addCard(content, "Photo Background");
 
-        addSettingLabel(card, "Enable random photos");
-        addDescLabel(card, "Random photos from Flickr via loremflickr.com (requires WiFi)");
-        lv_obj_t* sw_picsum = addSwitch(card, clock_picsum_enabled);
+        lv_obj_t* slot_picsum = addSettingRow(card, "Enable random photos",
+            "Random photos from Flickr via loremflickr.com (requires WiFi)", true);
+        lv_obj_t* sw_picsum = addSwitch(slot_picsum, clock_picsum_enabled);
         lv_obj_add_event_cb(sw_picsum, [](lv_event_t* e) {
             lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
             clock_picsum_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
             wifiPrefs.putBool(NVS_KEY_CLOCK_PICSUM, clock_picsum_enabled);
         }, LV_EVENT_VALUE_CHANGED, NULL);
 
-        addSettingLabel(card, "Photo theme");
+        lv_obj_t* slot_kw = addSettingRow(card, "Photo theme", nullptr, true);
         static char kw_opts[256];
         kw_opts[0] = '\0';
         for (int i = 0; i < CLOCK_BG_KW_COUNT; i++) {
@@ -384,21 +390,20 @@ void createClockSettingsScreen() {
             if (i < CLOCK_BG_KW_COUNT - 1)
                 strncat(kw_opts, "\n", sizeof(kw_opts) - strlen(kw_opts) - 1);
         }
-        lv_obj_t* dd_kw = makeDropdown(card, kw_opts, (uint16_t)clock_bg_kw_idx, false);
+        lv_obj_t* dd_kw = makeDropdown(slot_kw, kw_opts, (uint16_t)clock_bg_kw_idx, false);
+        lv_obj_set_width(dd_kw, SX(206));
         lv_obj_add_event_cb(dd_kw, [](lv_event_t* e) {
             lv_obj_t* dd = (lv_obj_t*)lv_event_get_target(e);
             clock_bg_kw_idx = (int)lv_dropdown_get_selected(dd);
             wifiPrefs.putInt(NVS_KEY_CLOCK_KW, clock_bg_kw_idx);
         }, LV_EVENT_VALUE_CHANGED, NULL);
 
-        addSettingLabel(card, "Photo refresh interval");
         static lv_obj_t* lbl_refresh_val;
-        lbl_refresh_val = lv_label_create(card);
+        lv_obj_t* row_refresh = addSliderRow(card, "Photo refresh interval", nullptr,
+                                             false, &lbl_refresh_val);
         lv_label_set_text_fmt(lbl_refresh_val, "%d min", clock_refresh_min);
-        lv_obj_set_style_text_color(lbl_refresh_val, COL_ACCENT, 0);
-        lv_obj_set_style_text_font(lbl_refresh_val, &font_text_14, 0);
 
-        lv_obj_t* sl_refresh = makeSlider(card, 1, 60, clock_refresh_min);
+        lv_obj_t* sl_refresh = makeSlider(row_refresh, 1, 60, clock_refresh_min);
         lv_obj_add_event_cb(sl_refresh, [](lv_event_t* e) {
             lv_obj_t* s = (lv_obj_t*)lv_event_get_target(e);
             clock_refresh_min = lv_slider_get_value(s);
@@ -414,7 +419,8 @@ void createClockSettingsScreen() {
     {
         lv_obj_t* card = addCard(content, "Time Zone");
 
-        addDescLabel(card, "Select your local timezone");
+        lv_obj_t* slot_tz = addSettingRow(card, "Timezone",
+                                          "Used for the clock and for sunrise/sunset", false);
         static char tz_opts[4096];
         tz_opts[0] = '\0';
         for (int i = 0; i < CLOCK_ZONES_COUNT; i++) {
@@ -423,7 +429,8 @@ void createClockSettingsScreen() {
                 strncat(tz_opts, "\n", sizeof(tz_opts) - strlen(tz_opts) - 1);
             }
         }
-        lv_obj_t* dd_tz = makeDropdown(card, tz_opts, (uint16_t)clock_tz_idx, true);
+        lv_obj_t* dd_tz = makeDropdown(slot_tz, tz_opts, (uint16_t)clock_tz_idx, true);
+        lv_obj_set_width(dd_tz, SX(240));
         lv_obj_add_event_cb(dd_tz, [](lv_event_t* e) {
             lv_obj_t* dd = (lv_obj_t*)lv_event_get_target(e);
             clock_tz_idx = (int)lv_dropdown_get_selected(dd);
@@ -442,9 +449,9 @@ void createClockSettingsScreen() {
     {
         lv_obj_t* card = addCard(content, "Weather");
 
-        addSettingLabel(card, "Enable widget");
-        addDescLabel(card, "Temperature, humidity, wind, and 6-hour forecast (Open-Meteo, no API key needed)");
-        lv_obj_t* sw_weather = addSwitch(card, clock_weather_enabled);
+        lv_obj_t* slot_wx = addSettingRow(card, "Enable widget",
+            "Temperature, humidity, wind and a 6-hour forecast (Open-Meteo, no API key)", true);
+        lv_obj_t* sw_weather = addSwitch(slot_wx, clock_weather_enabled);
         lv_obj_add_event_cb(sw_weather, [](lv_event_t* e) {
             lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
             clock_weather_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
@@ -452,8 +459,9 @@ void createClockSettingsScreen() {
         }, LV_EVENT_VALUE_CHANGED, NULL);
 
         // ── Location method dropdown ─────────────────────────────────────────
-        addSettingLabel(card, "Location method");
-        addDescLabel(card, "Auto-detect uses your public IP. Pick a city or enter your own coordinates.");
+        lv_obj_t* slot_method = addSettingRow(card, "Location method",
+            "Auto-detect uses your public IP. Pick a city or enter your own coordinates.",
+            true);
 
         // Derive initial method from saved city_idx
         int initial_method = LOC_METHOD_AUTO;
@@ -463,11 +471,12 @@ void createClockSettingsScreen() {
             initial_method = LOC_METHOD_CITY;
         }
 
-        lv_obj_t* dd_method = makeDropdown(card,
+        lv_obj_t* dd_method = makeDropdown(slot_method,
             "Auto-detect from IP\n"
             "Predefined city\n"
             "Custom coordinates",
             (uint16_t)initial_method, false);
+        lv_obj_set_width(dd_method, SX(206));
 
         // ── City sub-container (label + dropdown), hidden unless method == CITY ──
         city_sub_container = lv_obj_create(card);
@@ -507,10 +516,10 @@ void createClockSettingsScreen() {
         custom_loc_card = lv_obj_create(card);
         lv_obj_set_width(custom_loc_card, lv_pct(100));
         lv_obj_set_height(custom_loc_card, LV_SIZE_CONTENT);
-        lv_obj_set_style_bg_color(custom_loc_card, COL_SCREEN, 0);
+        lv_obj_set_style_bg_color(custom_loc_card, AMB_BG, 0);
         lv_obj_set_style_bg_opa(custom_loc_card, LV_OPA_COVER, 0);
         lv_obj_set_style_radius(custom_loc_card, 10, 0);
-        lv_obj_set_style_border_color(custom_loc_card, COL_ACCENT, 0);
+        lv_obj_set_style_border_color(custom_loc_card, AMB_ACCENT, 0);
         lv_obj_set_style_border_width(custom_loc_card, 1, 0);
         lv_obj_set_style_pad_all(custom_loc_card, SMIN(12), 0);
         lv_obj_set_style_pad_row(custom_loc_card, SY(6), 0);
@@ -521,7 +530,7 @@ void createClockSettingsScreen() {
         lv_obj_t* sub_title = lv_label_create(custom_loc_card);
         lv_label_set_text(sub_title, "Custom coordinates");
         lv_obj_set_style_text_font(sub_title, &font_text_14, 0);
-        lv_obj_set_style_text_color(sub_title, COL_ACCENT, 0);
+        lv_obj_set_style_text_color(sub_title, AMB_ACCENT, 0);
 
         addSettingLabel(custom_loc_card, "Latitude (-90 to 90)");
         // Initialize from atomic float; format with 4 decimal places
@@ -578,9 +587,9 @@ void createClockSettingsScreen() {
         update_location_method_visibility(initial_method);
 
         // ── Temperature unit ────────────────────────────────────────────────
-        addSettingLabel(card, "Temperature unit");
-        addDescLabel(card, "On = Fahrenheit (°F), Off = Celsius (°C)");
-        lv_obj_t* sw_fahr = addSwitch(card, clock_wx_fahrenheit);
+        lv_obj_t* slot_unit = addSettingRow(card, "Temperature unit",
+                                            "On = Fahrenheit (°F), Off = Celsius (°C)", false);
+        lv_obj_t* sw_fahr = addSwitch(slot_unit, clock_wx_fahrenheit);
         lv_obj_add_event_cb(sw_fahr, [](lv_event_t* e) {
             lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
             clock_wx_fahrenheit = lv_obj_has_state(sw, LV_STATE_CHECKED);

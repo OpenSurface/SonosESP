@@ -11,6 +11,7 @@
 #include "ui_theme.h"
 #include "config.h"
 #include "lyrics.h"
+#include "amber.h"
 
 // ── Registry ────────────────────────────────────────────────────────────────
 //                                                                   art:  size   x                     y
@@ -19,20 +20,71 @@ const ThemeDef THEMES[] = {
       "The original - blurred album art fills the screen",
       THEME_BG_BLUR_ART,      ART_SIZE, THEME_ART_CENTRED, THEME_ART_CENTRED, buildClassicPlayer },
 
-    { "Ambient",
-      "Tinted backdrop, lyrics below the artwork",
-      THEME_BG_AMBIENT_TINT,  308,      39,                36,                buildAmbientPlayer },
-
     { "Immersive",
       "Full-bleed colour, oversized title and large lyrics",
       THEME_BG_AMBIENT_SOLID, 112,      32,                24,                buildImmersivePlayer },
+
+    // Edge-to-edge artwork column, so the art is positioned at the origin rather
+    // than inset. Flat ground: this theme never tints from the artwork.
+    { "Amber",
+      "Flat panel, artwork column, controls always visible",
+      THEME_BG_FLAT,          344,      0,                 0,                 buildAmberPlayer },
 };
 const uint8_t THEME_COUNT = (uint8_t)(sizeof(THEMES) / sizeof(THEMES[0]));
 
 uint8_t active_theme = 0;
 
+// Bump when the meaning of a persisted index changes.
+#define THEME_SCHEMA 1
+
+// v0 numbering was Classic=0, Ambient=1, Immersive=2, Amber=3. Ambient has been
+// removed — Amber covers the same ground (a flat, non-blurred panel with the
+// lyrics off the artwork) and does it to a drawn design. Without this rewrite an
+// Ambient user would land on Immersive and an Immersive user on Amber, purely
+// because the rows shifted down.
+//
+// Runs once; the marker key stops it re-running and clobbering a later
+// deliberate choice.
+void themeMigrate(void) {
+    if (wifiPrefs.getInt(NVS_KEY_THEME_VER, 0) >= THEME_SCHEMA) return;
+
+    int old_idx = wifiPrefs.getInt(NVS_KEY_THEME, -1);
+    if (old_idx >= 0) {
+        int mapped;
+        switch (old_idx) {
+            case 0:  mapped = 0; break;   // Classic stays put
+            case 1:  mapped = 2; break;   // Ambient (removed) -> Amber
+            case 2:  mapped = 1; break;   // Immersive moves down one
+            case 3:  mapped = 2; break;   // Amber moves down one
+            default: mapped = 0; break;
+        }
+        wifiPrefs.putInt(NVS_KEY_THEME, mapped);
+        Serial.printf("[THEME] Index migrated: %d -> %d\n", old_idx, mapped);
+    }
+    wifiPrefs.putInt(NVS_KEY_THEME_VER, THEME_SCHEMA);
+}
+
 const ThemeDef* themeCurrent(void) {
     return &THEMES[active_theme < THEME_COUNT ? active_theme : 0];
+}
+
+lv_label_long_mode_t themeTitleLongMode(void) {
+    // Amber gives the title a two-line box and truncates; every other theme
+    // scrolls a single line.
+    return themeCurrent()->build == buildAmberPlayer ? LV_LABEL_LONG_DOT
+                                                      : LV_LABEL_LONG_SCROLL_CIRCULAR;
+}
+
+bool themeUsesArtAccent(void) {
+    return themeCurrent()->bg != THEME_BG_FLAT;
+}
+
+lv_color_t themeAccentColor(void) {
+    return themeCurrent()->bg == THEME_BG_FLAT ? AMB_ACCENT : COL_ACCENT;
+}
+
+lv_color_t themeMutedColor(void) {
+    return themeCurrent()->bg == THEME_BG_FLAT ? AMB_TEXT3 : COL_TEXT2;
 }
 
 bool themeUsesBlurBg(void) {
@@ -96,8 +148,15 @@ void themeApplyBackdrop(uint32_t rgb) {
             // The blurred art image IS the backdrop — leave the screen colour alone.
             break;
 
+        case THEME_BG_FLAT:
+            // Fixed palette ground. Amber's whole point is that the panel does
+            // not change colour with the album, so there is nothing to apply.
+            break;
+
         case THEME_BG_AMBIENT_TINT:
-            // Deep and muted, painted flat: a gradient bands badly in RGB565.
+            // No theme uses this since Ambient was removed. Kept because the enum
+            // value is persisted nowhere and the mode still works — a future
+            // theme can pick it up without reimplementing the maths.
             lv_obj_set_style_bg_color(scr_main, lv_color_hex(shade(rgb, 0.90f, 1.35f, 26, 64)), 0);
             break;
 
@@ -167,6 +226,14 @@ void themeSet(uint8_t idx) {
     // Background tasks only set flags — they never touch LVGL objects.
     lv_obj_t* old = scr_main;
     scr_main = nullptr;
+
+    // btn_lyrics is OPTIONAL — unlike the widget globals in the builder contract,
+    // a theme is allowed not to have an LRC chip. Clearing it first means a theme
+    // that has none leaves it null rather than inheriting the outgoing screen's
+    // button, which lv_obj_del(old) below is about to free. updateLyricsStatus()
+    // dereferences this every tick, so a stale pointer here is a crash.
+    btn_lyrics = nullptr;
+
     themeCurrent()->build();      // reassigns scr_main + every player widget global
     if (old) {
         // Never delete the screen currently on display. In practice we're on the
