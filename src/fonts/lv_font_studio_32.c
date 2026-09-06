@@ -975,8 +975,8 @@ lv_font_t lv_font_studio_32 = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,
-    .line_height = 32,
-    .base_line = 0,
+    .line_height = 34,
+    .base_line = 2,
 #if !(LVGL_VERSION_MAJOR == 6 && LVGL_VERSION_MINOR == 0)
     .subpx = LV_FONT_SUBPX_NONE,
 #endif

@@ -59,6 +59,12 @@ extern uint8_t active_theme;
 
 const ThemeDef* themeCurrent(void);
 
+// The long mode lbl_title should return to when a mode overlay (line-in, TV)
+// clears. Those handlers used to hardcode LV_LABEL_LONG_SCROLL_CIRCULAR, which
+// silently undid Studio's deliberate wrap-and-truncate title for the rest of the
+// session — the canvas is explicit that the title must not side-scroll.
+lv_label_long_mode_t themeTitleLongMode(void);
+
 // Reads the saved index from NVS and clamps it. Call once in setup() BEFORE
 // createMainScreen() so the first build already uses the chosen theme.
 void themeLoad(void);
@@ -96,6 +102,7 @@ void studioBuildOverlays(lv_obj_t* screen);
 bool studioShowQueue(void);
 bool studioShowRooms(void);
 void studioHideOverlay(void);
+void studioRefreshQueue(void);   // no-op unless the queue drawer is open
 bool studioOverlayOpen(void);
 
 #endif // UI_THEME_H

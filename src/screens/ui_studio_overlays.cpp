@@ -398,6 +398,13 @@ void studioBuildOverlays(lv_obj_t* screen) {
     ovBuildQueue(screen);
     ovBuildRooms(screen);
     lv_obj_add_event_cb(screen, ov_deleted, LV_EVENT_DELETE, nullptr);
+
+    // Close on every (re)entry to the player. The scrim and the close button were
+    // the only dismissal paths, so leaving via the screensaver or Settings and
+    // coming back landed you on the player with a stale panel still over it.
+    lv_obj_add_event_cb(screen, [](lv_event_t* e) {
+        if (lv_event_get_code(e) == LV_EVENT_SCREEN_LOADED) studioHideOverlay();
+    }, LV_EVENT_SCREEN_LOADED, nullptr);
 }
 
 bool studioShowQueue(void) {
@@ -423,6 +430,17 @@ bool studioShowRooms(void) {
     lv_obj_move_foreground(ov_scrim);
     lv_obj_move_foreground(ov_rooms);
     return true;
+}
+
+void studioRefreshQueue(void) {
+    // ev_queue() requests a windowed fetch and opens the drawer immediately, so
+    // the drawer is filled from whatever was cached at that moment. The fetch
+    // lands asynchronously on the Sonos task; the only existing refresh hook is
+    // gated on scr_queue being the ACTIVE screen, which it never is under Studio
+    // because the drawer floats over scr_main. Without this the drawer showed
+    // "Queue is empty" until it was closed and reopened.
+    if (!ov_queue || lv_obj_has_flag(ov_queue, LV_OBJ_FLAG_HIDDEN)) return;
+    ovFillQueue();
 }
 
 void studioHideOverlay(void) {

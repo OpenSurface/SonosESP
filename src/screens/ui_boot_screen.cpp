@@ -55,12 +55,10 @@
 #define BT_FOOT_Y     422
 
 // The footer names the panel it is actually running on rather than the 4" the
-// artboard was drawn at.
-#if defined(SCREEN_SIZE) && SCREEN_SIZE == 7
-    #define BT_PANEL_LABEL "7\""
-#else
-    #define BT_PANEL_LABEL "4\""
-#endif
+// artboard was drawn at. PANEL_SIZE_LABEL comes from config.h, where it sits
+// beside the rest of the per-panel constants — this file used to re-derive the
+// identical string from SCREEN_SIZE, so a third variant would have had to be
+// added in two places and only one of them has the #error fallback.
 
 static lv_obj_t* bt_scr      = nullptr;
 static lv_obj_t* bt_wordmark = nullptr;   // stage 1
@@ -195,7 +193,7 @@ void bootScreenCreate(void) {
         lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
         lv_obj_t* chip = stRoundRect(row, 22, 22, 11, ST_ACCENT_WASH);
-        lv_obj_t* tick = stLabel(chip, &font_icon_16, ST_ACCENT, ST_IC_CHECK);
+        lv_obj_t* tick = stLabel(chip, &font_icon_16, ST_ACCENT, ST_SC_CHECK);
         lv_obj_center(tick);
 
         stLabel(row, &font_text_16, ST_TEXT, kLabel[i]);
@@ -228,7 +226,7 @@ void bootScreenCreate(void) {
 
     // ── Footer ──────────────────────────────────────────────────────────────
     lv_obj_t* foot = stLabel(bt_header, &font_text_12, ST_TEXT3,
-                             "ESP32-P4 · " BT_PANEL_LABEL " · 16 MB flash / 32 MB PSRAM");
+                             "ESP32-P4 · " PANEL_SIZE_LABEL " · 16 MB flash / 32 MB PSRAM");
     lv_obj_set_pos(foot, SX(BT_PAD), SY(BT_FOOT_Y));
 
     lv_refr_now(NULL);

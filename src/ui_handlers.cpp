@@ -2243,5 +2243,10 @@ void processUpdates() {
     if (need && (millis() - lastUpdate > 200)) { updateUI(); lastUpdate = millis(); }
     else displayCompletedArt();  // Run even without Sonos events (e.g. art ready while polling suppressed)
     // Auto-refresh queue list if the queue screen is visible when new data arrives
-    if (queue_updated && lv_screen_active() == scr_queue) refreshQueueList();
+    if (queue_updated) {
+        if (lv_screen_active() == scr_queue) refreshQueueList();
+        // The Studio drawer floats over scr_main, so the screen check above can
+        // never be true for it.
+        studioRefreshQueue();
+    }
 }

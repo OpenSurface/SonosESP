@@ -43,8 +43,8 @@ LV_FONT_DECLARE(lv_font_studio_wx_64);
 #define ST_IC_VOL            "\xEE\x80\x94"   // U+E014  ic-vol
 #define ST_IC_WIFI           "\xEE\x80\x95"   // U+E015  ic-wifi
 #define ST_IC_X              "\xEE\x80\x96"   // U+E016  ic-x
-#define ST_IC_CHECK          "\xEE\x80\x97"   // U+E017  sc-check
-#define ST_IC_PAUSE          "\xEE\x80\x98"   // U+E018  sc-pause
+#define ST_SC_CHECK          "\xEE\x80\x97"   // U+E017  sc-check
+#define ST_SC_PAUSE          "\xEE\x80\x98"   // U+E018  sc-pause
 
 #define ST_IC_GEAR           MDI_COG   // not rasterised - see MDI_SUBSTITUTE
 

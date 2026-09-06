@@ -41,6 +41,13 @@ const ThemeDef* themeCurrent(void) {
     return &THEMES[active_theme < THEME_COUNT ? active_theme : 0];
 }
 
+lv_label_long_mode_t themeTitleLongMode(void) {
+    // Studio gives the title a two-line box and truncates; every other theme
+    // scrolls a single line.
+    return themeCurrent()->build == buildStudioPlayer ? LV_LABEL_LONG_DOT
+                                                      : LV_LABEL_LONG_SCROLL_CIRCULAR;
+}
+
 bool themeUsesBlurBg(void) {
     // Two independent conditions, deliberately in that order: the theme has to
     // want a blurred backdrop at all, and the user has to have left it switched

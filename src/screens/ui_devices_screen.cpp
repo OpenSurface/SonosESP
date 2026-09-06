@@ -102,12 +102,10 @@ void refreshDeviceList() {
             lv_obj_align(sub, LV_ALIGN_TOP_LEFT, hasGroup ? SX(55) : SX(45), SY(28));
         }
 
-        // Volume level, read-only. The design draws a slider on each row, but
-        // SonosController::setVolume() only ever targets the CURRENT device —
-        // driving another player from here needs a SOAP call aimed at that
-        // player's IP, which is a change to the network path and does not belong
-        // in a UI branch. The number is already in the device struct, so showing
-        // it costs nothing and answers most of what the slider was for.
+        // Volume level. Pairs with the slider below: this is the readout, the
+        // slider drives it. Both address this row's speaker through
+        // sonos.setDeviceVolume(), which queues the command like every other one
+        // so the SOAP call lands on the Sonos task rather than the LVGL thread.
         lv_obj_t* vol = lv_label_create(btn);
         lv_label_set_text_fmt(vol, "%d", dev->volume);
         lv_obj_set_style_text_color(vol, ST_TEXT3, 0);

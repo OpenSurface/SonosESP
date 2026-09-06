@@ -627,8 +627,8 @@ lv_font_t lv_font_studio_24 = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,
-    .line_height = 24,
-    .base_line = 0,
+    .line_height = 29,
+    .base_line = 5,
 #if !(LVGL_VERSION_MAJOR == 6 && LVGL_VERSION_MINOR == 0)
     .subpx = LV_FONT_SUBPX_NONE,
 #endif

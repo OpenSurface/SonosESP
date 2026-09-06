@@ -255,12 +255,23 @@ void createOTAScreen() {
     lv_label_set_long_mode(lbl_info, LV_LABEL_LONG_DOT);
     lv_obj_set_pos(lbl_info, 0, SY(OTA_FOOT_Y));
 
-    // Reset the card each time the screen opens, so a previous check's result
-    // does not linger as though it were current.
+    // Clear the previous check each time the screen opens, so its result cannot
+    // be read as current. The first version of this guard tested
+    // `latest_version.length() == 0`, which is backwards: it only rewrote the
+    // label in the case where it already said "--", and left a genuinely stale
+    // version, its status line, and an armed Install button exactly as they were.
     lv_obj_add_event_cb(scr_ota, [](lv_event_t* e) {
         if (lv_event_get_code(e) != LV_EVENT_SCREEN_LOADED) return;
         if (ota_in_progress) return;             // an install is mid-flight
-        if (latest_version.length() == 0 && lbl_latest_version)
-            lv_label_set_text(lbl_latest_version, "--");
+        latest_version = "";
+        download_url   = "";
+        if (lbl_latest_version) lv_label_set_text(lbl_latest_version, "--");
+        if (lbl_ota_progress)   lv_label_set_text(lbl_ota_progress, "");
+        if (bar_ota_progress)   lv_obj_add_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
+        if (btn_install_update) lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+        if (lbl_ota_status) {
+            lv_label_set_text(lbl_ota_status, "Tap 'Check for Updates' to begin");
+            lv_obj_set_style_text_color(lbl_ota_status, ST_TEXT3, 0);
+        }
     }, LV_EVENT_ALL, NULL);
 }

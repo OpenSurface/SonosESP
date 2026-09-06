@@ -153,7 +153,7 @@ void createWiFiScreen() {
     lv_obj_set_style_shadow_width(btn_wifi_connect, 0, 0);
     lv_obj_add_event_cb(btn_wifi_connect, ev_wifi_connect, LV_EVENT_CLICKED, NULL);
     lv_obj_t* cl = lv_label_create(btn_wifi_connect);
-    lv_label_set_text(cl, ST_IC_CHECK " Connect");
+    lv_label_set_text(cl, ST_SC_CHECK " Connect");
     lv_obj_set_style_text_color(cl, ST_ON_ACCENT, 0);
     lv_obj_set_style_text_font(cl, &font_icon_16, 0);
     lv_obj_center(cl);
