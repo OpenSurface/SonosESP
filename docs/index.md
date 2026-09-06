@@ -6,8 +6,8 @@ pageClass: home-page
 sidebar: false
 aside: false
 outline: false
-navbar: true
-footer: true
+navbar: false
+footer: false
 ---
 
 <HomeHero />

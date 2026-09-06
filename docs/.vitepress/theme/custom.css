@@ -16,3 +16,40 @@
 .home-page .VPDoc .container { max-width: none !important; margin: 0 !important; display: block !important; }
 .home-page .VPDoc .content { max-width: none !important; padding: 0 !important; margin: 0 !important; }
 .home-page .VPDoc .content-container { max-width: none !important; }
+
+/* ── Home page: the design's own dark canvas ──────────────────────────────
+   The home page is a dark marketing surface with its own palette, so it does
+   not follow the VitePress light/dark theme the docs pages use. Tokens live on
+   :root because scoped component styles consume them, and only the home
+   components reference them - nothing else on the site changes.               */
+:root {
+  --se-ground: #0c0b0a;
+  --se-ink: #f2ece4;
+  --se-accent: oklch(0.7 0.16 40);          /* coral - the site accent        */
+  --se-accent-text: oklch(0.78 0.13 42);
+  --se-accent-hover: oklch(0.86 0.1 45);
+  --se-accent-glow: oklch(0.7 0.16 40 / 0.8);
+  --se-gold: #E0B252;                        /* the firmware's AMB_ACCENT      */
+  --se-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --se-sans: Sora, Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* The nav is replaced by the design's own sticky header (index.md sets
+   navbar:false, this covers the gap it leaves behind). */
+.home-page .VPNav { display: none !important; }
+
+.home-page {
+  background: var(--se-ground);
+  color: var(--se-ink);
+  font-family: var(--se-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+/* Paint the ground behind the whole viewport, not just the content box, so a
+   short page does not show the docs theme's background under the footer. */
+body:has(.home-page) { background: var(--se-ground); }
+
+.home-page ::selection { background: oklch(0.7 0.16 40 / 0.35); }
+.home-page a { text-decoration: none; }
+html:has(.home-page) { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html:has(.home-page) { scroll-behavior: auto; } }

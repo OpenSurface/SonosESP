@@ -10,6 +10,12 @@ export default defineConfig({
   lastUpdated: true,
 
   head: [
+    // Sora + Space Mono carry the home page's type. Preconnect first so the
+    // font CSS request does not wait on a fresh TLS handshake.
+    ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
+    ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
+    ['link', { rel: 'stylesheet',
+      href: 'https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap' }],
     // esp-web-tools provides <esp-web-install-button>. Loaded globally so the
     // install page can create the element from script, the same way the previous
     // standalone installer did.
