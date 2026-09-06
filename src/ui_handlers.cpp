@@ -153,7 +153,12 @@ void ev_queue(lv_event_t* e) {
 }
 
 void ev_settings(lv_event_t* e) {
-    lv_screen_load(scr_settings);
+    // General, not Speakers. createSettingsScreen() aliases scr_settings to
+    // scr_devices because it runs BEFORE createGeneralScreen() and needs a screen
+    // that already exists; by the time anyone taps the gear, General is built.
+    // The design canvas opens Settings on General, and it is the page whose
+    // controls are least likely to need a network round-trip to be meaningful.
+    lv_screen_load(scr_general ? scr_general : scr_settings);
 }
 
 void ev_back_main(lv_event_t* e) {

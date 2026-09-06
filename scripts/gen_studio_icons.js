@@ -49,6 +49,19 @@ const SUPERSAMPLE = 4;
 const WX_SIZES = [32, 64];
 const WX_ICONS = ['sc-cloud', 'sc-rain', 'sc-sun'];
 
+// ── Icons kept on Material Design Icons ─────────────────────────────────────
+// A canvas icon whose shape does not survive rasterisation at UI sizes is
+// aliased to an MDI glyph instead of being rendered. The call sites do not care:
+// font_icon_* falls back to MDI, so ST_IC_GEAR resolves either way.
+//
+// ic-gear is the one so far. In the canvas it is a SLIDERS icon — two thin
+// horizontal rails with small knobs. At 16-24px the rails land near a single
+// pixel and the knobs are ~3px, so it reads as smudged dashes rather than a
+// control. MDI's cog is a filled shape drawn for small sizes and stays crisp.
+const MDI_SUBSTITUTE = {
+  'ic-gear': 'MDI_COG',
+};
+
 // Codepoints start at the top of the BMP Private Use Area. Deliberately clear of
 // the MDI range (U+F0000+) and of Latin-Ext, so a Studio font can carry a text
 // fallback later without colliding.
@@ -253,7 +266,8 @@ const wxIcons = WX_ICONS.filter(k => symbols.has(k));
 const scExtra = [...symbols.keys()].filter(k => k.startsWith('sc-') && !WX_ICONS.includes(k)).sort();
 // The non-weather sc-* glyphs (pause, check) belong with the UI set — they are
 // used at UI sizes, not at the weather sizes.
-const uiSet = uiIcons.concat(scExtra);
+// Substituted icons are not rasterised into any face.
+const uiSet = uiIcons.concat(scExtra).filter(k => !MDI_SUBSTITUTE[k]);
 
 if (uiSet.length === 0) { console.error('no symbols found in ' + canvasDir); process.exit(1); }
 
@@ -292,7 +306,8 @@ h += ' * The glyphs are the canvas\'s own SVG icons, rasterised into LVGL fonts,
 h += ' * they are the design\'s icons rather than the nearest match from an icon set.\n';
 h += ' * Use them exactly like the MDI_* defines: set one as a label\'s text and pick\n';
 h += ' * the matching lv_font_studio_* size as its font.\n */\n';
-h += '#ifndef STUDIO_ICONS_H\n#define STUDIO_ICONS_H\n\n#include "lvgl.h"\n\n';
+h += '#ifndef STUDIO_ICONS_H\n#define STUDIO_ICONS_H\n\n#include "lvgl.h"\n';
+h += '#include "ui_icons.h"   // for the MDI-substituted entries below\n\n';
 h += 'LV_FONT_DECLARE(lv_font_studio_16);\n';
 h += 'LV_FONT_DECLARE(lv_font_studio_24);\n';
 h += 'LV_FONT_DECLARE(lv_font_studio_32);\n';
@@ -301,6 +316,10 @@ h += 'LV_FONT_DECLARE(lv_font_studio_wx_32);\n';
 h += 'LV_FONT_DECLARE(lv_font_studio_wx_64);\n\n';
 for (const m of manifest) {
   h += `#define ${defName(m.id).padEnd(20)} "${utf8Escape(m.cp)}"   // U+${m.cp.toString(16).toUpperCase()}  ${m.id}\n`;
+}
+h += '\n';
+for (const [id, mdi] of Object.entries(MDI_SUBSTITUTE)) {
+  h += `#define ${defName(id).padEnd(20)} ${mdi}   // not rasterised - see MDI_SUBSTITUTE\n`;
 }
 h += '\n';
 // The weather font carries only its three glyphs, renumbered from the base.

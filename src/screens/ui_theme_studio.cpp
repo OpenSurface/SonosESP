@@ -337,13 +337,33 @@ void buildStudioPlayer() {
 
     // LRC / queue / settings, right-aligned in that order.
     const int chip = SP_HEAD_H, gap = 10;
+    // BUG WAS HERE: this chip had no callback, so it was decoration. The canvas
+    // wires it to toggle lyrics, which is the same switch General exposes — so it
+    // toggles and PERSISTS the real setting rather than a second, divergent one.
     lv_obj_t* lrc = roundBtn(panel_right, "", &font_text_12, SP_RIGHT - chip * 3 - gap * 2,
-                             SP_HEAD_Y, chip, NULL, true, ST_TEXT2);
+                             SP_HEAD_Y, chip, [](lv_event_t* e) {
+        lyrics_enabled = !lyrics_enabled;
+        wifiPrefs.putBool("lyrics", lyrics_enabled);
+        setLyricsVisible(lyrics_enabled && lyrics_ready);
+        // Reflect the new state on the chip itself.
+        lv_obj_t* b = (lv_obj_t*)lv_event_get_target(e);
+        lv_obj_set_style_bg_color(b, lyrics_enabled ? ST_ACCENT_WASH : ST_CARD, 0);
+        lv_obj_set_style_border_color(b, lyrics_enabled ? ST_ACCENT_DIM : ST_BORDER, 0);
+        if (lv_obj_get_child_count(b))
+            lv_obj_set_style_text_color(lv_obj_get_child(b, 0),
+                                        lyrics_enabled ? ST_ACCENT : ST_TEXT2, 0);
+    }, true, ST_TEXT2);
+    // Initial state, so the chip does not start out lying about the setting.
+    if (lyrics_enabled) {
+        lv_obj_set_style_bg_color(lrc, ST_ACCENT_WASH, 0);
+        lv_obj_set_style_border_color(lrc, ST_ACCENT_DIM, 0);
+    }
     // A text chip, not a glyph: the MDI set carries no "lyrics" icon and the
     // canvas labels this one "LRC" anyway.
     if (lv_obj_t* l = lv_obj_get_child(lrc, 0)) {
         lv_label_set_text(l, "LRC");
         lv_obj_set_style_text_letter_space(l, 1, 0);
+        if (lyrics_enabled) lv_obj_set_style_text_color(l, ST_ACCENT, 0);
     }
 
     btn_queue = roundBtn(panel_right, ST_IC_QUEUE, &font_icon_24,

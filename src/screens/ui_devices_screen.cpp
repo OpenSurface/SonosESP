@@ -230,7 +230,7 @@ void refreshDeviceList() {
             bool isSelected = (current && dev->ip == current->ip);
 
             lv_obj_t* btn = lv_btn_create(list_devices);
-            lv_obj_set_size(btn, SX(720), SY(60));
+            lv_obj_set_size(btn, lv_pct(100), SY(60));
             lv_obj_set_user_data(btn, (void*)(intptr_t)i);
             lv_obj_set_style_radius(btn, 12, 0);
             lv_obj_set_style_shadow_width(btn, 0, 0);

@@ -89,7 +89,9 @@ void createOTAScreen() {
 
     // Accent-coloured: this is the number the user is deciding about.
     lbl_latest_version = lv_label_create(card_version);
-    lv_label_set_text(lbl_latest_version, "Checking...");
+    // NOT "Checking..." — nothing checks until the button is tapped, so that
+    // string sat there from boot and read as a check that never finished.
+    lv_label_set_text(lbl_latest_version, "--");
     lv_obj_set_style_text_font(lbl_latest_version, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_latest_version, ST_ACCENT, 0);
     lv_obj_set_width(lbl_latest_version, SX(240));
@@ -179,18 +181,21 @@ void createOTAScreen() {
     lv_label_set_text(lbl_ota_status, "Tap 'Check for Updates' to begin");
     lv_obj_set_style_text_color(lbl_ota_status, ST_TEXT3, 0);
     lv_obj_set_style_text_font(lbl_ota_status, &font_icon_16, 0);
-    lv_obj_set_width(lbl_ota_status, lv_pct(100));
+    // Width leaves the percentage its own column. Both labels used to be full
+    // width on lines four pixels apart, so a long status ran under the number.
+    lv_obj_set_width(lbl_ota_status, lv_pct(68));
     // DOT, not WRAP: this label sits in a fixed slot above the progress bar, and
     // a two-line status used to push into it.
     lv_label_set_long_mode(lbl_ota_status, LV_LABEL_LONG_DOT);
 
-    // Progress percentage — shares the status slot's right edge.
+    // Progress percentage — same baseline as the status, right-hand column.
     lbl_ota_progress = lv_label_create(content);
-    lv_obj_set_pos(lbl_ota_progress, 0, SY(OTA_PROG_Y - 24));
+    lv_obj_set_pos(lbl_ota_progress, SX(370), SY(OTA_STATUS_Y));
     lv_label_set_text(lbl_ota_progress, "");
     lv_obj_set_style_text_color(lbl_ota_progress, ST_ACCENT, 0);
     lv_obj_set_style_text_font(lbl_ota_progress, &font_text_16, 0);
-    lv_obj_set_width(lbl_ota_progress, lv_pct(100));
+    lv_obj_set_width(lbl_ota_progress, SX(166));
+    lv_label_set_long_mode(lbl_ota_progress, LV_LABEL_LONG_CLIP);
     lv_obj_set_style_text_align(lbl_ota_progress, LV_TEXT_ALIGN_RIGHT, 0);
 
     // Visual progress bar (hidden by default)
@@ -249,4 +254,13 @@ void createOTAScreen() {
     lv_obj_set_width(lbl_info, lv_pct(100));
     lv_label_set_long_mode(lbl_info, LV_LABEL_LONG_DOT);
     lv_obj_set_pos(lbl_info, 0, SY(OTA_FOOT_Y));
+
+    // Reset the card each time the screen opens, so a previous check's result
+    // does not linger as though it were current.
+    lv_obj_add_event_cb(scr_ota, [](lv_event_t* e) {
+        if (lv_event_get_code(e) != LV_EVENT_SCREEN_LOADED) return;
+        if (ota_in_progress) return;             // an install is mid-flight
+        if (latest_version.length() == 0 && lbl_latest_version)
+            lv_label_set_text(lbl_latest_version, "--");
+    }, LV_EVENT_ALL, NULL);
 }

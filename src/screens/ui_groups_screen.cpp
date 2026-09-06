@@ -142,7 +142,7 @@ void refreshGroupsList() {
 
                 // Member item (indented)
                 lv_obj_t* memBtn = lv_btn_create(list_groups);
-                lv_obj_set_size(memBtn, SX(680), SY(50));
+                lv_obj_set_size(memBtn, lv_pct(95), SY(50));
                 lv_obj_set_user_data(memBtn, (void*)(intptr_t)j);
                 lv_obj_set_style_radius(memBtn, 8, 0);
                 lv_obj_set_style_shadow_width(memBtn, 0, 0);
@@ -197,7 +197,7 @@ void refreshGroupsList() {
         if (coordinator) {
             // Header for available speakers
             lv_obj_t* hdr = lv_obj_create(list_groups);
-            lv_obj_set_size(hdr, SX(720), SY(40));
+            lv_obj_set_size(hdr, lv_pct(100), SY(40));
             lv_obj_set_style_bg_color(hdr, ST_PANEL, 0);
             lv_obj_set_style_border_width(hdr, 0, 0);
             lv_obj_set_style_pad_all(hdr, SMIN(10), 0);
@@ -233,7 +233,7 @@ void refreshGroupsList() {
 
                 lv_obj_t* addBtn = lv_btn_create(list_groups);
                 // Taller only when a second line is rendered below the room name.
-                lv_obj_set_size(addBtn, SX(720), (leadsGroup || followsOther) ? SY(68) : SY(55));
+                lv_obj_set_size(addBtn, lv_pct(100), (leadsGroup || followsOther) ? SY(68) : SY(55));
                 lv_obj_set_user_data(addBtn, (void*)(intptr_t)i);
                 lv_obj_set_style_radius(addBtn, 10, 0);
                 lv_obj_set_style_shadow_width(addBtn, 0, 0);
@@ -251,7 +251,7 @@ void refreshGroupsList() {
                 lv_label_set_text_fmt(addLbl, "Add %s", dev->roomName.c_str());
                 lv_obj_set_style_text_color(addLbl, ST_TEXT, 0);
                 lv_obj_set_style_text_font(addLbl, &font_text_16, 0);
-                lv_obj_set_width(addLbl, SX(560));
+                lv_obj_set_width(addLbl, lv_pct(78));
                 lv_label_set_long_mode(addLbl, LV_LABEL_LONG_DOT);
                 lv_obj_align(addLbl, LV_ALIGN_LEFT_MID,
                              SX(60), (leadsGroup || followsOther) ? SY(-9) : 0);
@@ -269,7 +269,7 @@ void refreshGroupsList() {
                     lv_label_set_text_fmt(sub2, "currently in %s", otherCoord->roomName.c_str());
                     lv_obj_set_style_text_color(sub2, ST_TEXT3, 0);
                     lv_obj_set_style_text_font(sub2, &font_text_12, 0);
-                    lv_obj_set_width(sub2, SX(560));
+                    lv_obj_set_width(sub2, lv_pct(78));
                     lv_label_set_long_mode(sub2, LV_LABEL_LONG_DOT);
                     lv_obj_align(sub2, LV_ALIGN_LEFT_MID, SX(60), SY(9));
                 }

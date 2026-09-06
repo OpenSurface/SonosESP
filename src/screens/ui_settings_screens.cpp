@@ -408,12 +408,17 @@ static void refreshSourcesList(lv_event_t* e) {
     // synthetic row with its own handler rather than a browse target.
     SonosDevice* dev = sonos.getCurrentDevice();
     if (dev && dev->hasLineIn) {
+        // Same tile geometry as the browse sources above. It was left full-width
+        // when that list became a two-column grid, so this one row spanned both
+        // columns and pushed the grid out of alignment.
         lv_obj_t* btn = lv_btn_create(sources_list);
-        lv_obj_set_size(btn, lv_pct(100), SY(50));
+        lv_obj_set_size(btn, SX(SOURCE_TILE_W), SY(74));
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_bg_color(btn, ST_CARD, 0);
         lv_obj_set_style_bg_color(btn, ST_BORDER, LV_STATE_PRESSED);
+        lv_obj_set_style_border_width(btn, 1, 0);
+        lv_obj_set_style_border_color(btn, ST_BORDER, 0);
         lv_obj_set_style_pad_all(btn, SMIN(15), 0);
 
         lv_obj_t* ico = lv_label_create(btn);
@@ -427,7 +432,9 @@ static void refreshSourcesList(lv_event_t* e) {
         lv_obj_t* name = lv_label_create(btn);
         lv_label_set_text(name, "Line-In");
         lv_obj_set_style_text_color(name, ST_TEXT, 0);
-        lv_obj_set_style_text_font(name, &font_text_20, 0);
+        lv_obj_set_style_text_font(name, &font_text_16, 0);
+        lv_obj_set_width(name, SX(SOURCE_TILE_W - 66));
+        lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
         lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(40), 0);
 
         lv_obj_add_event_cb(btn, [](lv_event_t* ev) {
