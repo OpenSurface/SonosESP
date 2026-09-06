@@ -134,15 +134,25 @@ lv_obj_t* addValueLabel(lv_obj_t* parent, const char* text) {
 lv_obj_t* addSlider(lv_obj_t* parent, int min, int max, int value) {
     lv_obj_t* s = lv_slider_create(parent);
     lv_obj_set_width(s, lv_pct(100));
-    lv_obj_set_height(s, SY(20));
+    lv_obj_set_height(s, SY(6));
     lv_slider_set_range(s, min, max);
     lv_slider_set_value(s, value, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(s, AMB_BORDER, LV_PART_MAIN);
+    // Track, not a pill. This was a 20px-tall rounded bar whose groove was
+    // AMB_BORDER (#2A2622) on an AMB_CARD (#171513) card — near-invisible, so at
+    // a low value the fill vanished and all you saw was a knob floating in
+    // nothing. Clock's "Inactivity timeout" at 1 min looked like a stray dot.
+    //
+    // AMB_GROOVE is the token meant for a groove ON a raised surface, and the
+    // 6px track with a ringed knob matches the sliders on the player and in the
+    // Rooms overlay, which were already drawn that way.
+    lv_obj_set_style_bg_color(s, AMB_GROOVE, LV_PART_MAIN);
     lv_obj_set_style_bg_color(s, AMB_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(s, AMB_ACCENT, LV_PART_KNOB);
-    lv_obj_set_style_radius(s, 10, LV_PART_MAIN);
-    lv_obj_set_style_radius(s, 10, LV_PART_INDICATOR);
-    lv_obj_set_style_pad_all(s, SMIN(2), LV_PART_KNOB);
+    lv_obj_set_style_radius(s, SMIN(3), LV_PART_MAIN);
+    lv_obj_set_style_radius(s, SMIN(3), LV_PART_INDICATOR);
+    lv_obj_set_style_border_color(s, AMB_CARD, LV_PART_KNOB);
+    lv_obj_set_style_border_width(s, SMIN(3), LV_PART_KNOB);
+    lv_obj_set_style_pad_all(s, SMIN(6), LV_PART_KNOB);
 
     // Inset the travel by the knob radius.
     //

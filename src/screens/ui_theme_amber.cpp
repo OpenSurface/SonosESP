@@ -510,7 +510,10 @@ void buildAmberPlayer() {
     const int b4 = AP_RIGHT - 44;           // repeat  44
 
     btn_shuffle = roundBtn(panel_right, AMB_IC_SHUFFLE, &font_icon_32,
-                           b0, AP_CTRL_Y + 17, 44, ev_shuffle, false, AMB_ACCENT);
+                           // Muted by default: updateUI() lights it when shuffle
+                           // is actually on. Starting gold claimed shuffle was
+                           // enabled before anything had asked the speaker.
+                           b0, AP_CTRL_Y + 17, 44, ev_shuffle, false, AMB_TEXT3);
     btn_prev    = roundBtn(panel_right, AMB_IC_PREV, &font_icon_40,
                            b1, AP_CTRL_Y + 13, 52, ev_prev, false, AMB_TEXT);
     btn_next    = roundBtn(panel_right, AMB_IC_NEXT, &font_icon_40,

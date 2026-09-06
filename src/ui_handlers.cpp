@@ -1679,9 +1679,12 @@ static bool updateConnectionState(SonosDevice* d) {
             if (panel_art)   lv_obj_set_style_bg_color(panel_art,   COL_BG, 0);
             if (panel_right) lv_obj_set_style_bg_color(panel_right, COL_BG, 0);
 
+            // PLAY, not pause. This is the "nothing is playing" path — it clears
+            // the title to "Not Playing" and then drew a pause glyph, offering to
+            // pause silence. The font is the builder's business too; forcing
+            // lv_font_mdi_40 here overrode whichever face the active theme chose.
             lv_obj_t* lbl = lv_obj_get_child(btn_play, 0);
-            lv_label_set_text(lbl, MDI_PAUSE);
-            lv_obj_set_style_text_font(lbl, &lv_font_mdi_40, 0);
+            lv_label_set_text(lbl, MDI_PLAY);
             lv_obj_center(lbl);
 
             ui_title = "";
@@ -2180,7 +2183,12 @@ void updateUI() {
     // Shuffle
     if (d->shuffleMode != ui_shuffle) {
         lv_obj_t* lbl = lv_obj_get_child(btn_shuffle, 0);
-        lv_obj_set_style_text_color(lbl, d->shuffleMode ? COL_ACCENT : COL_TEXT2, 0);
+        // Theme accessors, same as the repeat button below. Hardcoding COL_* here
+        // handed Amber the original palette's gold (#D4A84B) instead of its own
+        // (#E0B252) - close enough to look like a rendering artefact rather than
+        // the wrong colour, which is exactly why it survived review.
+        lv_obj_set_style_text_color(lbl, d->shuffleMode ? themeAccentColor()
+                                                        : themeMutedColor(), 0);
         ui_shuffle = d->shuffleMode;
     }
 
