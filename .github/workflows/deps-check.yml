@@ -1,0 +1,125 @@
+name: Dependency Drift
+
+# Dependabot watches GitHub Actions and pip, but it has no PlatformIO ecosystem,
+# so the libraries that actually ship in the firmware — LVGL, ArduinoJson, PNGdec,
+# JPEGDEC, TAMC_GT911 — and the pinned platform are invisible to it. Before this
+# job they were current only because somebody remembered to run the check by hand.
+#
+# This does not open pull requests and does not bump anything. The platform pin in
+# particular is held back deliberately (see the comment above `platform =` in
+# platformio.ini), so an automatic bump would be wrong. It opens one issue when
+# something drifts, and updates that same issue rather than filing a new one each
+# week.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'      # Mondays, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: deps-check
+  cancel-in-progress: false
+
+jobs:
+  outdated:
+    name: pio pkg outdated
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check library versions
+        id: check
+        shell: bash
+        run: |
+          set -o pipefail
+          pio pkg outdated 2>&1 | tee outdated.txt || true
+
+          # "Everything is up-to-date!" is the clean signal. Anything else means
+          # at least one package has a newer version available.
+          if grep -q "Everything is up-to-date" outdated.txt; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## PlatformIO dependencies"
+            echo
+            echo '```'
+            cat outdated.txt 2>/dev/null || echo "no output"
+            echo '```'
+            echo
+            echo "Pinned platform: \`$(grep -oE 'download/[^/]+/' platformio.ini | head -1 | cut -d/ -f2)\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the drift issue
+        if: steps.check.outputs.drift == 'true'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('outdated.txt', 'utf8').slice(0, 55000);
+            const title = 'Dependency drift: pio pkg outdated is not clean';
+
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'dependencies',
+            });
+            const existing = issues.data.find(i => i.title === title);
+
+            const text = [
+              'The weekly PlatformIO dependency check found newer versions available.',
+              '',
+              'Nothing has been bumped. The platform pin especially is held back on',
+              'purpose — see the comment above `platform =` in `platformio.ini` before',
+              'changing it.',
+              '',
+              '```',
+              body.trim(),
+              '```',
+              '',
+              `Checked: ${new Date().toISOString().slice(0, 10)} · [run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: text,
+              });
+              core.info(`Updated issue #${existing.number}`);
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: text,
+                labels: ['dependencies'],
+              });
+              core.info('Opened a new drift issue');
+            }
