@@ -177,13 +177,27 @@ static void logResetReason() {
         case ESP_RST_DEEPSLEEP: why = "DEEPSLEEP"; break;
         case ESP_RST_EXT:      why = "EXT";       note = " - external reset pin"; break;
         case ESP_RST_SDIO:     why = "SDIO";      break;
+        // The table used to stop at SDIO, so everything below printed as
+        // "UNKNOWN (11)" and then tripped the ABNORMALLY banner. USB is the
+        // one that matters in practice: attaching the web debug console
+        // resets the board through the USB-Serial-JTAG peripheral, which is
+        // exactly what it is meant to do. Reporting a normal console
+        // connection as a crash sent someone hunting a fault that was not
+        // there (issue #140).
+        case ESP_RST_USB:      why = "USB";       note = " - USB peripheral reset the chip; normal when a serial console or flasher attaches"; break;
+        case ESP_RST_JTAG:     why = "JTAG";      note = " - debugger reset"; break;
+        case ESP_RST_EFUSE:    why = "EFUSE";     note = " - efuse error"; break;
+        case ESP_RST_PWR_GLITCH: why = "PWR_GLITCH"; note = " - SUPPLY GLITCH: cable, PSU or USB port"; break;
+        case ESP_RST_CPU_LOCKUP: why = "CPU_LOCKUP"; note = " - CRASH: double exception"; break;
         default:               why = "UNKNOWN";   break;
     }
     Serial.printf("[BOOT] Reset reason: %s (%d)%s\n", why, (int)r, note);
 
-    // Anything other than a power-on or a reset we asked for is a fault worth
-    // calling out, so it is greppable in a user's pasted log.
-    if (r != ESP_RST_POWERON && r != ESP_RST_SW && r != ESP_RST_EXT) {
+    // Anything other than a power-on, a reset we asked for, or a host tool
+    // attaching over USB/JTAG is a fault worth calling out, so it is
+    // greppable in a user's pasted log.
+    if (r != ESP_RST_POWERON && r != ESP_RST_SW && r != ESP_RST_EXT &&
+        r != ESP_RST_USB && r != ESP_RST_JTAG) {
         Serial.println("[BOOT] *** PREVIOUS RUN ENDED ABNORMALLY ***");
     }
 }
