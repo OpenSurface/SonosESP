@@ -28,6 +28,7 @@ typedef enum {
     THEME_BG_BLUR_ART = 0,   // fullscreen blurred album art (the original look)
     THEME_BG_AMBIENT_TINT,   // deep, muted tint derived from the art's dominant colour
     THEME_BG_AMBIENT_SOLID,  // saturated full-bleed ambient colour
+    THEME_BG_FLAT,           // fixed palette ground; ignores the artwork entirely
 } ThemeBgMode;
 
 typedef void (*ThemeBuildFn)(void);   // must create scr_main + all player globals
@@ -84,5 +85,6 @@ void themeApplyArtGeometry(lv_obj_t* img);
 void buildClassicPlayer(void);     // ui_main_screen.cpp
 void buildAmbientPlayer(void);     // ui_theme_ambient.cpp
 void buildImmersivePlayer(void);   // ui_theme_immersive.cpp
+void buildStudioPlayer(void);      // ui_theme_studio.cpp
 
 #endif // UI_THEME_H

@@ -43,6 +43,12 @@ typedef struct {
     bool             photo_bg;    // true = wants the Unsplash/loremflickr backdrop.
                                   // The Nocturne faces paint their own gradient and
                                   // must suppress the photo fetch entirely.
+    bool             noc_backdrop; // true = applyClockStyle() paints the shared
+                                  // Nocturne gradient (or photo scrim) onto this
+                                  // face's root. False for a face that fills its
+                                  // own ground, which would otherwise be painted
+                                  // over on every style change. Studio is flat by
+                                  // specification and sets this false.
     ClockFaceBuildFn build;
     ClockFaceTickFn  tick;
     ClockFaceRootFn  root;

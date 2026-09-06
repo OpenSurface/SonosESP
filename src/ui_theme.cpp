@@ -26,6 +26,12 @@ const ThemeDef THEMES[] = {
     { "Immersive",
       "Full-bleed colour, oversized title and large lyrics",
       THEME_BG_AMBIENT_SOLID, 112,      32,                24,                buildImmersivePlayer },
+
+    // Edge-to-edge artwork column, so the art is positioned at the origin rather
+    // than inset. Flat ground: this theme never tints from the artwork.
+    { "Studio",
+      "Flat panel, artwork column, controls always visible",
+      THEME_BG_FLAT,          344,      0,                 0,                 buildStudioPlayer },
 };
 const uint8_t THEME_COUNT = (uint8_t)(sizeof(THEMES) / sizeof(THEMES[0]));
 
@@ -94,6 +100,11 @@ void themeApplyBackdrop(uint32_t rgb) {
     switch (themeCurrent()->bg) {
         case THEME_BG_BLUR_ART:
             // The blurred art image IS the backdrop — leave the screen colour alone.
+            break;
+
+        case THEME_BG_FLAT:
+            // Fixed palette ground. Studio's whole point is that the panel does
+            // not change colour with the album, so there is nothing to apply.
             break;
 
         case THEME_BG_AMBIENT_TINT:

@@ -440,7 +440,9 @@ static void applyClockStyle(void) {
         // scrim rather than an opaque gradient, so the image shows through and the
         // Photo Background settings keep working exactly as on StandBy.
         const bool over_photo = own_face && face->photo_bg && clock_picsum_enabled;
-        if (own_face) nocApplyBackdrop(root, over_photo);
+        // Only for faces that use the shared Nocturne ground. A face that paints
+        // its own (Studio) would have it overwritten here on every style change.
+        if (own_face && face->noc_backdrop) nocApplyBackdrop(root, over_photo);
 
         uint32_t n = lv_obj_get_child_count(scr_clock);
         for (uint32_t i = 0; i < n; i++) {

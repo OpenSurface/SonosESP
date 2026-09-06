@@ -10,6 +10,7 @@
 #include "clock_screen.h"
 #include "clock_face.h"
 #include "ui_theme.h"
+#include "ui_boot_screen.h"
 #include <esp_flash.h>
 #include <esp_system.h>   // esp_reset_reason()
 #include <esp_task_wdt.h>
@@ -268,46 +269,26 @@ void setup() {
     setBrightness(brightness_level);
     Serial.printf("[DISPLAY] Initial brightness: %d%%\n", brightness_level);
 
-    // Show boot screen with Sonos logo
-    lv_obj_t* boot_scr = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(boot_scr, lv_color_hex(0x000000), 0);
-    lv_screen_load(boot_scr);
+    // Studio boot sequence (design artboard 1a). Owns the screen, the progress
+    // hairline and the four subsystem check lines; see ui_boot_screen.h.
+    bootScreenCreate();
+    bootScreenProgress(10);  // Initial display
 
-    // Sonos logo (scale down significantly)
-    lv_obj_t* img_logo = lv_image_create(boot_scr);
-    lv_image_set_src(img_logo, &Sonos_idnu60bqes_1);
-    lv_obj_align(img_logo, LV_ALIGN_CENTER, 0, SY(-30));
-    // Scale down significantly (256 = 100%, so 80 = ~31% size, 100 = ~39% size)
-    lv_image_set_scale(img_logo, 130);  // Smaller - about 25% of original size
+    // The display is up by definition — this is the first thing drawn on it.
+    bootScreenCheck(BOOT_CHECK_DISPLAY, DISPLAY_MODEL);
 
-    // Create animated progress bar below logo
-    lv_obj_t* boot_bar = lv_bar_create(boot_scr);
-    lv_obj_set_size(boot_bar, SX(300), SY(8));
-    lv_obj_align(boot_bar, LV_ALIGN_CENTER, 0, SY(80));
-    lv_obj_set_style_bg_color(boot_bar, COL_SELECTED, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(boot_bar, COL_ACCENT, LV_PART_INDICATOR);
-    lv_obj_set_style_border_width(boot_bar, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(boot_bar, 4, LV_PART_MAIN);
-    lv_obj_set_style_radius(boot_bar, 4, LV_PART_INDICATOR);
-    lv_bar_set_range(boot_bar, 0, 100);
-    lv_bar_set_value(boot_bar, 0, LV_ANIM_OFF);
-
-    // Version number in bottom right corner
-    lv_obj_t* lbl_boot_version = lv_label_create(boot_scr);
-    lv_label_set_text(lbl_boot_version, "v" FIRMWARE_VERSION);
-    lv_obj_set_style_text_color(lbl_boot_version, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_boot_version, &font_text_12, 0);
-    lv_obj_align(lbl_boot_version, LV_ALIGN_BOTTOM_RIGHT, SX(-10), SY(-10));
-
-    // Helper to update boot progress
-    auto updateBootProgress = [&](int percent) {
-        lv_bar_set_value(boot_bar, percent, LV_ANIM_ON);
-        lv_refr_now(NULL);
-        lv_tick_inc(10);
-        lv_timer_handler();
-    };
-
-    updateBootProgress(10);  // Initial display
+    // Wi-Fi resolved before the panel existed, so its line can land straight
+    // away, carrying the SSID and signal it actually got rather than a tick.
+    {
+        char wifi_val[80];
+        if (WiFi.status() == WL_CONNECTED)
+            snprintf(wifi_val, sizeof(wifi_val), "%s · %d dBm",
+                     WiFi.SSID().c_str(), (int)WiFi.RSSI());
+        else
+            snprintf(wifi_val, sizeof(wifi_val), "%s",
+                     ssid.length() ? "Not connected" : "Not configured");
+        bootScreenCheck(BOOT_CHECK_WIFI, wifi_val);
+    }
 
     // Add global touch callback for screen wake
     lv_display_add_event_cb(lv_display_get_default(), [](lv_event_t* e) {
@@ -316,35 +297,37 @@ void setup() {
         }
     }, LV_EVENT_PRESSED, NULL);
 
-    updateBootProgress(20);  // Callbacks ready
+    bootScreenProgress(20);  // Callbacks ready
 
     // Initialize lyrics PSRAM buffer before creating screens
     initLyrics();
+    bootScreenCheck(BOOT_CHECK_SERVICES,
+                    lyrics_enabled ? "LRCLIB · Open-Meteo" : "Weather only");
 
     // Resolve the saved player theme BEFORE the first build — createMainScreen()
     // dispatches to the active theme's builder. Clamps stale/invalid indices.
     themeLoad();
 
     createMainScreen();
-    updateBootProgress(35);
+    bootScreenProgress(35);
 
     createDevicesScreen();
-    updateBootProgress(45);
+    bootScreenProgress(45);
 
     createQueueScreen();
-    updateBootProgress(55);
+    bootScreenProgress(55);
 
     createSettingsScreen();
-    updateBootProgress(65);
+    bootScreenProgress(65);
 
     createDisplaySettingsScreen();
-    updateBootProgress(70);
+    bootScreenProgress(70);
 
     createWiFiScreen();
-    updateBootProgress(75);
+    bootScreenProgress(75);
 
     createOTAScreen();
-    updateBootProgress(80);
+    bootScreenProgress(80);
 
     // =========================================================================
     // BOOT OTA FAST PATH — before any background tasks start
@@ -366,12 +349,9 @@ void setup() {
     // We must NOT call triggerPendingOTA() without WiFi — it would silently fail and clear the URL.
     if (wifiPrefs.getBool(NVS_KEY_OTA_PENDING, false) && WiFi.status() != WL_CONNECTED) {
         Serial.println("[OTA] Boot OTA pending — waiting for WiFi...");
-        lv_obj_t* lbl_ota_wifi = lv_label_create(boot_scr);
-        lv_obj_set_style_text_color(lbl_ota_wifi, COL_ACCENT, 0);
-        lv_obj_set_style_text_font(lbl_ota_wifi, &font_text_16, 0);
-        lv_obj_align(lbl_ota_wifi, LV_ALIGN_CENTER, 0, SY(50));
-        lv_label_set_text_fmt(lbl_ota_wifi, "Waiting for WiFi: %s ...", ssid.c_str());
-        lv_refr_now(NULL);
+        char ota_msg[96];
+        snprintf(ota_msg, sizeof(ota_msg), "Waiting for WiFi: %s ...", ssid.c_str());
+        bootScreenStatus(ota_msg);
         int ota_wifi_tries = 0;
         while (WiFi.status() != WL_CONNECTED && ota_wifi_tries++ < 120) {  // up to 60s extra
             vTaskDelay(pdMS_TO_TICKS(500));
@@ -379,8 +359,8 @@ void setup() {
             // Handles SDIO/C6 re-init stall after OTA firmware flash + restart
             if (ota_wifi_tries == 30) {
                 Serial.println("[OTA] WiFi stalled — retrying WiFi.begin()");
-                lv_label_set_text_fmt(lbl_ota_wifi, "Retrying WiFi: %s ...", ssid.c_str());
-                lv_refr_now(NULL);
+                snprintf(ota_msg, sizeof(ota_msg), "Retrying WiFi: %s ...", ssid.c_str());
+                bootScreenStatus(ota_msg);
                 WiFi.disconnect();
                 vTaskDelay(pdMS_TO_TICKS(WIFI_INIT_DELAY_MS));
                 WiFi.begin(ssid.c_str(), pass.c_str());
@@ -395,7 +375,7 @@ void setup() {
             Serial.println("[OTA] WiFi still not connected after 60s — skipping boot OTA");
             wifiPrefs.putBool(NVS_KEY_OTA_PENDING, false);  // clear flag to avoid infinite reboot loop
         }
-        lv_obj_del(lbl_ota_wifi);
+        bootScreenStatus(nullptr);
     }
     if (WiFi.status() == WL_CONNECTED && wifiPrefs.getBool(NVS_KEY_OTA_PENDING, false)) {
         wifiPrefs.putBool(NVS_KEY_OTA_PENDING, false);  // clear immediately — prevent reboot loops
@@ -411,20 +391,20 @@ void setup() {
     }
 
     createSourcesScreen();
-    updateBootProgress(83);
+    bootScreenProgress(83);
 
     createGroupsScreen();
     createGeneralScreen();
     createClockScreen();
     createClockSettingsScreen();
-    updateBootProgress(85);
+    bootScreenProgress(85);
 
     art_mutex = xSemaphoreCreateMutex();
     createArtTask();  // PSRAM stack — frees 20KB internal SRAM for SDIO/WiFi DMA
-    updateBootProgress(90);
+    bootScreenProgress(90);
 
     sonos.begin();
-    updateBootProgress(95);
+    bootScreenProgress(95);
 
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("[SONOS] WiFi not connected at boot - deferring discovery");
@@ -442,11 +422,25 @@ void setup() {
         }
     }
 
-    updateBootProgress(100);  // Complete!
+    // Name the rooms that actually answered, or say why none did. The check
+    // lines are the boot log the user can see, so "no speakers" has to be as
+    // legible here as a successful discovery.
+    {
+        char spk[96];
+        SonosDevice* dev = sonos_started ? sonos.getCurrentDevice() : nullptr;
+        if (dev && dev->roomName.length())
+            snprintf(spk, sizeof(spk), "%s", dev->roomName.c_str());
+        else if (WiFi.status() != WL_CONNECTED)
+            snprintf(spk, sizeof(spk), "%s", "Waiting for network");
+        else
+            snprintf(spk, sizeof(spk), "%s", "None — scan in Settings");
+        bootScreenCheck(BOOT_CHECK_SPEAKERS, spk);
+    }
+
+    bootScreenProgress(100);  // Complete!
     delay(300);  // Show 100% briefly
 
-    lv_screen_load(scr_main);  // Now load main screen
-    lv_obj_del(boot_scr);     // Free boot screen objects (~3KB LVGL memory)
+    bootScreenFinish(scr_main);   // cross-fade to the player, then free the boot screen
     Serial.println("Ready!");
 
     // Launch mainAppTask in internal SRAM (NOT PSRAM).

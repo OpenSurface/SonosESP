@@ -303,6 +303,7 @@
 #define CLOCK_STYLE_ORBIT      1  // Nocturne: sun-path arc + temperature curve
 #define CLOCK_STYLE_MONOLITH   2  // Nocturne: stacked HH/MM, details grid, forecast rail
 #define CLOCK_STYLE_HORIZON    3  // Nocturne: centred clock, ambient glow, forecast chips
+#define CLOCK_STYLE_STUDIO     4  // Studio: warm flat clock, weather column, paused track
 // StandBy is the default face: existing users have no clk_style key in NVS, so
 // they pick up this default on upgrade and get the new clock without touching
 // settings. Anyone who explicitly selects Classic has the key written and keeps it.
