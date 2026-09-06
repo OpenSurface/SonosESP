@@ -25,11 +25,9 @@
  */
 
 #include "ui_common.h"
-#include "ui_theme.h"        // amberBuildOverlays() - the queue drawer / rooms modal
-#include "amber_icons.h"
 #include "lyrics.h"
 #include "ui_icons.h"
-#include "ui_theme.h"
+#include "ui_theme.h"        // amberBuildOverlays() - the queue drawer / rooms modal
 #include <esp_random.h>
 #include "ui_fonts.h"
 
@@ -639,5 +637,4 @@ void buildImmersivePlayer() {
     // rather than a panel: setLineInMode()/setTvAudioMode() hide panel children
     // wholesale and would take an open overlay with them.
     amberBuildOverlays(scr_main);
-
 }
