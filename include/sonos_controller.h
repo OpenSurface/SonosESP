@@ -274,6 +274,20 @@ public:
     // coordinator it follows. Returns `dev` when the coordinator is not in our list.
     SonosDevice* groupCoordinatorFor(SonosDevice* dev);
 
+    // Where an AVTransport command belongs. AVTransport is a coordinator-level
+    // service: addressing a group MEMBER does not merely fail, SetAVTransportURI
+    // makes that speaker LEAVE the group and start playing on its own. That is
+    // "it removes that speaker from the sonos group and starts playing on that
+    // speaker only" (issue #140).
+    //
+    // Reads route here too. A member reports its OWN transport state rather than
+    // the group's, which is how a paused group came back showing as playing.
+    //
+    // Group management - joinGroup, BecomeCoordinatorOfStandaloneGroup and the
+    // topology fetch - deliberately addresses one specific speaker and keeps
+    // using the explicit-target sendSOAP() overload instead.
+    SonosDevice* transportTarget();
+
     // True when dev participates in a multi-speaker group (as coordinator or member),
     // i.e. when GroupRenderingControl should be used instead of RenderingControl.
     bool isInMultiSpeakerGroup(SonosDevice* dev);

@@ -733,7 +733,7 @@ bool SonosController::saveCurrentTrack(const char* playlistName) {
                            "<EnqueuedURI></EnqueuedURI>"
                            "<EnqueuedURIMetaData></EnqueuedURIMetaData>";
 
-        String createResp = sendSOAP("AVTransport", "CreateSavedQueue", createArgs.c_str());
+        String createResp = sendSOAP(transportTarget(), "AVTransport", "CreateSavedQueue", createArgs.c_str());
         playlistID = extractXML(createResp, "AssignedObjectID");
 
         if (playlistID.length() == 0) {
@@ -772,7 +772,7 @@ bool SonosController::saveCurrentTrack(const char* playlistName) {
                     "<EnqueuedURIMetaData>" + trackMetaEnc + "</EnqueuedURIMetaData>"
                     "<AddAtIndex>4294967295</AddAtIndex>";
 
-    String addResp = sendSOAP("AVTransport", "AddURIToSavedQueue", addArgs.c_str());
+    String addResp = sendSOAP(transportTarget(), "AVTransport", "AddURIToSavedQueue", addArgs.c_str());
 
     if (addResp.length() > 0 && addResp.indexOf("Fault") < 0) {
         Serial.println("[FAV] Track added to playlist successfully!");
@@ -834,7 +834,7 @@ bool SonosController::playURI(const char* uri, const char* metadata) {
                 + "<CurrentURI>" + uriEncoded + "</CurrentURI>"
                 + "<CurrentURIMetaData>" + metaEncoded + "</CurrentURIMetaData>";
 
-    String resp = sendSOAP("AVTransport", "SetAVTransportURI", args.c_str());
+    String resp = sendSOAP(transportTarget(), "AVTransport", "SetAVTransportURI", args.c_str());
 
     if (resp.length() > 0 && resp.indexOf("Fault") < 0) {
         // Auto-play after setting URI
@@ -894,7 +894,7 @@ bool SonosController::playPlaylist(const char* playlistID, const char* title) {
             static const int preDelays[] = {200, 350, 500};
             String preResp;
             for (int a = 0; a < 3; a++) {
-                preResp = sendSOAP("AVTransport", "SetAVTransportURI", switchArgs);
+                preResp = sendSOAP(transportTarget(), "AVTransport", "SetAVTransportURI", switchArgs);
                 if (preResp.length() > 0 && preResp.indexOf("Fault") < 0) break;
                 Serial.printf("[PLAYLIST] Pre-switch attempt %d failed — retrying\n", a + 1);
                 vTaskDelay(pdMS_TO_TICKS(preDelays[a]));
@@ -909,7 +909,7 @@ bool SonosController::playPlaylist(const char* playlistID, const char* title) {
         }
     }
 
-    sendSOAP("AVTransport", "RemoveAllTracksFromQueue", "<InstanceID>0</InstanceID>");
+    sendSOAP(transportTarget(), "AVTransport", "RemoveAllTracksFromQueue", "<InstanceID>0</InstanceID>");
     // 500ms: Sonos enters a brief transient state after RemoveAllTracksFromQueue
     // and returns HTTP 500 for subsequent AddURIToQueue if we fire too quickly.
     vTaskDelay(pdMS_TO_TICKS(500));
@@ -957,7 +957,7 @@ bool SonosController::playPlaylist(const char* playlistID, const char* title) {
     // RemoveAllTracksFromQueue even with the 500ms delay on slow devices.
     String resp;
     for (int attempt = 0; attempt < 3; attempt++) {
-        resp = sendSOAP("AVTransport", "AddURIToQueue", addArgs);
+        resp = sendSOAP(transportTarget(), "AVTransport", "AddURIToQueue", addArgs);
         if (resp.length() > 0 && resp.indexOf("Fault") < 0) {
             break;
         }
@@ -982,7 +982,7 @@ bool SonosController::playPlaylist(const char* playlistID, const char* title) {
         // Identical pattern to AddURIToQueue retry above.
         String setResp;
         for (int attempt = 0; attempt < 3; attempt++) {
-            setResp = sendSOAP("AVTransport", "SetAVTransportURI", setArgs);
+            setResp = sendSOAP(transportTarget(), "AVTransport", "SetAVTransportURI", setArgs);
             if (setResp.length() > 0 && setResp.indexOf("Fault") < 0) {
                 break;
             }
@@ -998,10 +998,10 @@ bool SonosController::playPlaylist(const char* playlistID, const char* title) {
         vTaskDelay(pdMS_TO_TICKS(100));
         // Seek to track 1 before Play — queue was just rebuilt from scratch so position
         // may be at 0/undefined; without Seek, Sonos may start from a stale position.
-        sendSOAP("AVTransport", "Seek",
+        sendSOAP(transportTarget(), "AVTransport", "Seek",
             "<InstanceID>0</InstanceID><Unit>TRACK_NR</Unit><Target>1</Target>");
         vTaskDelay(pdMS_TO_TICKS(100));
-        sendSOAP("AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>");
+        sendSOAP(transportTarget(), "AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>");
         vTaskDelay(pdMS_TO_TICKS(300));
         updateTrackInfo();
         updateQueue();
@@ -1061,7 +1061,7 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
                        + dev->rinconID + "#0</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>";
             static const int preDelays[] = {200, 350, 500};
             for (int a = 0; a < 3; a++) {
-                String r = sendSOAP("AVTransport", "SetAVTransportURI", pre.c_str());
+                String r = sendSOAP(transportTarget(), "AVTransport", "SetAVTransportURI", pre.c_str());
                 if (r.length() > 0 && r.indexOf("Fault") < 0) break;
                 vTaskDelay(pdMS_TO_TICKS(preDelays[a]));
             }
@@ -1071,7 +1071,7 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
 
     // Replace the queue rather than appending: tapping a favourite means "play
     // this now", not "add it after the 500 tracks already queued".
-    sendSOAP("AVTransport", "RemoveAllTracksFromQueue", "<InstanceID>0</InstanceID>");
+    sendSOAP(transportTarget(), "AVTransport", "RemoveAllTracksFromQueue", "<InstanceID>0</InstanceID>");
     vTaskDelay(pdMS_TO_TICKS(500));
 
     // String, not a fixed char[]: favourite metadata is unbounded — this one
@@ -1096,7 +1096,7 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
 
     String resp;
     for (int attempt = 0; attempt < 3; attempt++) {
-        resp = sendSOAP("AVTransport", "AddURIToQueue", addArgs.c_str());
+        resp = sendSOAP(transportTarget(), "AVTransport", "AddURIToQueue", addArgs.c_str());
         if (resp.length() > 0 && resp.indexOf("Fault") < 0) break;
         Serial.printf("[CONTAINER] AddURIToQueue attempt %d failed, retrying\n", attempt + 1);
         vTaskDelay(pdMS_TO_TICKS(400));
@@ -1112,7 +1112,7 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
                      + dev->rinconID + "#0</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>";
     String setResp;
     for (int attempt = 0; attempt < 3; attempt++) {
-        setResp = sendSOAP("AVTransport", "SetAVTransportURI", queueArgs.c_str());
+        setResp = sendSOAP(transportTarget(), "AVTransport", "SetAVTransportURI", queueArgs.c_str());
         if (setResp.length() > 0 && setResp.indexOf("Fault") < 0) break;
         Serial.printf("[CONTAINER] SetAVTransportURI attempt %d failed, retrying\n", attempt + 1);
         vTaskDelay(pdMS_TO_TICKS(400));
@@ -1124,10 +1124,10 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
 
     // Seek before Play: the queue was just rebuilt, so the position is stale.
     vTaskDelay(pdMS_TO_TICKS(100));
-    sendSOAP("AVTransport", "Seek",
+    sendSOAP(transportTarget(), "AVTransport", "Seek",
              "<InstanceID>0</InstanceID><Unit>TRACK_NR</Unit><Target>1</Target>");
     vTaskDelay(pdMS_TO_TICKS(100));
-    sendSOAP("AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>");
+    sendSOAP(transportTarget(), "AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>");
     vTaskDelay(pdMS_TO_TICKS(300));
     updateTrackInfo();
     updateQueue();
@@ -1194,7 +1194,7 @@ String SonosController::listMusicServices() {
 }
 
 String SonosController::getCurrentTrackInfo() {
-    String resp = sendSOAP("AVTransport", "GetPositionInfo", "<InstanceID>0</InstanceID>");
+    String resp = sendSOAP(transportTarget(), "AVTransport", "GetPositionInfo", "<InstanceID>0</InstanceID>");
     if (resp.length() == 0) return "";
 
     // Extract track URI
@@ -1291,7 +1291,7 @@ static void parseStreamContent(const String& content, String& outArtist, String&
 }
 
 bool SonosController::updateTrackInfo() {
-    String resp = sendSOAP("AVTransport", "GetPositionInfo", "<InstanceID>0</InstanceID>");
+    String resp = sendSOAP(transportTarget(), "AVTransport", "GetPositionInfo", "<InstanceID>0</InstanceID>");
     if (resp.length() == 0) return false;
     
     SonosDevice* dev = getCurrentDevice();
@@ -1405,7 +1405,7 @@ bool SonosController::updateMediaInfo() {
         return true;
     }
 
-    String resp = sendSOAP("AVTransport", "GetMediaInfo", "<InstanceID>0</InstanceID>");
+    String resp = sendSOAP(transportTarget(), "AVTransport", "GetMediaInfo", "<InstanceID>0</InstanceID>");
     if (resp.length() == 0) return false;
 
     if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
@@ -1455,7 +1455,7 @@ bool SonosController::updateMediaInfo() {
 }
 
 bool SonosController::updatePlaybackState() {
-    String resp = sendSOAP("AVTransport", "GetTransportInfo", "<InstanceID>0</InstanceID>");
+    String resp = sendSOAP(transportTarget(), "AVTransport", "GetTransportInfo", "<InstanceID>0</InstanceID>");
     if (resp.length() == 0) return false;
     
     SonosDevice* dev = getCurrentDevice();
@@ -1501,7 +1501,7 @@ bool SonosController::updateVolume() {
 }
 
 bool SonosController::updateTransportSettings() {
-    String resp = sendSOAP("AVTransport", "GetTransportSettings", "<InstanceID>0</InstanceID>");
+    String resp = sendSOAP(transportTarget(), "AVTransport", "GetTransportSettings", "<InstanceID>0</InstanceID>");
     if (resp.length() == 0) return false;
     
     SonosDevice* dev = getCurrentDevice();
@@ -1669,7 +1669,7 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
 
     switch (cmd->type) {
         case CMD_PLAY:
-            sendSOAP("AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>");
+            sendSOAP(transportTarget(), "AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>");
             if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
                 dev->isPlaying = true;
                 xSemaphoreGive(deviceMutex);
@@ -1678,7 +1678,7 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             break;
 
         case CMD_PAUSE:
-            sendSOAP("AVTransport", "Pause", "<InstanceID>0</InstanceID>");
+            sendSOAP(transportTarget(), "AVTransport", "Pause", "<InstanceID>0</InstanceID>");
             if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
                 dev->isPlaying = false;
                 xSemaphoreGive(deviceMutex);
@@ -1692,14 +1692,14 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             // vTaskDelay and fires GetPositionInfo concurrently with the Next SOAP + subsequent
             // updateTrackInfo SOAP — 3 simultaneous TCP teardowns overflow C6 pkt_rxbuff → :928.
             art_download_in_progress = true;
-            sendSOAP("AVTransport", "Next", "<InstanceID>0</InstanceID>");
+            sendSOAP(transportTarget(), "AVTransport", "Next", "<InstanceID>0</InstanceID>");
             vTaskDelay(pdMS_TO_TICKS(200));
             updateTrackInfo();  // sets pending_art_url → requestAlbumArt() keeps flag true
             break;
 
         case CMD_PREV:
             art_download_in_progress = true;  // same race fix as CMD_NEXT
-            sendSOAP("AVTransport", "Previous", "<InstanceID>0</InstanceID>");
+            sendSOAP(transportTarget(), "AVTransport", "Previous", "<InstanceID>0</InstanceID>");
             vTaskDelay(pdMS_TO_TICKS(200));
             updateTrackInfo();
             break;
@@ -1758,7 +1758,7 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
         }
 
         case CMD_CLEAR_QUEUE:
-            sendSOAP("AVTransport", "RemoveAllTracksFromQueue", "<InstanceID>0</InstanceID>");
+            sendSOAP(transportTarget(), "AVTransport", "RemoveAllTracksFromQueue", "<InstanceID>0</InstanceID>");
             if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
                 dev->queueSize = 0;
                 dev->totalTracks = 0;
@@ -1800,7 +1800,7 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             snprintf(args, sizeof(args),
                 "<InstanceID>0</InstanceID><NewPlayMode>%s</NewPlayMode>",
                 composePlayMode(cmd->value == 1, dev->repeatMode));
-            sendSOAP("AVTransport", "SetPlayMode", args);
+            sendSOAP(transportTarget(), "AVTransport", "SetPlayMode", args);
             updateTransportSettings();
             break;
         }
@@ -1812,7 +1812,7 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             snprintf(args, sizeof(args),
                 "<InstanceID>0</InstanceID><NewPlayMode>%s</NewPlayMode>",
                 composePlayMode(dev->shuffleMode, rp));
-            sendSOAP("AVTransport", "SetPlayMode", args);
+            sendSOAP(transportTarget(), "AVTransport", "SetPlayMode", args);
             updateTransportSettings();
             break;
         }
@@ -1824,7 +1824,7 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             snprintf(args, sizeof(args),
                 "<InstanceID>0</InstanceID><Unit>REL_TIME</Unit><Target>%02d:%02d:%02d</Target>",
                 h, m, s);
-            sendSOAP("AVTransport", "Seek", args);
+            sendSOAP(transportTarget(), "AVTransport", "Seek", args);
             break;
         }
 
@@ -1837,9 +1837,9 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             snprintf(args, sizeof(args),
                 "<InstanceID>0</InstanceID><Unit>TRACK_NR</Unit><Target>%d</Target>",
                 cmd->value);
-            sendSOAP("AVTransport", "Seek", args);
+            sendSOAP(transportTarget(), "AVTransport", "Seek", args);
             vTaskDelay(pdMS_TO_TICKS(100));
-            sendSOAP("AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>");
+            sendSOAP(transportTarget(), "AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>");
             if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(50))) {
                 dev->isPlaying = true;
                 xSemaphoreGive(deviceMutex);
@@ -2513,6 +2513,14 @@ bool SonosController::refreshGroupTopology(bool force) {
                   groups, deviceCount);
     notifyUI(UPDATE_GROUPS);
     return groups > 0;
+}
+
+SonosDevice* SonosController::transportTarget() {
+    SonosDevice* dev = getCurrentDevice();
+    if (!dev) return nullptr;
+    // Same cached-topology read the volume path uses; no refresh here, because
+    // this is called from the polling task on every cycle.
+    return isInMultiSpeakerGroup(dev) ? groupCoordinatorFor(dev) : dev;
 }
 
 SonosDevice* SonosController::groupCoordinatorFor(SonosDevice* dev) {
