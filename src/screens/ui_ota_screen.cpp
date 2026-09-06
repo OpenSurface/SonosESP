@@ -23,6 +23,8 @@
 #include "ui_common.h"
 #include "ui_settings_card.h"   // addScreenHeader() - shared title row
 #include "ui_fonts.h"
+#include "studio_icons.h"
+#include "studio.h"
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -42,7 +44,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // ============================================================================
 void createOTAScreen() {
     scr_ota = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_ota, COL_SCREEN, 0);
+    lv_obj_set_style_bg_color(scr_ota, ST_BG, 0);
 
     // Create sidebar and get content area (Update is index 7 — Clock added at 6)
     lv_obj_t* content = createSettingsSidebar(scr_ota, 7);
@@ -55,10 +57,10 @@ void createOTAScreen() {
     lv_obj_t* card_version = lv_obj_create(content);
     lv_obj_set_size(card_version, lv_pct(100), SY(OTA_CARD_H));
     lv_obj_set_pos(card_version, 0, SY(OTA_CARD_Y));
-    lv_obj_set_style_bg_color(card_version, COL_CARD, 0);
+    lv_obj_set_style_bg_color(card_version, ST_CARD, 0);
     lv_obj_set_style_radius(card_version, 12, 0);
     lv_obj_set_style_border_width(card_version, 1, 0);
-    lv_obj_set_style_border_color(card_version, COL_BORDER, 0);
+    lv_obj_set_style_border_color(card_version, ST_BORDER, 0);
     lv_obj_set_style_pad_all(card_version, SMIN(16), 0);
     lv_obj_clear_flag(card_version, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_clear_flag(card_version, LV_OBJ_FLAG_CLICKABLE);
@@ -68,20 +70,20 @@ void createOTAScreen() {
     lv_obj_t* cap_installed = lv_label_create(card_version);
     lv_label_set_text(cap_installed, "INSTALLED");
     lv_obj_set_style_text_font(cap_installed, &font_text_12, 0);
-    lv_obj_set_style_text_color(cap_installed, COL_TEXT2, 0);
+    lv_obj_set_style_text_color(cap_installed, ST_TEXT3, 0);
     lv_obj_set_style_text_letter_space(cap_installed, 2, 0);
     lv_obj_align(cap_installed, LV_ALIGN_TOP_LEFT, 0, 0);
 
     lbl_current_version = lv_label_create(card_version);
     lv_label_set_text(lbl_current_version, "v" FIRMWARE_VERSION);
     lv_obj_set_style_text_font(lbl_current_version, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_current_version, COL_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_current_version, ST_TEXT, 0);
     lv_obj_align(lbl_current_version, LV_ALIGN_TOP_LEFT, 0, SY(22));
 
     lv_obj_t* cap_available = lv_label_create(card_version);
     lv_label_set_text(cap_available, "AVAILABLE");
     lv_obj_set_style_text_font(cap_available, &font_text_12, 0);
-    lv_obj_set_style_text_color(cap_available, COL_TEXT2, 0);
+    lv_obj_set_style_text_color(cap_available, ST_TEXT3, 0);
     lv_obj_set_style_text_letter_space(cap_available, 2, 0);
     lv_obj_align(cap_available, LV_ALIGN_TOP_RIGHT, 0, 0);
 
@@ -89,7 +91,7 @@ void createOTAScreen() {
     lbl_latest_version = lv_label_create(card_version);
     lv_label_set_text(lbl_latest_version, "Checking...");
     lv_obj_set_style_text_font(lbl_latest_version, &font_text_24, 0);
-    lv_obj_set_style_text_color(lbl_latest_version, COL_ACCENT, 0);
+    lv_obj_set_style_text_color(lbl_latest_version, ST_ACCENT, 0);
     lv_obj_set_width(lbl_latest_version, SX(240));
     lv_label_set_long_mode(lbl_latest_version, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(lbl_latest_version, LV_TEXT_ALIGN_RIGHT, 0);
@@ -99,8 +101,8 @@ void createOTAScreen() {
     // screen where it read as boilerplate.
     lv_obj_t* lbl_warn = lv_label_create(card_version);
     lv_label_set_text(lbl_warn, MDI_ALERT "  Keep the panel powered during the update.");
-    lv_obj_set_style_text_color(lbl_warn, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_warn, &lv_font_mdi_16, 0);
+    lv_obj_set_style_text_color(lbl_warn, ST_TEXT3, 0);
+    lv_obj_set_style_text_font(lbl_warn, &font_icon_16, 0);
     lv_obj_set_width(lbl_warn, lv_pct(100));
     lv_label_set_long_mode(lbl_warn, LV_LABEL_LONG_DOT);
     lv_obj_align(lbl_warn, LV_ALIGN_BOTTOM_LEFT, 0, 0);
@@ -113,7 +115,7 @@ void createOTAScreen() {
     lv_obj_set_style_radius(card_channel, 0, 0);
     lv_obj_set_style_border_width(card_channel, 1, 0);
     lv_obj_set_style_border_side(card_channel, LV_BORDER_SIDE_BOTTOM, 0);
-    lv_obj_set_style_border_color(card_channel, COL_CARD, 0);
+    lv_obj_set_style_border_color(card_channel, ST_CARD, 0);
     lv_obj_set_style_pad_all(card_channel, 0, 0);
     lv_obj_clear_flag(card_channel, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_clear_flag(card_channel, LV_OBJ_FLAG_CLICKABLE);
@@ -121,13 +123,13 @@ void createOTAScreen() {
     lv_obj_t* lbl_channel = lv_label_create(card_channel);
     lv_label_set_text(lbl_channel, "Channel");
     lv_obj_set_style_text_font(lbl_channel, &font_text_16, 0);
-    lv_obj_set_style_text_color(lbl_channel, COL_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_channel, ST_TEXT, 0);
     lv_obj_align(lbl_channel, LV_ALIGN_LEFT_MID, 0, SY(-9));
 
     lv_obj_t* lbl_channel_sub = lv_label_create(card_channel);
     lv_label_set_text(lbl_channel_sub, "Nightly builds can break");
     lv_obj_set_style_text_font(lbl_channel_sub, &font_text_12, 0);
-    lv_obj_set_style_text_color(lbl_channel_sub, COL_TEXT2, 0);
+    lv_obj_set_style_text_color(lbl_channel_sub, ST_TEXT3, 0);
     lv_obj_align(lbl_channel_sub, LV_ALIGN_LEFT_MID, 0, SY(11));
 
     dd_ota_channel = lv_dropdown_create(card_channel);
@@ -136,27 +138,27 @@ void createOTAScreen() {
     lv_obj_align(dd_ota_channel, LV_ALIGN_RIGHT_MID, 0, 0);
 
     // Style the dropdown button (closed state)
-    lv_obj_set_style_bg_color(dd_ota_channel, COL_BTN, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(dd_ota_channel, COL_BTN_PRESSED, (lv_style_selector_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
-    lv_obj_set_style_text_color(dd_ota_channel, COL_TEXT, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(dd_ota_channel, ST_RAISED, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(dd_ota_channel, ST_BORDER, (lv_style_selector_t)((uint32_t)LV_PART_MAIN | (uint32_t)LV_STATE_PRESSED));
+    lv_obj_set_style_text_color(dd_ota_channel, ST_TEXT, LV_PART_MAIN);
     lv_obj_set_style_text_font(dd_ota_channel, &font_text_14, LV_PART_MAIN);
     lv_obj_set_style_radius(dd_ota_channel, 8, LV_PART_MAIN);
     lv_obj_set_style_border_width(dd_ota_channel, 1, LV_PART_MAIN);
-    lv_obj_set_style_border_color(dd_ota_channel, COL_BORDER, LV_PART_MAIN);
+    lv_obj_set_style_border_color(dd_ota_channel, ST_BORDER, LV_PART_MAIN);
     lv_obj_set_style_pad_left(dd_ota_channel, SX(12), LV_PART_MAIN);
     lv_obj_set_style_pad_right(dd_ota_channel, SX(12), LV_PART_MAIN);
 
     // Style the dropdown list (opened state) - this is the key for dark theme!
-    lv_obj_set_style_bg_color(dd_ota_channel, COL_CARD, LV_PART_SELECTED);
-    lv_obj_set_style_bg_color(dd_ota_channel, COL_ACCENT, (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
-    lv_obj_set_style_text_color(dd_ota_channel, COL_TEXT, LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(dd_ota_channel, ST_CARD, LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(dd_ota_channel, ST_ACCENT, (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
+    lv_obj_set_style_text_color(dd_ota_channel, ST_TEXT, LV_PART_SELECTED);
 
     // Get the list object and style it for dark theme
     lv_obj_t* list = lv_dropdown_get_list(dd_ota_channel);
     if (list) {
-        lv_obj_set_style_bg_color(list, COL_CARD, 0);
-        lv_obj_set_style_text_color(list, COL_TEXT, 0);
-        lv_obj_set_style_border_color(list, COL_BORDER, 0);
+        lv_obj_set_style_bg_color(list, ST_CARD, 0);
+        lv_obj_set_style_text_color(list, ST_TEXT, 0);
+        lv_obj_set_style_border_color(list, ST_BORDER, 0);
         lv_obj_set_style_border_width(list, 1, 0);
     }
 
@@ -175,8 +177,8 @@ void createOTAScreen() {
     lbl_ota_status = lv_label_create(content);
     lv_obj_set_pos(lbl_ota_status, 0, SY(OTA_STATUS_Y));
     lv_label_set_text(lbl_ota_status, "Tap 'Check for Updates' to begin");
-    lv_obj_set_style_text_color(lbl_ota_status, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_ota_status, &lv_font_mdi_16, 0);
+    lv_obj_set_style_text_color(lbl_ota_status, ST_TEXT3, 0);
+    lv_obj_set_style_text_font(lbl_ota_status, &font_icon_16, 0);
     lv_obj_set_width(lbl_ota_status, lv_pct(100));
     // DOT, not WRAP: this label sits in a fixed slot above the progress bar, and
     // a two-line status used to push into it.
@@ -186,7 +188,7 @@ void createOTAScreen() {
     lbl_ota_progress = lv_label_create(content);
     lv_obj_set_pos(lbl_ota_progress, 0, SY(OTA_PROG_Y - 24));
     lv_label_set_text(lbl_ota_progress, "");
-    lv_obj_set_style_text_color(lbl_ota_progress, COL_ACCENT, 0);
+    lv_obj_set_style_text_color(lbl_ota_progress, ST_ACCENT, 0);
     lv_obj_set_style_text_font(lbl_ota_progress, &font_text_16, 0);
     lv_obj_set_width(lbl_ota_progress, lv_pct(100));
     lv_obj_set_style_text_align(lbl_ota_progress, LV_TEXT_ALIGN_RIGHT, 0);
@@ -197,10 +199,10 @@ void createOTAScreen() {
     lv_obj_set_pos(bar_ota_progress, 0, SY(OTA_PROG_Y));
     lv_bar_set_range(bar_ota_progress, 0, 100);
     lv_bar_set_value(bar_ota_progress, 0, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(bar_ota_progress, COL_SELECTED, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(bar_ota_progress, ST_BORDER, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(bar_ota_progress, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_radius(bar_ota_progress, 4, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(bar_ota_progress, COL_ACCENT, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(bar_ota_progress, ST_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_opa(bar_ota_progress, LV_OPA_COVER, LV_PART_INDICATOR);
     lv_obj_set_style_radius(bar_ota_progress, 4, LV_PART_INDICATOR);
     lv_obj_add_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
@@ -213,28 +215,28 @@ void createOTAScreen() {
     lv_obj_set_pos(btn_check_update, 0, SY(OTA_BTN_Y));
     lv_obj_set_style_bg_opa(btn_check_update, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(btn_check_update, 1, 0);
-    lv_obj_set_style_border_color(btn_check_update, COL_BORDER, 0);
+    lv_obj_set_style_border_color(btn_check_update, ST_BORDER, 0);
     lv_obj_set_style_radius(btn_check_update, 12, 0);
     lv_obj_set_style_shadow_width(btn_check_update, 0, 0);
     lv_obj_add_event_cb(btn_check_update, ev_check_update, LV_EVENT_CLICKED, NULL);
     lv_obj_t* lbl_check = lv_label_create(btn_check_update);
-    lv_label_set_text(lbl_check, MDI_REFRESH " Check for Updates");
-    lv_obj_set_style_text_color(lbl_check, COL_TEXT, 0);
-    lv_obj_set_style_text_font(lbl_check, &lv_font_mdi_16, 0);
+    lv_label_set_text(lbl_check, ST_IC_REFRESH " Check for Updates");
+    lv_obj_set_style_text_color(lbl_check, ST_TEXT, 0);
+    lv_obj_set_style_text_font(lbl_check, &font_icon_16, 0);
     lv_obj_center(lbl_check);
 
     // Install Update button (hidden by default)
     btn_install_update = lv_btn_create(content);
     lv_obj_set_size(btn_install_update, SX(260), SY(OTA_BTN_H));
     lv_obj_set_pos(btn_install_update, SX(276), SY(OTA_BTN_Y));
-    lv_obj_set_style_bg_color(btn_install_update, COL_ACCENT, 0);
+    lv_obj_set_style_bg_color(btn_install_update, ST_ACCENT, 0);
     lv_obj_set_style_radius(btn_install_update, 12, 0);
     lv_obj_set_style_shadow_width(btn_install_update, 0, 0);
     lv_obj_add_event_cb(btn_install_update, ev_install_update, LV_EVENT_CLICKED, NULL);
     lv_obj_t* lbl_install = lv_label_create(btn_install_update);
-    lv_label_set_text(lbl_install, MDI_DOWNLOAD " Install Update");
-    lv_obj_set_style_text_color(lbl_install, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_text_font(lbl_install, &lv_font_mdi_16, 0);
+    lv_label_set_text(lbl_install, ST_IC_DOWNLOAD " Install Update");
+    lv_obj_set_style_text_color(lbl_install, ST_ON_ACCENT, 0);
+    lv_obj_set_style_text_font(lbl_install, &font_icon_16, 0);
     lv_obj_center(lbl_install);
     lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);  // Hidden until update available
 
@@ -242,7 +244,7 @@ void createOTAScreen() {
     lv_obj_t* lbl_info = lv_label_create(content);
     lv_label_set_text(lbl_info,
         "Stable ships tested releases. Nightly carries the latest test builds.");
-    lv_obj_set_style_text_color(lbl_info, COL_TEXT2, 0);
+    lv_obj_set_style_text_color(lbl_info, ST_TEXT3, 0);
     lv_obj_set_style_text_font(lbl_info, &font_text_12, 0);
     lv_obj_set_width(lbl_info, lv_pct(100));
     lv_label_set_long_mode(lbl_info, LV_LABEL_LONG_DOT);

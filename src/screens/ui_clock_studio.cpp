@@ -33,13 +33,25 @@
 #include "ui_icons.h"
 #include "nocturne.h"
 #include "studio.h"
+#include "studio_icons.h"
 #include <string.h>
+#include <ctype.h>
 
 const char* wmoCondition(int code);            // ui_clock_screen.cpp
-const char* wmoGlyph(int code, bool night);    // ui_clock_screen.cpp
 
-LV_FONT_DECLARE(lv_font_weathericons_32);
-LV_FONT_DECLARE(lv_font_weathericons_64);
+// ── Sky glyphs ──────────────────────────────────────────────────────────────
+// This face uses the canvas's own three sky icons rather than the project's
+// weather font, because the canvas draws exactly three and the point of this
+// face is to match it.
+//
+// That is a real reduction in detail: lv_font_weathericons_* distinguishes fog,
+// sleet, snow and thunder, and this collapses all of them onto rain. The other
+// faces are unaffected — they still call wmoGlyph() and keep the full set.
+static const char* studioSky(int wmo) {
+    if (wmo <= 1)  return ST_WX_SUN;     // 0 clear, 1 mainly clear
+    if (wmo <= 48) return ST_WX_CLOUD;   // 2-3 cloud, 45/48 fog
+    return ST_WX_RAIN;                   // 51+ drizzle, rain, snow, storm
+}
 
 // ── Grid, 800x480 design space ──────────────────────────────────────────────
 #define SD_PAD_L      40
@@ -77,6 +89,7 @@ static lv_obj_t* sd_val[4] = {};
 static lv_obj_t* sd_rail_hr[6]   = {};
 static lv_obj_t* sd_rail_icon[6] = {};
 static lv_obj_t* sd_rail_tmp[6]  = {};
+static lv_obj_t* sd_now_icon  = nullptr;
 static lv_obj_t* sd_now_state = nullptr;
 static lv_obj_t* sd_now_title = nullptr;
 
@@ -87,7 +100,7 @@ static void sd_root_deleted(lv_event_t*) {
     sd_root = nullptr;
     sd_date = sd_hh = sd_mm = sd_sec = nullptr;
     sd_city = sd_cond = sd_icon = sd_temp = sd_feel = nullptr;
-    sd_now_state = sd_now_title = nullptr;
+    sd_now_icon = sd_now_state = sd_now_title = nullptr;
     memset(sd_val, 0, sizeof(sd_val));
     memset(sd_rail_hr, 0, sizeof(sd_rail_hr));
     memset(sd_rail_icon, 0, sizeof(sd_rail_icon));
@@ -143,8 +156,12 @@ void buildStudioFace(lv_obj_t* parent) {
     lv_obj_set_pos(now, SX(SD_PAD_L), SY(SD_NOW_Y));
     lv_obj_remove_flag(now, LV_OBJ_FLAG_SCROLLABLE);
 
+    // The canvas puts its pause glyph ahead of the state caption.
+    sd_now_icon = stLabel(now, &font_icon_16, ST_TEXT3, "");
+    lv_obj_set_pos(sd_now_icon, 0, SY(-1));
+
     sd_now_state = stCaption(now, ST_TEXT3, "", 3);
-    lv_obj_set_pos(sd_now_state, 0, 0);
+    lv_obj_set_pos(sd_now_state, SX(18), 0);
 
     sd_now_title = stLabel(now, &font_text_14, ST_TEXT2, "");
     lv_obj_set_pos(sd_now_title, 0, SY(17));
@@ -176,7 +193,7 @@ void buildStudioFace(lv_obj_t* parent) {
     lv_obj_set_style_pad_column(wx, SX(16), 0);
     lv_obj_remove_flag(wx, LV_OBJ_FLAG_SCROLLABLE);
 
-    sd_icon = stLabel(wx, &lv_font_weathericons_64, ST_TEXT2, "");
+    sd_icon = stLabel(wx, &font_icon_wx_64, ST_TEXT2, "");
     sd_temp = stLabel(wx, &font_text_48, ST_TEXT, "--°");
     sd_feel = stLabel(wx, &font_text_14, ST_TEXT3, "");
     lv_obj_set_style_pad_bottom(sd_feel, SY(8), 0);
@@ -216,7 +233,7 @@ void buildStudioFace(lv_obj_t* parent) {
         lv_obj_remove_flag(cell, LV_OBJ_FLAG_SCROLLABLE);
 
         sd_rail_hr[i]   = stCaption(cell, ST_TEXT3, "--", 2);
-        sd_rail_icon[i] = stLabel(cell, &lv_font_weathericons_32, ST_TEXT2, "");
+        sd_rail_icon[i] = stLabel(cell, &font_icon_wx_32, ST_TEXT2, "");
         sd_rail_tmp[i]  = stLabel(cell, &font_text_14, ST_TEXT, "--");
     }
 
@@ -244,7 +261,8 @@ void studioFaceTick(const struct tm* now) {
 
     // Seconds hairline. 0..59 mapped across the full width, so it reads as
     // filling over the minute rather than snapping back one step early.
-    lv_obj_set_width(sd_sec, SX(SD_SEC_W) * (now->tm_sec + 1) / 60);
+    const int32_t sec_w = SX(SD_SEC_W) * (now->tm_sec + 1) / 60;
+    lv_obj_set_width(sd_sec, sec_w);
 
     // ── Now playing ─────────────────────────────────────────────────────────
     SonosDevice* dev = sonos.getCurrentDevice();
@@ -253,9 +271,11 @@ void studioFaceTick(const struct tm* now) {
                  dev->isPlaying ? "PLAYING" : "PAUSED",
                  dev->roomName.length() ? dev->roomName.c_str() : "SONOS");
         for (char* c = buf; *c; c++) *c = (char)toupper((unsigned char)*c);
+        lv_label_set_text(sd_now_icon, dev->isPlaying ? ST_IC_PLAY : ST_IC_PAUSE);
         lv_label_set_text(sd_now_state, buf);
         lv_label_set_text(sd_now_title, dev->currentTrack.c_str());
     } else {
+        lv_label_set_text(sd_now_icon, "");
         lv_label_set_text(sd_now_state, "");
         lv_label_set_text(sd_now_title, "");
     }
@@ -270,7 +290,7 @@ void studioFaceTick(const struct tm* now) {
     for (char* c = buf; *c; c++) *c = (char)toupper((unsigned char)*c);
     lv_label_set_text(sd_cond, buf);
 
-    lv_label_set_text(sd_icon, wmoGlyph(clock_wx_wmo, false));
+    lv_label_set_text(sd_icon, studioSky(clock_wx_wmo));
     lv_label_set_text_fmt(sd_temp, "%d°", clock_wx_temp);
     lv_label_set_text_fmt(sd_feel, "feels %d°", clock_wx_apparent);
 
@@ -281,7 +301,7 @@ void studioFaceTick(const struct tm* now) {
 
     for (int i = 0; i < 6; i++) {
         lv_label_set_text_fmt(sd_rail_hr[i], "%dH", i + 1);
-        lv_label_set_text(sd_rail_icon[i], wmoGlyph(clock_wx_hourly[i].wmo, false));
+        lv_label_set_text(sd_rail_icon[i], studioSky(clock_wx_hourly[i].wmo));
         lv_label_set_text_fmt(sd_rail_tmp[i], "%d°", clock_wx_hourly[i].temp);
     }
 }

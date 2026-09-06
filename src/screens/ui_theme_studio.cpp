@@ -32,6 +32,7 @@
 #include "ui_icons.h"
 #include "ui_theme.h"
 #include "ui_fonts.h"
+#include "studio_icons.h"
 #include "studio.h"
 
 // ── Grid ────────────────────────────────────────────────────────────────────
@@ -191,8 +192,8 @@ void buildStudioPlayer() {
     lv_obj_set_style_border_width(img_album, 0, 0);
 
     art_placeholder = lv_label_create(panel_art);
-    lv_label_set_text(art_placeholder, MDI_MUSIC_NOTE);
-    lv_obj_set_style_text_font(art_placeholder, &lv_font_mdi_32, 0);
+    lv_label_set_text(art_placeholder, ST_IC_MUSIC);
+    lv_obj_set_style_text_font(art_placeholder, &font_icon_32, 0);
     lv_obj_set_style_text_color(art_placeholder, ST_TEXT3, 0);
     lv_obj_set_pos(art_placeholder, SX(SP_ART / 2 - 16), SY(SP_ART / 2 - 16));
 
@@ -329,8 +330,8 @@ void buildStudioPlayer() {
     lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
 
     lv_obj_t* chev = lv_label_create(pill);
-    lv_label_set_text(chev, MDI_CHEVRON_RIGHT);
-    lv_obj_set_style_text_font(chev, &lv_font_mdi_16, 0);
+    lv_label_set_text(chev, ST_IC_CHEV);
+    lv_obj_set_style_text_font(chev, &font_icon_16, 0);
     lv_obj_set_style_text_color(chev, ST_TEXT3, 0);
     lv_obj_set_pos(chev, SX(185), SY(14));
 
@@ -345,10 +346,10 @@ void buildStudioPlayer() {
         lv_obj_set_style_text_letter_space(l, 1, 0);
     }
 
-    btn_queue = roundBtn(panel_right, MDI_PLAYLIST, &lv_font_mdi_24,
+    btn_queue = roundBtn(panel_right, ST_IC_QUEUE, &font_icon_24,
                          SP_RIGHT - chip * 2 - gap, SP_HEAD_Y, chip, ev_queue, true, ST_TEXT2);
     lv_obj_set_ext_click_area(btn_queue, 8);
-    roundBtn(panel_right, MDI_COG, &lv_font_mdi_24,
+    roundBtn(panel_right, ST_IC_GEAR, &font_icon_24,
              SP_RIGHT - chip, SP_HEAD_Y, chip, ev_settings, true, ST_TEXT2);
 
     // ── Track meta ──────────────────────────────────────────────────────────
@@ -410,13 +411,13 @@ void buildStudioPlayer() {
     const int b3 = SP_R + 278;              // next    52
     const int b4 = SP_RIGHT - 44;           // repeat  44
 
-    btn_shuffle = roundBtn(panel_right, MDI_SHUFFLE, &lv_font_mdi_32,
+    btn_shuffle = roundBtn(panel_right, ST_IC_SHUFFLE, &font_icon_32,
                            b0, SP_CTRL_Y + 17, 44, ev_shuffle, false, ST_ACCENT);
-    btn_prev    = roundBtn(panel_right, MDI_SKIP_PREV, &lv_font_mdi_40,
+    btn_prev    = roundBtn(panel_right, ST_IC_PREV, &font_icon_40,
                            b1, SP_CTRL_Y + 13, 52, ev_prev, false, ST_TEXT);
-    btn_next    = roundBtn(panel_right, MDI_SKIP_NEXT, &lv_font_mdi_40,
+    btn_next    = roundBtn(panel_right, ST_IC_NEXT, &font_icon_40,
                            b3, SP_CTRL_Y + 13, 52, ev_next, false, ST_TEXT);
-    btn_repeat  = roundBtn(panel_right, MDI_REPEAT, &lv_font_mdi_32,
+    btn_repeat  = roundBtn(panel_right, ST_IC_REPEAT, &font_icon_32,
                            b4, SP_CTRL_Y + 17, 44, ev_repeat, false, ST_TEXT3);
 
     btn_play = lv_button_create(panel_right);
@@ -429,13 +430,13 @@ void buildStudioPlayer() {
     lv_obj_set_style_border_width(btn_play, 0, 0);
     lv_obj_add_event_cb(btn_play, ev_play, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_play = lv_label_create(btn_play);
-    lv_label_set_text(ico_play, MDI_PAUSE);
-    lv_obj_set_style_text_font(ico_play, &lv_font_mdi_40, 0);
+    lv_label_set_text(ico_play, ST_IC_PAUSE);
+    lv_obj_set_style_text_font(ico_play, &font_icon_40, 0);
     lv_obj_set_style_text_color(ico_play, ST_ON_ACCENT, 0);
     lv_obj_center(ico_play);
 
     // ── Volume ──────────────────────────────────────────────────────────────
-    btn_mute = roundBtn(panel_right, MDI_VOLUME_HIGH, &lv_font_mdi_24,
+    btn_mute = roundBtn(panel_right, ST_IC_VOL, &font_icon_24,
                         SP_R - 4, SP_VOL_Y - 10, 28, ev_mute, false, ST_TEXT3);
 
     // Neutral fill, not gold: the canvas keeps one action colour, and volume is

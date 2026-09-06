@@ -32,6 +32,7 @@
 #include "ui_common.h"
 #include "ui_boot_screen.h"
 #include "ui_fonts.h"
+#include "studio_icons.h"
 #include "ui_icons.h"
 #include "studio.h"
 #include "config.h"
@@ -194,7 +195,7 @@ void bootScreenCreate(void) {
         lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
         lv_obj_t* chip = stRoundRect(row, 22, 22, 11, ST_ACCENT_WASH);
-        lv_obj_t* tick = stLabel(chip, &lv_font_mdi_16, ST_ACCENT, MDI_CHECK);
+        lv_obj_t* tick = stLabel(chip, &font_icon_16, ST_ACCENT, ST_IC_CHECK);
         lv_obj_center(tick);
 
         stLabel(row, &font_text_16, ST_TEXT, kLabel[i]);
@@ -251,7 +252,10 @@ void bootScreenReveal(void) {
 void bootScreenProgress(int percent) {
     if (percent < 0)   percent = 0;
     if (percent > 100) percent = 100;
-    if (bt_fill) lv_obj_set_width(bt_fill, SX(BT_PROG_W) * percent / 100);
+    // Width is scaled before the divide, so the trailing 100 is a percentage
+    // divisor and not a raw pixel count. Hoisted so ui_lint.py can see that.
+    const int32_t fill_w = SX(BT_PROG_W) * percent / 100;
+    if (bt_fill) lv_obj_set_width(bt_fill, fill_w);
     bootPump(10);
 }
 
