@@ -232,27 +232,22 @@ void buildClassicPlayer() {
     lv_obj_set_style_text_color(lbl_artist, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_artist, &font_text_16, 0);
 
-    // ── Lyrics toggle ───────────────────────────────────────────────────────
-    // Classic had no way to turn lyrics off from the player; it meant a trip to
-    // Settings > General. Same switch, same NVS key — not a second, divergent one.
+    // ── Lyrics indicator ────────────────────────────────────────────────────
+    // Lit when the current track actually has synced lyrics. Deliberately NOT a
+    // toggle: that setting lives in Settings > General, and a second control for
+    // it would only create a way for the two to disagree. Not clickable, so it
+    // does not offer press feedback for something it will not do.
+    // updateLyricsStatus() drives it; see btn_lyrics in ui_common.h.
     lv_obj_t* btn_lrc = lv_btn_create(panel_right);
     lv_obj_set_size(btn_lrc, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_lrc, SX(205), SY(18));
     headerCircle(btn_lrc);
-    lv_obj_set_ext_click_area(btn_lrc, 5);
-    lv_obj_add_event_cb(btn_lrc, [](lv_event_t* e) {
-        lyrics_enabled = !lyrics_enabled;
-        wifiPrefs.putBool(NVS_KEY_LYRICS, lyrics_enabled);
-        setLyricsVisible(lyrics_enabled && lyrics_ready);
-        lv_obj_t* b = (lv_obj_t*)lv_event_get_target(e);
-        if (lv_obj_get_child_count(b))
-            lv_obj_set_style_text_color(lv_obj_get_child(b, 0),
-                                        lyrics_enabled ? COL_ACCENT : COL_TEXT2, 0);
-    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_remove_flag(btn_lrc, LV_OBJ_FLAG_CLICKABLE);
+    btn_lyrics = btn_lrc;
     lv_obj_t* ico_lrc = lv_label_create(btn_lrc);
     lv_label_set_text(ico_lrc, "LRC");
     lv_obj_set_style_text_font(ico_lrc, &font_text_12, 0);
-    lv_obj_set_style_text_color(ico_lrc, lyrics_enabled ? COL_ACCENT : COL_TEXT2, 0);
+    lv_obj_set_style_text_color(ico_lrc, COL_TEXT2, 0);
     lv_obj_center(ico_lrc);
 
     // Queue/Playlist button — aligned with artist row

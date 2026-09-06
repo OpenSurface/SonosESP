@@ -11,6 +11,7 @@
 #include "ui_theme.h"
 #include "config.h"
 #include "lyrics.h"
+#include "studio.h"
 
 // ── Registry ────────────────────────────────────────────────────────────────
 //                                                                   art:  size   x                     y
@@ -76,6 +77,14 @@ lv_label_long_mode_t themeTitleLongMode(void) {
 
 bool themeUsesArtAccent(void) {
     return themeCurrent()->bg != THEME_BG_FLAT;
+}
+
+lv_color_t themeAccentColor(void) {
+    return themeCurrent()->bg == THEME_BG_FLAT ? ST_ACCENT : COL_ACCENT;
+}
+
+lv_color_t themeMutedColor(void) {
+    return themeCurrent()->bg == THEME_BG_FLAT ? ST_TEXT3 : COL_TEXT2;
 }
 
 bool themeUsesBlurBg(void) {
@@ -217,6 +226,14 @@ void themeSet(uint8_t idx) {
     // Background tasks only set flags — they never touch LVGL objects.
     lv_obj_t* old = scr_main;
     scr_main = nullptr;
+
+    // btn_lyrics is OPTIONAL — unlike the widget globals in the builder contract,
+    // a theme is allowed not to have an LRC chip. Clearing it first means a theme
+    // that has none leaves it null rather than inheriting the outgoing screen's
+    // button, which lv_obj_del(old) below is about to free. updateLyricsStatus()
+    // dereferences this every tick, so a stale pointer here is a crash.
+    btn_lyrics = nullptr;
+
     themeCurrent()->build();      // reassigns scr_main + every player widget global
     if (old) {
         // Never delete the screen currently on display. In practice we're on the

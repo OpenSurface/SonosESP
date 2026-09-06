@@ -126,6 +126,11 @@ extern lv_obj_t *scr_clock, *scr_clock_settings;
 // Main screen UI elements
 extern lv_obj_t *img_album, *lbl_title, *lbl_artist, *lbl_album, *lbl_time, *lbl_time_remaining;
 extern lv_obj_t *lbl_lyrics_status;  // Lyrics status indicator (top of album art)
+// The "LRC" chip in the player header. An INDICATOR, not a control: it lights
+// when the current track actually has synced lyrics. Turning lyrics on and off
+// belongs in Settings > General and having two places to do it invites them to
+// disagree. NULL for a theme that has no such chip.
+extern lv_obj_t *btn_lyrics;
 extern lv_obj_t *btn_play, *btn_prev, *btn_next, *btn_mute, *btn_shuffle, *btn_repeat, *btn_queue;
 extern lv_obj_t *slider_progress, *slider_vol;
 extern lv_obj_t *panel_right, *panel_art;

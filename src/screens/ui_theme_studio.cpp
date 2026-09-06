@@ -363,33 +363,23 @@ void buildStudioPlayer() {
 
     // LRC / queue / settings, right-aligned in that order.
     const int chip = SP_HEAD_H, gap = 10;
-    // BUG WAS HERE: this chip had no callback, so it was decoration. The canvas
-    // wires it to toggle lyrics, which is the same switch General exposes — so it
-    // toggles and PERSISTS the real setting rather than a second, divergent one.
+    // An INDICATOR, not a control. It briefly toggled lyrics, but that setting
+    // already lives in Settings > General and two places to change one thing is
+    // an invitation for them to disagree. What it is actually good for is saying
+    // whether THIS track has synced lyrics — which is a thing you cannot
+    // otherwise tell until the shelf either fills or does not.
+    //
+    // No callback, so it gives no press feedback for something it will not do.
+    // updateLyricsStatus() lights it; see btn_lyrics in ui_common.h.
     lv_obj_t* lrc = roundBtn(panel_right, "", &font_text_12, SP_RIGHT - chip * 3 - gap * 2,
-                             SP_HEAD_Y, chip, [](lv_event_t* e) {
-        lyrics_enabled = !lyrics_enabled;
-        wifiPrefs.putBool("lyrics", lyrics_enabled);
-        setLyricsVisible(lyrics_enabled && lyrics_ready);
-        // Reflect the new state on the chip itself.
-        lv_obj_t* b = (lv_obj_t*)lv_event_get_target(e);
-        lv_obj_set_style_bg_color(b, lyrics_enabled ? ST_ACCENT_WASH : ST_CARD, 0);
-        lv_obj_set_style_border_color(b, lyrics_enabled ? ST_ACCENT_DIM : ST_BORDER, 0);
-        if (lv_obj_get_child_count(b))
-            lv_obj_set_style_text_color(lv_obj_get_child(b, 0),
-                                        lyrics_enabled ? ST_ACCENT : ST_TEXT2, 0);
-    }, true, ST_TEXT2);
-    // Initial state, so the chip does not start out lying about the setting.
-    if (lyrics_enabled) {
-        lv_obj_set_style_bg_color(lrc, ST_ACCENT_WASH, 0);
-        lv_obj_set_style_border_color(lrc, ST_ACCENT_DIM, 0);
-    }
+                             SP_HEAD_Y, chip, NULL, true, ST_TEXT3);
+    lv_obj_remove_flag(lrc, LV_OBJ_FLAG_CLICKABLE);
+    btn_lyrics = lrc;
     // A text chip, not a glyph: the MDI set carries no "lyrics" icon and the
     // canvas labels this one "LRC" anyway.
     if (lv_obj_t* l = lv_obj_get_child(lrc, 0)) {
         lv_label_set_text(l, "LRC");
         lv_obj_set_style_text_letter_space(l, 1, 0);
-        if (lyrics_enabled) lv_obj_set_style_text_color(l, ST_ACCENT, 0);
     }
 
     btn_queue = roundBtn(panel_right, ST_IC_QUEUE, &font_icon_24,

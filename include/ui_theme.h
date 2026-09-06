@@ -72,6 +72,13 @@ lv_label_long_mode_t themeTitleLongMode(void);
 // the sleeve happens to be clashes with every other accent on the screen.
 bool themeUsesArtAccent(void);
 
+// The active theme's accent and muted tiers. Shared code (updateLyricsStatus()
+// and anything after it) has to style widgets that live in whichever palette the
+// current player was built from — Studio's warm ST_* or the original COL_* — and
+// has no business knowing which.
+lv_color_t themeAccentColor(void);
+lv_color_t themeMutedColor(void);
+
 // Reads the saved index from NVS and clamps it. Call once in setup() BEFORE
 // createMainScreen() so the first build already uses the chosen theme.
 void themeLoad(void);

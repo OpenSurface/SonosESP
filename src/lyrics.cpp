@@ -4,6 +4,7 @@
  */
 
 #include "lyrics.h"
+#include "ui_theme.h"   // themeUsesArtAccent()
 #include "ui_common.h"
 #include "config.h"
 #include "ui_network_guard.h"
@@ -691,7 +692,14 @@ void updateLyricsDisplay(int position_seconds) {
     lv_label_set_text(lbl_lyric_current, lyric_lines[idx].text);
     lv_label_set_text(lbl_lyric_next, idx < lyric_count - 1 ? lyric_lines[idx + 1].text : "");
 
-    // Color current line with vivid dominant color: normalize to max=255, then floor at 200
+    // Colour the current line from the artwork — but ONLY for a theme whose
+    // accents track the album. This runs on every line change, so for a flat
+    // theme it was quietly overwriting the white the builder had set: the lyric
+    // came out tinted by the sleeve a second after each line appeared, which is
+    // the "it remains ambient" the white was supposed to fix.
+    if (!themeUsesArtAccent()) return;
+
+    // Vivid dominant colour: normalise to max=255, then floor at 200
     uint8_t r = (dominant_color >> 16) & 0xFF;
     uint8_t g = (dominant_color >> 8) & 0xFF;
     uint8_t b = dominant_color & 0xFF;
@@ -724,7 +732,20 @@ void setLyricsVisible(bool show) {
 
 void updateLyricsStatus() {
     extern lv_obj_t *lbl_lyrics_status;
+    extern lv_obj_t *btn_lyrics;
     extern bool lyrics_enabled;
+
+    // The header's LRC chip: lit when this track actually has synced lyrics to
+    // show. Driven from here because this already runs every updateUI() tick and
+    // is the one place that knows the fetch state.
+    if (btn_lyrics && lv_obj_get_child_count(btn_lyrics)) {
+        const bool live = lyrics_enabled && lyrics_ready;
+        lv_obj_set_style_text_color(lv_obj_get_child(btn_lyrics, 0),
+                                    live ? themeAccentColor() : themeMutedColor(), 0);
+        lv_obj_set_style_border_color(btn_lyrics,
+                                      live ? themeAccentColor() : themeMutedColor(), 0);
+        lv_obj_set_style_border_opa(btn_lyrics, live ? LV_OPA_COVER : LV_OPA_40, 0);
+    }
 
     if (!lbl_lyrics_status) return;
     if (!lyrics_enabled) {
