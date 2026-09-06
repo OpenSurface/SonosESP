@@ -470,6 +470,10 @@ void SonosController::cacheSelectedDevice() {
     prefs.putString("cached_ip", dev->ip.toString());
     prefs.putString("cached_room", dev->roomName);
     prefs.putString("cached_rincon", dev->rinconID);
+    // Line-in capability is discovered from device_description.xml and is NOT
+    // re-derivable on the fast-boot path, so it has to be cached with the rest
+    // or the Sources screen loses its Line-In row on every reboot.
+    prefs.putInt("cached_linein", dev->hasLineIn ? 1 : 0);
 
     Serial.printf("[SONOS] Cached device: %s (%s) [%s]\n",
                   dev->roomName.c_str(),
@@ -541,11 +545,24 @@ bool SonosController::tryLoadCachedDevice() {
     devices[0].isGroupCoordinator = true;
     devices[0].groupMemberCount = 1;
 
+    // -1 = cached by a build that did not store this yet. Resolve it once from
+    // the device description (the device was just confirmed reachable above), and
+    // cacheSelectedDevice() will persist it from then on.
+    int cachedLineIn = prefs.getInt("cached_linein", -1);
+    if (cachedLineIn < 0) {
+        Serial.println("[SONOS]   Line-in unknown in cache - resolving once");
+        getRoomName(&devices[0]);          // sets roomName AND hasLineIn
+        prefs.putInt("cached_linein", devices[0].hasLineIn ? 1 : 0);
+    } else {
+        devices[0].hasLineIn = (cachedLineIn == 1);
+    }
+
     Serial.println("========================================");
     Serial.println("[SONOS] ✓ FAST BOOT: Device loaded from NVS cache");
     Serial.printf("[SONOS]   Speaker: %s\n", cachedRoom.c_str());
     Serial.printf("[SONOS]   IP: %s\n", cachedIP.c_str());
     Serial.printf("[SONOS]   RINCON: %s\n", cachedRincon.c_str());
+    Serial.printf("[SONOS]   Line-in: %s\n", devices[0].hasLineIn ? "yes" : "no");
     Serial.println("[SONOS]   Boot time saved: ~13 seconds");
     Serial.println("[SONOS]   To scan for other devices: Settings → Speakers → Scan");
     Serial.println("========================================");

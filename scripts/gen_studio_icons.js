@@ -50,16 +50,32 @@ const WX_SIZES = [32, 64];
 const WX_ICONS = ['sc-cloud', 'sc-rain', 'sc-sun'];
 
 // ── Icons kept on Material Design Icons ─────────────────────────────────────
-// A canvas icon whose shape does not survive rasterisation at UI sizes is
-// aliased to an MDI glyph instead of being rendered. The call sites do not care:
-// font_icon_* falls back to MDI, so ST_IC_GEAR resolves either way.
+// A canvas icon that cannot be rendered usefully is aliased to an MDI glyph
+// instead. The call sites do not care: font_icon_* falls back to MDI.
 //
-// ic-gear is the one so far. In the canvas it is a SLIDERS icon — two thin
-// horizontal rails with small knobs. At 16-24px the rails land near a single
-// pixel and the knobs are ~3px, so it reads as smudged dashes rather than a
-// control. MDI's cog is a filled shape drawn for small sizes and stays crisp.
-const MDI_SUBSTITUTE = {
-  'ic-gear': 'MDI_COG',
+// Empty for now. ic-gear was briefly here, but MDI's cog is a FILLED shape and
+// every other icon on screen is a 1.7-weight outline, so it read as far too
+// heavy next to them. It is overridden below instead — same outline family, so
+// it matches.
+const MDI_SUBSTITUTE = {};
+
+// ── Local replacements for canvas symbols ───────────────────────────────────
+// Same pipeline as a canvas symbol — rasterised, not aliased — so the result is
+// in the identical stroke family as everything around it.
+//
+// ic-gear: the canvas draws Settings as a SLIDERS icon (two thin rails with
+// small knobs). At 16-24px the rails land on about one pixel and the knobs on
+// three, so it smudges into dashes whatever the bit depth. This is the
+// Lucide/Feather cog, which is what the rest of the canvas set is drawn from
+// (ic-cloud, ic-sun and friends are all Lucide shapes), at the canvas's own
+// stroke weight — so it is the same style, just a shape that survives 24px.
+const LOCAL_SYMBOLS = {
+  'ic-gear': {
+    attrs: ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"' +
+           ' stroke-linecap="round" stroke-linejoin="round"',
+    body: '<circle cx="12" cy="12" r="3.1"/>' +
+          '<path d="M19.14 12.94a7.5 7.5 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.65 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.5 7.5 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64z"/>',
+  },
 };
 
 // Codepoints start at the top of the BMP Private Use Area. Deliberately clear of
@@ -274,6 +290,8 @@ for (const f of fs.readdirSync(canvasDir)) {
   const html = fs.readFileSync(path.join(canvasDir, f), 'utf8');
   for (const [k, v] of extractSymbols(html)) symbols.set(k, v);
 }
+// Applied AFTER the canvas, so a local entry wins.
+for (const [k, v] of Object.entries(LOCAL_SYMBOLS)) symbols.set(k, v);
 
 const uiIcons = [...symbols.keys()].filter(k => k.startsWith('ic-')).sort();
 const wxIcons = WX_ICONS.filter(k => symbols.has(k));

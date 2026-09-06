@@ -24,9 +24,12 @@
  *   margin        44 either side
  *   header row    y  38, 24 tall
  *   progress      y  96, 3 tall, 712 wide
- *   check lines   y 136, 520 wide, 24 tall, 14 apart
- *   equaliser     bottom right, 76 tall, 4 bars of 11
+ *   check lines   y 150, 520 wide, 24 tall, 18 apart
  *   footer        y 422, left margin
+ *
+ * The canvas puts a level meter bottom-right. It is gone: it cannot animate here
+ * (see the tick note above), so it was four static bars that conveyed nothing
+ * and drew the eye away from the lines that do.
  */
 
 #include "ui_common.h"
@@ -42,16 +45,12 @@
 #define BT_HEAD_Y     38
 #define BT_PROG_Y     96
 #define BT_PROG_W     (800 - BT_PAD * 2)      // 712
-#define BT_CHECK_Y    136
+#define BT_CHECK_Y    150
 #define BT_CHECK_W    520
 #define BT_ROW_H      24
-#define BT_ROW_GAP    14
+#define BT_ROW_GAP    18
 #define BT_CHECKS_H   (BOOT_CHECK_COUNT * BT_ROW_H + (BOOT_CHECK_COUNT - 1) * BT_ROW_GAP)
-#define BT_STATUS_Y   (BT_CHECK_Y + BT_CHECKS_H + 18)
-#define BT_METER_H    76
-#define BT_METER_BAR  11
-#define BT_METER_GAP  7
-#define BT_METER_W    (BT_METER_BAR * 4 + BT_METER_GAP * 3)
+#define BT_STATUS_Y   (BT_CHECK_Y + BT_CHECKS_H + 22)
 #define BT_FOOT_Y     422
 
 // The footer names the panel it is actually running on rather than the 4" the
@@ -68,6 +67,9 @@ static lv_obj_t* bt_status   = nullptr;
 static lv_obj_t* bt_row[BOOT_CHECK_COUNT]   = {};
 static lv_obj_t* bt_value[BOOT_CHECK_COUNT] = {};
 static bool      bt_revealed = false;
+// A check can land while the wordmark is still up. Its value is held here and
+// applied at reveal, so nothing is lost by showing the wordmark for longer.
+static bool      bt_pending[BOOT_CHECK_COUNT] = {};
 
 // ── Frame pump ──────────────────────────────────────────────────────────────
 // One redraw's worth of time. 15ms is the smallest step that still reads as
@@ -178,7 +180,7 @@ void bootScreenCreate(void) {
 
     // ── Check lines ─────────────────────────────────────────────────────────
     static const char* kLabel[BOOT_CHECK_COUNT] = {
-        "Display", "Wi-Fi", "Speakers", "Lyrics & weather"
+        "Display", "Wi-Fi", "Speakers"
     };
     for (int i = 0; i < BOOT_CHECK_COUNT; i++) {
         lv_obj_t* row = lv_obj_create(bt_header);
@@ -209,21 +211,6 @@ void bootScreenCreate(void) {
     lv_obj_set_pos(bt_status, SX(BT_PAD), SY(BT_STATUS_Y));
     lv_obj_add_flag(bt_status, LV_OBJ_FLAG_HIDDEN);
 
-    // ── Level meter, bottom right ───────────────────────────────────────────
-    static const int kLevel[4] = { 100, 34, 78, 18 };   // percent of BT_METER_H
-    const lv_color_t kMeterCol[4] = { ST_ACCENT, ST_ACCENT, ST_TEXT, ST_TEXT3 };
-
-    lv_obj_t* meter = lv_obj_create(bt_header);
-    lv_obj_remove_style_all(meter);
-    lv_obj_set_size(meter, SX(BT_METER_W), SY(BT_METER_H));
-    lv_obj_set_pos(meter, SX(800 - BT_PAD - BT_METER_W), SY(480 - BT_PAD - BT_METER_H));
-    lv_obj_set_flex_flow(meter, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(meter, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
-    lv_obj_set_style_pad_column(meter, SX(BT_METER_GAP), 0);
-    lv_obj_remove_flag(meter, LV_OBJ_FLAG_SCROLLABLE);
-    for (int i = 0; i < 4; i++)
-        stRoundRect(meter, BT_METER_BAR, BT_METER_H * kLevel[i] / 100, 5, kMeterCol[i]);
-
     // ── Footer ──────────────────────────────────────────────────────────────
     lv_obj_t* foot = stLabel(bt_header, &font_text_12, ST_TEXT3,
                              "ESP32-P4 · " PANEL_SIZE_LABEL " · 16 MB flash / 32 MB PSRAM");
@@ -245,6 +232,13 @@ void bootScreenReveal(void) {
         bootPump(15);
     }
     lv_obj_add_flag(bt_wordmark, LV_OBJ_FLAG_HIDDEN);
+
+    // Land whatever reported while the wordmark was up, in order.
+    for (int i = 0; i < BOOT_CHECK_COUNT; i++) {
+        if (!bt_pending[i] || !bt_row[i]) continue;
+        bt_pending[i] = false;
+        bootFade(bt_row[i], LV_OPA_TRANSP, LV_OPA_COVER, 6);
+    }
 }
 
 void bootScreenProgress(int percent) {
@@ -259,10 +253,13 @@ void bootScreenProgress(int percent) {
 
 void bootScreenCheck(BootCheck which, const char* value) {
     if (which < 0 || which >= BOOT_CHECK_COUNT) return;
-    bootScreenReveal();
     if (!bt_row[which]) return;
 
     if (value && bt_value[which]) lv_label_set_text(bt_value[which], value);
+
+    // Before the reveal the header is still transparent, so fading a row into it
+    // would be invisible work. Record it and let bootScreenReveal() land it.
+    if (!bt_revealed) { bt_pending[which] = true; return; }
     bootFade(bt_row[which], LV_OPA_TRANSP, LV_OPA_COVER, 8);
 }
 
@@ -290,6 +287,8 @@ void bootScreenFinish(lv_obj_t* next) {
     lv_obj_del(bt_scr);
 
     bt_scr = bt_wordmark = bt_header = bt_fill = bt_status = nullptr;
-    for (int i = 0; i < BOOT_CHECK_COUNT; i++) { bt_row[i] = nullptr; bt_value[i] = nullptr; }
+    for (int i = 0; i < BOOT_CHECK_COUNT; i++) {
+        bt_row[i] = nullptr; bt_value[i] = nullptr; bt_pending[i] = false;
+    }
     bt_revealed = false;
 }

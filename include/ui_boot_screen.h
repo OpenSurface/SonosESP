@@ -16,11 +16,14 @@
 
 #include "lvgl.h"
 
+// Only things the boot actually determines. There WAS a fourth line, "Lyrics &
+// weather", which reported the provider names — but nothing at boot contacts
+// LRCLIB or Open-Meteo, so it was a constant dressed up as a result. A check
+// line that always says the same thing teaches the user to ignore all of them.
 typedef enum {
     BOOT_CHECK_DISPLAY = 0,   // panel driver + resolution
-    BOOT_CHECK_WIFI,          // SSID + RSSI
-    BOOT_CHECK_SPEAKERS,      // room names, or why there are none
-    BOOT_CHECK_SERVICES,      // lyrics + weather providers
+    BOOT_CHECK_WIFI,          // SSID + RSSI, or why not
+    BOOT_CHECK_SPEAKERS,      // room that answered, or why none did
     BOOT_CHECK_COUNT
 } BootCheck;
 
@@ -30,6 +33,12 @@ void bootScreenCreate(void);
 
 // Cross-fades from the wordmark to the header/progress/checks view. Safe to
 // call more than once — the second call is a no-op.
+//
+// Call this DELIBERATELY, at the point the wordmark has been up long enough.
+// bootScreenCheck() no longer triggers it: the display check lands within
+// milliseconds of the screen appearing, so letting it reveal meant the wordmark
+// was gone almost before it was seen. Checks that arrive before the reveal are
+// held and land with it.
 void bootScreenReveal(void);
 
 // Advances the progress hairline and pumps LVGL, exactly as setup()'s old

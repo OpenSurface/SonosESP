@@ -301,8 +301,6 @@ void setup() {
 
     // Initialize lyrics PSRAM buffer before creating screens
     initLyrics();
-    bootScreenCheck(BOOT_CHECK_SERVICES,
-                    lyrics_enabled ? "LRCLIB · Open-Meteo" : "Weather only");
 
     // Resolve the saved player theme BEFORE the first build — createMainScreen()
     // dispatches to the active theme's builder. Clamps stale/invalid indices.
@@ -328,6 +326,12 @@ void setup() {
 
     createOTAScreen();
     bootScreenProgress(80);
+
+    // Hand the wordmark over to the check list here rather than at the first
+    // check. The display check resolves within milliseconds of the panel coming
+    // up, so revealing on it meant the wordmark flashed past; the screens above
+    // take long enough to build that it now gets a proper couple of seconds.
+    bootScreenReveal();
 
     // =========================================================================
     // BOOT OTA FAST PATH — before any background tasks start

@@ -49,35 +49,69 @@ typedef struct {
     lv_obj_t* title;
     lv_obj_t* meta;
     lv_obj_t* play_icon;
+    lv_obj_t* art;        // album artwork, when there is any
+    lv_obj_t* art_note;   // the music-note placeholder behind it
+    String    art_track;  // what `art` was last invalidated for
 } SbDock;
 
 static SbDock      sb_docks[SB_MAX_DOCKS];
 static uint8_t     sb_dock_count = 0;
 static lv_timer_t* sb_dock_timer = nullptr;
 
+// Writing one dock from the current player state. Split out of the timer so a
+// screen can fill its own dock the instant it loads: each settings screen builds
+// its OWN dock, so moving General -> Speakers -> Display used to show a blank
+// dock that only populated on the next 500ms tick. That read as the footer
+// reloading on every navigation.
+static void sbDockWrite(SbDock& d) {
+    if (!d.title) return;
+
+    SonosDevice* dev = sonos.getCurrentDevice();
+    const bool have = dev && dev->currentTrack.length();
+
+    if (have) {
+        lv_label_set_text(d.title, dev->currentTrack.c_str());
+        if (dev->currentArtist.length() && dev->roomName.length())
+            lv_label_set_text_fmt(d.meta, "%s · %s",
+                                  dev->currentArtist.c_str(), dev->roomName.c_str());
+        else if (dev->roomName.length())
+            lv_label_set_text(d.meta, dev->roomName.c_str());
+        else
+            lv_label_set_text(d.meta, dev->currentArtist.c_str());
+        lv_label_set_text(d.play_icon, dev->isPlaying ? ST_IC_PAUSE : ST_IC_PLAY);
+    } else {
+        lv_label_set_text(d.title, "Not Playing");
+        lv_label_set_text(d.meta, dev && dev->roomName.length()
+                                      ? dev->roomName.c_str() : "No speaker selected");
+        lv_label_set_text(d.play_icon, ST_IC_PLAY);
+    }
+
+    // ── Artwork ─────────────────────────────────────────────────────────────
+    // art_dsc points at art_buffer, a single PSRAM allocation made once and never
+    // freed, so a second lv_image on it cannot dangle. What it CAN do is show the
+    // previous track's pixels: the descriptor pointer never changes, so LVGL has
+    // no way to know the contents did. Invalidate when the track name changes.
+    if (!d.art) return;
+    const bool art_ok = have && art_dsc.data != nullptr;
+    if (art_ok) {
+        if (d.art_track != dev->currentTrack) {
+            d.art_track = dev->currentTrack;
+            lv_obj_invalidate(d.art);
+        }
+        lv_obj_remove_flag(d.art, LV_OBJ_FLAG_HIDDEN);
+        if (d.art_note) lv_obj_add_flag(d.art_note, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        d.art_track = "";
+        lv_obj_add_flag(d.art, LV_OBJ_FLAG_HIDDEN);
+        if (d.art_note) lv_obj_remove_flag(d.art_note, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
 static void sbDockTick(lv_timer_t*) {
     lv_obj_t* active = lv_screen_active();
     for (uint8_t i = 0; i < sb_dock_count; i++) {
-        SbDock& d = sb_docks[i];
-        if (d.screen != active || !d.title) continue;
-
-        SonosDevice* dev = sonos.getCurrentDevice();
-        if (dev && dev->currentTrack.length()) {
-            lv_label_set_text(d.title, dev->currentTrack.c_str());
-            if (dev->currentArtist.length() && dev->roomName.length())
-                lv_label_set_text_fmt(d.meta, "%s · %s",
-                                      dev->currentArtist.c_str(), dev->roomName.c_str());
-            else if (dev->roomName.length())
-                lv_label_set_text(d.meta, dev->roomName.c_str());
-            else
-                lv_label_set_text(d.meta, dev->currentArtist.c_str());
-            lv_label_set_text(d.play_icon, dev->isPlaying ? ST_IC_PAUSE : ST_IC_PLAY);
-        } else {
-            lv_label_set_text(d.title, "Not Playing");
-            lv_label_set_text(d.meta, dev && dev->roomName.length()
-                                          ? dev->roomName.c_str() : "No speaker selected");
-            lv_label_set_text(d.play_icon, ST_IC_PLAY);
-        }
+        if (sb_docks[i].screen != active) continue;
+        sbDockWrite(sb_docks[i]);
         return;   // only ever one active screen
     }
 }
@@ -130,10 +164,8 @@ static void buildDock(lv_obj_t* screen) {
     lv_obj_remove_flag(dock, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(dock, LV_OBJ_FLAG_CLICKABLE);
 
-    // A glyph tile, not the album artwork. art_dsc is rebuilt by the art task
-    // under art_mutex and img_album on the player is its only consumer; adding a
-    // second lv_image onto the same descriptor means a buffer swap can land
-    // under a widget nothing invalidates. Not worth a thumbnail.
+    // The artwork tile: the real album art when there is any, a music-note glyph
+    // otherwise. Both live in the same 40px box and are swapped by sbDockWrite().
     lv_obj_t* tile = lv_obj_create(dock);
     lv_obj_set_size(tile, SMIN(40), SMIN(40));
     lv_obj_align(tile, LV_ALIGN_LEFT_MID, 0, 0);
@@ -143,11 +175,23 @@ static void buildDock(lv_obj_t* screen) {
     lv_obj_set_style_pad_all(tile, 0, 0);
     lv_obj_remove_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(tile, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_clip_corner(tile, true, 0);
+
     lv_obj_t* note = lv_label_create(tile);
     lv_label_set_text(note, ST_IC_MUSIC);
     lv_obj_set_style_text_font(note, &font_icon_24, 0);
     lv_obj_set_style_text_color(note, ST_TEXT3, 0);
     lv_obj_center(note);
+
+    // The decoded art is ART_PX square; scale it into the 40px tile. Scaling
+    // means no rounded clip mask (see the issue #89 note in ui_common.h), which
+    // is why the TILE carries the radius and clips its child instead.
+    lv_obj_t* art = lv_image_create(tile);
+    lv_image_set_src(art, &art_dsc);
+    lv_image_set_scale(art, (LV_SCALE_NONE * SMIN(40)) / ART_PX);
+    lv_obj_set_size(art, SMIN(40), SMIN(40));
+    lv_obj_center(art);
+    lv_obj_add_flag(art, LV_OBJ_FLAG_HIDDEN);
 
     // Right-hand controls first, so the text block can claim what is left.
     lv_obj_t* back = lv_button_create(dock);
@@ -189,7 +233,21 @@ static void buildDock(lv_obj_t* screen) {
     lv_obj_set_style_text_font(meta, &font_text_12, 0);
     lv_obj_set_style_text_color(meta, ST_TEXT3, 0);
 
-    sb_docks[sb_dock_count++] = { screen, title, meta, lv_obj_get_child(b_play, 0) };
+    sb_docks[sb_dock_count] = { screen, title, meta, lv_obj_get_child(b_play, 0),
+                                art, note, String() };
+    // Fill it the moment the screen appears, so navigating between settings pages
+    // does not flash an empty footer for up to half a second.
+    lv_obj_add_event_cb(screen, [](lv_event_t* e) {
+        if (lv_event_get_code(e) != LV_EVENT_SCREEN_LOADED) return;
+        lv_obj_t* scr = (lv_obj_t*)lv_event_get_target(e);
+        for (uint8_t i = 0; i < sb_dock_count; i++)
+            if (sb_docks[i].screen == scr) { sbDockWrite(sb_docks[i]); return; }
+    }, LV_EVENT_SCREEN_LOADED, nullptr);
+
+    // And once now, so the very first paint is already correct.
+    sbDockWrite(sb_docks[sb_dock_count]);
+    sb_dock_count++;
+
     lv_obj_add_event_cb(screen, sbDockScreenDeleted, LV_EVENT_DELETE, nullptr);
 
     if (!sb_dock_timer) sb_dock_timer = lv_timer_create(sbDockTick, 500, nullptr);
