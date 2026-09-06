@@ -116,11 +116,11 @@ SonosESP runs on **GUITION ESP32-P4 + ESP32-C6 touchscreen boards**. Both panel 
 build from the same codebase, and the installer and OTA select the right image
 automatically (`firmware-4inch.bin` / `firmware-7inch.bin`).
 
-![GUITION JC4880P433C ESP32-P4 touchscreen development board](assets/image.png)
+![GUITION JC4880P443C ESP32-P4 touchscreen development board](assets/image.png)
 
 | | **4″ — stable** | **7″ — beta** |
 |---|---|---|
-| **Board** | GUITION JC4880P433C | GUITION JC1060P470C |
+| **Board** | GUITION JC4880P443C | GUITION JC1060P470C |
 | **Display** | 800×480, ST7701 (MIPI DSI) | 1024×600, JD9165 (MIPI DSI) |
 | **Touch** | GT911 capacitive (I²C) | GT911 capacitive (I²C) |
 | **MCU** | ESP32-P4, 400 MHz dual-core RISC-V | ESP32-P4, 400 MHz dual-core RISC-V |

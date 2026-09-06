@@ -25,11 +25,22 @@
 :root {
   --se-ground: #0c0b0a;
   --se-ink: #f2ece4;
-  --se-accent: oklch(0.7 0.16 40);          /* coral - the site accent        */
-  --se-accent-text: oklch(0.78 0.13 42);
-  --se-accent-hover: oklch(0.86 0.1 45);
-  --se-accent-glow: oklch(0.7 0.16 40 / 0.8);
-  --se-gold: #E0B252;                        /* the firmware's AMB_ACCENT      */
+
+  /* The accent is the firmware's own gold, value for value, so the site and the
+     device are not two different brands. These are AMB_ACCENT, AMB_ACCENT_HI,
+     AMB_ACCENT_DIM and AMB_ACCENT_WASH out of include/amber.h. */
+  --se-gold:        #E0B252;
+  --se-accent:      #E0B252;
+  --se-accent-text: #E0B252;
+  --se-accent-hover:#EFC468;
+  --se-accent-glow: rgba(224, 178, 82, .8);
+  --se-accent-dim:  #4A3D22;   /* gold hairline border   */
+  --se-accent-wash: #241F16;   /* gold-tinted surface    */
+
+  /* Kept coral, deliberately: the hero bloom is atmosphere, not meaning, and a
+     single-hue gradient reads flat. Coral into amber keeps the warmth. */
+  --se-bloom-a: oklch(0.7 0.16 40 / 0.2);
+  --se-bloom-b: oklch(0.74 0.12 72 / 0.15);
   --se-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --se-sans: Sora, Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
@@ -49,7 +60,145 @@
    short page does not show the docs theme's background under the footer. */
 body:has(.home-page) { background: var(--se-ground); }
 
-.home-page ::selection { background: oklch(0.7 0.16 40 / 0.35); }
+.home-page ::selection { background: rgba(224, 178, 82, .3); }
 .home-page a { text-decoration: none; }
 html:has(.home-page) { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html:has(.home-page) { scroll-behavior: auto; } }
+
+/* ══ Docs pages ═══════════════════════════════════════════════════════════
+   The design ships two docs artboards (Install, Features) that share one
+   shell: sticky 62px header, 220px sticky sidebar, 780px body, 1320px
+   container. Rather than replace VitePress's layout with a custom one, this
+   maps its own tokens onto the design's palette and type - so every page gets
+   it, including the ones the handoff never drew (setup, sources, themes,
+   updates, troubleshooting, 7-inch, and the 404).
+
+   Declared on `:root, .dark` because appearance:'force-dark' stamps .dark on
+   the html element, and a bare :root would only tie with the theme's own .dark
+   block rather than beat it.                                                  */
+:root, .dark {
+  --vp-c-bg:        #0c0b0a;
+  --vp-c-bg-alt:    #0a0908;   /* sidebar, footer            */
+  --vp-c-bg-soft:   #100e0d;   /* cards, inset panels        */
+  --vp-c-bg-elv:    #151311;   /* popovers, search modal     */
+
+  --vp-c-text-1: #f2ece4;
+  --vp-c-text-2: rgba(242, 236, 228, .68);
+  --vp-c-text-3: rgba(242, 236, 228, .5);
+
+  --vp-c-divider: rgba(242, 236, 228, .1);
+  --vp-c-gutter:  rgba(242, 236, 228, .08);
+  --vp-c-border:  rgba(242, 236, 228, .12);
+
+  --vp-c-brand-1: #E0B252;
+  --vp-c-brand-2: #EFC468;
+  --vp-c-brand-3: #E0B252;
+  --vp-c-brand-soft: rgba(224, 178, 82, .14);
+
+  --vp-font-family-base: Sora, Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --vp-font-family-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --vp-nav-height: 62px;
+  --vp-layout-max-width: 1320px;
+  --vp-sidebar-width: 240px;
+
+  --vp-code-block-bg: #060505;
+  --vp-code-copy-code-bg: #151311;
+
+  /* Buttons take the design's filled-ink pill rather than a coral fill. */
+  --vp-button-brand-bg: #f2ece4;
+  --vp-button-brand-text: #17120f;
+  --vp-button-brand-hover-bg: #ffffff;
+  --vp-button-brand-hover-text: #17120f;
+  --vp-button-brand-border: transparent;
+}
+
+/* Header: the same blurred bar the home page draws itself. */
+.VPNavBar, .VPNavBar.has-sidebar .content-body {
+  background: rgba(12, 11, 10, .72) !important;
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+}
+.VPNavBar { border-bottom: 1px solid rgba(242, 236, 228, .08); }
+.VPNavBar .divider { display: none; }
+/* The gold half of the wordmark, from themeConfig.siteTitle. */
+.VPNavBarTitle .site-esp { color: var(--se-gold); }
+.VPNavBarMenuLink { font-size: 13.5px; font-weight: 500; }
+
+/* Sidebar: active item gets the coral rule the design specifies. */
+.VPSidebar { background: var(--vp-c-bg-alt); border-right: 1px solid rgba(242, 236, 228, .07); }
+.VPSidebarItem.level-0 > .item > .text {
+  font-family: var(--vp-font-family-mono); font-size: 10.5px;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: rgba(242, 236, 228, .5); font-weight: 400;
+}
+.VPSidebarItem.level-1 .link .link-text { font-size: 14px; }
+.VPSidebarItem.is-active > .item .link-text { color: var(--vp-c-text-1); font-weight: 600; }
+.VPSidebarItem.level-1.is-active > .item {
+  border-left: 2px solid var(--se-gold);
+  background: rgba(242, 236, 228, .05);
+  margin-left: -14px; padding-left: 12px; border-radius: 0 6px 6px 0;
+}
+
+/* Body type. Headings pick up the design's tight tracking and hairline rule. */
+.vp-doc h1 { font-size: clamp(2rem, 4vw, 2.8rem); line-height: 1.08; letter-spacing: -.035em; font-weight: 600; }
+.vp-doc h2 {
+  margin: 48px 0 16px; padding-bottom: 12px; letter-spacing: -.025em; font-weight: 600;
+  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
+  border-top: 0; border-bottom: 1px solid rgba(242, 236, 228, .1);
+}
+.vp-doc h3 { margin-top: 32px; letter-spacing: -.02em; font-weight: 600; font-size: 1.15rem; }
+.vp-doc p, .vp-doc li { line-height: 1.65; }
+.vp-doc a { font-weight: 500; text-decoration-color: rgba(224, 178, 82, .35); }
+
+/* Tables - the design has no spec for these, so they follow the card grammar. */
+.vp-doc table { display: table; width: 100%; border-collapse: collapse; margin: 22px 0; }
+.vp-doc tr { background: transparent; border-top: 1px solid rgba(242, 236, 228, .07); }
+.vp-doc th {
+  font-family: var(--vp-font-family-mono); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(242, 236, 228, .64); background: transparent;
+  border: 0; border-bottom: 1px solid rgba(242, 236, 228, .12); padding: 10px 14px 10px 0;
+  text-align: left;
+}
+.vp-doc td {
+  border: 0; padding: 12px 14px 12px 0; font-size: .94rem;
+  color: rgba(242, 236, 228, .74);
+}
+
+/* Admonitions - likewise undesigned; built from the coral callout the Install
+   artboard uses for "Wi-Fi is 2.4 GHz only." */
+.vp-doc .custom-block {
+  border: 1px solid rgba(242, 236, 228, .12); border-left-width: 2px;
+  border-radius: 0 12px 12px 0; background: rgba(242, 236, 228, .025);
+  padding: 16px 18px; font-size: .94rem;
+}
+.vp-doc .custom-block .custom-block-title {
+  font-family: var(--vp-font-family-mono); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .16em; text-transform: uppercase; margin-bottom: 8px;
+}
+.vp-doc .custom-block.tip     { border-left-color: var(--se-gold); }
+.vp-doc .custom-block.tip .custom-block-title { color: var(--se-gold); }
+.vp-doc .custom-block.info    { border-left-color: rgba(242, 236, 228, .35); }
+/* Burnt orange, not amber: with the accent now gold, an amber warning would be
+   the same colour as an ordinary link. */
+.vp-doc .custom-block.warning { border-left-color: #c9752f; }
+.vp-doc .custom-block.warning .custom-block-title { color: #e09a5a; }
+.vp-doc .custom-block.danger  { border-left-color: #c9552f; }
+.vp-doc .custom-block.danger .custom-block-title { color: #e07a5a; }
+.vp-doc .custom-block a { color: var(--se-gold); }
+
+/* Code */
+.vp-doc div[class*='language-'] { border-radius: 12px; border: 1px solid rgba(242, 236, 228, .08); }
+.vp-doc :not(pre) > code {
+  font-size: .86em; padding: 3px 6px; border-radius: 5px;
+  background: rgba(242, 236, 228, .07); color: #f2ece4;
+}
+
+/* Prev/next pager and footer, as bordered cards. */
+.VPDocFooter .pager-link {
+  border-radius: 12px; border: 1px solid rgba(242, 236, 228, .1);
+  background: rgba(242, 236, 228, .025);
+}
+.VPDocFooter .pager-link:hover { border-color: rgba(242, 236, 228, .24); background: rgba(242, 236, 228, .045); }
+.VPFooter { background: var(--vp-c-bg-alt); border-top: 1px solid rgba(242, 236, 228, .07); }

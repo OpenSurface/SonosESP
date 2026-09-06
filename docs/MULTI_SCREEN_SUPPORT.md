@@ -9,7 +9,7 @@
 
 ## 1. Goal
 
-Support multiple hardware variants (today: **4″ JC4880P433C**, **7″ JC1060P470C**; tomorrow:
+Support multiple hardware variants (today: **4″ JC4880P443C**, **7″ JC1060P470C**; tomorrow:
 more) from **one codebase**, with:
 
 - one set of source/logic shared by all boards,
@@ -45,7 +45,7 @@ Nothing is variant-aware — this is greenfield.
 
 | | **4″ (current)** | **7″ (new)** |
 |---|---|---|
-| Board | GUITION JC4880P433C | GUITION JC1060P470C |
+| Board | GUITION JC4880P443C | GUITION JC1060P470C |
 | SoC | ESP32-P4 + C6 | ESP32-P4 + C6 |
 | Panel driver | **ST7701** (MIPI DSI) | **JD9165** (MIPI DSI) |
 | Resolution (landscape) | **800 × 480** | **1024 × 600** |

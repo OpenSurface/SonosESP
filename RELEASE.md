@@ -36,7 +36,7 @@ the same source via PlatformIO envs (see `platformio.ini`):
 
 | Variant | Env | Board | App binary |
 |---|---|---|---|
-| **4″** (shipping) | `esp32_4inch` | GUITION JC4880P433C (ST7701, 800×480) | `firmware-4inch.bin` |
+| **4″** (shipping) | `esp32_4inch` | GUITION JC4880P443C (ST7701, 800×480) | `firmware-4inch.bin` |
 | **7″** (BETA) | `esp32_7inch` | GUITION JC1060P470C (JD9165, 1024×600) | `firmware-7inch.bin` |
 
 - `bootloader.bin` / `partitions.bin` are **board-level and identical** across both, so a release ships one shared copy of each.

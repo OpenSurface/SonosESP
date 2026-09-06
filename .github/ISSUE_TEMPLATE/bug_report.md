@@ -11,7 +11,7 @@ assignees: ''
 A clear and concise description of what the bug is.
 
 **Hardware**
-- Board: [e.g., GUITION JC4880P433C]
+- Board: [e.g., GUITION JC4880P443C]
 - Flash: [e.g., Boya BY25Q]
 - PSRAM: [e.g., 32MB OPI]
 - Display: [e.g., ST7701 MIPI DSI 480x800]

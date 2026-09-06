@@ -26,7 +26,7 @@ Fixes #(issue number)
 <!-- Describe the tests you ran to verify your changes -->
 
 ### Hardware Testing
-- [ ] Tested on GUITION JC4880P433C (ESP32-P4 + ESP32-C6)
+- [ ] Tested on GUITION JC4880P443C (ESP32-P4 + ESP32-C6)
 - [ ] Tested on other hardware: _______________
 
 ### Functionality Testing
