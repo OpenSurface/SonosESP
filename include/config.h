@@ -263,7 +263,13 @@
 #define NVS_KEY_AUTODIM         "autodim_sec"
 #define NVS_KEY_THEME           "theme"         // player theme index (see ui_theme.h)
 #define NVS_KEY_THEME_VER       "theme_v"       // theme-index schema version (<=15 chars)
-#define DEFAULT_THEME           0               // 0 = Classic (unchanged original look)
+// Index into THEMES[] (ui_theme.cpp): 0 SonosESP, 1 Immersive, 2 Amber.
+//
+// ONLY applies to a device with no saved choice — themeLoad() passes this as the
+// getInt() fallback, so anyone who has ever picked a theme keeps it. A fresh
+// flash does not erase NVS either, so this changes what NEW installs look like,
+// not what existing users wake up to.
+#define DEFAULT_THEME           2               // Amber
 #define NVS_KEY_OTA_CHANNEL     "ota_channel"
 #define NVS_KEY_CACHED_DEVICE   "cached_dev"
 #define NVS_KEY_LYRICS          "lyrics"
@@ -310,7 +316,10 @@
 // StandBy is the default face: existing users have no clk_style key in NVS, so
 // they pick up this default on upgrade and get the new clock without touching
 // settings. Anyone who explicitly selects Classic has the key written and keeps it.
-#define CLOCK_DEFAULT_STYLE    CLOCK_STYLE_HORIZON
+// Same rule as DEFAULT_THEME: the fallback for a device that has never chosen a
+// face. Amber matches the default player, so a new install is one design system
+// from the boot screen through to the screensaver.
+#define CLOCK_DEFAULT_STYLE    CLOCK_STYLE_AMBER
 
 #define CLOCK_DEFAULT_MODE       0    // Disabled by default
 #define CLOCK_DEFAULT_TIMEOUT    5    // 5 minutes inactivity before clock
