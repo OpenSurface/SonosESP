@@ -22,7 +22,7 @@
  *
  * ── Grid, in 800x480 design space (SX/SY scale it to the panel) ─────────────
  *   margin        44 either side
- *   header row    y  38, 24 tall
+ *   header row    y  38, 24 tall  (wordmark + version; no logo mark)
  *   progress      y  96, 3 tall, 712 wide
  *   check lines   y 150, 520 wide, 24 tall, 18 apart
  *   footer        y 422, left margin
@@ -95,22 +95,29 @@ static void bootFade(lv_obj_t* obj, lv_opa_t from, lv_opa_t to, int steps) {
     }
 }
 
-// The four-bar mark standing in for a logo. `unit` is the bar width; heights
-// follow the design's 20/38/28/44 ratio scaled to `tall`.
-static lv_obj_t* bootMark(lv_obj_t* parent, int unit, int gap, int tall) {
-    static const int kRatio[4] = { 45, 86, 64, 100 };   // percent of `tall`
-    const lv_color_t kCol[4]   = { ST_ACCENT, ST_ACCENT, ST_TEXT3, ST_TEXT };
-
+// The wordmark: "Sonos" in the text colour, "ESP" in the palette gold.
+//
+// TWO LABELS, not one with inline markup. LVGL's recolour markup is a per-build
+// option and changes how the string is parsed; two labels in a flex row need
+// nothing enabled, keep the two halves independently styleable, and cannot be
+// broken by a stray '#' arriving in a future string.
+//
+// pad_column is 0 and both halves carry the same negative tracking, so they join
+// as one word rather than reading as "Sonos ESP".
+static lv_obj_t* bootWordmark(lv_obj_t* parent, const lv_font_t* font, int track) {
     lv_obj_t* row = lv_obj_create(parent);
     lv_obj_remove_style_all(row);
-    lv_obj_set_size(row, SX(unit * 4 + gap * 3), SY(tall));
+    lv_obj_set_size(row, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
-    lv_obj_set_style_pad_column(row, SX(gap), 0);
+    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
+                          LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(row, 0, 0);
     lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
-    for (int i = 0; i < 4; i++)
-        stRoundRect(row, unit, tall * kRatio[i] / 100, unit / 2, kCol[i]);
+    lv_obj_t* a = stLabel(row, font, ST_TEXT, "Sonos");
+    lv_obj_set_style_text_letter_space(a, track, 0);
+    lv_obj_t* b = stLabel(row, font, ST_ACCENT, "ESP");
+    lv_obj_set_style_text_letter_space(b, track, 0);
     return row;
 }
 
@@ -135,19 +142,7 @@ void bootScreenCreate(void) {
     lv_obj_set_style_pad_row(bt_wordmark, SY(16), 0);
     lv_obj_remove_flag(bt_wordmark, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t* mark_row = lv_obj_create(bt_wordmark);
-    lv_obj_remove_style_all(mark_row);
-    lv_obj_set_size(mark_row, LV_SIZE_CONTENT, SY(48));
-    lv_obj_set_flex_flow(mark_row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(mark_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
-                          LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_column(mark_row, SX(16), 0);
-    lv_obj_remove_flag(mark_row, LV_OBJ_FLAG_SCROLLABLE);
-
-    bootMark(mark_row, 7, 4, 44);
-    lv_obj_t* word = stLabel(mark_row, &font_text_48, ST_TEXT, "SonosESP");
-    lv_obj_set_style_text_letter_space(word, -1, 0);
-
+    bootWordmark(bt_wordmark, &font_text_48, -1);
     stCaption(bt_wordmark, ST_TEXT3, "TOUCHSCREEN SONOS CONTROLLER", 5);
 
     // ── Stage 2: header, progress, checks, meter, footer ────────────────────
@@ -171,8 +166,7 @@ void bootScreenCreate(void) {
     lv_obj_set_style_pad_column(head, SX(12), 0);
     lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
 
-    bootMark(head, 4, 3, 22);
-    stLabel(head, &font_text_20, ST_TEXT, "SonosESP");
+    bootWordmark(head, &font_text_20, 0);
     lv_obj_t* ver = stCaption(head, ST_TEXT3, "v" FIRMWARE_VERSION, 2);
     lv_obj_set_style_pad_left(ver, SX(8), 0);
 

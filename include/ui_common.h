@@ -54,8 +54,6 @@
 #define NETWORK_MUTEX_TIMEOUT_MS 5000    // Timeout for acquiring network mutex (SOAP)
 #define NETWORK_MUTEX_TIMEOUT_ART_MS 10000 // Longer timeout for album art downloads
 
-// Sonos logo declaration
-LV_IMG_DECLARE(Sonos_idnu60bqes_1);
 
 // ============================================================================
 // Color Theme - extern declarations

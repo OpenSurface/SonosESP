@@ -19,8 +19,6 @@
 #if SCREEN_SIZE == 7
 #include "../lib/jd9165_lcd/jd9165_panels.h"
 #endif
-// Sonos logo
-LV_IMG_DECLARE(Sonos_idnu60bqes_1);
 
 static volatile bool sonos_started = false;  // true once Sonos tasks are running (written by deferred task, read by mainAppTask)
 static volatile bool deferred_discovery_running = false;  // guards the one-shot deferred discovery task (issue #69)
