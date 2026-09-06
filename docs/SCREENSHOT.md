@@ -15,6 +15,27 @@ you are capturing on the UART rather than native USB-CDC, which ignores it.
 The UI freezes for a second or two while the frame transfers. That is the dump,
 not a crash.
 
+A frame is ~1.1 MB of base64, so at 115200 baud the transfer alone is around 90
+seconds. That is the line rate, not overhead. If a capture fails mid-stream it is
+almost always another task logging into the same port and corrupting a line —
+just run it again.
+
+## A whole tour at once
+
+`tools/capture_tour.py` walks every screen, saves a PNG each, and assembles the
+homepage GIF:
+
+```
+python tools/capture_tour.py COM9 --gif docs/public/sonosESP.gif
+```
+
+It prompts before each shot so you can navigate there: Enter to capture, `s` to
+skip, `r` to retake the last one. `--only player,queue,rooms` captures a subset.
+
+It prompts rather than driving the UI on purpose. The firmware has no
+remote-navigation command, and adding one would mean a serial control surface in
+production firmware plus a reflash, to save a few minutes of tapping.
+
 ## How it works
 
 LVGL renders with `LV_DISPLAY_RENDER_MODE_FULL`, so `display_flush()` is handed
