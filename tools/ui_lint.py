@@ -221,6 +221,98 @@ def check_content_overflow(findings):
                      % (var, top, h, top + h, SETTINGS_INNER_H, top)))
 
 
+# Sites that already carried the unbounded-DOT defect when the rule was written.
+# They are NOT waived: they are held back from failing CI so the rule can start
+# guarding new code immediately instead of waiting for a 25-file sweep.
+#
+# Clearing them needs a decision per site rather than a blanket edit, which is
+# why they are not simply fixed here. Some of these labels are meant to wrap -
+# the OTA warning and the Wi-Fi status read as sentences - and forcing those to
+# one line would trade an overlap for a truncation. Each needs someone to say
+# "this is a row" or "this is a paragraph", then either ambOneLine() or an
+# explicit LV_LABEL_LONG_WRAP that records the intent.
+#
+# Matched on (file, variable) rather than line number so ordinary edits above
+# them do not silently re-arm the rule.
+UNBOUNDED_DOT_BASELINE = {
+    ('ui_clock_amber.cpp', 'af_now_title'),
+    ('ui_clock_screen.cpp', 'clock_wx_fl_lbl'),
+    ('ui_clock_screen.cpp', 'clock_wx_rise_t_lbl'),
+    ('ui_clock_screen.cpp', 'clock_wx_set_t_lbl'),
+    ('ui_clock_screen.cpp', 'clock_wx_uv_lbl'),
+    ('ui_devices_screen.cpp', 'lbl'),
+    ('ui_groups_screen.cpp', 'addLbl'),
+    ('ui_groups_screen.cpp', 'lbl'),
+    ('ui_groups_screen.cpp', 'sub2'),
+    ('ui_handlers.cpp', 'ssid_lbl'),
+    ('ui_ota_screen.cpp', 'lbl_info'),
+    ('ui_ota_screen.cpp', 'lbl_latest_version'),
+    ('ui_ota_screen.cpp', 'lbl_ota_status'),
+    ('ui_ota_screen.cpp', 'lbl_warn'),
+    ('ui_settings_screens.cpp', 'artist'),
+    ('ui_settings_screens.cpp', 'lbl_title'),
+    ('ui_settings_screens.cpp', 'lbl_trail'),
+    ('ui_settings_screens.cpp', 'name'),
+    ('ui_settings_screens.cpp', 'title'),
+    ('ui_sidebar.cpp', 'meta'),
+    ('ui_sidebar.cpp', 'title'),
+    ('ui_theme_immersive.cpp', 'lbl_next_artist'),
+    ('ui_theme_immersive.cpp', 'lbl_next_title'),
+    ('ui_wifi_screen.cpp', 'lbl_pw_ssid'),
+    ('ui_wifi_screen.cpp', 'lbl_wifi_status'),
+}
+
+
+def check_unbounded_dot(findings):
+    """LV_LABEL_LONG_DOT on a label that was given a width but never a height.
+
+    This is issue #151. DOT truncates against the object's box, so it needs a
+    bounded HEIGHT as well as a width - a width alone leaves the height at
+    content size, and LVGL has nothing to clip to. The string then wraps to two
+    or three lines and the label grows downward instead of ellipsising. Every
+    list row in this project stacks a title and a subtitle aligned about their
+    middle, so growing one made them climb over each other: the Rooms overlap
+    John photographed, and the same latent defect in the queue drawer.
+
+    The fix is ambOneLine(), which sets width, height and long mode together so
+    they cannot drift apart again. This rule catches anyone re-introducing the
+    split pair - including the author of that helper, next time.
+
+    Deliberately narrow: it only fires when a set_width and a LONG_DOT name the
+    same variable and no set_size/set_height ever does. A label sized with
+    set_size is fine, and so is one left to wrap on purpose.
+    """
+    width_re = re.compile(r'lv_obj_set_width\s*\(\s*(\w+)')
+    sized_re = re.compile(r'lv_obj_set_(?:size|height)\s*\(\s*(\w+)')
+    dot_re = re.compile(r'lv_label_set_long_mode\s*\(\s*(\w+)\s*,\s*LV_LABEL_LONG_DOT')
+    for path in source_files():
+        with open(path, encoding='utf-8', errors='replace') as fh:
+            lines = [strip_comment(l) for l in fh]
+
+        widthed, sized, dotted = {}, set(), {}
+        for n, line in enumerate(lines, 1):
+            m = width_re.search(line)
+            if m:
+                widthed.setdefault(m.group(1), n)
+            m = sized_re.search(line)
+            if m:
+                sized.add(m.group(1))
+            m = dot_re.search(line)
+            if m:
+                dotted.setdefault(m.group(1), n)
+
+        base = os.path.basename(path)
+        for var, n in sorted(dotted.items(), key=lambda kv: kv[1]):
+            if var not in widthed or var in sized:
+                continue
+            key = ('unbounded-dot-known' if (base, var) in UNBOUNDED_DOT_BASELINE
+                   else 'unbounded-dot')
+            findings[key].append(
+                (path, n, '%s: LONG_DOT with a width (line %d) but no height '
+                          '- it will wrap and overlap, not ellipsise. '
+                          'Use ambOneLine().' % (var, widthed[var])))
+
+
 def check_helper_bypass(findings):
     """Settings screens hand-rolling a widget that already has a shared helper."""
     helpers = {
@@ -252,6 +344,7 @@ def main():
     check_geometry(findings)
     check_parts(findings)
     check_content_overflow(findings)
+    check_unbounded_dot(findings)
     check_helper_bypass(findings)
 
     order = [
@@ -260,6 +353,8 @@ def main():
         ('unstyled-scrollbar',        'Visible scrollbar, never styled (light-theme leak)'),
         ('unstyled-dropdown-selection', 'Dropdown selection never styled (light-theme leak)'),
         ('content-overflow',          'Child overflows the settings content area'),
+        ('unbounded-dot',             'LONG_DOT without a height - wraps instead of truncating'),
+        ('unbounded-dot-known',       'Same defect, pre-existing (see UNBOUNDED_DOT_BASELINE)'),
         ('helper-bypassed',           'Shared helper bypassed'),
         ('geometry-unscaled',         'Raw pixels, will not scale to the 7in panel'),
         ('colour-one-off',            'One-off literal (informational)'),
@@ -287,7 +382,9 @@ def main():
     # Informational categories never fail the build: a one-off literal may be a
     # deliberate semantic colour (the WHO UV index scale, a per-theme backdrop).
     # Gating CI on those would train people to ignore the linter.
-    INFORMATIONAL = {'colour-one-off'}
+    # unbounded-dot-known is the pre-existing backlog. Held informational so the
+    # rule gates new code from today; clearing the baseline promotes it.
+    INFORMATIONAL = {'colour-one-off', 'unbounded-dot-known'}
     actionable = sum(len(findings[k]) for k, _ in order if k not in INFORMATIONAL)
 
     print('TOTAL: %d finding(s) - %d actionable, %d informational'

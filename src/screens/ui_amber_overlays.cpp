@@ -278,15 +278,11 @@ static void ovFillQueue(void) {
         }
         const int tw = OV_DRAWER_W - 36 - 26 - (dur ? 60 : 0);
 
-        lv_obj_t* t = ambLabel(row, &font_text_14, playing ? AMB_ACCENT : AMB_TEXT,
-                              it->title.c_str());
-        lv_obj_set_width(t, SX(tw));
-        lv_label_set_long_mode(t, LV_LABEL_LONG_DOT);
+        lv_obj_t* t = ambOneLine(row, &font_text_14, playing ? AMB_ACCENT : AMB_TEXT,
+                                 it->title.c_str(), tw);
         lv_obj_align(t, LV_ALIGN_LEFT_MID, SX(26), SY(-9));
 
-        lv_obj_t* a = ambLabel(row, &font_text_12, AMB_TEXT3, it->artist.c_str());
-        lv_obj_set_width(a, SX(tw));
-        lv_label_set_long_mode(a, LV_LABEL_LONG_DOT);
+        lv_obj_t* a = ambOneLine(row, &font_text_12, AMB_TEXT3, it->artist.c_str(), tw);
         lv_obj_align(a, LV_ALIGN_LEFT_MID, SX(26), SY(11));
     }
 }
@@ -387,10 +383,8 @@ static void ovFillRooms(void) {
                                 AMB_IC_SPEAKER);
         lv_obj_align(ico, LV_ALIGN_LEFT_MID, 0, 0);
 
-        lv_obj_t* name = ambLabel(hit, &font_text_16, sel ? AMB_TEXT : AMB_TEXT2,
-                                 d->roomName.c_str());
-        lv_obj_set_width(name, SX(160));
-        lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
+        lv_obj_t* name = ambOneLine(hit, &font_text_16, sel ? AMB_TEXT : AMB_TEXT2,
+                                    d->roomName.c_str(), 160);
         lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(34), SY(-9));
 
         // Green is reserved for live playback, per the canvas.
@@ -399,9 +393,8 @@ static void ovFillRooms(void) {
             snprintf(sub, sizeof(sub), "Playing · %s", d->currentArtist.c_str());
         else
             snprintf(sub, sizeof(sub), "%s", d->isPlaying ? "Playing" : "Idle");
-        lv_obj_t* st = ambLabel(hit, &font_text_12, d->isPlaying ? AMB_LIVE : AMB_TEXT3, sub);
-        lv_obj_set_width(st, SX(160));
-        lv_label_set_long_mode(st, LV_LABEL_LONG_DOT);
+        lv_obj_t* st = ambOneLine(hit, &font_text_12,
+                                  d->isPlaying ? AMB_LIVE : AMB_TEXT3, sub, 160);
         lv_obj_align(st, LV_ALIGN_LEFT_MID, SX(34), SY(11));
 
         // ── Inline volume ───────────────────────────────────────────────────

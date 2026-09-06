@@ -102,6 +102,18 @@ lv_obj_t* ambRoundRect(lv_obj_t* parent, int w, int h, int radius, lv_color_t co
 lv_obj_t* ambLabel(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,
                   const char* txt);
 
+// One-line label that ellipsises. Sets the width, the height AND the long mode
+// together, because LV_LABEL_LONG_DOT needs a bounded HEIGHT to clip against -
+// a width alone is not enough. Left at content height, LVGL has nothing to
+// truncate to, so a long string wraps to two or three lines and the label grows
+// instead. Rows here are aligned about their middle, so growing made the title
+// and the subtitle climb over each other: that is the overlap in issue #151.
+//
+// Pass the same font the label is drawn in; the height comes from its real line
+// height, so it is right on both the 4" and 7" panels without a second constant.
+lv_obj_t* ambOneLine(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,
+                     const char* txt, int w);
+
 // Tracked caption ("NEXT", "HUMIDITY", "PAUSED · LIVING ROOM"). The canvas sets
 // these at 10.5-12px/700 with .16-.22em letter-spacing; LVGL has no letter-space
 // shorthand on creation, so this bundles the three calls.

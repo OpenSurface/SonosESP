@@ -288,19 +288,22 @@ void buildAmberPlayer() {
     lv_obj_t* next_rule = ambRect(ap_shelf_next, shelf_w - 60, 1, AMB_LINE);
     lv_obj_set_pos(next_rule, SX(AP_SHELF_PAD + 52), SY(28));
 
+    // Height bounded and scrolling, for the same two reasons as the track
+    // labels above: DOT with an unbounded height wraps instead of truncating,
+    // and a next-track title long enough to need it is worth reading.
     lbl_next_title = lv_label_create(ap_shelf_next);
     lv_label_set_text(lbl_next_title, "");
     lv_obj_set_pos(lbl_next_title, SX(AP_SHELF_PAD), SY(44));
-    lv_obj_set_width(lbl_next_title, SX(shelf_w));
-    lv_label_set_long_mode(lbl_next_title, LV_LABEL_LONG_DOT);
+    lv_obj_set_size(lbl_next_title, SX(shelf_w), lv_font_get_line_height(&font_text_16));
+    lv_label_set_long_mode(lbl_next_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_set_style_text_font(lbl_next_title, &font_text_16, 0);
     lv_obj_set_style_text_color(lbl_next_title, AMB_TEXT2, 0);
 
     lbl_next_artist = lv_label_create(ap_shelf_next);
     lv_label_set_text(lbl_next_artist, "");
     lv_obj_set_pos(lbl_next_artist, SX(AP_SHELF_PAD), SY(70));
-    lv_obj_set_width(lbl_next_artist, SX(shelf_w));
-    lv_label_set_long_mode(lbl_next_artist, LV_LABEL_LONG_DOT);
+    lv_obj_set_size(lbl_next_artist, SX(shelf_w), lv_font_get_line_height(&font_text_12));
+    lv_label_set_long_mode(lbl_next_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_set_style_text_font(lbl_next_artist, &font_text_12, 0);
     lv_obj_set_style_text_color(lbl_next_artist, AMB_TEXT3, 0);
 
@@ -454,7 +457,12 @@ void buildAmberPlayer() {
     lbl_artist = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_artist, SX(AP_R), SY(AP_ARTIST_Y));
     lv_obj_set_size(lbl_artist, SX(AP_RW), SY(18));
-    lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_DOT);
+    // Scrolls, like the SonosESP and Immersive themes have always done. Amber
+    // was the only player that ellipsised instead, so a radio stream - where
+    // this line carries the programme name, not a short artist - was cut off
+    // with no way to read the rest (issue #151). LVGL only animates when the
+    // text actually overflows, so anything that fits still sits perfectly still.
+    lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_artist, "");
     lv_obj_set_style_text_color(lbl_artist, AMB_ACCENT, 0);
     lv_obj_set_style_text_font(lbl_artist, &font_text_12, 0);
@@ -474,7 +482,7 @@ void buildAmberPlayer() {
     lbl_album = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_album, SX(AP_R), SY(AP_ALBUM_Y));
     lv_obj_set_size(lbl_album, SX(AP_RW), SY(20));
-    lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_DOT);
+    lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_album, "");
     lv_obj_set_style_text_color(lbl_album, AMB_TEXT3, 0);
     lv_obj_set_style_text_font(lbl_album, &font_text_14, 0);

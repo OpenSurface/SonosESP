@@ -33,6 +33,16 @@ lv_obj_t* ambLabel(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,
     return l;
 }
 
+lv_obj_t* ambOneLine(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,
+                     const char* txt, int w) {
+    lv_obj_t* l = ambLabel(parent, font, col, txt);
+    // Width is design-space and scales; the height must not be scaled again -
+    // font_text_* is already the panel's font, so its line height is real pixels.
+    lv_obj_set_size(l, SX(w), lv_font_get_line_height(font));
+    lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
+    return l;
+}
+
 lv_obj_t* ambCaption(lv_obj_t* parent, lv_color_t col, const char* txt, int track) {
     lv_obj_t* l = ambLabel(parent, &font_text_12, col, txt);
     lv_obj_set_style_text_letter_space(l, track, 0);
