@@ -1,247 +1,411 @@
 <script setup lang="ts">
+import { ref, computed } from 'vue'
 import { withBase } from 'vitepress'
 
+const sources = ['Spotify', 'YouTube Music', 'Apple Music', 'TuneIn', 'Amazon Music', 'Your NAS']
+
 const cards = [
-  { t: 'Browse your whole library',
+  { n: '01', wide: true, t: 'Browse your whole library',
     d: 'Artists, albums, genres, composers and tracks, plus saved playlists, internet radio, your NAS shares, the queue and line-in. The list comes from your speaker, so you only see what you actually have.' },
-  { t: 'Synced lyrics',
+  { n: '02', t: 'Synced lyrics',
     d: 'Time-synced and following the track, colour-matched to the artwork, and out of the way on songs that have none.' },
-  { t: 'Album art, properly',
-    d: 'Decoded by the P4\u2019s hardware JPEG unit, with the dominant colour pulled out to tint the rest of the screen.' },
-  { t: 'Multi-room and groups',
+  { n: '03', t: 'Album art, properly',
+    d: 'Decoded by the P4’s hardware JPEG unit, with the dominant colour pulled out to tint the rest of the screen.' },
+  { n: '04', t: 'Multi-room and groups',
     d: 'Switch zones with live indicators for what is playing where. Create and break speaker groups from the panel.' },
-  { t: 'Clock, weather, themes',
+  { n: '05', t: 'Clock, weather, themes',
     d: 'Five clock faces with a six-hour forecast, three player themes, and auto-dimming when you walk away.' },
 ]
 
-// Photos people have sent in of their own panels. Empty by design: these are
-// other people's builds, so nothing goes in here that was not actually submitted
-// and credited. To add one, drop the file in docs/public/community/ and append
-// { src, who, note } below - the section hides itself while the list is empty.
-const community: { src: string; who: string; note?: string }[] = []
+// The toggle swaps the spec row. Values match docs/guide/hardware.md.
+const panel = ref<4 | 7>(4)
+const spec = computed(() => panel.value === 4
+  ? { part: 'JC4880P433C', screen: '4″ · 480×480' }
+  : { part: 'JC1060P470C', screen: '7″ · 1024×600' })
 
 const steps = [
-  { n: 'Plug it in',  d: 'USB-C to your computer. Chrome, Edge or Opera.' },
-  { n: 'Click install', d: 'Pick your screen size, pick the port. About a minute.' },
-  { n: 'Join Wi-Fi',  d: 'Type the password on the panel, scan for speakers, done.' },
+  { n: '01', t: 'Plug it in',   d: 'USB-C to your computer. Chrome, Edge or Opera.' },
+  { n: '02', t: 'Click install', d: 'Pick your screen size, pick the port. About a minute.' },
+  { n: '03', t: 'Join Wi-Fi',   d: 'Type the password on the panel, scan for speakers, done.' },
 ]
+
+// Real builds submitted through the showcase issue template, mirrored from the
+// README block. Photos are hosted here rather than hotlinked from GitHub's
+// attachment CDN, and each keeps the credit and issue link it came with.
+const community = [
+  { src: '/community/brennan-b3.jpg',  t: 'Living room · Brennan B3 Jukebox',
+    gear: 'Sonos Beam 2 + 2 Symfonisk frames', who: '@johnhenrick3-cpu',
+    issue: 'https://github.com/OpenSurface/SonosESP/issues/97',
+    alt: '4-inch SonosESP with a Brennan B3 jukebox' },
+  { src: '/community/kitchen-7in.jpg', t: 'Kitchen table · 7″ variant (beta)',
+    gear: 'Sonos Move 2', who: '@johnhenrick3-cpu',
+    issue: 'https://github.com/OpenSurface/SonosESP/issues/95',
+    alt: '7-inch SonosESP variant on a kitchen table' },
+  { src: '/community/brennan-b2.jpg',  t: 'Living room · Brennan B2 Jukebox',
+    gear: 'Sonos Era 300', who: '@johnhenrick3-cpu',
+    issue: 'https://github.com/OpenSurface/SonosESP/issues/96',
+    alt: '4-inch SonosESP with a Brennan B2 jukebox' },
+  { src: '/community/bedside.jpg',     t: 'Bedside table',
+    gear: 'Sonos Ray + 2 Symfonisk lamps', who: '@johnhenrick3-cpu',
+    issue: 'https://github.com/OpenSurface/SonosESP/issues/94',
+    alt: '4-inch SonosESP on a bedside table' },
+]
+
+const showcaseUrl =
+  'https://github.com/OpenSurface/SonosESP/issues/new?template=showcase.yml'
 </script>
 
 <template>
-  <div class="body">
-    <!-- headline capability gets the wide card because it is the reason to build one -->
-    <section class="lead-card">
-      <div class="lead-copy">
-        <p class="kicker">The bit people ask about</p>
-        <h2>Anything in your Sonos favourites plays from the panel</h2>
-        <p>
-          Whatever service it came from. Spotify playlists, YouTube Music mixes,
-          radio stations, all of it. You never sign into anything on the device —
-          your speaker already holds the accounts and does the work.
+  <!-- ---- sources band ---- -->
+  <section class="band">
+    <div class="wrap split">
+      <div class="col-a">
+        <p class="eyebrow muted">The bit people ask about</p>
+        <h2 class="h2 narrow">Anything in your Sonos favourites plays from the panel</h2>
+        <p class="body">
+          Whatever service it came from. Spotify playlists, YouTube Music mixes, radio
+          stations, all of it. You never sign into anything on the device — your speaker
+          already holds the accounts and does the work.
         </p>
-        <a class="link" :href="withBase('/guide/sources')">How sources work →</a>
+        <a class="ulink" :href="withBase('/guide/sources')">How sources work &#8594;</a>
       </div>
-      <ul class="chips">
-        <li>Spotify</li><li>YouTube Music</li><li>Apple Music</li>
-        <li>TuneIn</li><li>Amazon Music</li><li>Your NAS</li>
-      </ul>
-    </section>
+      <div class="chips">
+        <div v-for="s in sources" :key="s" class="chip">{{ s }}</div>
+      </div>
+    </div>
+  </section>
 
-    <section class="grid">
-      <article v-for="c in cards" :key="c.t" class="card">
+  <!-- ---- feature bento ---- -->
+  <section id="features" class="sec">
+    <div class="wrap bento">
+      <article v-for="c in cards" :key="c.n" class="card" :class="{ wide: c.wide }">
+        <div class="idx">{{ c.n }}</div>
         <h3>{{ c.t }}</h3>
         <p>{{ c.d }}</p>
       </article>
-    </section>
+    </div>
+  </section>
 
-    <!--
-      What you actually need to buy. The three steps below open with "plug it in",
-      which quietly assumes you already own a panel - this is the piece that was
-      missing, and the render shows the board is a finished product rather than a
-      bare PCB you have to assemble.
-    -->
-    <section class="hardware">
-      <div class="hw-shot">
-        <img :src="withBase('/panel.png')"
-             alt="GUITION JC4880P433C ESP32-P4 touchscreen panel, shown front and back"
-             width="636" height="608" loading="lazy" />
+  <!-- ---- hardware ---- -->
+  <section id="hardware" class="sec hw-sec">
+    <div class="wrap split middle">
+      <div class="col-a">
+        <div class="hw-shot">
+          <img :src="withBase('/panel.png')"
+               alt="GUITION JC4880P433C ESP32-P4 touchscreen panel, shown front and back"
+               width="636" height="608" loading="lazy" />
+        </div>
       </div>
-      <div class="hw-copy">
-        <p class="kicker">What you need</p>
-        <h2>One off-the-shelf panel</h2>
-        <p>
-          A GUITION ESP32-P4 touchscreen and a USB-C cable. That is the whole bill
-          of materials — no soldering, no breakout boards, no case to print. It
-          arrives as a finished unit running a demo launcher, and SonosESP replaces
-          that.
+      <div class="col-b">
+        <p class="eyebrow muted">What you need</p>
+        <h2 class="h2">One off-the-shelf panel</h2>
+        <p class="body">
+          A GUITION ESP32-P4 touchscreen and a USB-C cable. That is the whole bill of
+          materials — no soldering, no breakout boards, no case to print. It arrives as a
+          finished unit running a demo launcher, and SonosESP replaces that.
         </p>
-        <ul class="chips">
-          <li>4″ JC4880P433C</li>
-          <li>7″ JC1060P470C</li>
-          <li>USB-C</li>
-        </ul>
-        <a class="link" :href="withBase('/guide/hardware')">Which one to buy →</a>
+
+        <div class="seg" role="group" aria-label="Panel size">
+          <button type="button" :class="{ on: panel === 4 }" :aria-pressed="panel === 4"
+                  @click="panel = 4">4&#8243; panel</button>
+          <button type="button" :class="{ on: panel === 7 }" :aria-pressed="panel === 7"
+                  @click="panel = 7">7&#8243; panel</button>
+        </div>
+
+        <div class="specs">
+          <div class="cell"><span class="k">Part</span><span class="v">{{ spec.part }}</span></div>
+          <div class="cell"><span class="k">Screen</span><span class="v nowrap">{{ spec.screen }}</span></div>
+          <div class="cell"><span class="k">Cable</span><span class="v">USB-C</span></div>
+        </div>
+
+        <a class="ulink" :href="withBase('/guide/hardware')">Which one to buy &#8594;</a>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section class="steps">
-      <h2 class="steps-title">Running in three steps</h2>
-      <ol>
-        <li v-for="(s, i) in steps" :key="s.n">
-          <span class="num">{{ i + 1 }}</span>
-          <div><strong>{{ s.n }}</strong><p>{{ s.d }}</p></div>
-        </li>
-      </ol>
-      <a class="btn" :href="withBase('/guide/install')">Install it now</a>
-    </section>
+  <!-- ---- three steps ---- -->
+  <section id="install" class="sec">
+    <div class="wrap">
+      <h2 class="h2 center big">Running in three steps</h2>
+      <div class="steps">
+        <div v-for="s in steps" :key="s.n" class="step">
+          <div class="idx">{{ s.n }}</div>
+          <h3>{{ s.t }}</h3>
+          <p>{{ s.d }}</p>
+        </div>
+      </div>
+      <div class="center-row">
+        <a class="btn primary" :href="withBase('/guide/install')">
+          Install it now <span class="mono">&#8594;</span>
+        </a>
+      </div>
+    </div>
+  </section>
 
-    <section v-if="community.length" class="community">
+  <!-- ---- community builds ---- -->
+  <section v-if="community.length" id="builds" class="sec bordered">
+    <div class="wrap">
       <div class="com-head">
-        <p class="kicker">Community builds</p>
-        <h2>Where people put theirs</h2>
+        <div>
+          <p class="eyebrow muted">Community builds</p>
+          <h2 class="h2">Where people put theirs</h2>
+          <p class="body tight">Real installs, sent in by the people who made them.</p>
+        </div>
+        <a class="ulink" :href="showcaseUrl" target="_blank" rel="noopener">Share yours &#8594;</a>
       </div>
-      <ul class="com-grid">
-        <li v-for="c in community" :key="c.src">
-          <img :src="withBase(c.src)" :alt="'SonosESP panel built by ' + c.who"
-               loading="lazy" />
-          <p class="com-cap"><strong>{{ c.who }}</strong><span v-if="c.note"> · {{ c.note }}</span></p>
-        </li>
-      </ul>
-    </section>
+      <div class="com-grid">
+        <figure v-for="c in community" :key="c.src">
+          <a :href="c.issue" target="_blank" rel="noopener">
+            <img :src="withBase(c.src)" :alt="c.alt" loading="lazy" />
+          </a>
+          <figcaption>
+            <span class="ct">{{ c.t }}</span>
+            <span class="cg">{{ c.gear }}</span>
+            <span class="cw">{{ c.who }}</span>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
 
-    <section class="support">
-      <div>
-        <h2>Free, and staying that way</h2>
-        <p>
-          SonosESP is MIT licensed and built in spare time. If it earns a place on
-          your wall, a coffee helps pay for the panels that get tested to breaking
-          point so yours doesn't.
-        </p>
+  <!-- ---- support ---- -->
+  <section class="sec">
+    <div class="wrap">
+      <div class="support">
+        <div class="sup-copy">
+          <h2 class="h2 sm">Free, and staying that way</h2>
+          <p class="body">
+            SonosESP is MIT licensed and built in spare time. If it earns a place on your
+            wall, a coffee helps pay for the panels that get tested to breaking point so
+            yours doesn&#8217;t.
+          </p>
+        </div>
+        <a class="btn kofi" href="https://ko-fi.com/pizzapasta" target="_blank" rel="noopener">
+          Support on Ko-fi
+        </a>
       </div>
-      <a class="kofi" href="https://ko-fi.com/pizzapasta" target="_blank" rel="noopener">
-        Support on Ko-fi
-      </a>
-    </section>
-  </div>
+    </div>
+  </section>
+
+  <!-- ---- footer ---- -->
+  <footer class="site-foot">
+    <div class="wrap foot-inner">
+      <div class="foot-brand">
+        <span class="fdot" aria-hidden="true"></span>
+        <span class="fname">Sonos<span class="gold">ESP</span></span>
+        <span class="mono lic">MIT licensed</span>
+      </div>
+      <div class="foot-links">
+        <a :href="withBase('/guide/install')">Install</a>
+        <a :href="withBase('/guide/features')">Features</a>
+        <a :href="withBase('/TROUBLESHOOTING')">Troubleshooting</a>
+        <a href="https://github.com/OpenSurface/SonosESP" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://ko-fi.com/pizzapasta" target="_blank" rel="noopener">Ko-fi</a>
+      </div>
+    </div>
+  </footer>
 </template>
 
 <style scoped>
-.body { max-width: 1180px; margin: 0 auto; padding: 0 24px 96px; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+.sec { padding: clamp(48px, 6vw, 88px) clamp(20px, 4vw, 40px); }
+.band {
+  padding: clamp(40px, 5vw, 72px) clamp(20px, 4vw, 40px);
+  border-top: 1px solid rgba(242, 236, 228, .07);
+}
+.bordered { border-top: 1px solid rgba(242, 236, 228, .07); }
 
-.kicker {
-  font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--vp-c-text-3); margin: 0 0 12px;
+.split { display: flex; flex-wrap: wrap; gap: clamp(28px, 4vw, 56px); align-items: flex-start; }
+.split.middle { align-items: center; gap: clamp(28px, 4vw, 60px); }
+.col-a { flex: 1 1 400px; min-width: 0; }
+.col-b { flex: 1 1 380px; min-width: 0; }
+
+.eyebrow {
+  font-family: var(--se-mono); font-size: 11.5px; letter-spacing: .2em;
+  text-transform: uppercase; margin: 0 0 18px;
+}
+.eyebrow.muted { color: rgba(242, 236, 228, .64); }
+
+.h2 {
+  margin: 0; font-size: clamp(1.7rem, 3.2vw, 2.4rem); line-height: 1.12;
+  letter-spacing: -.025em; font-weight: 600; text-wrap: balance;
+  border: 0; padding: 0;
+}
+.h2.narrow { max-width: 24ch; }
+.h2.center { text-align: center; }
+.h2.big { font-size: clamp(1.8rem, 3.4vw, 2.6rem); line-height: 1.1; letter-spacing: -.03em; }
+.h2.sm { font-size: clamp(1.5rem, 2.6vw, 2rem); line-height: 1.15; }
+
+.body {
+  margin: 20px 0 0; max-width: 52ch; font-size: 1rem; line-height: 1.62;
+  color: rgba(242, 236, 228, .66); text-wrap: pretty;
+}
+.body.tight { margin-top: 14px; }
+
+.ulink {
+  display: inline-block; margin-top: 22px; font-size: 14.5px; font-weight: 500;
+  color: var(--se-accent-text); text-decoration: none;
+  border-bottom: 1px solid oklch(.78 .13 42 / .35); padding-bottom: 2px;
+}
+.ulink:hover { color: var(--se-accent-hover); }
+
+/* ---- source chips ---- */
+.chips {
+  flex: 1 1 300px; min-width: 0; display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px;
+}
+.chip {
+  font-family: var(--se-mono); font-size: 12.5px; letter-spacing: .02em;
+  color: rgba(242, 236, 228, .78); padding: 14px 16px;
+  border: 1px solid rgba(242, 236, 228, .1); border-radius: 12px;
+  background: rgba(242, 236, 228, .025);
 }
 
-.lead-card {
-  display: grid; grid-template-columns: minmax(0,1.35fr) minmax(0,1fr); gap: 40px;
-  align-items: center; padding: 40px; border-radius: 20px; margin-bottom: 20px;
-  border: 1px solid var(--vp-c-divider);
-  background:
-    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, #d4a84b 12%, transparent), transparent 58%),
-    var(--vp-c-bg-soft);
-}
-.lead-card h2 { margin: 0 0 14px; font-size: clamp(1.5rem, 2.6vw, 2rem); line-height: 1.15; letter-spacing: -.025em; border: 0; padding: 0; }
-.lead-card p { margin: 0 0 18px; color: var(--vp-c-text-2); line-height: 1.65; }
-.link { font-weight: 600; text-decoration: none; color: var(--vp-c-brand-1); }
-.link:hover { text-decoration: underline; }
-
-.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.chips li {
-  font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: 999px;
-  border: 1px solid var(--vp-c-divider); background: var(--vp-c-bg);
-  color: var(--vp-c-text-2);
-}
-
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 20px; margin-bottom: 20px; }
+/* ---- bento ---- */
+.bento { display: flex; flex-wrap: wrap; gap: 14px; }
 .card {
-  padding: 26px; border-radius: 16px;
-  border: 1px solid var(--vp-c-divider); background: var(--vp-c-bg-soft);
-  transition: border-color .18s ease, transform .18s ease;
+  flex: 1 1 260px; min-width: 0; padding: clamp(24px, 3vw, 34px);
+  border: 1px solid rgba(242, 236, 228, .1); border-radius: 18px;
+  background: rgba(242, 236, 228, .028);
+  transition: border-color .16s ease, background .16s ease;
 }
-.card:hover { border-color: color-mix(in srgb, #d4a84b 55%, var(--vp-c-divider)); transform: translateY(-3px); }
-.card h3 { margin: 0 0 9px; font-size: 1.02rem; letter-spacing: -.01em; }
-.card p { margin: 0; font-size: .92rem; line-height: 1.6; color: var(--vp-c-text-2); }
-
-.steps {
-  padding: 44px 40px; border-radius: 20px; text-align: center;
-  border: 1px solid var(--vp-c-divider); background: var(--vp-c-bg-soft);
+/* The wide card takes the first row with card 02; the rest wrap to a row of three. */
+.card.wide { flex: 1.7 1 380px; }
+.card:hover { border-color: rgba(242, 236, 228, .2); background: rgba(242, 236, 228, .045); }
+.idx {
+  font-family: var(--se-mono); font-size: 11px; letter-spacing: .16em;
+  color: var(--se-accent-text); margin-bottom: 16px;
 }
-.steps-title { margin: 0 0 30px; border: 0; padding: 0; font-size: clamp(1.4rem, 2.4vw, 1.8rem); letter-spacing: -.02em; }
-.steps ol {
-  list-style: none; margin: 0 0 30px; padding: 0;
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 24px; text-align: left;
+.card h3 {
+  margin: 0; font-size: clamp(1.15rem, 1.8vw, 1.45rem); font-weight: 600;
+  letter-spacing: -.02em; border: 0; padding: 0;
 }
-.steps li { display: flex; gap: 14px; align-items: flex-start; }
-.num {
-  flex: 0 0 30px; height: 30px; border-radius: 50%;
-  display: grid; place-items: center; font-size: 14px; font-weight: 700;
-  background: var(--vp-c-text-1); color: var(--vp-c-bg);
+.card p {
+  margin: 12px 0 0; font-size: .96rem; line-height: 1.6;
+  color: rgba(242, 236, 228, .62); text-wrap: pretty;
 }
-.steps li p { margin: 4px 0 0; font-size: .9rem; color: var(--vp-c-text-2); line-height: 1.55; }
-.btn {
-  display: inline-flex; padding: 13px 30px; border-radius: 999px; font-weight: 600;
-  text-decoration: none; background: var(--vp-c-text-1); color: var(--vp-c-bg);
-  transition: transform .16s ease;
-}
-.btn:hover { transform: translateY(-2px); }
 
 /* ---- hardware ---- */
-/* Image first in the source so it leads on narrow screens - the render is the
-   point of this section, and a wall of text above it buries it. */
-.hardware {
-  display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); gap: 40px;
-  align-items: center; padding: 36px 40px; border-radius: 20px; margin-bottom: 20px;
-  border: 1px solid var(--vp-c-divider);
-  background:
-    radial-gradient(110% 130% at 100% 0%, color-mix(in srgb, #2f4d86 12%, transparent), transparent 60%),
-    var(--vp-c-bg-soft);
+.hw-sec {
+  border-top: 1px solid rgba(242, 236, 228, .07);
+  border-bottom: 1px solid rgba(242, 236, 228, .07);
+  background: rgba(242, 236, 228, .015);
 }
-.hw-shot img { display: block; width: 100%; height: auto; }
-.hardware h2 { margin: 0 0 14px; font-size: clamp(1.4rem, 2.5vw, 1.9rem); line-height: 1.15; letter-spacing: -.025em; border: 0; padding: 0; }
-.hardware p { margin: 0 0 18px; color: var(--vp-c-text-2); line-height: 1.65; }
-.hardware .chips { margin-bottom: 18px; }
+.hw-shot img { display: block; width: 100%; height: auto; border-radius: 16px; }
+
+.seg {
+  display: inline-flex; gap: 4px; margin-top: 28px; padding: 4px;
+  border-radius: 999px; border: 1px solid rgba(242, 236, 228, .12);
+  background: rgba(0, 0, 0, .3);
+}
+.seg button {
+  font-family: var(--se-mono); font-size: 12.5px; padding: 9px 18px;
+  border-radius: 999px; border: 0; cursor: pointer;
+  background: transparent; color: rgba(242, 236, 228, .7);
+  transition: background .16s ease, color .16s ease;
+}
+.seg button.on { background: var(--se-ink); color: #17120f; }
+
+.specs {
+  margin-top: 20px; display: flex; flex-wrap: wrap; gap: 1px;
+  background: rgba(242, 236, 228, .1);
+  border: 1px solid rgba(242, 236, 228, .1); border-radius: 12px; overflow: hidden;
+}
+.cell {
+  background: #100e0d; padding: 16px 18px; flex: 1 1 150px; min-width: 0;
+  display: flex; flex-direction: column;
+}
+.k {
+  font-family: var(--se-mono); font-size: 10.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: rgba(242, 236, 228, .64);
+}
+.v { font-family: var(--se-mono); font-size: 14px; margin-top: 8px; color: var(--se-ink); }
+.nowrap { white-space: nowrap; }
+
+/* ---- steps ---- */
+.steps {
+  display: flex; flex-wrap: wrap; gap: clamp(20px, 3vw, 40px);
+  margin-top: clamp(32px, 4vw, 56px);
+}
+.step {
+  flex: 1 1 240px; min-width: 0; padding-top: 24px;
+  border-top: 1px solid rgba(242, 236, 228, .16);
+}
+.step .idx { font-size: 12px; margin-bottom: 0; }
+.step h3 {
+  margin: 14px 0 0; font-size: 1.2rem; font-weight: 600; letter-spacing: -.02em;
+  border: 0; padding: 0;
+}
+.step p { margin: 10px 0 0; font-size: .96rem; line-height: 1.6; color: rgba(242, 236, 228, .62); }
+
+.center-row { display: flex; justify-content: center; margin-top: clamp(32px, 4vw, 52px); }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px; font-size: 15px;
+  font-weight: 600; padding: 15px 28px; border-radius: 999px; text-decoration: none;
+  transition: background .16s ease, transform .16s ease;
+}
+.btn.primary { background: var(--se-ink); color: #17120f; }
+.btn.primary:hover { background: #fff; transform: translateY(-1px); }
+.mono { font-family: var(--se-mono); }
 
 /* ---- community ---- */
-.community { margin-bottom: 20px; }
-.com-head { margin-bottom: 22px; }
-.community h2 { margin: 0; border: 0; padding: 0; font-size: clamp(1.4rem, 2.4vw, 1.8rem); letter-spacing: -.02em; }
-.com-grid {
-  list-style: none; margin: 0; padding: 0;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 18px;
+.com-head {
+  display: flex; flex-wrap: wrap; gap: 16px;
+  align-items: flex-end; justify-content: space-between;
 }
-.com-grid li { margin: 0; }
+.com-head .ulink { margin-top: 0; }
+.com-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px; margin-top: clamp(28px, 3.5vw, 44px);
+}
+.com-grid figure { margin: 0; min-width: 0; }
 .com-grid img {
   display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
-  border-radius: 14px; border: 1px solid var(--vp-c-divider); background: var(--vp-c-bg-soft);
+  border-radius: 14px; border: 1px solid rgba(242, 236, 228, .1);
+  background: rgba(242, 236, 228, .025);
+  transition: border-color .16s ease, transform .16s ease;
 }
-.com-cap { margin: 10px 2px 0; font-size: .85rem; color: var(--vp-c-text-3); line-height: 1.5; }
-.com-cap strong { color: var(--vp-c-text-2); font-weight: 600; }
+.com-grid a:hover img { border-color: rgba(242, 236, 228, .28); transform: translateY(-2px); }
+.com-grid figcaption { display: flex; flex-direction: column; }
+.ct { margin-top: 14px; font-size: 14.5px; font-weight: 600; letter-spacing: -.01em; color: var(--se-ink); }
+.cg { margin-top: 5px; font-size: 13px; color: rgba(242, 236, 228, .55); }
+.cw { margin-top: 3px; font-family: var(--se-mono); font-size: 11.5px; color: rgba(242, 236, 228, .62); }
 
-@media (max-width: 860px) {
-  .lead-card { grid-template-columns: 1fr; gap: 26px; padding: 30px; }
-  .hardware { grid-template-columns: 1fr; gap: 26px; padding: 30px; }
-  .steps { padding: 34px 24px; }
-}
-@media (prefers-reduced-motion: reduce) { .card, .btn { transition: none; } }
-
+/* ---- support ---- */
 .support {
-  display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 24px;
-  margin-top: 20px; padding: 30px 32px;
-  border: 1px solid var(--vp-c-divider); border-radius: 18px;
-  background: var(--vp-c-bg-soft);
+  padding: clamp(28px, 4vw, 48px); border-radius: 20px;
+  border: 1px solid rgba(242, 236, 228, .1);
+  background:
+    radial-gradient(80% 140% at 100% 0%, oklch(.7 .16 40 / .14), transparent 70%),
+    rgba(242, 236, 228, .025);
+  display: flex; flex-wrap: wrap; gap: 28px;
+  align-items: center; justify-content: space-between;
 }
-.support h2 { margin: 0 0 8px; border: 0; padding: 0; font-size: 1.18rem; letter-spacing: -.015em; }
-.support p { margin: 0; max-width: 56ch; font-size: .92rem; line-height: 1.6; color: var(--vp-c-text-2); }
-.kofi {
-  flex-shrink: 0;
-  display: inline-block; padding: 11px 22px; border-radius: 999px;
-  background: #ff5e5b; color: #fff; font-weight: 600; font-size: .92rem;
-  text-decoration: none; white-space: nowrap;
-  transition: transform .18s ease, box-shadow .18s ease;
+.sup-copy { flex: 1 1 420px; min-width: 0; }
+.sup-copy .body { max-width: 58ch; margin-top: 16px; }
+.btn.kofi { background: var(--se-accent); color: #17120f; padding: 15px 26px; }
+.btn.kofi:hover { background: oklch(.76 .15 42); transform: translateY(-1px); }
+
+/* ---- footer ---- */
+.site-foot {
+  padding: 36px clamp(20px, 4vw, 40px) 56px;
+  border-top: 1px solid rgba(242, 236, 228, .07);
 }
-.kofi:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255, 94, 91, .32); }
-@media (prefers-reduced-motion: reduce) { .kofi { transition: none; } .kofi:hover { transform: none; } }
-@media (max-width: 620px) { .support { flex-direction: column; align-items: flex-start; } }
+.foot-inner {
+  display: flex; flex-wrap: wrap; gap: 20px; align-items: center;
+  justify-content: space-between; font-size: 13.5px; color: rgba(242, 236, 228, .66);
+}
+.foot-brand { display: flex; align-items: center; gap: 10px; }
+.fdot { width: 8px; height: 8px; border-radius: 50%; background: var(--se-accent); }
+.fname { color: rgba(242, 236, 228, .75); font-weight: 600; }
+.gold { color: var(--se-gold); }
+.lic { font-size: 12px; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 20px; }
+.foot-links a { color: rgba(242, 236, 228, .55); text-decoration: none; transition: color .16s ease; }
+.foot-links a:hover { color: var(--se-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .btn, .seg button, .com-grid img, .foot-links a { transition: none; }
+  .btn:hover, .com-grid a:hover img { transform: none; }
+}
 </style>

@@ -4,6 +4,7 @@ import type { Theme } from 'vitepress'
 import InstallPanel from './InstallPanel.vue'
 import HomeHero from './HomeHero.vue'
 import HomeBody from './HomeBody.vue'
+import PanelDemo from './PanelDemo.vue'
 
 export default {
   extends: DefaultTheme,
@@ -11,5 +12,6 @@ export default {
     app.component('InstallPanel', InstallPanel)
     app.component('HomeHero', HomeHero)
     app.component('HomeBody', HomeBody)
+    app.component('PanelDemo', PanelDemo)
   }
 } satisfies Theme

@@ -35,3 +35,8 @@ docs/public/manifest*.json
 
 # Python bytecode from the build/release scripts
 __pycache__/
+
+# Design-canvas handoff bundles. Local reference for rebuilding a page: the
+# .dc.html prototypes plus the vendored runtime that renders them. Not project
+# source - the design lives in the components it was rebuilt into.
+design_handoff_*/
