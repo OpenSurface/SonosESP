@@ -69,12 +69,29 @@ void refreshQueueList() {
         lv_obj_set_style_text_color(num, isPlaying ? COL_ACCENT : COL_TEXT2, 0);
         lv_obj_align(num, LV_ALIGN_LEFT_MID, SX(5), 0);
 
+        // Duration, right-aligned. Sonos already reports it per queue item and
+        // the row simply never showed it. Created before the title so the title
+        // can be capped to what is left rather than running underneath it.
+        lv_obj_t* dur = nullptr;
+        if (item->duration.length()) {
+            dur = lv_label_create(btn);
+            lv_label_set_text(dur, item->duration.c_str());
+            lv_obj_set_style_text_color(dur, COL_TEXT2, 0);
+            lv_obj_set_style_text_font(dur, &font_text_12, 0);
+            // CLIP, not DOT: an ellipsised duration reads as a glitch.
+            lv_obj_set_width(dur, SX(60));
+            lv_label_set_long_mode(dur, LV_LABEL_LONG_CLIP);
+            lv_obj_set_style_text_align(dur, LV_TEXT_ALIGN_RIGHT, 0);
+            lv_obj_align(dur, LV_ALIGN_RIGHT_MID, SX(-4), 0);
+        }
+        const int text_w = dur ? 540 : 610;
+
         // Title - highlight when playing
         lv_obj_t* title = lv_label_create(btn);
         lv_label_set_text(title, item->title.c_str());
         lv_obj_set_style_text_color(title, isPlaying ? COL_ACCENT : COL_TEXT, 0);
         lv_obj_set_style_text_font(title, &font_text_16, 0);
-        lv_obj_set_width(title, SX(610));
+        lv_obj_set_width(title, SX(text_w));
         lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
         lv_obj_align(title, LV_ALIGN_LEFT_MID, SX(45), SY(-11));
 
@@ -83,7 +100,7 @@ void refreshQueueList() {
         lv_label_set_text(artist, item->artist.c_str());
         lv_obj_set_style_text_color(artist, COL_TEXT2, 0);
         lv_obj_set_style_text_font(artist, &font_text_12, 0);
-        lv_obj_set_width(artist, SX(610));
+        lv_obj_set_width(artist, SX(text_w));
         lv_label_set_long_mode(artist, LV_LABEL_LONG_DOT);
         lv_obj_align(artist, LV_ALIGN_LEFT_MID, SX(45), SY(11));
     }
@@ -103,12 +120,14 @@ void createQueueScreen() {
     lv_obj_set_style_pad_all(header, 0, 0);
     lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Title in header
+    // Title, with the track count as its subtitle. The count used to be a
+    // separate label floating below the header, which read as an unrelated
+    // status line; the design canvas pairs it with the title.
     lv_obj_t* lbl_title = lv_label_create(header);
-    lv_label_set_text(lbl_title, "Playlist");
-    lv_obj_set_style_text_font(lbl_title, &font_text_32, 0);
+    lv_label_set_text(lbl_title, "Queue");
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
-    lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, SX(30), 0);
+    lv_obj_align(lbl_title, LV_ALIGN_LEFT_MID, SX(30), SY(-11));
 
     // Refresh button in header
     lv_obj_t* btn_refresh = lv_button_create(header);
@@ -151,17 +170,18 @@ void createQueueScreen() {
     lv_obj_set_style_text_font(ico_close, &lv_font_mdi_24, 0);
     lv_obj_center(ico_close);
 
-    // Status label below header
-    lbl_queue_status = lv_label_create(scr_queue);
-    lv_obj_align(lbl_queue_status, LV_ALIGN_TOP_LEFT, SX(40), SY(85));
+    lbl_queue_status = lv_label_create(header);
     lv_label_set_text(lbl_queue_status, "Loading...");
     lv_obj_set_style_text_color(lbl_queue_status, COL_TEXT2, 0);
-    lv_obj_set_style_text_font(lbl_queue_status, &font_text_14, 0);
+    lv_obj_set_style_text_font(lbl_queue_status, &font_text_12, 0);
+    lv_obj_align(lbl_queue_status, LV_ALIGN_LEFT_MID, SX(30), SY(11));
 
     // Queue list - modern clean design
     list_queue = lv_list_create(scr_queue);
-    lv_obj_set_size(list_queue, SX(730), SY(360));
-    lv_obj_set_pos(list_queue, SX(35), SY(115));
+    // Starts right under the header now that the count lives inside it, which
+    // buys the list 30 design pixels — half a row.
+    lv_obj_set_size(list_queue, SX(730), SY(390));
+    lv_obj_set_pos(list_queue, SX(35), SY(85));
     lv_obj_set_style_bg_color(list_queue, COL_BG, 0);
     lv_obj_set_style_border_width(list_queue, 0, 0);
     lv_obj_set_style_radius(list_queue, 0, 0);
