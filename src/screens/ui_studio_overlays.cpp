@@ -39,6 +39,9 @@ static lv_obj_t* ov_queue_list  = nullptr;
 static lv_obj_t* ov_queue_sub   = nullptr;
 static lv_obj_t* ov_rooms       = nullptr;
 static lv_obj_t* ov_rooms_list  = nullptr;
+static lv_obj_t* ov_clear_btn   = nullptr;   // arms on first tap, clears on second
+static uint32_t  ov_clear_armed_ms = 0;
+#define OV_CLEAR_ARM_MS 4000
 
 // Which screen the pointers above belong to.
 static lv_obj_t* ov_owner = nullptr;
@@ -56,7 +59,8 @@ static void ov_deleted(lv_event_t* e) {
     if ((lv_obj_t*)lv_event_get_target(e) != ov_owner) return;
     ov_owner = nullptr;
     ov_scrim = ov_queue = ov_queue_list = ov_queue_sub = nullptr;
-    ov_rooms = ov_rooms_list = nullptr;
+    ov_rooms = ov_rooms_list = ov_clear_btn = nullptr;
+    ov_clear_armed_ms = 0;
 }
 
 // ── Shared pieces ───────────────────────────────────────────────────────────
@@ -173,7 +177,30 @@ static void ovBuildQueue(lv_obj_t* parent) {
         SonosDevice* d = sonos.getCurrentDevice();
         if (d) sonos.setShuffle(!d->shuffleMode);
     });
-    ovPill(foot, ST_IC_X, "Clear", [](lv_event_t*) {
+    // ── Clear ───────────────────────────────────────────────────────────────
+    // Two taps. RemoveAllTracksFromQueue is irreversible and household-wide — it
+    // empties the queue for everyone on that speaker, not just this panel — and
+    // this button sits 10px from Shuffle in a drawer people are scrolling with a
+    // finger. One stray tap should not be able to do that.
+    //
+    // Arming rather than a modal: a confirmation dialog over a drawer that is
+    // itself over the player is two layers of overlay for one destructive verb,
+    // and the label can say what the next tap will do just as clearly.
+    ov_clear_btn = ovPill(foot, ST_IC_X, "Clear", [](lv_event_t* e) {
+        lv_obj_t* b = (lv_obj_t*)lv_event_get_target(e);
+        lv_obj_t* l = lv_obj_get_child(b, 0);
+        const bool armed = ov_clear_armed_ms &&
+                           (millis() - ov_clear_armed_ms) < OV_CLEAR_ARM_MS;
+        if (!armed) {
+            ov_clear_armed_ms = millis();
+            if (l) {
+                lv_label_set_text(l, ST_IC_X "  Sure?");
+                lv_obj_set_style_text_color(l, ST_ACCENT, 0);
+            }
+            lv_obj_set_style_border_color(b, ST_ACCENT, 0);
+            return;
+        }
+        ov_clear_armed_ms = 0;
         sonos.clearQueue();
         studioHideOverlay();
     });
@@ -181,6 +208,17 @@ static void ovBuildQueue(lv_obj_t* parent) {
 
 static void ovFillQueue(void) {
     if (!ov_queue_list) return;
+
+    // Disarm on every open. An arm left over from a previous visit would turn the
+    // first tap of this one into a wipe.
+    ov_clear_armed_ms = 0;
+    if (ov_clear_btn && lv_obj_get_child_count(ov_clear_btn)) {
+        lv_obj_t* l = lv_obj_get_child(ov_clear_btn, 0);
+        lv_label_set_text_fmt(l, "%s  %s", ST_IC_X, "Clear");
+        lv_obj_set_style_text_color(l, ST_TEXT2, 0);
+        lv_obj_set_style_border_color(ov_clear_btn, ST_BORDER, 0);
+    }
+
     lv_obj_clean(ov_queue_list);
 
     SonosDevice* d = sonos.getCurrentDevice();
@@ -367,6 +405,12 @@ static void ovFillRooms(void) {
         lv_obj_align(st, LV_ALIGN_LEFT_MID, SX(34), SY(11));
 
         // ── Inline volume ───────────────────────────────────────────────────
+        // Selected speaker only: see the note in ui_devices_screen.cpp. Every
+        // other device's `volume` is the placeholder written at discovery, and a
+        // slider jumps to wherever it is pressed, so an unselected row's control
+        // would send a level nobody chose.
+        if (!sel) continue;
+
         lv_obj_t* sl = lv_slider_create(card);
         lv_obj_set_size(sl, SX(OV_SLIDER_W), SY(6));
         lv_obj_align(sl, LV_ALIGN_RIGHT_MID, 0, 0);

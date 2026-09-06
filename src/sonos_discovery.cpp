@@ -407,7 +407,11 @@ bool SonosController::fetchDevicePlayingState(SonosDevice* dev) {
     return playing;
 }
 
-void SonosController::getRoomName(SonosDevice* dev) {
+bool SonosController::getRoomName(SonosDevice* dev) {
+    // Whether the description was actually fetched AND parsed. Returned so a
+    // caller that persists hasLineIn can tell a real "no line-in" from a failed
+    // request; see the cache write in tryLoadCachedDevice().
+    bool parsed = false;
     dev->hasLineIn = false;   // default off: a failed fetch must not offer a dead row
     HTTPClient http;
     char url[128];
@@ -434,6 +438,7 @@ void SonosController::getRoomName(SonosDevice* dev) {
             // and SL do not, and offering them a Line-In source would be a dead row.
             dev->hasLineIn = (xml.indexOf("AudioIn") >= 0);
             Serial.printf("[SONOS]   Line-in: %s\n", dev->hasLineIn ? "yes" : "no");
+            parsed = true;
         } else {
             Serial.printf("[SONOS]   Failed to parse room name from XML for %s\n", dev->ip.toString().c_str());
         }
@@ -450,6 +455,7 @@ void SonosController::getRoomName(SonosDevice* dev) {
         Serial.printf("[SONOS]   HTTP GET failed with code %d for %s (keeping IP as name)\n", code, dev->ip.toString().c_str());
     }
     http.end();
+    return parsed;
 }
 
 String SonosController::getCachedDeviceIP() {
@@ -551,8 +557,15 @@ bool SonosController::tryLoadCachedDevice() {
     int cachedLineIn = prefs.getInt("cached_linein", -1);
     if (cachedLineIn < 0) {
         Serial.println("[SONOS]   Line-in unknown in cache - resolving once");
-        getRoomName(&devices[0]);          // sets roomName AND hasLineIn
-        prefs.putInt("cached_linein", devices[0].hasLineIn ? 1 : 0);
+        // Persist ONLY on a successful fetch. getRoomName() defaults the flag to
+        // false and only raises it on HTTP 200, so writing unconditionally would
+        // cache one timed-out request as "no line-in" permanently — and the
+        // sentinel below means it would never be retried. Leaving the key unset
+        // costs one GET on the next boot instead.
+        if (getRoomName(&devices[0]))
+            prefs.putInt("cached_linein", devices[0].hasLineIn ? 1 : 0);
+        else
+            Serial.println("[SONOS]   Line-in fetch failed - not caching, will retry");
     } else {
         devices[0].hasLineIn = (cachedLineIn == 1);
     }

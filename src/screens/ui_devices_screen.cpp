@@ -102,12 +102,14 @@ void refreshDeviceList() {
             lv_obj_align(sub, LV_ALIGN_TOP_LEFT, hasGroup ? SX(55) : SX(45), SY(28));
         }
 
-        // Volume level. Pairs with the slider below: this is the readout, the
-        // slider drives it. Both address this row's speaker through
-        // sonos.setDeviceVolume(), which queues the command like every other one
-        // so the SOAP call lands on the Sonos task rather than the LVGL thread.
+        // Volume is only POLLED for the selected speaker — every other device holds
+        // the placeholder 50 written at discovery. Showing that as a level would
+        // be inventing a number, so the readout and the slider below appear for
+        // the selected row only. Tapping any other row selects it, at which point
+        // its volume is real and both appear.
         lv_obj_t* vol = lv_label_create(btn);
         lv_label_set_text_fmt(vol, "%d", dev->volume);
+        if (!isSelected) lv_obj_add_flag(vol, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_style_text_color(vol, ST_TEXT3, 0);
         lv_obj_set_style_text_font(vol, &font_text_14, 0);
         lv_obj_align(vol, LV_ALIGN_TOP_RIGHT, SX(-32), hasGroup || isPlaying ? SY(10) : SY(14));
@@ -142,6 +144,9 @@ void refreshDeviceList() {
         lv_obj_set_style_bg_color(vol_sl, isSelected ? ST_ACCENT : ST_TEXT3, LV_PART_KNOB);
         lv_obj_set_style_pad_all(vol_sl, SMIN(6), LV_PART_KNOB);
         lv_obj_set_user_data(vol_sl, vol);          // the number to keep in step
+        // Not just hidden — a hidden slider still cannot be pressed, but leaving
+        // it out of the layout entirely is what makes the intent obvious.
+        if (!isSelected) lv_obj_add_flag(vol_sl, LV_OBJ_FLAG_HIDDEN);
 
         // Live while dragging so the number tracks the knob...
         lv_obj_add_event_cb(vol_sl, [](lv_event_t* e) {

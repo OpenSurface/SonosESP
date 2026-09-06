@@ -1591,6 +1591,26 @@ bool SonosController::updateQueue(int startIndex) {
             dev->queue[dev->queueSize].album = decodeHTML(extractXMLRange(result, "upnp:album", itemStart, itemEnd));
             dev->queue[dev->queueSize].albumArtURL = decodeHTML(extractXMLRange(result, "upnp:albumArtURI", itemStart, itemEnd));
             dev->queue[dev->queueSize].trackNumber = startIndex + dev->queueSize + 1;  // 1-based absolute position
+
+            // Duration lives as an ATTRIBUTE on <res>, not as its own element, so
+            // extractXMLRange() cannot reach it — which is why this field was
+            // declared but never filled, and why the queue's duration column had
+            // nothing to render. Sonos emits duration="H:MM:SS"; the hours are
+            // dropped when zero so a normal track reads "3:47".
+            dev->queue[dev->queueSize].duration = "";
+            int resPos = result.indexOf("<res ", itemStart);
+            if (resPos > 0 && resPos < itemEnd) {
+                int dPos = result.indexOf("duration=\"", resPos);
+                if (dPos > 0 && dPos < itemEnd) {
+                    dPos += 10;
+                    int dEnd = result.indexOf('"', dPos);
+                    if (dEnd > dPos) {
+                        String dur = result.substring(dPos, dEnd);
+                        if (dur.startsWith("0:")) dur = dur.substring(2);
+                        dev->queue[dev->queueSize].duration = dur;
+                    }
+                }
+            }
             dev->queueSize++;
 
             pos = itemEnd + 7;
@@ -1712,6 +1732,9 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
                 dev->totalTracks = 0;
                 xSemaphoreGive(deviceMutex);
             }
+            // Every other queue-mutating command notifies; without this the list
+            // still showed the tracks it had just deleted.
+            notifyUI(UPDATE_QUEUE);
             break;
 
         case CMD_SET_MUTE:

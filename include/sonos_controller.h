@@ -143,7 +143,11 @@ private:
     // H-7: explicit-target overload — addresses a specific device without mutating the
     // shared currentDeviceIndex that the polling task reads concurrently.
     String sendSOAP(SonosDevice* dev, const char* service, const char* action, const char* args);
-    void getRoomName(SonosDevice* dev);
+    // Returns false when the device description could not be fetched or parsed,
+    // in which case dev->hasLineIn is a DEFAULT (false) and not a result. Callers
+    // that persist the flag must check this, or one timed-out 3s fetch is cached
+    // as "this speaker has no line-in" for good.
+    bool getRoomName(SonosDevice* dev);
     int fetchTopologyCoordinators(IPAddress ip, String* coordinatorRINCONs, int maxCount);
     bool fetchDevicePlayingState(SonosDevice* dev);
     int timeToSeconds(const String& time);

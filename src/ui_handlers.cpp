@@ -2191,19 +2191,18 @@ void updateUI() {
     // Repeat
     if (s_repeat != ui_repeat) {
         lv_obj_t* lbl = lv_obj_get_child(btn_repeat, 0);
-        if (s_repeat == "ONE") {
-            lv_label_set_text(lbl, MDI_REPEAT_ONCE);
-            lv_obj_set_style_text_font(lbl, &lv_font_mdi_32, 0);
-            lv_obj_set_style_text_color(lbl, COL_ACCENT, 0);
-        } else if (s_repeat == "ALL") {
-            lv_label_set_text(lbl, MDI_REPEAT);
-            lv_obj_set_style_text_font(lbl, &lv_font_mdi_32, 0);
-            lv_obj_set_style_text_color(lbl, COL_ACCENT, 0);
-        } else {
-            lv_label_set_text(lbl, MDI_REPEAT);
-            lv_obj_set_style_text_font(lbl, &lv_font_mdi_32, 0);
-            lv_obj_set_style_text_color(lbl, COL_TEXT2, 0);
-        }
+        // The FONT is the builder's business, not this function's. Hardcoding
+        // lv_font_mdi_32 here stamped Classic's face onto whichever theme was
+        // active — Studio's 32px icon face on the 4", and on the 7" it pinned the
+        // repeat glyph at 32 while every neighbour scaled to 40. The glyph itself
+        // is safe to write: font_icon_* chains through MDI, so MDI_REPEAT_ONCE
+        // resolves whichever theme built the button.
+        //
+        // Colour goes through the theme accessors, added for exactly this, so
+        // Studio keeps its warm gold instead of being handed COL_ACCENT.
+        const bool on = (s_repeat == "ONE" || s_repeat == "ALL");
+        lv_label_set_text(lbl, s_repeat == "ONE" ? MDI_REPEAT_ONCE : MDI_REPEAT);
+        lv_obj_set_style_text_color(lbl, on ? themeAccentColor() : themeMutedColor(), 0);
         ui_repeat = s_repeat;
     }
 
