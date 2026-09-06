@@ -2180,7 +2180,12 @@ void updateUI() {
     // Shuffle
     if (d->shuffleMode != ui_shuffle) {
         lv_obj_t* lbl = lv_obj_get_child(btn_shuffle, 0);
-        lv_obj_set_style_text_color(lbl, d->shuffleMode ? COL_ACCENT : COL_TEXT2, 0);
+        // Theme accessors, same as the repeat button below. Hardcoding COL_* here
+        // handed Amber the original palette's gold (#D4A84B) instead of its own
+        // (#E0B252) - close enough to look like a rendering artefact rather than
+        // the wrong colour, which is exactly why it survived review.
+        lv_obj_set_style_text_color(lbl, d->shuffleMode ? themeAccentColor()
+                                                        : themeMutedColor(), 0);
         ui_shuffle = d->shuffleMode;
     }
 
