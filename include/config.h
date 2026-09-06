@@ -262,6 +262,7 @@
 #define NVS_KEY_PANEL_OK        "panel_ok"       // 1 = user confirmed the picture
 #define NVS_KEY_AUTODIM         "autodim_sec"
 #define NVS_KEY_THEME           "theme"         // player theme index (see ui_theme.h)
+#define NVS_KEY_THEME_VER       "theme_v"       // theme-index schema version (<=15 chars)
 #define DEFAULT_THEME           0               // 0 = Classic (unchanged original look)
 #define NVS_KEY_OTA_CHANNEL     "ota_channel"
 #define NVS_KEY_CACHED_DEVICE   "cached_dev"

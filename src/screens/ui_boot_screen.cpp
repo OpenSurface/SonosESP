@@ -71,6 +71,12 @@ static bool      bt_revealed = false;
 // applied at reveal, so nothing is lost by showing the wordmark for longer.
 static bool      bt_pending[BOOT_CHECK_COUNT] = {};
 
+// Wall-clock at bootScreenCreate(). Screen construction turned out to be fast
+// enough that revealing straight after it still flashed the wordmark past, so
+// the reveal waits out the remainder of this.
+static uint32_t  bt_shown_ms = 0;
+#define BT_WORDMARK_MIN_MS 2200
+
 // ── Frame pump ──────────────────────────────────────────────────────────────
 // One redraw's worth of time. 15ms is the smallest step that still reads as
 // motion rather than a slideshow at this fade length.
@@ -110,6 +116,7 @@ static lv_obj_t* bootMark(lv_obj_t* parent, int unit, int gap, int tall) {
 
 void bootScreenCreate(void) {
     bt_revealed = false;
+    bt_shown_ms = millis();
     bt_scr = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(bt_scr, ST_BG, 0);
     lv_obj_set_style_border_width(bt_scr, 0, 0);
@@ -222,6 +229,11 @@ void bootScreenCreate(void) {
 void bootScreenReveal(void) {
     if (bt_revealed || !bt_header) return;
     bt_revealed = true;
+
+    // Hold the wordmark for its minimum. This is dead time on a fast boot, but it
+    // is dead time with the brand on screen rather than a list that has already
+    // finished — and it is bounded, so a SLOW boot never waits here at all.
+    while (millis() - bt_shown_ms < BT_WORDMARK_MIN_MS) bootPump(20);
 
     lv_obj_remove_flag(bt_header, LV_OBJ_FLAG_HIDDEN);
     // Cross-fade in one pass so the screen is never blank between the two stages.

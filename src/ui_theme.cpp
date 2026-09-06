@@ -19,10 +19,6 @@ const ThemeDef THEMES[] = {
       "The original - blurred album art fills the screen",
       THEME_BG_BLUR_ART,      ART_SIZE, THEME_ART_CENTRED, THEME_ART_CENTRED, buildClassicPlayer },
 
-    { "Ambient",
-      "Tinted backdrop, lyrics below the artwork",
-      THEME_BG_AMBIENT_TINT,  308,      39,                36,                buildAmbientPlayer },
-
     { "Immersive",
       "Full-bleed colour, oversized title and large lyrics",
       THEME_BG_AMBIENT_SOLID, 112,      32,                24,                buildImmersivePlayer },
@@ -37,6 +33,36 @@ const uint8_t THEME_COUNT = (uint8_t)(sizeof(THEMES) / sizeof(THEMES[0]));
 
 uint8_t active_theme = 0;
 
+// Bump when the meaning of a persisted index changes.
+#define THEME_SCHEMA 1
+
+// v0 numbering was Classic=0, Ambient=1, Immersive=2, Studio=3. Ambient has been
+// removed — Studio covers the same ground (a flat, non-blurred panel with the
+// lyrics off the artwork) and does it to a drawn design. Without this rewrite an
+// Ambient user would land on Immersive and an Immersive user on Studio, purely
+// because the rows shifted down.
+//
+// Runs once; the marker key stops it re-running and clobbering a later
+// deliberate choice.
+void themeMigrate(void) {
+    if (wifiPrefs.getInt(NVS_KEY_THEME_VER, 0) >= THEME_SCHEMA) return;
+
+    int old_idx = wifiPrefs.getInt(NVS_KEY_THEME, -1);
+    if (old_idx >= 0) {
+        int mapped;
+        switch (old_idx) {
+            case 0:  mapped = 0; break;   // Classic stays put
+            case 1:  mapped = 2; break;   // Ambient (removed) -> Studio
+            case 2:  mapped = 1; break;   // Immersive moves down one
+            case 3:  mapped = 2; break;   // Studio moves down one
+            default: mapped = 0; break;
+        }
+        wifiPrefs.putInt(NVS_KEY_THEME, mapped);
+        Serial.printf("[THEME] Index migrated: %d -> %d\n", old_idx, mapped);
+    }
+    wifiPrefs.putInt(NVS_KEY_THEME_VER, THEME_SCHEMA);
+}
+
 const ThemeDef* themeCurrent(void) {
     return &THEMES[active_theme < THEME_COUNT ? active_theme : 0];
 }
@@ -46,6 +72,10 @@ lv_label_long_mode_t themeTitleLongMode(void) {
     // scrolls a single line.
     return themeCurrent()->build == buildStudioPlayer ? LV_LABEL_LONG_DOT
                                                       : LV_LABEL_LONG_SCROLL_CIRCULAR;
+}
+
+bool themeUsesArtAccent(void) {
+    return themeCurrent()->bg != THEME_BG_FLAT;
 }
 
 bool themeUsesBlurBg(void) {
@@ -115,7 +145,9 @@ void themeApplyBackdrop(uint32_t rgb) {
             break;
 
         case THEME_BG_AMBIENT_TINT:
-            // Deep and muted, painted flat: a gradient bands badly in RGB565.
+            // No theme uses this since Ambient was removed. Kept because the enum
+            // value is persisted nowhere and the mode still works — a future
+            // theme can pick it up without reimplementing the maths.
             lv_obj_set_style_bg_color(scr_main, lv_color_hex(shade(rgb, 0.90f, 1.35f, 26, 64)), 0);
             break;
 

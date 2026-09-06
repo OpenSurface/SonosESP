@@ -283,13 +283,26 @@ void buildStudioPlayer() {
 
         // Children are prev / current / next, in creation order. The canvas sets
         // the current line at 21/600 with the neighbours at 13.
+        //
+        // ── Long lines ──────────────────────────────────────────────────────
+        // The shared overlay uses LV_LABEL_LONG_SCROLL_CIRCULAR, which side-
+        // scrolls anything too wide. For a lyric that is exactly wrong: the line
+        // is only on screen for a few seconds, so a scroll means you are reading
+        // a moving target and the end arrives after the line has already changed.
+        //
+        // LONG_DOT wraps within the label's width and ellipsises once it runs out
+        // of HEIGHT, so a normal line sits still, a long one takes the second row,
+        // and a pathological one truncates rather than animating. The current line
+        // gets two rows; the neighbours get one each, which is all the shelf has.
         const lv_font_t* fonts[3] = { &font_text_12, &font_text_20, &font_text_12 };
         const lv_color_t cols[3]  = { ST_TEXT3,      ST_TEXT,       ST_TEXT3 };
+        const int        rows[3]  = { 18,            54,            18 };
         for (int i = 0; i < 3; i++) {
             if (lv_obj_t* l = lv_obj_get_child(lyr, i)) {
                 lv_obj_set_style_text_font(l, fonts[i], 0);
                 lv_obj_set_style_text_color(l, cols[i], 0);
-                lv_obj_set_width(l, SX(shelf_w));
+                lv_obj_set_size(l, SX(shelf_w), SY(rows[i]));
+                lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
                 lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_LEFT, 0);
             }
         }

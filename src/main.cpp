@@ -304,6 +304,7 @@ void setup() {
 
     // Resolve the saved player theme BEFORE the first build — createMainScreen()
     // dispatches to the active theme's builder. Clamps stale/invalid indices.
+    themeMigrate();   // rewrite pre-1.16 indices (Ambient was removed)
     themeLoad();
 
     createMainScreen();

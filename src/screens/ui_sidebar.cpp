@@ -96,6 +96,9 @@ static void sbDockWrite(SbDock& d) {
     if (art_ok) {
         if (d.art_track != dev->currentTrack) {
             d.art_track = dev->currentTrack;
+            // Re-binding is what refreshes it: the descriptor POINTER never
+            // changes, so LVGL has no way to notice new pixels behind it.
+            lv_image_set_src(d.art, &art_dsc);
             lv_obj_invalidate(d.art);
         }
         lv_obj_remove_flag(d.art, LV_OBJ_FLAG_HIDDEN);
@@ -186,36 +189,29 @@ static void buildDock(lv_obj_t* screen) {
     // The decoded art is ART_PX square; scale it into the 40px tile. Scaling
     // means no rounded clip mask (see the issue #89 note in ui_common.h), which
     // is why the TILE carries the radius and clips its child instead.
+    // NO src yet. art_dsc is all zeroes until the first artwork is decoded, and
+    // binding it here made LVGL cache an unusable descriptor for that pointer —
+    // which is why the tile came up as an empty grey box even once art existed.
+    // sbDockWrite() binds it when there is something to show.
     lv_obj_t* art = lv_image_create(tile);
-    lv_image_set_src(art, &art_dsc);
     lv_image_set_scale(art, (LV_SCALE_NONE * SMIN(40)) / ART_PX);
     lv_obj_set_size(art, SMIN(40), SMIN(40));
     lv_obj_center(art);
     lv_obj_add_flag(art, LV_OBJ_FLAG_HIDDEN);
 
     // Right-hand controls first, so the text block can claim what is left.
-    lv_obj_t* back = lv_button_create(dock);
-    lv_obj_set_size(back, SX(120), SMIN(40));
-    lv_obj_align(back, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_obj_set_style_radius(back, SMIN(20), 0);
-    lv_obj_set_style_bg_opa(back, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_color(back, ST_BORDER, 0);
-    lv_obj_set_style_border_width(back, 1, 0);
-    lv_obj_set_style_shadow_width(back, 0, 0);
-    lv_obj_add_event_cb(back, ev_back_main, LV_EVENT_CLICKED, NULL);
-    lv_obj_t* back_lbl = lv_label_create(back);
-    lv_label_set_text(back_lbl, "Now playing");
-    lv_obj_set_style_text_font(back_lbl, &font_text_12, 0);
-    lv_obj_set_style_text_color(back_lbl, ST_TEXT3, 0);
-    lv_obj_center(back_lbl);
-
+    //
+    // There WAS a "Now playing" pill here. It was a third way to do the same
+    // thing — the rail's close button and a tap on the player both already
+    // return you there — and it was static text taking 120px the track title
+    // could use. Transport is what the dock is for.
     lv_obj_t* b_next = dockBtn(dock, ST_IC_NEXT, ST_TEXT3, ev_next);
-    lv_obj_align(b_next, LV_ALIGN_RIGHT_MID, -SX(128), 0);
+    lv_obj_align(b_next, LV_ALIGN_RIGHT_MID, 0, 0);
 
     lv_obj_t* b_play = dockBtn(dock, ST_IC_PAUSE, ST_ACCENT, ev_play);
-    lv_obj_align(b_play, LV_ALIGN_RIGHT_MID, -SX(174), 0);
+    lv_obj_align(b_play, LV_ALIGN_RIGHT_MID, -SX(46), 0);
 
-    const int text_w = 800 - 32 - 40 - 14 - 174 - 14;   // dock minus tile and controls
+    const int text_w = 800 - 32 - 40 - 14 - 92 - 14;   // dock minus tile and controls
 
     lv_obj_t* title = lv_label_create(dock);
     lv_label_set_text(title, "Not Playing");

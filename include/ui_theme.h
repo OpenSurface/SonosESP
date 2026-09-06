@@ -65,9 +65,21 @@ const ThemeDef* themeCurrent(void);
 // session — the canvas is explicit that the title must not side-scroll.
 lv_label_long_mode_t themeTitleLongMode(void);
 
+// False for a theme whose accents are FIXED. The art-colour animation recolours
+// the progress bar, its knob and the transport's pressed states from the album,
+// which is the whole point of the ambient themes and completely wrong for Studio:
+// its palette is one deliberate gold, and having the bar drift through whatever
+// the sleeve happens to be clashes with every other accent on the screen.
+bool themeUsesArtAccent(void);
+
 // Reads the saved index from NVS and clamps it. Call once in setup() BEFORE
 // createMainScreen() so the first build already uses the chosen theme.
 void themeLoad(void);
+
+// One-time rewrite of persisted theme indices after the list changed. Call
+// BEFORE themeLoad(). THEMES[] positions are stored in NVS, so removing a row
+// moves everyone above it onto the wrong theme without this.
+void themeMigrate(void);
 
 // Persists + applies the index. Rebuilds the player screen when it changes.
 // Must be called from the main LVGL thread (settings callbacks qualify).
@@ -89,7 +101,6 @@ void themeApplyArtGeometry(lv_obj_t* img);
 
 // Builders (registry entries point at these).
 void buildClassicPlayer(void);     // ui_main_screen.cpp
-void buildAmbientPlayer(void);     // ui_theme_ambient.cpp
 void buildImmersivePlayer(void);   // ui_theme_immersive.cpp
 void buildStudioPlayer(void);      // ui_theme_studio.cpp
 
