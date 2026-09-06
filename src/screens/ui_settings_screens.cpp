@@ -311,6 +311,10 @@ static void sourceRowDeleteCb(lv_event_t* e) {
 // runs during setup(), before the Sonos is necessarily discovered, so a list
 // built there would stay empty forever. One Browse per visit, and only when the
 // user actually opens the screen — nothing is spent at boot.
+// Inner content width is 800 - SB_RAIL_W(216) - 2*SETTINGS_CONTENT_PAD(24) = 536.
+// Two tiles plus one 10px gap: (536 - 10) / 2 = 263.
+#define SOURCE_TILE_W 263
+
 static void refreshSourcesList(lv_event_t* e) {
     if (!sources_list) return;
     lv_obj_clean(sources_list);   // per-row delete cbs free their ObjectIDs
@@ -351,12 +355,16 @@ static void refreshSourcesList(lv_event_t* e) {
         if (!idCopy) { Serial.println("[SOURCES] malloc failed"); break; }
         strcpy(idCopy, browseID.c_str());
 
+        // SOURCE_TILE_W is half the inner content width less the column gap, so
+        // two tiles fill the row exactly on both panels.
         lv_obj_t* btn = lv_btn_create(sources_list);
-        lv_obj_set_size(btn, lv_pct(100), SY(50));
+        lv_obj_set_size(btn, SX(SOURCE_TILE_W), SY(74));
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_bg_color(btn, COL_CARD, 0);
         lv_obj_set_style_bg_color(btn, COL_BTN_PRESSED, LV_STATE_PRESSED);
+        lv_obj_set_style_border_width(btn, 1, 0);
+        lv_obj_set_style_border_color(btn, COL_BORDER, 0);
         lv_obj_set_style_pad_all(btn, SMIN(15), 0);
         lv_obj_set_user_data(btn, idCopy);
         lv_obj_add_event_cb(btn, sourceRowDeleteCb, LV_EVENT_DELETE, NULL);
@@ -371,9 +379,11 @@ static void refreshSourcesList(lv_event_t* e) {
         lv_obj_t* name = lv_label_create(btn);
         lv_label_set_text(name, label);
         lv_obj_set_style_text_color(name, COL_TEXT, 0);
-        lv_obj_set_style_text_font(name, &font_text_20, 0);
-        lv_obj_set_width(name, SX(340));   // widened with the 18->20px font so the
-                                           // same number of characters stays visible
+        lv_obj_set_style_text_font(name, &font_text_16, 0);
+        // Sized to the tile rather than the old full-width row. Two lines of
+        // font_text_16 fit the 74px tile, so a long source name wraps and
+        // ellipsises instead of running off the tile's edge.
+        lv_obj_set_width(name, SX(SOURCE_TILE_W - 66));
         lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
         lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(40), 0);
 
@@ -457,9 +467,13 @@ void createSourcesScreen() {
     lv_obj_set_style_bg_color(list, COL_BG, 0);
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_set_style_pad_all(list, 0, 0);
-    lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
+    // Two-column tile grid, per the design canvas. Sources are a small fixed set
+    // of destinations rather than a long list, so full-width rows wasted the
+    // right half of the screen and pushed the last source below the fold.
+    lv_obj_set_flex_flow(list, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_flex_align(list, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-    lv_obj_set_style_pad_row(list, SY(8), 0);
+    lv_obj_set_style_pad_row(list, SY(10), 0);
+    lv_obj_set_style_pad_column(list, SX(10), 0);
 
     // Populated by refreshSourcesList() on every screen open — see the note there
     // for why this is not filled in here at boot.

@@ -16,14 +16,18 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 
 // ============================================================================
 // WiFi Screen
-// Content area: 620×480 (800px − 180px sidebar)
-// Vertical stack:
-//   [0..44]   title row  (+Scan button)
-//   [50..70]  status label
-//   [76..132] pw_strip (SSID label | password field | Connect btn) — hidden until tap
-//   [140..480] network list (scrollable, 340px tall)
-//   Keyboard: 175px, bottom of screen — sits at y=300..480
-//             pw_strip at y=76..132 is safely above it
+// Content area: 584x424 (800 - 216 rail), inner box 376 tall after padding.
+// Vertical stack, from the design canvas — a status card, then a captioned
+// list, instead of a bare status line above bare rows:
+//   [0..40]    title row (+Scan button)
+//   [44..98]   status card — the connection line, on a surface
+//   [104..156] pw_strip (SSID | password | Connect) — hidden until a row is tapped
+//   [110..128] "AVAILABLE" caption — occupies the same band; pw_strip is created
+//              AFTER it and is opaque, so the strip covers the caption when shown
+//   [164..376] network list (scrollable)
+//   Keyboard: 175px tall at the screen's bottom edge. It is created on the
+//   screen root after the settings dock, so it draws over the dock while typing;
+//   pw_strip at 104..156 stays clear of it.
 // ============================================================================
 void createWiFiScreen() {
     scr_wifi = lv_obj_create(NULL);
@@ -38,20 +42,56 @@ void createWiFiScreen() {
     // The scan button's label is retargeted while scanning ("Scanning...").
     lbl_scan_text = screenHeaderActionLabel(btn_wifi_scan);
 
-    // ── Status label (y=50) ────────────────────────────────────────────────────
-    lbl_wifi_status = lv_label_create(content);
-    lv_obj_set_pos(lbl_wifi_status, 0, SY(50));
+    // ── Status card (y=44) ─────────────────────────────────────────────────────
+    // The label itself is unchanged — roughly twenty call sites in ui_handlers.cpp
+    // write its text and colour during scan and connect. Only its parent is new,
+    // so the card's border stays neutral and the LABEL's colour keeps carrying
+    // the state, exactly as it already did.
+    lv_obj_t* status_card = lv_obj_create(content);
+    lv_obj_set_size(status_card, lv_pct(100), SY(54));
+    lv_obj_set_pos(status_card, 0, SY(44));
+    lv_obj_set_style_bg_color(status_card, COL_CARD, 0);
+    lv_obj_set_style_radius(status_card, 12, 0);
+    lv_obj_set_style_border_width(status_card, 1, 0);
+    lv_obj_set_style_border_color(status_card, COL_BORDER, 0);
+    lv_obj_set_style_pad_hor(status_card, SX(16), 0);
+    lv_obj_set_style_pad_ver(status_card, 0, 0);
+    lv_obj_clear_flag(status_card, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(status_card, LV_OBJ_FLAG_CLICKABLE);
+
+    lbl_wifi_status = lv_label_create(status_card);
     lv_label_set_text(lbl_wifi_status, "Tap Scan to find networks");
     lv_obj_set_style_text_color(lbl_wifi_status, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_wifi_status, &lv_font_mdi_16, 0);
     lv_obj_set_width(lbl_wifi_status, lv_pct(100));
     lv_label_set_long_mode(lbl_wifi_status, LV_LABEL_LONG_DOT);
+    lv_obj_align(lbl_wifi_status, LV_ALIGN_LEFT_MID, 0, 0);
 
-    // ── Password strip (y=76, h=56) — ABOVE the list, hidden until tap ─────────
+    // ── "AVAILABLE" caption ────────────────────────────────────────────────────
+    // Created BEFORE pw_strip on purpose: the strip shares this band and is
+    // opaque, so it covers the caption while a password is being entered.
+    lv_obj_t* cap_available = lv_label_create(content);
+    lv_label_set_text(cap_available, "AVAILABLE");
+    lv_obj_set_style_text_font(cap_available, &font_text_12, 0);
+    lv_obj_set_style_text_color(cap_available, COL_TEXT2, 0);
+    lv_obj_set_style_text_letter_space(cap_available, 3, 0);
+    lv_obj_set_pos(cap_available, 0, SY(110));
+
+    lv_obj_t* cap_rule = lv_obj_create(content);
+    lv_obj_set_size(cap_rule, SX(24), SY(2));
+    lv_obj_set_pos(cap_rule, 0, SY(130));
+    lv_obj_set_style_bg_color(cap_rule, COL_ACCENT, 0);
+    lv_obj_set_style_bg_opa(cap_rule, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(cap_rule, 0, 0);
+    lv_obj_set_style_radius(cap_rule, 1, 0);
+    lv_obj_clear_flag(cap_rule, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(cap_rule, LV_OBJ_FLAG_CLICKABLE);
+
+    // ── Password strip (y=104, h=52) — ABOVE the list, hidden until tap ────────
     // Layout: [×](30) [SSID](140) gap [password field](255) gap [Connect](120)
     pw_strip = lv_obj_create(content);
-    lv_obj_set_size(pw_strip, lv_pct(100), SY(56));
-    lv_obj_set_pos(pw_strip, 0, SY(76));
+    lv_obj_set_size(pw_strip, lv_pct(100), SY(52));
+    lv_obj_set_pos(pw_strip, 0, SY(104));
     lv_obj_set_style_bg_color(pw_strip, COL_CARD, 0);
     lv_obj_set_style_border_width(pw_strip, 0, 0);
     lv_obj_set_style_radius(pw_strip, 10, 0);
@@ -116,15 +156,13 @@ void createWiFiScreen() {
     lv_obj_set_style_text_font(cl, &lv_font_mdi_16, 0);
     lv_obj_center(cl);
 
-    // ── Network list (y=140, h=340) — always BELOW strip, never overlaps ───────
-    // With keyboard (175px from bottom) list shows y=140..300 = 160px ≈ 3 items
-    // pw_strip at y=76..132 stays fully visible above keyboard
-    // Height was SY(340), ending at 480 - but the content area is only 432 tall
-    // once its SMIN(24) padding is taken off, so the last 48px of the list, and
-    // whichever network happened to sit there, were clipped away.
+    // ── Network list (y=164) — always BELOW the strip, never overlaps ──────────
+    // SETTINGS_LIST_H() reaches the bottom of the inner box exactly, so the last
+    // network is never clipped. It follows the content area's height, which
+    // shrank when the now-playing dock was added, without being edited here.
     list_wifi = lv_list_create(content);
-    lv_obj_set_size(list_wifi, lv_pct(100), SETTINGS_LIST_H(140));
-    lv_obj_set_pos(list_wifi, 0, SY(140));
+    lv_obj_set_size(list_wifi, lv_pct(100), SETTINGS_LIST_H(164));
+    lv_obj_set_pos(list_wifi, 0, SY(164));
     lv_obj_set_style_bg_color(list_wifi, COL_SCREEN, 0);
     lv_obj_set_style_border_width(list_wifi, 0, 0);
     lv_obj_set_style_radius(list_wifi, 0, 0);

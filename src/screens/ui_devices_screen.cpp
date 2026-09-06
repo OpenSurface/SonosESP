@@ -77,7 +77,9 @@ void refreshDeviceList() {
         lv_obj_set_style_text_font(lbl, &font_text_20, 0);
         // Cap + ellipsize: these labels had no width limit at all, so a long
         // room name ran under the chevron. Generous — only bites past ~40 chars.
-        lv_obj_set_width(lbl, SX(440));
+        // Clears the volume + chevron column on the right, in the 536-wide inner
+        // content box left by the 216 rail.
+        lv_obj_set_width(lbl, SX(360));
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, hasGroup ? SX(55) : SX(45), hasGroup || isPlaying ? SY(-8) : 0);
 
@@ -95,6 +97,18 @@ void refreshDeviceList() {
             lv_obj_set_style_text_font(sub, &lv_font_mdi_16, 0);
             lv_obj_align(sub, LV_ALIGN_LEFT_MID, hasGroup ? SX(55) : SX(45), SY(12));
         }
+
+        // Volume level, read-only. The design draws a slider on each row, but
+        // SonosController::setVolume() only ever targets the CURRENT device —
+        // driving another player from here needs a SOAP call aimed at that
+        // player's IP, which is a change to the network path and does not belong
+        // in a UI branch. The number is already in the device struct, so showing
+        // it costs nothing and answers most of what the slider was for.
+        lv_obj_t* vol = lv_label_create(btn);
+        lv_label_set_text_fmt(vol, "%d", dev->volume);
+        lv_obj_set_style_text_color(vol, COL_TEXT2, 0);
+        lv_obj_set_style_text_font(vol, &font_text_14, 0);
+        lv_obj_align(vol, LV_ALIGN_RIGHT_MID, SX(-32), 0);
 
         // Right arrow indicator
         lv_obj_t* arrow = lv_label_create(btn);
@@ -197,7 +211,7 @@ void refreshDeviceList() {
             lv_label_set_text(lbl, dev->roomName.c_str());
             lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
             lv_obj_set_style_text_font(lbl, &font_text_20, 0);
-            lv_obj_set_width(lbl, SX(600));
+            lv_obj_set_width(lbl, SX(430));
             lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
             lv_obj_align(lbl, LV_ALIGN_LEFT_MID, SX(40), 0);
 
@@ -266,7 +280,13 @@ void createDevicesScreen() {
         int cnt = sonos.getDeviceCount();
         if (cnt > 0) {
             refreshDeviceList();
-            lv_label_set_text_fmt(lbl_status, "%d speaker%s found", cnt, cnt == 1 ? "" : "s");
+            int playing = 0;
+            for (int i = 0; i < cnt; i++) {
+                SonosDevice* d = sonos.getDevice(i);
+                if (d && d->isPlaying) playing++;
+            }
+            lv_label_set_text_fmt(lbl_status, "%d speaker%s found · %d playing",
+                                  cnt, cnt == 1 ? "" : "s", playing);
         } else {
             lv_label_set_text(lbl_status, "Tap Scan to find speakers");
         }

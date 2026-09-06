@@ -30,7 +30,7 @@ void refreshGroupsList() {
         if (dev && dev->isGroupCoordinator) groupCount++;
     }
 
-    lv_label_set_text_fmt(lbl_groups_status, "%d speaker%s, %d group%s",
+    lv_label_set_text_fmt(lbl_groups_status, "%d speaker%s · %d group%s",
         cnt, cnt == 1 ? "" : "s",
         groupCount, groupCount == 1 ? "" : "s");
 
@@ -338,11 +338,6 @@ void createGroupsScreen() {
         lv_obj_clear_state(btn_groups_scan, LV_STATE_DISABLED);
         lv_obj_set_style_bg_color(btn_groups_scan, COL_ACCENT, 0);
     }, LV_EVENT_CLICKED, NULL);
-    lv_obj_t* lbl_scan = lv_label_create(btn_groups_scan);
-    lv_label_set_text(lbl_scan, MDI_REFRESH " Scan");
-    lv_obj_set_style_text_color(lbl_scan, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_text_font(lbl_scan, &lv_font_mdi_16, 0);
-    lv_obj_center(lbl_scan);
 
     // Status label
     lbl_groups_status = lv_label_create(content);

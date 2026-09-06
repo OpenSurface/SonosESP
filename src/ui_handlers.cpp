@@ -627,7 +627,7 @@ static void checkForUpdates() {
                             lv_obj_set_style_text_color(lbl_ota_status, COL_ERROR, 0);
                         }
                         if (lbl_latest_version) {
-                            lv_label_set_text(lbl_latest_version, "Latest (Nightly): None");
+                            lv_label_set_text(lbl_latest_version, "None");
                         }
                         return;
                     }
@@ -660,7 +660,7 @@ static void checkForUpdates() {
                     lv_obj_set_style_text_color(lbl_ota_status, COL_ERROR, 0);
                 }
                 if (lbl_latest_version) {
-                    lv_label_set_text(lbl_latest_version, "Latest (Stable): None");
+                    lv_label_set_text(lbl_latest_version, "None");
                 }
                 return;
             }
@@ -679,7 +679,7 @@ static void checkForUpdates() {
                         lv_obj_set_style_text_color(lbl_ota_status, COL_OK, 0);
                     }
                     if (lbl_latest_version) {
-                        lv_label_set_text_fmt(lbl_latest_version, "Latest (Nightly): v%s", current_version.c_str());
+                        lv_label_set_text_fmt(lbl_latest_version, "v%s", current_version.c_str());
                     }
                     if (btn_install_update) {
                         lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
@@ -691,7 +691,7 @@ static void checkForUpdates() {
                         lv_obj_set_style_text_color(lbl_ota_status, COL_ERROR, 0);
                     }
                     if (lbl_latest_version) {
-                        lv_label_set_text(lbl_latest_version, "Latest (Nightly): None");
+                        lv_label_set_text(lbl_latest_version, "None");
                     }
                 }
                 return;
@@ -699,9 +699,9 @@ static void checkForUpdates() {
 
             if (lbl_latest_version) {
                 if (isPrerelease && ota_channel == 1) {
-                    lv_label_set_text_fmt(lbl_latest_version, "Latest (%s): v%s (prerelease)", channelName, latest_version.c_str());
+                    lv_label_set_text_fmt(lbl_latest_version, "v%s (pre)", latest_version.c_str());
                 } else {
-                    lv_label_set_text_fmt(lbl_latest_version, "Latest (%s): v%s", channelName, latest_version.c_str());
+                    lv_label_set_text_fmt(lbl_latest_version, "v%s", latest_version.c_str());
                 }
             }
 
