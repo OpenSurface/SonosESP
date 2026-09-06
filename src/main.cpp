@@ -12,6 +12,8 @@
 #include "ui_theme.h"
 #include "ui_boot_screen.h"
 #include <esp_flash.h>
+#include <esp_ota_ops.h>    // OTA trial-run validation
+#include <esp_core_dump.h>  // stored crash reporting
 #include <esp_system.h>   // esp_reset_reason()
 #include <esp_task_wdt.h>
 #include "ui_fonts.h"
@@ -32,6 +34,134 @@ static void deferredDiscoveryTask(void* param);  // forward declaration — one-
 // serial log of a spontaneous reboot therefore shows a clean run, a dropped port,
 // and a fresh boot - with no indication of what happened. This survives the reset
 // and says which it was.
+// ============================================================================
+// OTA trial run
+// ----------------------------------------------------------------------------
+// The bootloader has rollback enabled (CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE),
+// so a freshly flashed image boots in PENDING_VERIFY and reverts to the previous
+// build unless something confirms it. The Arduino core confirms it inside
+// initArduino() - before setup(), before WiFi, before the display. That only
+// protects against an image too broken to reach Arduino init at all. An image
+// that boots, confirms itself, and then dies in setup() is a brick that needs a
+// USB cable, which is the worst outcome available to a fleet this size.
+//
+// verifyRollbackLater() is a weak symbol in cores/esp32/esp32-hal-misc.c.
+// Overriding it to return true stops the core confirming, and hands the decision
+// to loop() below.
+//
+// extern "C" is REQUIRED, not stylistic: the default is defined in a .c file, so
+// a C++-mangled symbol would not override it. The build would link, the core
+// would keep confirming during init, and this whole mechanism would be silently
+// inert. Verified after building by checking firmware.map resolves the symbol to
+// main.cpp.o rather than esp32-hal-misc.c.o.
+// ============================================================================
+static const uint32_t OTA_TRIAL_MS = 60000;   // healthy runtime before confirming
+
+static bool s_ota_on_trial   = false;
+static bool s_ota_confirmed  = false;
+static uint32_t s_ota_next_try_ms = 0;
+
+extern "C" bool verifyRollbackLater() {
+    return true;   // defer to loop(); see the block comment above
+}
+
+static void beginOtaTrial() {
+    const esp_partition_t* running = esp_ota_get_running_partition();
+    esp_ota_img_states_t st;
+    const bool known = running && esp_ota_get_state_partition(running, &st) == ESP_OK;
+
+    // Arm unless we positively know this image is NOT on trial.
+    //
+    // The two failure directions are not symmetric. Confirming an image that was
+    // already valid is a no-op - the call just restates that the app works. NOT
+    // confirming an image that was on trial reverts a build that may be perfectly
+    // fine, on every device that took the update. So an unreadable OTA state must
+    // fall through to confirming, never to silence.
+    if (known && st != ESP_OTA_IMG_PENDING_VERIFY) {
+        return;   // definitively a normal boot, nothing on trial
+    }
+    if (!known) {
+        Serial.println("[OTA] OTA state unreadable - arming the trial anyway (fail-safe).");
+    }
+
+    s_ota_on_trial = true;
+    Serial.printf("[OTA] Image on trial from '%s'.\n",
+                  running ? running->label : "unknown");
+    Serial.printf("[OTA] Confirming after %us of healthy runtime; a crash or hang\n",
+                  (unsigned)(OTA_TRIAL_MS / 1000));
+    Serial.println("[OTA] before then rolls back to the previous build automatically.");
+}
+
+// Called from loop(). Retries on failure rather than giving up: leaving the image
+// unconfirmed would roll back a build that is actually fine.
+static void confirmOtaIfDue() {
+    if (!s_ota_on_trial || s_ota_confirmed) return;
+    uint32_t now = millis();
+    if (now < OTA_TRIAL_MS || now < s_ota_next_try_ms) return;
+
+    esp_err_t e = esp_ota_mark_app_valid_cancel_rollback();
+    if (e == ESP_OK) {
+        s_ota_confirmed = true;
+        Serial.println("[OTA] Image confirmed good - rollback cancelled.");
+    } else {
+        s_ota_next_try_ms = now + 10000;    // back off, but keep trying
+        Serial.printf("[OTA] Could not confirm image (%s) - retrying in 10s\n",
+                      esp_err_to_name(e));
+    }
+}
+
+// ============================================================================
+// Stored crash reporting
+// ----------------------------------------------------------------------------
+// Core dumps have been enabled to flash this whole time
+// (CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH, ELF format, CRC32, 64KB partition), and
+// nothing has ever read one back. Every panic the firmware has taken was written
+// down and then ignored.
+//
+// The dump is NOT erased here. It stays until the next panic overwrites it, so it
+// can still be pulled off the device in full afterwards; this only surfaces its
+// existence and the headline facts, which is what turns "it rebooted, no idea
+// why" into something actionable from a pasted log.
+// ============================================================================
+static void reportStoredCoreDump() {
+    size_t addr = 0, size = 0;
+    if (esp_core_dump_image_get(&addr, &size) != ESP_OK) {
+        return;   // ESP_ERR_NOT_FOUND: no dump stored, which is the normal case
+    }
+
+    Serial.println("[COREDUMP] *** A CRASH FROM A PREVIOUS RUN IS STORED ON THIS DEVICE ***");
+    Serial.printf("[COREDUMP] %u bytes at flash offset 0x%06X\n",
+                  (unsigned)size, (unsigned)addr);
+
+    if (esp_core_dump_image_check() != ESP_OK) {
+        Serial.println("[COREDUMP] Stored image fails its checksum - cannot summarise it.");
+        return;
+    }
+
+    // ~1KB of stack dump inside; heap it rather than spend that on loopTask.
+    esp_core_dump_summary_t* sum =
+        (esp_core_dump_summary_t*)malloc(sizeof(esp_core_dump_summary_t));
+    if (!sum) {
+        Serial.println("[COREDUMP] Not enough heap to summarise; raw dump is still readable.");
+        return;
+    }
+
+    if (esp_core_dump_get_summary(sum) == ESP_OK) {
+        Serial.printf("[COREDUMP]   task   : %.16s\n", sum->exc_task);
+        Serial.printf("[COREDUMP]   PC     : 0x%08X\n", (unsigned)sum->exc_pc);
+        Serial.printf("[COREDUMP]   mcause : 0x%08X   mtval : 0x%08X\n",
+                      (unsigned)sum->ex_info.mcause, (unsigned)sum->ex_info.mtval);
+        Serial.printf("[COREDUMP]   ra     : 0x%08X   sp    : 0x%08X\n",
+                      (unsigned)sum->ex_info.ra, (unsigned)sum->ex_info.sp);
+    } else {
+        Serial.println("[COREDUMP] Summary unavailable; the raw dump is still readable.");
+    }
+    free(sum);
+
+    Serial.println("[COREDUMP] Full backtrace: read the partition and decode it against");
+    Serial.println("[COREDUMP]   .pio/build/<env>/firmware.elf  (see docs/COREDUMP.md)");
+}
+
 static void logResetReason() {
     esp_reset_reason_t r = esp_reset_reason();
     const char* why;
@@ -63,6 +193,8 @@ void setup() {
     delay(500);
     Serial.println("\n=== SONOS CONTROLLER ===");
     logResetReason();
+    reportStoredCoreDump();
+    beginOtaTrial();
     Serial.printf("Free heap: %d, PSRAM: %d\n", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
     // Detect flash chip - auto-suspend only works with specific chips
@@ -714,5 +846,11 @@ static void mainAppTask(void* param) {
 void loop() {
     // Idle — all UI/LVGL work is done in mainAppTask (32KB stack).
     // loopTask hard-coded 8KB stack cannot be changed via build flags.
+    //
+    // The one thing that does run here: confirming a freshly OTA'd image once it
+    // has survived OTA_TRIAL_MS. This task existing and ticking IS the health
+    // signal - if the firmware panics or hangs before then, loop() stops running,
+    // nothing confirms, and the bootloader reverts on the next boot.
+    confirmOtaIfDue();
     vTaskDelay(pdMS_TO_TICKS(100));
 }
