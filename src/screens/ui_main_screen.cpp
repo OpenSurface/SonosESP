@@ -10,6 +10,8 @@
  */
 
 #include "ui_common.h"
+#include "ui_theme.h"    // studioBuildOverlays() - the queue drawer / rooms modal
+#include "lyrics.h"      // the LRC toggle
 #include "lyrics.h"
 #include "ui_icons.h"
 #include "ui_theme.h"
@@ -153,6 +155,8 @@ void buildClassicPlayer() {
     lv_obj_set_style_transform_scale_y(btn_back, 280, LV_STATE_PRESSED);
     lv_obj_set_style_transition(btn_back, &trans_btn, LV_STATE_PRESSED);
     lv_obj_set_style_transition(btn_back, &trans_btn, 0);
+    // Opens the Rooms modal now rather than the Speakers screen — ev_devices
+    // routes to the overlay when one has been built (see the end of this builder).
     lv_obj_add_event_cb(btn_back, ev_devices, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_back = lv_label_create(btn_back);
     lv_label_set_text(ico_back, MDI_ARROW_LEFT);
@@ -227,6 +231,29 @@ void buildClassicPlayer() {
     lv_label_set_text(lbl_artist, "");
     lv_obj_set_style_text_color(lbl_artist, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_artist, &font_text_16, 0);
+
+    // ── Lyrics toggle ───────────────────────────────────────────────────────
+    // Classic had no way to turn lyrics off from the player; it meant a trip to
+    // Settings > General. Same switch, same NVS key — not a second, divergent one.
+    lv_obj_t* btn_lrc = lv_btn_create(panel_right);
+    lv_obj_set_size(btn_lrc, SMIN(38), SMIN(38));
+    lv_obj_set_pos(btn_lrc, SX(205), SY(18));
+    headerCircle(btn_lrc);
+    lv_obj_set_ext_click_area(btn_lrc, 5);
+    lv_obj_add_event_cb(btn_lrc, [](lv_event_t* e) {
+        lyrics_enabled = !lyrics_enabled;
+        wifiPrefs.putBool(NVS_KEY_LYRICS, lyrics_enabled);
+        setLyricsVisible(lyrics_enabled && lyrics_ready);
+        lv_obj_t* b = (lv_obj_t*)lv_event_get_target(e);
+        if (lv_obj_get_child_count(b))
+            lv_obj_set_style_text_color(lv_obj_get_child(b, 0),
+                                        lyrics_enabled ? COL_ACCENT : COL_TEXT2, 0);
+    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* ico_lrc = lv_label_create(btn_lrc);
+    lv_label_set_text(ico_lrc, "LRC");
+    lv_obj_set_style_text_font(ico_lrc, &font_text_12, 0);
+    lv_obj_set_style_text_color(ico_lrc, lyrics_enabled ? COL_ACCENT : COL_TEXT2, 0);
+    lv_obj_center(ico_lrc);
 
     // Queue/Playlist button — aligned with artist row
     btn_queue = lv_btn_create(panel_right);
@@ -458,4 +485,12 @@ void buildClassicPlayer() {
             sonos.next();
         }
     }, LV_EVENT_ALL, NULL);
+
+    // ── Overlays ────────────────────────────────────────────────────────────
+    // The queue drawer and rooms modal, so the queue button and the room control
+    // stop replacing the whole screen and the transport stays reachable. Built
+    // LAST, so they sit above every widget above; parented to the screen rather
+    // than to a panel, because setLineInMode()/setTvAudioMode() hide panel
+    // children wholesale and would take an open overlay with them.
+    studioBuildOverlays(scr_main);
 }

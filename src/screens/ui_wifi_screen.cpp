@@ -209,7 +209,7 @@ void createWiFiScreen() {
                 WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
             lv_obj_set_style_text_color(lbl_wifi_status, ST_LIVE, 0);
         } else {
-            lv_label_set_text(lbl_wifi_status, "Not connected — tap Scan to find networks");
+            lv_label_set_text(lbl_wifi_status, "Not connected - tap Scan to find networks");
             lv_obj_set_style_text_color(lbl_wifi_status, ST_TEXT3, 0);
         }
     }, LV_EVENT_ALL, NULL);

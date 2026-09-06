@@ -294,17 +294,30 @@ void buildStudioPlayer() {
         // of HEIGHT, so a normal line sits still, a long one takes the second row,
         // and a pathological one truncates rather than animating. The current line
         // gets two rows; the neighbours get one each, which is all the shelf has.
+        //
+        // ── Two lines, not three ────────────────────────────────────────────
+        // The PREVIOUS line is hidden. The shelf is 136 tall and the overlay
+        // bottom-aligns inside it, so with three lines the block grew upward and
+        // the previous line's descenders were clipped by the shelf's top edge —
+        // which is the row of half-characters showing above the current lyric.
+        // It is also the least useful of the three: it has already been sung.
+        // Ambient hides it for the same reason.
+        //
+        // The current line is PURE WHITE rather than ST_TEXT (#F5F1EA). Against
+        // #0E0D0C at 20px this is the one string on the panel worth the extra
+        // contrast, and the neighbours sit a tier down so the eye lands on it.
         const lv_font_t* fonts[3] = { &font_text_12, &font_text_20, &font_text_12 };
-        const lv_color_t cols[3]  = { ST_TEXT3,      ST_TEXT,       ST_TEXT3 };
-        const int        rows[3]  = { 18,            54,            18 };
+        const lv_color_t cols[3]  = { ST_TEXT3, ST_TEXT_HI, ST_TEXT2 };
+        const int        rows[3]  = { 0,             56,            20 };
         for (int i = 0; i < 3; i++) {
-            if (lv_obj_t* l = lv_obj_get_child(lyr, i)) {
-                lv_obj_set_style_text_font(l, fonts[i], 0);
-                lv_obj_set_style_text_color(l, cols[i], 0);
-                lv_obj_set_size(l, SX(shelf_w), SY(rows[i]));
-                lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
-                lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_LEFT, 0);
-            }
+            lv_obj_t* l = lv_obj_get_child(lyr, i);
+            if (!l) continue;
+            if (i == 0) { lv_obj_add_flag(l, LV_OBJ_FLAG_HIDDEN); continue; }
+            lv_obj_set_style_text_font(l, fonts[i], 0);
+            lv_obj_set_style_text_color(l, cols[i], 0);
+            lv_obj_set_size(l, SX(shelf_w), SY(rows[i]));
+            lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
+            lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_LEFT, 0);
         }
     }
 

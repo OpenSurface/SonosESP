@@ -98,7 +98,7 @@ void createDisplaySettingsScreen() {
         lv_obj_t* card = addCard(content, "Player background");
 
         lv_obj_t* slot = addSettingRow(card, "Blurred album art",
-                                       "Classic theme only — the others paint their own backdrop",
+                                       "Classic theme only - the others paint their own backdrop",
                                        false);
         lv_obj_t* sw_blur = addSwitch(slot, blur_bg_enabled);
         lv_obj_add_event_cb(sw_blur, [](lv_event_t* e) {

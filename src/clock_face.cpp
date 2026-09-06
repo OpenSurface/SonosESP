@@ -18,6 +18,7 @@ lv_obj_t* monolithRoot(void);
 void buildStudioFace(lv_obj_t* parent);
 void studioFaceTick(const struct tm* now);
 lv_obj_t* studioFaceRoot(void);
+void studioFaceBackdrop(lv_obj_t* root, bool over_photo);
 
 // ---------------------------------------------------------------------------
 // The registry. Adding a face is one row.
@@ -29,16 +30,18 @@ lv_obj_t* studioFaceRoot(void);
 // ---------------------------------------------------------------------------
 const ClockFaceDef CLOCK_FACES[] = {
     { "StandBy",  "Oversized overlapping digits, tinted from the album art",
-      true,  true,  nullptr,            nullptr,        nullptr },
+      true,  nullptr,             nullptr,        nullptr },
     { "Orbit",    "Light clock with a live sun-path arc and temperature curve",
-      true,  true,  buildOrbitFace,     orbitTick,      orbitRoot },
+      true,  buildOrbitFace,      orbitTick,      orbitRoot },
     { "Monolith", "Hours stacked over minutes, with a details column",
-      true,  true,  buildMonolithFace,  monolithTick,   monolithRoot },
+      true,  buildMonolithFace,   monolithTick,   monolithRoot },
     { "Horizon",  "Centred clock over an ambient glow, with a 6-hour forecast",
-      true,  true,  buildHorizonFace,   horizonTick,    horizonRoot },
-    // Flat by specification: no photo backdrop, and it fills its own ground.
+      true,  buildHorizonFace,    horizonTick,    horizonRoot },
+    // Paints its own warm ground rather than the Nocturne gradient, but still
+    // takes the photo backdrop when it is switched on.
     { "Studio",   "Warm flat clock with weather, forecast and the paused track",
-      false, false, buildStudioFace,    studioFaceTick, studioFaceRoot },
+      true,  buildStudioFace,     studioFaceTick, studioFaceRoot,
+      studioFaceBackdrop },
 };
 
 const uint8_t CLOCK_FACE_COUNT = (uint8_t)(sizeof(CLOCK_FACES) / sizeof(CLOCK_FACES[0]));

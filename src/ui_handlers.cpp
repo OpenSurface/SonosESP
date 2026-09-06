@@ -442,7 +442,7 @@ void ev_wifi_connect(lv_event_t* e) {
         } else if (status == WL_CONNECTION_LOST) {
             reason = "Connection lost";
         } else if (status == WL_DISCONNECTED) {
-            reason = "Connection timeout — check password and try again";
+            reason = "Connection timeout - check password and try again";
         }
 
         lv_label_set_text_fmt(lbl_wifi_status, MDI_ALERT " Failed: %s", reason);
@@ -1550,7 +1550,7 @@ void ev_check_update(lv_event_t* e) {
 void ev_install_update(lv_event_t* e) {
     if (download_url.isEmpty()) {
         if (lbl_ota_status) {
-            lv_label_set_text(lbl_ota_status, MDI_ALERT " No firmware URL — check for updates first");
+            lv_label_set_text(lbl_ota_status, MDI_ALERT " No firmware URL - check for updates first");
             lv_obj_set_style_text_color(lbl_ota_status, COL_ERROR, 0);
         }
         return;

@@ -438,7 +438,7 @@ void setup() {
         else if (WiFi.status() != WL_CONNECTED)
             snprintf(spk, sizeof(spk), "%s", "Waiting for network");
         else
-            snprintf(spk, sizeof(spk), "%s", "None — scan in Settings");
+            snprintf(spk, sizeof(spk), "%s", "None - scan in Settings");
         bootScreenCheck(BOOT_CHECK_SPEAKERS, spk);
     }
 

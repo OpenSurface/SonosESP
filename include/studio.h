@@ -45,6 +45,13 @@
 #define ST_HEX_ON_ACCENT   0x1A1408   // text/icon ON gold — near-black, not pure
 
 // ── Text ────────────────────────────────────────────────────────────────────
+#define ST_HEX_TEXT_HI     0xFFFFFF   // pure white - the synced lyric line ONLY.
+                                      // Nothing else on the panel earns it: the
+                                      // warm ramp is built around F5F1EA, and a
+                                      // second white makes both look like a
+                                      // mistake. The current lyric is on screen
+                                      // for a few seconds at a time and is the
+                                      // one string worth the extra contrast.
 #define ST_HEX_TEXT        0xF5F1EA   // primary
 #define ST_HEX_TEXT_BRIGHT 0xEDE8E0   // neutral fill (volume indicator)
 #define ST_HEX_TEXT2       0xC9C2B8   // secondary
@@ -72,6 +79,7 @@
 #define ST_ACCENT_DIM  lv_color_hex(ST_HEX_ACCENT_DIM)
 #define ST_ACCENT_WASH lv_color_hex(ST_HEX_ACCENT_WASH)
 #define ST_ON_ACCENT   lv_color_hex(ST_HEX_ON_ACCENT)
+#define ST_TEXT_HI     lv_color_hex(ST_HEX_TEXT_HI)
 #define ST_TEXT        lv_color_hex(ST_HEX_TEXT)
 #define ST_TEXT_BRIGHT lv_color_hex(ST_HEX_TEXT_BRIGHT)
 #define ST_TEXT2       lv_color_hex(ST_HEX_TEXT2)

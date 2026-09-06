@@ -40,9 +40,21 @@ static lv_obj_t* ov_queue_sub   = nullptr;
 static lv_obj_t* ov_rooms       = nullptr;
 static lv_obj_t* ov_rooms_list  = nullptr;
 
+// Which screen the pointers above belong to.
+static lv_obj_t* ov_owner = nullptr;
+
 // Cleared with scr_main so a theme switch cannot leave dangling pointers behind
 // (themeSet() deletes the whole screen).
-static void ov_deleted(lv_event_t*) {
+//
+// The owner check is NOT paranoia. themeSet() builds the NEW player before it
+// deletes the old one, and both Classic and Studio now build overlays — so the
+// old screen's delete callback fires AFTER the new overlays have already been
+// stored here, and without this it would null out the live set. The symptom
+// would be overlays that work until the first theme switch and then silently
+// fall back to full screens.
+static void ov_deleted(lv_event_t* e) {
+    if ((lv_obj_t*)lv_event_get_target(e) != ov_owner) return;
+    ov_owner = nullptr;
     ov_scrim = ov_queue = ov_queue_list = ov_queue_sub = nullptr;
     ov_rooms = ov_rooms_list = nullptr;
 }
@@ -373,7 +385,7 @@ static void ovFillRooms(void) {
 
     if (cnt == 0) {
         lv_obj_t* l = stLabel(ov_rooms_list, &font_text_14, ST_TEXT3,
-                              "No speakers found — scan in Settings");
+                              "No speakers found - scan in Settings");
         lv_obj_set_width(l, lv_pct(100));
     }
 }
@@ -397,6 +409,7 @@ void studioBuildOverlays(lv_obj_t* screen) {
 
     ovBuildQueue(screen);
     ovBuildRooms(screen);
+    ov_owner = screen;
     lv_obj_add_event_cb(screen, ov_deleted, LV_EVENT_DELETE, nullptr);
 
     // Close on every (re)entry to the player. The scrim and the close button were

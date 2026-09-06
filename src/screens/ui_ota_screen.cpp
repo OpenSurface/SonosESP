@@ -215,10 +215,16 @@ void createOTAScreen() {
     // ── Actions ─────────────────────────────────────────────────────────────
     // Check is the secondary action and Install the primary one, so Check is now
     // an outline button rather than a second filled accent slab competing with it.
+    // On a surface, not transparent. A transparent button over ST_BG (#0B0A09) is
+    // a black rectangle next to a gold one — it read as broken rather than as the
+    // quieter of two actions. ST_CARD gives it the same footing as every other
+    // secondary control on these pages.
     btn_check_update = lv_btn_create(content);
     lv_obj_set_size(btn_check_update, SX(250), SY(OTA_BTN_H));
     lv_obj_set_pos(btn_check_update, 0, SY(OTA_BTN_Y));
-    lv_obj_set_style_bg_opa(btn_check_update, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_bg_color(btn_check_update, ST_CARD, 0);
+    lv_obj_set_style_bg_color(btn_check_update, ST_RAISED, LV_STATE_PRESSED);
+    lv_obj_set_style_bg_opa(btn_check_update, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(btn_check_update, 1, 0);
     lv_obj_set_style_border_color(btn_check_update, ST_BORDER, 0);
     lv_obj_set_style_radius(btn_check_update, 12, 0);

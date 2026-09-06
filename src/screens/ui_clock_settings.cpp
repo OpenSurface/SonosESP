@@ -308,11 +308,15 @@ void createClockSettingsScreen() {
 
         lv_obj_t* slot_mode = addSettingRow(card, "Activate clock",
             "When the panel should fall back to a clock face", true);
+        // Shorter labels. "After inactivity (nothing playing)" is 34 characters and
+        // did not fit 206px, so the closed dropdown drew its text straight over
+        // the chevron. The bracketed qualifier is what matters; "After
+        // inactivity" was repeated on three of the four and carried nothing.
         lv_obj_t* dd_mode = makeDropdown(slot_mode,
             "Disabled\n"
-            "After inactivity\n"
-            "After inactivity (paused only)\n"
-            "After inactivity (nothing playing)",
+            "On inactivity\n"
+            "When paused\n"
+            "When stopped",
             (uint16_t)clock_mode, false);
         lv_obj_set_width(dd_mode, SX(206));
         lv_obj_add_event_cb(dd_mode, [](lv_event_t* e) {

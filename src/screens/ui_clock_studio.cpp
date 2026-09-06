@@ -107,6 +107,19 @@ static void sd_root_deleted(lv_event_t*) {
     memset(sd_rail_tmp, 0, sizeof(sd_rail_tmp));
 }
 
+// The face's own ground. Flat warm when there is no photo; a dark scrim when
+// there is, so the image reads through while the white/gold type stays legible
+// on top of a bright shot. Called by applyClockStyle() on every style change, so
+// toggling Photo Background takes effect without a rebuild.
+void studioFaceBackdrop(lv_obj_t* root, bool over_photo) {
+    if (!root) return;
+    lv_obj_set_style_bg_color(root, ST_BG, 0);
+    lv_obj_set_style_bg_grad_dir(root, LV_GRAD_DIR_NONE, 0);
+    // 60% is the same weight the Nocturne faces use over a photo, and was picked
+    // there to survive a bright image without crushing it to black.
+    lv_obj_set_style_bg_opa(root, over_photo ? 152 : LV_OPA_COVER, 0);
+}
+
 void buildStudioFace(lv_obj_t* parent) {
     if (sd_root) return;
 
@@ -116,8 +129,7 @@ void buildStudioFace(lv_obj_t* parent) {
     sd_root = lv_obj_create(parent);
     lv_obj_set_size(sd_root, SX(800), SY(480));
     lv_obj_set_pos(sd_root, 0, 0);
-    lv_obj_set_style_bg_color(sd_root, ST_BG, 0);
-    lv_obj_set_style_bg_opa(sd_root, LV_OPA_COVER, 0);
+    studioFaceBackdrop(sd_root, false);   // applyClockStyle() re-applies with the real state
     lv_obj_set_style_border_width(sd_root, 0, 0);
     lv_obj_set_style_pad_all(sd_root, 0, 0);
     lv_obj_set_style_radius(sd_root, 0, 0);
@@ -297,7 +309,7 @@ void studioFaceTick(const struct tm* now) {
     lv_label_set_text_fmt(sd_val[0], "%d%%",    clock_wx_humidity);
     lv_label_set_text_fmt(sd_val[1], "%d km/h", clock_wx_wind);
     lv_label_set_text_fmt(sd_val[2], "%d",      clock_wx_uv);
-    lv_label_set_text_fmt(sd_val[3], "%s – %s", clock_wx_sunrise, clock_wx_sunset);
+    lv_label_set_text_fmt(sd_val[3], "%s - %s", clock_wx_sunrise, clock_wx_sunset);
 
     for (int i = 0; i < 6; i++) {
         lv_label_set_text_fmt(sd_rail_hr[i], "%dH", i + 1);
