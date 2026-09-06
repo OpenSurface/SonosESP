@@ -313,12 +313,22 @@ void createGroupsScreen() {
             lv_obj_move_foreground(spinner_groups_scan);
         }
 
-        // If no speakers discovered yet, run speaker discovery first
-        if (sonos.getDeviceCount() == 0) {
-            lv_label_set_text(lbl_groups_status, AMB_IC_REFRESH " Discovering speakers...");
-            lv_refr_now(NULL);  // Force immediate refresh to show spinner
-            sonos.discoverDevices();
-        }
+        // Discover every time, not just from an empty list (issue #140).
+        //
+        // This used to be guarded by `getDeviceCount() == 0`, which is almost
+        // never true: the fast-boot path restores the selected speaker from
+        // NVS, so the count is already 1 and the guard skipped discovery
+        // entirely. Groups then only ever knew about that one speaker, and its
+        // Scan button did nothing at all - you had to go to Speakers, scan
+        // there, and come back. A group made in the Sonos app was invisible
+        // until you did.
+        //
+        // Speakers' own scan (ev_discover) has always discovered
+        // unconditionally. A button labelled Scan that declines to scan because
+        // it already holds one stale entry is the bug, not the optimisation.
+        lv_label_set_text(lbl_groups_status, AMB_IC_REFRESH " Discovering speakers...");
+        lv_refr_now(NULL);  // Force immediate refresh to show spinner
+        sonos.discoverDevices();
 
         // Now update group info
         lv_label_set_text(lbl_groups_status, AMB_IC_REFRESH " Updating groups...");
