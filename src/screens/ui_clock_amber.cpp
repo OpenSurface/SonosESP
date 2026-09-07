@@ -73,7 +73,11 @@ static const char* amberSky(int wmo) {
 #define AF_GRID_PITCH 62
 #define AF_RAIL_RULE  388
 #define AF_RAIL_Y     398
-#define AF_RAIL_H     74
+// 78, not 74. The cell is a fixed-height flex column holding hour + icon +
+// temperature, and at 74 the 4" needed 75 - it only looked right because the
+// 1px lost was a descender. The rail sits at AF_RAIL_Y 398 in a 480 design
+// space, so 78 still leaves 4px below it on both panels.
+#define AF_RAIL_H     78
 
 static lv_obj_t* af_root = nullptr;
 static lv_obj_t* af_date = nullptr;

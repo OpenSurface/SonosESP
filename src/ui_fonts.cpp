@@ -96,7 +96,22 @@ void uiFontsInit(void) {
     WIRE(font_icon_24, lv_font_amber_32, mdi_fb_24);   // 24 -> 30, snapped to 32
     WIRE(font_icon_32, lv_font_amber_40, mdi_fb_32);   // 32 -> 40
     WIRE(font_icon_40, lv_font_amber_40, mdi_fb_40);   // 40 -> 50, held at 40
-    font_icon_wx_32 = lv_font_amber_wx_64;                // 32 -> 40, snapped to 64
+    // 32 -> 40, but there is no 40px weather face, and snapping UP to 64 does
+    // not fit: the forecast rail stacks hour + icon + temperature in a fixed
+    // cell, and 18 + 64 + 18 + 12 = 112px needs more room than the 102px that
+    // exists between the rail and the bottom of a 600px panel. No cell height
+    // could rescue it, so the temperature was pushed off-screen entirely
+    // (issue #160) - John saw six icons and no degrees.
+    //
+    // Snapped DOWN to 32 instead: 18 + 34 + 18 + 12 = 82 fits with room to
+    // spare. The icon is smaller than the design intends for this panel; a
+    // slightly small icon beats a missing temperature. Generating a proper
+    // lv_font_amber_wx_40 is the real fix and needs the canvas SVGs, which are
+    // not in the repo.
+    //
+    // Only the rail uses font_icon_wx_32. The large current-conditions icon
+    // takes font_icon_wx_64 and is unchanged.
+    font_icon_wx_32 = lv_font_amber_wx_32;
     font_icon_wx_64 = lv_font_amber_wx_64;
 #else
     // ── 4" (800x480) — the design space, so every name is its literal size ──
