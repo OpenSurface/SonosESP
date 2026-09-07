@@ -129,7 +129,12 @@
 // =============================================================================
 // ALBUM ART
 // =============================================================================
-#define ART_MAX_DOWNLOAD_SIZE   (280 * 1024)  // Max JPEG download buffer (280KB)
+// Derived, not a second opinion: this only feeds a boot log line, and when it
+// was written independently it kept saying 280KB after MAX_ART_SIZE moved.
+// This header deliberately includes nothing, so a translation unit that uses
+// this must pull in ui_common.h too - today only main.cpp does, and it fails
+// loudly at compile time rather than quietly printing a stale number.
+#define ART_MAX_DOWNLOAD_SIZE   MAX_ART_SIZE  // see ui_common.h
 #define ART_TASK_STACK_SIZE     20000   // Album art task stack — PNG decode stacks TLS + software
                                         // decoder on same task; 12KB hit stack=0 on HTTPS PNG (BBC R4)
 #define ART_TASK_PRIORITY       0       // Album art task priority

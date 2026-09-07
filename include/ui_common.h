@@ -47,7 +47,16 @@
 // On the 4" SMIN(420) == 420, so ART_PX == ART_SIZE and nothing changes at all.
 #define ART_SIZE 420
 #define ART_PX   SMIN(ART_SIZE)
-#define MAX_ART_SIZE 280000          // 280KB max - allows Spotify 640x640 images
+// 512KB. Was 280KB "to allow Spotify 640x640", but a Sonos Five serving
+// x-sonosapi-hls-static art at maxWidth=600 returns 292KB - over the old cap, so
+// that cover could never load and fell back to the placeholder. Streaming
+// services have simply outgrown the number.
+//
+// It is one PSRAM allocation and the panel idles with ~25MB of PSRAM free, so
+// the extra 232KB is not a meaningful cost. Kept finite because the buffer is
+// filled from a chunked stream with no declared length: without a ceiling a
+// misbehaving server could stream until the heap gives out.
+#define MAX_ART_SIZE 512000          // 512KB max - streaming-service art runs ~300KB
 #define ART_CHUNK_SIZE 4096          // 4KB chunks for HTTP downloads
 
 // Network configuration

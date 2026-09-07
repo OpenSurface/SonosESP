@@ -1682,8 +1682,28 @@ void albumArtTask(void* param) {
                         }
 
                         if (!len_known && bytesRead >= max_art_size) {
-                            Serial.println("[ART] Album art too large (max 280KB)");
+                            Serial.printf("[ART] Album art too large (max %dKB)\n",
+                                          (int)(max_art_size / 1000));
                             readSuccess = false;
+
+                            // Mark it done, exactly as the known-length oversize
+                            // path below already does. Without this the URL goes
+                            // straight back round the loop and is fetched again
+                            // every ~2s forever: a chunked response has no
+                            // Content-Length, so the size is only discovered
+                            // after downloading the cap, and nothing recorded
+                            // that we had already tried.
+                            //
+                            // The consecutive_failures guard does not catch it
+                            // either - that counts HTTP error codes, and this is
+                            // a 200 that simply does not fit. An image too big
+                            // once is too big every time; retrying only burns
+                            // network and DMA and keeps the poller suppressed.
+                            if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                                last_art_url = url;
+                                art_show_placeholder = true;
+                                xSemaphoreGive(art_mutex);
+                            }
                         }
 
                         Serial.printf("[ART] Album art read: %d bytes (len_known=%d) in %lums\n", (int)bytesRead, len_known ? 1 : 0, millis() - t_dl_start);
