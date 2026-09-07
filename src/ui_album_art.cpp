@@ -211,12 +211,29 @@ static uint32_t target_bg_color = 0x1a1a1a;
 // 2-slot LRU album art cache in PSRAM — instant display on prev/next, no re-download
 struct ArtCacheEntry {
     char url[512];
+    char album_key[96];      // "<album>\x1f<artist>" — see the note below
     uint16_t* pixels;        // ART_PX*ART_PX*2 bytes (~352KB each)
     uint32_t dominant_color;
     bool valid;
 };
 static ArtCacheEntry art_cache[2] = {};
 static int art_cache_lru = 0;  // Index of most recently used slot
+
+// Album key for the request being served, filled at the cache check and read
+// again when the decoded art is stored. The art task is single-threaded and
+// both happen in one iteration, so a plain static is enough.
+//
+// Why this exists (issue #157): the URL cache can never hit inside an album.
+// Sonos serves art from /getaa?u=<TRACK uri>, so twelve tracks off one album
+// are twelve different URLs for one identical image, and every track change
+// paid for a fresh download. Keying on album+artist as well turns an album into
+// a single fetch.
+//
+// The trade: a compilation whose tracks carry the same album AND artist tags
+// but genuinely different covers would show the first one. That needs both tags
+// to match exactly, so a "Various Artists" album - where the artist differs per
+// track - still fetches per track and stays correct.
+static char art_album_key[96] = "";
 
 // Interpolate a single 8-bit channel
 static inline uint8_t lerp8(uint8_t a, uint8_t b, int t) {
@@ -907,6 +924,9 @@ static void displayArt(const DecodeResult& dec, const char* url) {
         memcpy(art_cache[slot].pixels, art_temp_buffer, ART_PX * ART_PX * 2);
         strncpy(art_cache[slot].url, url, sizeof(art_cache[slot].url) - 1);
         art_cache[slot].url[sizeof(art_cache[slot].url) - 1] = '\0';
+        strncpy(art_cache[slot].album_key, art_album_key,
+                sizeof(art_cache[slot].album_key) - 1);
+        art_cache[slot].album_key[sizeof(art_cache[slot].album_key) - 1] = '\0';
         art_cache[slot].dominant_color = new_color;
         art_cache[slot].valid          = true;
         art_cache_lru = slot;
@@ -1153,13 +1173,42 @@ void albumArtTask(void* param) {
             art_download_in_progress = false;
             Serial.printf("[ART] URL: %s\n", url);
 
+            // Album key for this request. Read here on purpose: the art task
+            // holds NO lock at this point (art_mutex was taken and released
+            // above, network_mutex is not acquired until later), so there is no
+            // nesting and no ordering to get wrong. Nothing in the codebase
+            // takes network_mutex while holding deviceMutex either.
+            //
+            // A failed take is not an error - it just means this request falls
+            // back to URL-only matching, exactly as before.
+            art_album_key[0] = '\0';
+            if (SemaphoreHandle_t dm = sonos.getDeviceMutex()) {
+                if (xSemaphoreTake(dm, pdMS_TO_TICKS(20))) {
+                    SonosDevice* d = sonos.getCurrentDevice();
+                    if (d && d->currentAlbum.length() && d->currentArtist.length()) {
+                        snprintf(art_album_key, sizeof(art_album_key), "%s\x1f%s",
+                                 d->currentAlbum.c_str(), d->currentArtist.c_str());
+                    }
+                    xSemaphoreGive(dm);
+                }
+            }
+
             // LRU cache check — serve instantly without network if we already have this art
             {
                 bool cache_hit = false;
                 for (int i = 0; i < 2; i++) {
+                    const bool url_match =
+                        strncmp(art_cache[i].url, url, sizeof(art_cache[i].url)) == 0;
+                    // Same album by the same artist: the cover is the same image
+                    // even though Sonos handed us a different per-track URL.
+                    const bool album_match =
+                        art_album_key[0] != '\0' &&
+                        strncmp(art_cache[i].album_key, art_album_key,
+                                sizeof(art_cache[i].album_key)) == 0;
                     if (art_cache[i].valid && art_cache[i].pixels &&
-                        strncmp(art_cache[i].url, url, sizeof(art_cache[i].url)) == 0) {
-                        Serial.printf("[ART] Cache hit slot %d — skipping download\n", i);
+                        (url_match || album_match)) {
+                        Serial.printf("[ART] Cache hit slot %d (%s) — skipping download\n",
+                                      i, url_match ? "url" : "album");
                         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
                             memcpy(art_buffer, art_cache[i].pixels, ART_PX * ART_PX * 2);
                             last_art_url = url;
