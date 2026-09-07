@@ -14,6 +14,26 @@
 // Debug levels: 0=OFF, 1=ERRORS, 2=WARNINGS, 3=INFO, 4=VERBOSE
 #define DEBUG_LEVEL             3
 
+// Periodic DMA/heap telemetry: [HEAP], [STACK], [SOAP/DMA], [POLL/DMA],
+// [QUEUE/DMA]. Every few seconds, forever, on every device.
+//
+// Off by default because it is not free. Each line is handed to the USB CDC
+// driver, whose ISR writes it into the peripheral FIFO a byte at a time
+// (usb_serial_jtag_ll_write_txfifo). A user collecting logs for us hit a store
+// fault inside that ISR twice in one afternoon - so the diagnostics were
+// destabilising the device they were meant to diagnose, and the more we print
+// the wider that window gets.
+//
+// Turn it on when actually chasing a DMA or heap problem; the per-event logs
+// (discovery, art, OTA, SOAP errors) are unaffected and stay on.
+#define DEBUG_DMA_TELEMETRY     0
+
+#if DEBUG_DMA_TELEMETRY
+    #define DMA_LOG(fmt, ...) Serial.printf(fmt, ##__VA_ARGS__)
+#else
+    #define DMA_LOG(fmt, ...) ((void)0)
+#endif
+
 // Debug macros - compile out verbose logs when not needed
 #if DEBUG_LEVEL >= 4
     #define DEBUG_VERBOSE(fmt, ...) Serial.printf(fmt, ##__VA_ARGS__)

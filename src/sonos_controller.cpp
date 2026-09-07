@@ -366,7 +366,7 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
         int delta_end  = (int)((long)dma_post_end  - (long)dma_pre_end);
         int delta_sess = (int)((long)dma_post_end  - (long)session_start_dma);
         if (dma_post_end < 50000 || delta_end < -2048 || soap_count % 10 == 0) {
-            Serial.printf("[SOAP/DMA] #%d: pre=%uKB post=%uKB delta=%+dB session=%+dKB\n",
+            DMA_LOG("[SOAP/DMA] #%d: pre=%uKB post=%uKB delta=%+dB session=%+dKB\n",
                           soap_count,
                           (unsigned)dma_pre_end/1024, (unsigned)dma_post_end/1024,
                           delta_end, delta_sess/1024);
@@ -1567,7 +1567,7 @@ bool SonosController::updateQueue(int startIndex) {
     // Also stamps on empty response: even a failed SOAP leaves TCP residue in SDIO.
     last_queue_fetch_time = millis();
 
-    Serial.printf("[QUEUE/DMA] pre=%uKB post=%uKB delta=%+dB start=%d batch=%d\n",
+    DMA_LOG("[QUEUE/DMA] pre=%uKB post=%uKB delta=%+dB start=%d batch=%d\n",
                   (unsigned)(dma_pre_q / 1024), (unsigned)(dma_post_q / 1024),
                   (int)((long)dma_post_q - (long)dma_pre_q), startIndex, SONOS_QUEUE_BATCH_SIZE);
 
@@ -1941,7 +1941,7 @@ void SonosController::pollingTaskFunction(void* param) {
                 int cycle_delta = (int)((long)dma_cycle - (long)cycle_session_start);
                 // Log: every cycle when DMA < 60KB (danger zone), else every 20 cycles
                 if (dma_cycle < 60000 || cycle_count % 20 == 0) {
-                    Serial.printf("[POLL/DMA] cycle=%u dma=%uKB session=%+dKB art_dl=%d\n",
+                    DMA_LOG("[POLL/DMA] cycle=%u dma=%uKB session=%+dKB art_dl=%d\n",
                                   (unsigned)cycle_count,
                                   (unsigned)(dma_cycle / 1024),
                                   cycle_delta / 1024,

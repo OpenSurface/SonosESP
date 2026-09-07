@@ -674,18 +674,18 @@ void logHeapStatus() {
     size_t free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     size_t free_dma = heap_caps_get_free_size(MALLOC_CAP_DMA);
 
-    Serial.printf("[HEAP] Free: %dKB | Min: %dKB | PSRAM: %dKB | DMA: %dKB\n",
+    DMA_LOG("[HEAP] Free: %dKB | Min: %dKB | PSRAM: %dKB | DMA: %dKB\n",
                   free_heap / 1024, min_heap / 1024, free_psram / 1024, free_dma / 1024);
 
     // Log task stack high water marks — minimum free bytes ever observed.
     // On ESP-IDF 5.x (ESP32-P4 RISC-V), uxTaskGetStackHighWaterMark returns bytes directly.
     // Lower number = more stack used, closer to overflow. 0 = already overflowed.
-    Serial.printf("[STACK] Main:%d ", uxTaskGetStackHighWaterMark(NULL));  // NULL = mainAppTask
-    Serial.printf("Art:%d ", albumArtTaskHandle ? uxTaskGetStackHighWaterMark(albumArtTaskHandle) : 0);
-    Serial.printf("Net:%d ", sonos.getNetworkTaskHandle() ? uxTaskGetStackHighWaterMark(sonos.getNetworkTaskHandle()) : 0);
-    Serial.printf("Poll:%d ", sonos.getPollingTaskHandle() ? uxTaskGetStackHighWaterMark(sonos.getPollingTaskHandle()) : 0);
-    Serial.printf("ClkBg:%d ", clockBgTaskHandle ? uxTaskGetStackHighWaterMark(clockBgTaskHandle) : 0);
-    Serial.printf("Lyrics:%d bytes free\n", lyricsTaskHandle ? uxTaskGetStackHighWaterMark(lyricsTaskHandle) : 0);
+    DMA_LOG("[STACK] Main:%d ", uxTaskGetStackHighWaterMark(NULL));  // NULL = mainAppTask
+    DMA_LOG("Art:%d ", albumArtTaskHandle ? uxTaskGetStackHighWaterMark(albumArtTaskHandle) : 0);
+    DMA_LOG("Net:%d ", sonos.getNetworkTaskHandle() ? uxTaskGetStackHighWaterMark(sonos.getNetworkTaskHandle()) : 0);
+    DMA_LOG("Poll:%d ", sonos.getPollingTaskHandle() ? uxTaskGetStackHighWaterMark(sonos.getPollingTaskHandle()) : 0);
+    DMA_LOG("ClkBg:%d ", clockBgTaskHandle ? uxTaskGetStackHighWaterMark(clockBgTaskHandle) : 0);
+    DMA_LOG("Lyrics:%d bytes free\n", lyricsTaskHandle ? uxTaskGetStackHighWaterMark(lyricsTaskHandle) : 0);
 
     // Warn if heap or DMA is getting low
     if (free_heap < 50000) {
