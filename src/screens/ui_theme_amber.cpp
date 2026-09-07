@@ -47,7 +47,21 @@
 
 #define AP_HEAD_Y     18
 #define AP_HEAD_H     44
-#define AP_ARTIST_Y   92
+// 80, not 92 (issue #159 -> #151). The artist line sat 22px above a title
+// whose font is 35px tall, leaving 7px of real clearance on the 4" - and LVGL
+// leaves a LONG_DOT label's TOP unclipped by design ("extra draw area to not
+// clip characters with italic, handwritten and other less standard fonts",
+// lv_label.c), so the title can paint upward into that gap.
+//
+// The old SonosESP theme never showed this: it steps title -> artist by 44px
+// and puts the small text BELOW the large one. Amber inverted the order and
+// tightened the step, so it has been running on luck.
+//
+// The room pill ends at AP_HEAD_Y + AP_HEAD_H = 62, so there were 30px of dead
+// space above the artist and 7px below it. Moving up 12 spends some of the
+// former on the latter: clearance goes 7px -> 19px on the 4", 9px -> 24px on
+// the 7", and the pill still keeps an 18px gap.
+#define AP_ARTIST_Y   80
 #define AP_TITLE_Y    114
 #define AP_TITLE_H    78
 #define AP_ALBUM_Y    198
@@ -456,7 +470,13 @@ void buildAmberPlayer() {
     // ── Track meta ──────────────────────────────────────────────────────────
     lbl_artist = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_artist, SX(AP_R), SY(AP_ARTIST_Y));
-    lv_obj_set_size(lbl_artist, SX(AP_RW), SY(18));
+    // Height from the FONT, not a design-space constant. SY() scales by 1.25 on
+    // the 7" while font_text_12 goes montserrat_12 -> montserrat_16 (line height
+    // 15 -> 18): two knobs moving at different rates, so a fixed SY(18) box only
+    // ever fitted by luck. Deriving it keeps box and glyphs together on both
+    // panels, and makes `size.y > height` - the vertical-scroll trigger in
+    // lv_label.c - unreachable.
+    lv_obj_set_size(lbl_artist, SX(AP_RW), lv_font_get_line_height(&font_text_12));
     // Scrolls, like the SonosESP and Immersive themes have always done. Amber
     // was the only player that ellipsised instead, so a radio stream - where
     // this line carries the programme name, not a short artist - was cut off
@@ -481,7 +501,7 @@ void buildAmberPlayer() {
 
     lbl_album = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_album, SX(AP_R), SY(AP_ALBUM_Y));
-    lv_obj_set_size(lbl_album, SX(AP_RW), SY(20));
+    lv_obj_set_size(lbl_album, SX(AP_RW), lv_font_get_line_height(&font_text_14));
     lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_album, "");
     lv_obj_set_style_text_color(lbl_album, AMB_TEXT3, 0);
