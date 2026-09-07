@@ -146,6 +146,37 @@ void test_single_standalone_speaker(void) {
 
 // The reported topology: everything in one group. Before the fix the Groups
 // screen showed this as "12 speakers, 1 group" with the row reading Standalone.
+// A real GetZoneGroupState body, captured verbatim from a Sonos Five on a live
+// network (firmware 96.1-79270) rather than assembled by the fixtures above.
+//
+// The point is the attribute soup: Location, Icon, Configuration,
+// SoftwareVersion, SWGen, MinCompatibleVersion, LegacyCompatibleVersion,
+// BootSeq, TVConfigurationError, HdmiCecAvailable, VoiceConfigState and the
+// rest, in the order and spelling Sonos actually emits. The hand-built member()
+// helper carries five attributes; the real thing carries twenty-odd, and the
+// parser has to find coordinator=" and uuid=" inside all of it.
+void test_real_capture_single_speaker(void) {
+    static const char kReal[] =
+        "<ZoneGroups><ZoneGroup Coordinator=\"RINCON_C43875F1193A01400\" ID=\"RINCON_C43875F1193A"
+        "01400:1328590192\"><ZoneGroupMember UUID=\"RINCON_C43875F1193A01400\" Location=\"http://"
+        "192.168.2.36:1400/xml/device_description.xml\" ZoneName=\"Living Room\" Icon=\"\" Config"
+        "uration=\"1\" SoftwareVersion=\"96.1-79270\" SWGen=\"2\" MinCompatibleVersion=\"95.0-000"
+        "00\" LegacyCompatibleVersion=\"58.0-00000\" BootSeq=\"140\" TVConfigurationError=\"0\" H"
+        "dmiCecAvailable=\"0\" WirelessMode=\"1\" ConnectionType=\"5\" ChannelFreq=\"5785\" Behin"
+        "dWifiExtender=\"0\" WifiEnabled=\"1\" EthLink=\"0\" Orientation=\"0\" RoomCalibrationSta"
+        "te=\"1\" SecureRegState=\"3\" VoiceConfigState=\"0\" MicEnabled=\"0\" HeadphoneSwapActiv"
+        "e=\"0\" AirPlayEnabled=\"1\" IdleState=\"0\" MoreInfo=\"\" SSLPort=\"1443\" HHSSLPort=\""
+        "1843\"/></ZoneGroup></ZoneGroups>";
+
+    Parsed p;
+    parse(p, std::string("<ZoneGroupState>") + kReal + "</ZoneGroupState>");
+
+    TEST_ASSERT_EQUAL_INT(1, p.count);
+    TEST_ASSERT_EQUAL_INT(1, p.groups[0].memberCount);
+    TEST_ASSERT_TRUE(coordIs(p, 0, LIVING));
+    TEST_ASSERT_TRUE(memberIs(p, 0, LIVING));
+}
+
 void test_twelve_speakers_in_one_group(void) {
     std::string members;
     char uuid[64];
@@ -262,6 +293,7 @@ int main(int, char**) {
     RUN_TEST(test_decode_leaves_plain_text);
 
     RUN_TEST(test_single_standalone_speaker);
+    RUN_TEST(test_real_capture_single_speaker);
     RUN_TEST(test_twelve_speakers_in_one_group);
     RUN_TEST(test_mixed_grouped_and_standalone);
     RUN_TEST(test_satellites_are_not_members);

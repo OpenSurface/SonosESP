@@ -2545,10 +2545,16 @@ bool SonosController::refreshGroupTopology(bool force) {
                     break;
                 }
             }
-            // A member we cannot place stays standalone by the reset above, which
-            // is why a real group can render as N standalone speakers with no
-            // clue as to why (issue #140). Naming it turns that into a single
-            // readable line: either the speaker was never discovered, or its
+            // A member we cannot place stays standalone by the reset above, so a
+            // real group would render as N standalone speakers with nothing in
+            // the log to say why.
+            //
+            // Added while chasing #140, which turned out NOT to be this - the
+            // user had made a Sonos *saved group*, which is a preset and does
+            // not group anything until it is applied, so the panel was right to
+            // show them separate. Kept because ruling this out took a day and a
+            // half of log-reading that one line would have ended: it says
+            // outright whether the speaker was never discovered, or whether its
             // RINCON is spelled differently from the one topology reports.
             if (!matched) {
                 char mbuf[64];
