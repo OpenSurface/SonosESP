@@ -1076,6 +1076,32 @@ static void performOTAUpdate() {
     // ================================================================
     otaCheckDMA();  // polls TIME_WAIT sockets; restarts if DMA still low; sets WiFi mode
 
+    // ── Close the USB console before the download window (issue #156) ───────
+    //
+    // A 7" unit panicked here, and the register dump named it exactly:
+    //
+    //   MEPC 0x4006f33e -> HWCDC::read()          HWCDC.cpp:586
+    //   RA   0x4006f250 -> flushTXBuffer(...)     HWCDC.cpp:240
+    //   MCAUSE 0x7 (store access fault)   MTVAL 0x500d2000
+    //
+    // Not an OTA bug at all: a store into the USB Serial/JTAG peripheral's
+    // register block. T1..T6 held 0x3d3d3d3d ("===="), so it died mid-banner.
+    //
+    // HWCDC's write path calls flushTXBuffer() -> usb_serial_jtag_ll_txfifo_flush()
+    // whenever the host is NOT connected, and that touches the peripheral. If the
+    // host has just gone away - closing the web console detaches it, and on this
+    // chip that can reset the USB peripheral (the same ESP_RST_USB other logs
+    // show) - the write lands on a block that is no longer there.
+    //
+    // Ending the port makes every later Serial call a no-op: cdc0_write_char
+    // returns immediately once tx_ring_buf is NULL. Done at this point on
+    // purpose. The console is still healthy here so end() itself is safe, and
+    // every diagnostic worth having - task teardown, DMA, TIME_WAIT - has
+    // already been printed. What is given up is download-progress logging, a
+    // fair trade for an update path that does not panic when someone watches it.
+    Serial.flush();
+    Serial.end();
+
     // ================================================================
     // PHASE 5+6: CONNECT AND DOWNLOAD (retry on connection failure)
     // ================================================================
