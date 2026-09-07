@@ -13,7 +13,7 @@
 #include "ui_theme.h"
 #include "ui_fonts.h"
 #include "amber.h"
-#include <esp_system.h>   // esp_restart()
+#include "display_driver.h"   // display_set_brightness()
 
 // Forward declaration (defined in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -167,8 +167,16 @@ void createGeneralScreen() {
             // failure the SDIO defence layers exist to avoid.
             Serial.println("[MAIN] Restart requested from Settings");
             sonos.suspendTasks();
-            vTaskDelay(pdMS_TO_TICKS(300));
-            esp_restart();
+
+            // Backlight off before the reset, not after. Between esp_restart()
+            // and the boot screen's first paint the LCD controller sits in its
+            // power-on state, which on these panels is a flat blue field - so a
+            // restart flashed blue for a couple of seconds. The panel wizard and
+            // the OTA path already do exactly this ("don't flash garbage on the
+            // way down"); the Restart button simply had not copied them.
+            display_set_brightness(0);
+            vTaskDelay(pdMS_TO_TICKS(150));
+            ESP.restart();
         }, LV_EVENT_CLICKED, NULL);
     }
 }
