@@ -129,6 +129,10 @@
 // outside normal and far inside "the user has given up and reached for the
 // plug".
 #define ART_FLAG_MAX_HOLD_MS    45000   // Max hold before polling forces it false
+
+// How long the Settings > General > Restart button stays armed after the first
+// tap (issue #159). Matches the queue Clear button's OV_CLEAR_ARM_MS.
+#define RESTART_ARM_MS          4000
 #define ART_CHECK_INTERVAL_MS   100     // How often to check for new art requests
 #define ART_DECODE_MAX_FAILURES 3       // Give up on URL after N decode failures
 #define ART_SW_JPEG_FALLBACK    1       // Enable JPEGDEC SW fallback (progressive, non-div-8)

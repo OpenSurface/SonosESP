@@ -13,6 +13,7 @@
 #include "ui_theme.h"
 #include "ui_fonts.h"
 #include "amber.h"
+#include <esp_system.h>   // esp_restart()
 
 // Forward declaration (defined in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -105,5 +106,69 @@ void createGeneralScreen() {
             themeSet(sel);
             if (lbl_theme_desc) lv_label_set_text(lbl_theme_desc, THEMES[active_theme].desc);
         }, LV_EVENT_VALUE_CHANGED, NULL);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // CARD - Device  (issue #159)
+    //
+    // Asked for so a wedged panel does not mean reaching behind the furniture
+    // for the USB cable. It lives here rather than on Update because General is
+    // the page people land on, and someone whose panel is misbehaving does not
+    // go looking for "make it work again" under firmware updates.
+    // ────────────────────────────────────────────────────────────────────────
+    {
+        lv_obj_t* card = addCard(content, "Device");
+
+        lv_obj_t* slot = addSettingRow(card, "Restart",
+                                       "Restarts the panel. Your Wi-Fi and speaker "
+                                       "settings are kept.",
+                                       false);
+
+        // Arm-then-confirm, the same shape the queue's Clear button uses, rather
+        // than a modal: one stray tap should not drop the music.
+        lv_obj_t* btn = lv_button_create(slot);
+        lv_obj_set_size(btn, SX(132), SY(40));
+        lv_obj_set_style_radius(btn, SMIN(20), 0);
+        lv_obj_set_style_bg_color(btn, AMB_RAISED, 0);
+        lv_obj_set_style_border_width(btn, 1, 0);
+        lv_obj_set_style_border_color(btn, AMB_BORDER, 0);
+        lv_obj_set_style_shadow_width(btn, 0, 0);
+
+        lv_obj_t* lbl = lv_label_create(btn);
+        lv_label_set_text(lbl, "Restart");
+        lv_obj_set_style_text_font(lbl, &font_text_14, 0);
+        lv_obj_set_style_text_color(lbl, AMB_TEXT2, 0);
+        lv_obj_center(lbl);
+
+        lv_obj_add_event_cb(btn, [](lv_event_t* e) {
+            static uint32_t armed_ms = 0;
+            lv_obj_t* b = (lv_obj_t*)lv_event_get_target(e);
+            lv_obj_t* l = lv_obj_get_child(b, 0);
+            const bool armed = armed_ms && (millis() - armed_ms) < RESTART_ARM_MS;
+
+            if (!armed) {
+                armed_ms = millis();
+                if (l) {
+                    lv_label_set_text(l, "Tap to confirm");
+                    lv_obj_set_style_text_color(l, AMB_ACCENT, 0);
+                }
+                lv_obj_set_style_border_color(b, AMB_ACCENT_DIM, 0);
+                lv_obj_set_style_bg_color(b, AMB_ACCENT_WASH, 0);
+                return;
+            }
+
+            armed_ms = 0;
+            if (l) lv_label_set_text(l, "Restarting...");
+            lv_refr_now(NULL);          // paint it before the screen goes dark
+
+            // Quiesce the way the OTA path does before its own restart. The chip
+            // reset itself does not need this, but a task caught mid-SDIO leaves
+            // the C6 in a state the next boot has to recover from - which is the
+            // failure the SDIO defence layers exist to avoid.
+            Serial.println("[MAIN] Restart requested from Settings");
+            sonos.suspendTasks();
+            vTaskDelay(pdMS_TO_TICKS(300));
+            esp_restart();
+        }, LV_EVENT_CLICKED, NULL);
     }
 }
