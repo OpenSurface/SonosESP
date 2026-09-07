@@ -1970,15 +1970,32 @@ void SonosController::pollingTaskFunction(void* param) {
             // Art may still be mid-flight; a stale cover is a far smaller price
             // than a panel that needs a power cycle.
             {
+                // Function-level statics, so they survive the polling task being
+                // destroyed and recreated (OTA suspend/resume). If that happened
+                // while the flag was true, a timestamp from the previous session
+                // would look ancient and clear the flag on the very first check -
+                // letting polling run during a genuine download, the exact thing
+                // the flag exists to prevent. Re-arming whenever the gap since the
+                // last check exceeds the ceiling catches it: the task was not
+                // running, so it has no standing to judge how long this has held.
                 static unsigned long art_flag_since = 0;
+                static unsigned long art_flag_last_seen = 0;
+                const unsigned long now_ms = millis();
+
+                if (art_flag_last_seen != 0 &&
+                    now_ms - art_flag_last_seen > ART_FLAG_MAX_HOLD_MS) {
+                    art_flag_since = 0;          // we were not watching; start over
+                }
+                art_flag_last_seen = now_ms;
+
                 if (!art_download_in_progress) {
                     art_flag_since = 0;
                 } else if (art_flag_since == 0) {
-                    art_flag_since = millis();
-                } else if (millis() - art_flag_since > ART_FLAG_MAX_HOLD_MS) {
+                    art_flag_since = now_ms;
+                } else if (now_ms - art_flag_since > ART_FLAG_MAX_HOLD_MS) {
                     Serial.printf("[POLL] art_dl held %lums (> %dms) - art task is "
                                   "stuck; resuming polling (issue #158)\n",
-                                  millis() - art_flag_since, ART_FLAG_MAX_HOLD_MS);
+                                  now_ms - art_flag_since, ART_FLAG_MAX_HOLD_MS);
                     art_download_in_progress = false;
                     art_flag_since = 0;
                 }
