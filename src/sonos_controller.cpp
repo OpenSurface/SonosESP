@@ -2510,6 +2510,7 @@ bool SonosController::refreshGroupTopology(bool force) {
     static sonos_topology::Group  s_groups[MAX_SONOS_DEVICES];
     static sonos_topology::Slice  s_members[MAX_SONOS_DEVICES * 2];
 
+    int unmatched = 0;
     int groups = sonos_topology::parseZoneGroups(
         resp.c_str(), declen,
         s_groups,  MAX_SONOS_DEVICES,
@@ -2532,6 +2533,7 @@ bool SonosController::refreshGroupTopology(bool force) {
 
         for (int m = 0; m < s_groups[g].memberCount; m++) {
             const sonos_topology::Slice& mem = s_members[s_groups[g].firstMember + m];
+            bool matched = false;
             for (int i = 0; i < deviceCount; i++) {
                 if (sonos_topology::uuidEquals(devices[i].rinconID.c_str(),
                                                devices[i].rinconID.length(),
@@ -2539,8 +2541,24 @@ bool SonosController::refreshGroupTopology(bool force) {
                     devices[i].groupCoordinatorUUID = coordUuid;
                     devices[i].isGroupCoordinator =
                         sonos_topology::uuidEquals(mem.ptr, mem.len, coord.ptr, coord.len);
+                    matched = true;
                     break;
                 }
+            }
+            // A member we cannot place stays standalone by the reset above, which
+            // is why a real group can render as N standalone speakers with no
+            // clue as to why (issue #140). Naming it turns that into a single
+            // readable line: either the speaker was never discovered, or its
+            // RINCON is spelled differently from the one topology reports.
+            if (!matched) {
+                char mbuf[64];
+                size_t mlen = mem.len < sizeof(mbuf) - 1 ? mem.len : sizeof(mbuf) - 1;
+                memcpy(mbuf, mem.ptr, mlen);
+                mbuf[mlen] = '\0';
+                Serial.printf("[GROUP] Unmatched member %s (coordinator %s) - "
+                              "not in our %d discovered device(s)\n",
+                              mbuf, coordUuid.c_str(), deviceCount);
+                unmatched++;
             }
         }
 
@@ -2557,8 +2575,9 @@ bool SonosController::refreshGroupTopology(bool force) {
     xSemaphoreGive(deviceMutex);
 
     last_refresh_ms = millis();
-    Serial.printf("[GROUP] Topology refreshed: %d group(s) across %d known device(s)\n",
-                  groups, deviceCount);
+    Serial.printf("[GROUP] Topology refreshed: %d group(s) across %d known device(s)%s\n",
+                  groups, deviceCount,
+                  unmatched ? " - SOME MEMBERS UNMATCHED, see above" : "");
     notifyUI(UPDATE_GROUPS);
     return groups > 0;
 }
