@@ -1953,6 +1953,37 @@ void SonosController::pollingTaskFunction(void* param) {
             // 500 protection is handled by the inside-mutex 200ms post-500 drain in art,
             // art_download_in_progress suppression during downloads, and the post-SOAP-1
             // (in_500_now) guard skipping updatePlaybackState below.
+            // Watchdog on art_download_in_progress (issue #158).
+            //
+            // The art task sets that flag around a download and the branch below
+            // skips ALL SOAPs while it is true. If a download hangs, nothing
+            // clears it: the only clears live at the top of the art task's next
+            // loop iteration, which a hung task never reaches. One user's log
+            // showed 338 consecutive "[POLL] Skip: art_dl=1 post_dl=0
+            // settling=0" lines over nine minutes with no [ART] line after the
+            // flag was set - the UI frozen on the last track until they pulled
+            // the plug.
+            //
+            // Timed here rather than at the set sites so the art task keeps its
+            // SDIO/DMA timing exactly as the crash-defence layers expect. The
+            // consumer notices it has been starved and takes its own poll back.
+            // Art may still be mid-flight; a stale cover is a far smaller price
+            // than a panel that needs a power cycle.
+            {
+                static unsigned long art_flag_since = 0;
+                if (!art_download_in_progress) {
+                    art_flag_since = 0;
+                } else if (art_flag_since == 0) {
+                    art_flag_since = millis();
+                } else if (millis() - art_flag_since > ART_FLAG_MAX_HOLD_MS) {
+                    Serial.printf("[POLL] art_dl held %lums (> %dms) - art task is "
+                                  "stuck; resuming polling (issue #158)\n",
+                                  millis() - art_flag_since, ART_FLAG_MAX_HOLD_MS);
+                    art_download_in_progress = false;
+                    art_flag_since = 0;
+                }
+            }
+
             {
                 bool post_download  = last_art_download_end_ms > 0 &&
                                       millis() - last_art_download_end_ms < SDIO_INTER_DOWNLOAD_MS;

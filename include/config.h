@@ -114,6 +114,21 @@
                                         // decoder on same task; 12KB hit stack=0 on HTTPS PNG (BBC R4)
 #define ART_TASK_PRIORITY       0       // Album art task priority
 #define ART_DOWNLOAD_TIMEOUT_MS 8000    // Download timeout
+
+// Ceiling on how long art_download_in_progress may be held before the polling
+// task breaks it (issue #158).
+//
+// http.setTimeout() bounds an individual socket read, not the transfer: a
+// server that dribbles a byte every couple of seconds never trips it. One did,
+// and a single download sat inside HTTPS for 209 SECONDS while the flag
+// suppressed every SOAP - so the panel froze on the last track until it was
+// power-cycled.
+//
+// A legitimate cycle is well under this: sdioPreWait, the 800ms inter-download
+// cooldown, a ~3s queue re-check and a download capped at 10s. 45s is far
+// outside normal and far inside "the user has given up and reached for the
+// plug".
+#define ART_FLAG_MAX_HOLD_MS    45000   // Max hold before polling forces it false
 #define ART_CHECK_INTERVAL_MS   100     // How often to check for new art requests
 #define ART_DECODE_MAX_FAILURES 3       // Give up on URL after N decode failures
 #define ART_SW_JPEG_FALLBACK    1       // Enable JPEGDEC SW fallback (progressive, non-div-8)
