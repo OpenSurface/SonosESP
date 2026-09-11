@@ -22,7 +22,7 @@ lv_font_t font_icon_16;
 lv_font_t font_icon_24;
 lv_font_t font_icon_32;
 lv_font_t font_icon_40;
-lv_font_t font_batt_16;   // battery glyphs + text (issue #165), font_icon_16's tail
+lv_font_t font_batt_16;   // battery glyphs (issue #165), sized as font_icon_16
 lv_font_t font_icon_wx_32;
 lv_font_t font_icon_wx_64;
 

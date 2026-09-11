@@ -28,6 +28,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_battery.h"
 #include "lyrics.h"
 #include "ui_icons.h"
 #include "ui_theme.h"
@@ -47,6 +48,7 @@
 
 #define AP_HEAD_Y     18
 #define AP_HEAD_H     44
+#define AP_PILL_W     210                  // room pill in the header
 // 80, not 92 (issue #159 -> #151). The artist line sat 22px above a title
 // whose font is 35px tall, leaving 7px of real clearance on the 4" - and LVGL
 // leaves a LONG_DOT label's TOP unclipped by design ("extra draw area to not
@@ -410,7 +412,7 @@ void buildAmberPlayer() {
 
     // ── Right column header ─────────────────────────────────────────────────
     lv_obj_t* pill = lv_button_create(panel_right);
-    lv_obj_set_size(pill, SX(210), SY(AP_HEAD_H));
+    lv_obj_set_size(pill, SX(AP_PILL_W), SY(AP_HEAD_H));
     lv_obj_set_pos(pill, SX(AP_R), SY(AP_HEAD_Y));
     lv_obj_set_style_radius(pill, SMIN(AP_HEAD_H / 2), 0);
     lv_obj_set_style_bg_color(pill, AMB_CARD, 0);
@@ -466,6 +468,24 @@ void buildAmberPlayer() {
     lv_obj_set_ext_click_area(btn_queue, 8);
     roundBtn(panel_right, AMB_IC_GEAR, &font_icon_24,
              AP_RIGHT - chip, AP_HEAD_Y, chip, ev_settings, true, AMB_TEXT2);
+
+    // Battery of the selected speaker (issue #165), in the gap between the room
+    // pill and the LRC chip - 46 design px. Compact: the number in small text
+    // and no "%", because "100%" does not fit there at a legible size. Hidden
+    // for a speaker without a battery, so for most systems nothing changes here.
+    {
+        const int bx = AP_R + AP_PILL_W;
+        const int bw = (AP_RIGHT - chip * 3 - gap * 2) - bx;
+        lv_obj_t* slot = lv_obj_create(panel_right);
+        lv_obj_remove_style_all(slot);
+        lv_obj_set_pos(slot, SX(bx), SY(AP_HEAD_Y));
+        lv_obj_set_size(slot, SX(bw), SY(AP_HEAD_H));
+        lv_obj_remove_flag(slot, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(slot, LV_OBJ_FLAG_CLICKABLE);
+        // "100" on the 7" comes close to the slot's width; never clip it.
+        lv_obj_add_flag(slot, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+        lv_obj_center(batteryBadgeCreate(slot, BATTERY_BADGE_CURRENT, true));
+    }
 
     // ── Track meta ──────────────────────────────────────────────────────────
     lbl_artist = lv_label_create(panel_right);

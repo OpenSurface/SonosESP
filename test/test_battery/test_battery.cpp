@@ -168,7 +168,7 @@ void test_glyph_special_states(void) {
     TEST_ASSERT_EQUAL_UINT8(GLYPH_CHARGING, glyphFor(view(5, true)));
     TEST_ASSERT_EQUAL_UINT8(GLYPH_EMPTY,    glyphFor(view(80, false, false, false)));
     TEST_ASSERT_EQUAL_UINT8(GLYPH_EMPTY,    glyphFor(view(-1)));
-    // Stale keeps the last level's glyph; the badge dims it instead.
+    // Stale keeps the last level's glyph; the badge greys it instead.
     TEST_ASSERT_EQUAL_UINT8(GLYPH_FULL,     glyphFor(view(80, false, true)));
 }
 
@@ -180,6 +180,23 @@ void test_when_it_warns(void) {
     TEST_ASSERT_FALSE(warn(view(5, false, true)));           // stale: we do not know
     TEST_ASSERT_FALSE(warn(view(5, false, false, false)));   // no battery
     TEST_ASSERT_FALSE(warn(view(-1)));                       // never read
+}
+
+// Red must start exactly where the blink does, or a battery could blink while
+// still yellow, or turn red without blinking.
+void test_traffic_light(void) {
+    TEST_ASSERT_EQUAL_UINT8(TONE_GOOD,  toneFor(view(100)));
+    TEST_ASSERT_EQUAL_UINT8(TONE_GOOD,  toneFor(view(GOOD_PCT)));
+    TEST_ASSERT_EQUAL_UINT8(TONE_MID,   toneFor(view(GOOD_PCT - 1)));
+    TEST_ASSERT_EQUAL_UINT8(TONE_MID,   toneFor(view(LOW_PCT)));
+    TEST_ASSERT_EQUAL_UINT8(TONE_LOW,   toneFor(view(LOW_PCT - 1)));
+    TEST_ASSERT_EQUAL_UINT8(TONE_LOW,   toneFor(view(0)));
+    TEST_ASSERT_EQUAL_UINT8(TONE_GOOD,  toneFor(view(5, true)));          // charging
+    TEST_ASSERT_EQUAL_UINT8(TONE_STALE, toneFor(view(80, false, true)));  // asleep
+    TEST_ASSERT_EQUAL_UINT8(TONE_STALE, toneFor(view(-1)));               // never read
+    for (int lvl = 0; lvl <= 100; lvl++) {
+        TEST_ASSERT_EQUAL(warn(view(lvl)), toneFor(view(lvl)) == TONE_LOW);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -198,5 +215,6 @@ int main(int argc, char** argv) {
     RUN_TEST(test_glyph_thresholds);
     RUN_TEST(test_glyph_special_states);
     RUN_TEST(test_when_it_warns);
+    RUN_TEST(test_traffic_light);
     return UNITY_END();
 }

@@ -123,6 +123,21 @@ inline bool warn(const View& v) {
     return v.present && !v.stale && !v.charging && v.level >= 0 && v.level < LOW_PCT;
 }
 
+constexpr int GOOD_PCT = 50;   // at or above: green
+
+enum Tone : uint8_t { TONE_GOOD, TONE_MID, TONE_LOW, TONE_STALE };
+
+// Traffic light: green from GOOD_PCT up, and while charging; yellow down to
+// LOW_PCT; red below it, which is exactly where warn() also makes it blink.
+// Grey when stale or never read - the level is a guess then, and colouring a
+// guess green would be telling the user something nobody knows.
+inline Tone toneFor(const View& v) {
+    if (v.stale || v.level < 0)            return TONE_STALE;
+    if (v.charging || v.level >= GOOD_PCT) return TONE_GOOD;
+    if (v.level >= LOW_PCT)                return TONE_MID;
+    return TONE_LOW;
+}
+
 }  // namespace battery
 
 // ── Firmware API (src/battery.cpp) ──────────────────────────────────────────

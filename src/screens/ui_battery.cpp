@@ -1,6 +1,12 @@
 /**
  * Battery badge (issue #165). The rules live in include/battery.h; this file
  * only draws them.
+ *
+ * A badge is a row of two labels - the glyph, then the number - centred on the
+ * cross axis. It used to be one label, glyph plus text, and then the digits
+ * were placed by the icon font's metrics and sat a few pixels below the middle
+ * of the battery. As two flex children each is centred in its own box, and the
+ * battery body is drawn centred in its glyph box, so they line up.
  */
 #include "ui_battery.h"
 #include "battery.h"
@@ -10,30 +16,41 @@
 #include "amber.h"
 #include "amber_battery_icons.h"
 
-// Room for every row of the Speakers screen and the Rooms overlay at once. A
-// badge past this still draws; it just is not refreshed live.
-#define BADGE_MAX 64
+// Every row of the Speakers screen and the Rooms overlay at once, plus the
+// header. A badge past this still draws; it just is not refreshed live.
+#define BADGE_MAX 72
 
-static lv_obj_t*   s_badges[BADGE_MAX];
+struct Badge {
+    lv_obj_t* box;       // the row - what callers position, and what hides and blinks
+    lv_obj_t* glyph;
+    lv_obj_t* num;
+    int       idx;       // sonos.getDevice() index, or BATTERY_BADGE_CURRENT
+    bool      compact;   // no "%" - the Amber header
+};
+
+static Badge       s_badges[BADGE_MAX];
 static lv_timer_t* s_timer = nullptr;
 
+// Both labels at once. text_opa rather than the row's opa: no layer to allocate
+// and blend, so a blinking badge costs the same to draw as a still one.
 static void blinkExec(void* obj, int32_t v) {
-    lv_obj_set_style_text_opa((lv_obj_t*)obj, (lv_opa_t)v, 0);
+    lv_obj_t* box = (lv_obj_t*)obj;
+    for (uint32_t i = 0; i < lv_obj_get_child_count(box); i++) {
+        lv_obj_set_style_text_opa(lv_obj_get_child(box, (int32_t)i), (lv_opa_t)v, 0);
+    }
 }
 
-// text_opa rather than opa: no layer to allocate and blend, so a blinking badge
-// costs the same to draw as a still one.
-static void setBlink(lv_obj_t* b, bool on) {
-    const bool running = lv_anim_get(b, blinkExec) != nullptr;
+static void setBlink(lv_obj_t* box, bool on) {
+    const bool running = lv_anim_get(box, blinkExec) != nullptr;
     if (on == running) return;
     if (!on) {
-        lv_anim_delete(b, blinkExec);
-        lv_obj_set_style_text_opa(b, LV_OPA_COVER, 0);
+        lv_anim_delete(box, blinkExec);
+        blinkExec(box, LV_OPA_COVER);
         return;
     }
     lv_anim_t a;
     lv_anim_init(&a);
-    lv_anim_set_var(&a, b);
+    lv_anim_set_var(&a, box);
     lv_anim_set_exec_cb(&a, blinkExec);
     lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_20);
     lv_anim_set_duration(&a, BATTERY_BLINK_MS);
@@ -54,73 +71,104 @@ static const char* glyphText(battery::Glyph g) {
     }
 }
 
-// Both are no-ops when nothing changed. The timer runs refresh() on every badge
-// every second, and LVGL invalidates on a HIDDEN-flag removal or a style write
-// even when the value is the same - so without these checks a visible badge
-// would be redrawn once a second for nothing.
-static void setHidden(lv_obj_t* b, bool hidden) {
-    if (lv_obj_has_flag(b, LV_OBJ_FLAG_HIDDEN) == hidden) return;
-    if (hidden) lv_obj_add_flag(b, LV_OBJ_FLAG_HIDDEN);
-    else        lv_obj_remove_flag(b, LV_OBJ_FLAG_HIDDEN);
+static lv_color_t toneColor(battery::Tone t) {
+    switch (t) {
+        // Green is otherwise the canvas's colour for live playback only. A
+        // healthy battery is the one deliberate exception: a traffic light is
+        // read at a glance from across the room, which is the point of it.
+        case battery::TONE_GOOD: return AMB_LIVE;
+        case battery::TONE_MID:  return AMB_ACCENT;   // Amber's yellow
+        case battery::TONE_LOW:  return COL_ERROR;    // the palette's red
+        default:                 return AMB_FAINT;    // stale: a guess, so no colour
+    }
 }
 
-static void setColor(lv_obj_t* b, lv_color_t c) {
-    if (lv_color_eq(lv_obj_get_style_text_color(b, LV_PART_MAIN), c)) return;
-    lv_obj_set_style_text_color(b, c, 0);
+// All no-ops when nothing changed. The timer runs refresh() on every badge
+// every second, and LVGL invalidates on a HIDDEN-flag removal, a style write or
+// a set_text even when the value is the same - so without these checks a
+// visible badge would be redrawn once a second for nothing.
+static void setHidden(lv_obj_t* o, bool hidden) {
+    if (lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN) == hidden) return;
+    if (hidden) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+    else        lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
 }
 
-static void refresh(lv_obj_t* b) {
-    const int idx = (int)(intptr_t)lv_obj_get_user_data(b);
-    const battery::View v = batteryViewFor(sonos.getDevice(idx));
+static void setColor(lv_obj_t* o, lv_color_t c) {
+    if (lv_color_eq(lv_obj_get_style_text_color(o, LV_PART_MAIN), c)) return;
+    lv_obj_set_style_text_color(o, c, 0);
+}
+
+static void setText(lv_obj_t* o, const char* t) {
+    if (strcmp(lv_label_get_text(o), t) != 0) lv_label_set_text(o, t);
+}
+
+static void refresh(const Badge& b) {
+    SonosDevice* d = b.idx == BATTERY_BADGE_CURRENT ? sonos.getCurrentDevice()
+                                                    : sonos.getDevice(b.idx);
+    const battery::View v = batteryViewFor(d);
     if (!v.present) {
-        setBlink(b, false);
-        setHidden(b, true);
+        setBlink(b.box, false);
+        setHidden(b.box, true);
         return;
     }
-    setHidden(b, false);
+    setHidden(b.box, false);
 
-    char txt[24];
-    const char* g = glyphText(battery::glyphFor(v));
-    if (v.stale || v.level < 0) snprintf(txt, sizeof(txt), "%s --", g);
-    else                        snprintf(txt, sizeof(txt), "%s %d%%", g, v.level);
-    if (strcmp(lv_label_get_text(b), txt) != 0) lv_label_set_text(b, txt);
+    setText(b.glyph, glyphText(battery::glyphFor(v)));
+    char num[8];
+    if (v.stale || v.level < 0) snprintf(num, sizeof(num), "--");
+    else if (b.compact)         snprintf(num, sizeof(num), "%d", v.level);
+    else                        snprintf(num, sizeof(num), "%d%%", v.level);
+    setText(b.num, num);
 
-    // Gold for low, as the restart list uses it: Amber has no red, and gold is
-    // already how this UI says "look here". Faint when the number is stale.
-    const bool warn = battery::warn(v);
-    setColor(b, v.stale ? AMB_FAINT : (warn ? AMB_ACCENT : AMB_TEXT3));
-    setBlink(b, warn);
+    const lv_color_t c = toneColor(battery::toneFor(v));
+    setColor(b.glyph, c);
+    setColor(b.num, c);
+    setBlink(b.box, battery::warn(v));
 }
 
 static void tick(lv_timer_t*) {
     batterySimTick();
-    for (lv_obj_t* b : s_badges) {
-        if (b) refresh(b);
+    for (const Badge& b : s_badges) {
+        if (b.box) refresh(b);
     }
 }
 
 static void onDelete(lv_event_t* e) {
-    lv_obj_t* b = (lv_obj_t*)lv_event_get_target(e);
-    for (lv_obj_t*& slot : s_badges) {
-        if (slot == b) slot = nullptr;
+    lv_obj_t* box = (lv_obj_t*)lv_event_get_target(e);
+    for (Badge& b : s_badges) {
+        if (b.box == box) b.box = nullptr;
     }
 }
 
-lv_obj_t* batteryBadgeCreate(lv_obj_t* parent, int deviceIndex) {
-    lv_obj_t* b = lv_label_create(parent);
-    lv_obj_set_style_text_font(b, &font_batt_16, 0);
-    lv_obj_set_style_text_color(b, AMB_TEXT3, 0);
-    lv_label_set_text(b, "");
-    lv_obj_set_user_data(b, (void*)(intptr_t)deviceIndex);
-    lv_obj_remove_flag(b, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(b, LV_OBJ_FLAG_HIDDEN);
+lv_obj_t* batteryBadgeCreate(lv_obj_t* parent, int deviceIndex, bool compact) {
+    lv_obj_t* box = lv_obj_create(parent);
+    lv_obj_remove_style_all(box);
+    lv_obj_set_size(box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(box, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(box, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(box, compact ? SX(3) : SX(4), 0);
+    lv_obj_remove_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(box, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(box, LV_OBJ_FLAG_HIDDEN);
 
-    for (lv_obj_t*& slot : s_badges) {
-        if (!slot) { slot = b; break; }
+    lv_obj_t* glyph = lv_label_create(box);
+    lv_obj_set_style_text_font(glyph, &font_batt_16, 0);
+    lv_label_set_text(glyph, "");
+
+    lv_obj_t* num = lv_label_create(box);
+    lv_obj_set_style_text_font(num, compact ? &font_text_12 : &font_text_14, 0);
+    lv_label_set_text(num, "");
+
+    const Badge made = { box, glyph, num, deviceIndex, compact };
+    for (Badge& b : s_badges) {
+        if (!b.box) {
+            b = made;
+            lv_obj_add_event_cb(box, onDelete, LV_EVENT_DELETE, nullptr);
+            break;
+        }
     }
-    lv_obj_add_event_cb(b, onDelete, LV_EVENT_DELETE, nullptr);
     if (!s_timer) s_timer = lv_timer_create(tick, 1000, nullptr);
 
-    refresh(b);
-    return b;
+    refresh(made);
+    return box;
 }
