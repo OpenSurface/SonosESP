@@ -420,27 +420,39 @@ void buildAmberPlayer() {
     lv_obj_set_style_border_width(pill, 1, 0);
     lv_obj_set_style_shadow_width(pill, 0, 0);
     lv_obj_set_style_pad_all(pill, 0, 0);
+    // A row, so the name gives up exactly the room the battery badge takes
+    // when one shows (issue #165) and gets it back when it hides. The padding
+    // puts the dot, name and chevron where their absolute positions used to.
+    lv_obj_set_flex_flow(pill, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(pill, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_left(pill, SX(14), 0);
+    lv_obj_set_style_pad_right(pill, SX(7), 0);
+    lv_obj_set_style_pad_column(pill, SX(8), 0);
     pressFade(pill);
     lv_obj_add_event_cb(pill, ev_devices, LV_EVENT_CLICKED, NULL);
 
-    // Green is reserved for live playback state — this dot is the only place it
-    // appears on the player.
+    // Green is reserved for live playback state - this dot, and a healthy
+    // battery beside the name (issue #165), are the only places it appears.
     lv_obj_t* dot = ambRoundRect(pill, 7, 7, 4, AMB_LIVE);
-    lv_obj_set_pos(dot, SX(14), SY(AP_HEAD_H / 2 - 4));
 
     lbl_device_name = lv_label_create(pill);
     lv_label_set_text(lbl_device_name, "Now Playing");
-    lv_obj_set_pos(lbl_device_name, SX(29), SY(13));
-    lv_obj_set_size(lbl_device_name, SX(150), SY(20));
+    // Grows into whatever the row leaves. DOT needs a bounded height as well.
+    lv_obj_set_flex_grow(lbl_device_name, 1);
+    lv_obj_set_height(lbl_device_name, lv_font_get_line_height(&font_text_14));
     lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_color(lbl_device_name, AMB_TEXT, 0);
     lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
+
+    // The selected speaker's battery, after the name. Compact - no "%" - so
+    // the name keeps as much room as it can. Hidden for a speaker without a
+    // battery, and then the name has its full width back.
+    batteryBadgeCreate(pill, BATTERY_BADGE_CURRENT, true);
 
     lv_obj_t* chev = lv_label_create(pill);
     lv_label_set_text(chev, AMB_IC_CHEV);
     lv_obj_set_style_text_font(chev, &font_icon_16, 0);
     lv_obj_set_style_text_color(chev, AMB_TEXT3, 0);
-    lv_obj_set_pos(chev, SX(185), SY(14));
 
     // LRC / queue / settings, right-aligned in that order.
     const int chip = AP_HEAD_H, gap = 10;
@@ -468,24 +480,6 @@ void buildAmberPlayer() {
     lv_obj_set_ext_click_area(btn_queue, 8);
     roundBtn(panel_right, AMB_IC_GEAR, &font_icon_24,
              AP_RIGHT - chip, AP_HEAD_Y, chip, ev_settings, true, AMB_TEXT2);
-
-    // Battery of the selected speaker (issue #165), in the gap between the room
-    // pill and the LRC chip - 46 design px. Compact: the number in small text
-    // and no "%", because "100%" does not fit there at a legible size. Hidden
-    // for a speaker without a battery, so for most systems nothing changes here.
-    {
-        const int bx = AP_R + AP_PILL_W;
-        const int bw = (AP_RIGHT - chip * 3 - gap * 2) - bx;
-        lv_obj_t* slot = lv_obj_create(panel_right);
-        lv_obj_remove_style_all(slot);
-        lv_obj_set_pos(slot, SX(bx), SY(AP_HEAD_Y));
-        lv_obj_set_size(slot, SX(bw), SY(AP_HEAD_H));
-        lv_obj_remove_flag(slot, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(slot, LV_OBJ_FLAG_CLICKABLE);
-        // "100" on the 7" comes close to the slot's width; never clip it.
-        lv_obj_add_flag(slot, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
-        lv_obj_center(batteryBadgeCreate(slot, BATTERY_BADGE_CURRENT, true));
-    }
 
     // ── Track meta ──────────────────────────────────────────────────────────
     lbl_artist = lv_label_create(panel_right);
