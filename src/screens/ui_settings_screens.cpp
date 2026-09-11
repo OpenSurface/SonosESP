@@ -760,7 +760,22 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
             String id = String(data->id);
 
             String uri = sonos.extractXML(itemXML, "res");
-            uri = sonos.decodeHTML(uri);
+            // decodeHTMLEntities(), NOT sonos.decodeHTML(). The DIDL arrives double-
+            // escaped, so the <res> still carries &amp; after browseContent()'s pass
+            // and needs ONE more entity decode - but decodeHTML() also URL-decodes
+            // %3A -> ':', %2F -> '/', %26 -> '&' and so on, and a Sonos object id is
+            // percent-encoded BY DESIGN. Every favourite this speaker stores reads
+            //
+            //     x-rincon-cpcontainer:1006206clibraryplaylist%3Ap.8Wx63KEuV5X2rb?sid=204&flags=8300&sn=4
+            //
+            // and the id inside its r:resMD is the same "%3A" form. Rewriting the URI
+            // to "libraryplaylist:p.8Wx..." made URI and metadata name two different
+            // objects, and the player answered AddURIToQueue with HTTP 500 / UPnP 800
+            // for every Apple Music playlist. Measured against a Sonos Move
+            // (96.1-79270): same metadata, ':' -> 500/800, '%3A' -> 200, 171 tracks.
+            // Radio favourites carry the same corruption ("radio%3Ara..." -> "radio:ra...")
+            // and only kept working because SetAVTransportURI tolerates it.
+            uri = decodeHTMLEntities(uri);
 
             if (data->isContainer) {
                 if (id.startsWith("SQ:") && id.indexOf("/") < 0) {
@@ -778,7 +793,9 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
                 if (uri.length() == 0) {
                     String resMD = sonos.extractXML(itemXML, "r:resMD");
                     if (resMD.length() > 0) {
-                        resMD = sonos.decodeHTML(resMD);
+                        // Same rule as the URI above: this resMD yields a container
+                        // id and a <res> URI, both percent-encoded. Entities only.
+                        resMD = decodeHTMLEntities(resMD);
 
                         if (resMD.indexOf("<upnp:class>object.container</upnp:class>") >= 0) {
                             int idStart = resMD.indexOf("id=\"") + 4;
@@ -829,7 +846,9 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
                     // escaped form; playURI() runs encodeXML(), so it wants the decoded
                     // one. Passing the same string to both would double-escape here.
                     String resMD = sonos.extractXML(itemXML, "r:resMD");
-                    String meta  = resMD.length() ? sonos.decodeHTML(resMD) : itemXML;
+                    // Entities only - the item id in here ("100c706cradio%3Ara...") is
+                    // percent-encoded like every other Sonos object id.
+                    String meta  = resMD.length() ? decodeHTMLEntities(resMD) : itemXML;
                     Serial.printf("[BROWSE] Playing URI: %s%s\n", uri.c_str(),
                                   resMD.length() ? "  (with favourite metadata)" : "");
                     sonos.playURI(uri.c_str(), meta.c_str());
