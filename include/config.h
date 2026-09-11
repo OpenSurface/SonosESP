@@ -164,6 +164,15 @@
 // over USB, and boot output written while the CDC link was still settling has
 // store-faulted hw_cdc_isr_handler. By this point the host has reconnected.
 #define BOOT_REPORT_DELAY_MS    6000
+
+// ── Battery (issue #165) ────────────────────────────────────────────────────
+// Portables only (Move, Roam). See include/battery.h for why a timeout means
+// "stale" and never "no battery".
+#define BATTERY_POLL_MS            (5UL * 60UL * 1000UL)  // refresh a speaker known to have one
+#define BATTERY_RETRY_MS           (5UL * 60UL * 1000UL)  // re-probe one that has never answered
+#define BATTERY_PROBE_SPACING_MS   10000UL                // at most one battery request per 10 s
+#define BATTERY_HTTP_TIMEOUT_MS    2500                   // a sleeping Roam accepts TCP, then never answers
+#define BATTERY_BLINK_MS           600                    // low-battery blink, each way
 #define ART_CHECK_INTERVAL_MS   100     // How often to check for new art requests
 #define ART_DECODE_MAX_FAILURES 3       // Give up on URL after N decode failures
 #define ART_SW_JPEG_FALLBACK    1       // Enable JPEGDEC SW fallback (progressive, non-div-8)

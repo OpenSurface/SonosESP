@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_battery.h"
 #include "ui_settings_card.h"   // addScreenHeader() - shared title row
 #include "ui_fonts.h"
 #include "amber_icons.h"
@@ -83,7 +84,9 @@ void refreshDeviceList() {
         // room name ran under the chevron. Generous — only bites past ~40 chars.
         // Clears the volume + chevron column on the right, in the 536-wide inner
         // content box left by the 216 rail.
-        lv_obj_set_width(lbl, SX(360));
+        // 330, not 360: the battery badge (issue #165) sits left of the volume
+        // readout, and a long name has to stop before it, not run under it.
+        lv_obj_set_width(lbl, SX(330));
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
         lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, hasGroup ? SX(55) : SX(45), hasGroup || isPlaying ? SY(4) : SY(8));
 
@@ -120,6 +123,11 @@ void refreshDeviceList() {
         lv_obj_set_style_text_color(arrow, AMB_TEXT3, 0);
         lv_obj_set_style_text_font(arrow, &font_icon_24, 0);
         lv_obj_align(arrow, LV_ALIGN_TOP_RIGHT, SX(-5), hasGroup || isPlaying ? SY(8) : SY(12));
+
+        // Battery (issue #165). Hidden for mains speakers, so it goes on every row;
+        // left of the volume readout, in a column that lines up down the list.
+        lv_obj_t* bat = batteryBadgeCreate(btn, i);
+        lv_obj_align(bat, LV_ALIGN_TOP_RIGHT, SX(-66), hasGroup || isPlaying ? SY(9) : SY(13));
 
         lv_obj_add_event_cb(btn, [](lv_event_t* e) {
             int idx = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));

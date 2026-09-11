@@ -1,4 +1,5 @@
 #include "screenshot.h"
+#include "battery.h"
 #include "config.h"
 #include <esp_heap_caps.h>
 #include <esp_task_wdt.h>
@@ -172,6 +173,8 @@ void screenshotPoll(void) {
                     resendLine((uint32_t)strtoul(cmd + 9, nullptr, 16));
                 } else if (strcmp(cmd, "shotfree") == 0) {
                     releaseBuffer();
+                } else if (batterySerialCommand(cmd)) {
+                    // "bat ..." - the battery simulator (issue #165); "bat help"
                 }
             }
             n = 0;

@@ -22,6 +22,7 @@ lv_font_t font_icon_16;
 lv_font_t font_icon_24;
 lv_font_t font_icon_32;
 lv_font_t font_icon_40;
+lv_font_t font_batt_16;   // battery glyphs + text (issue #165), font_icon_16's tail
 lv_font_t font_icon_wx_32;
 lv_font_t font_icon_wx_64;
 
@@ -30,6 +31,8 @@ LV_FONT_DECLARE(lv_font_mdi_16);
 LV_FONT_DECLARE(lv_font_mdi_24);
 LV_FONT_DECLARE(lv_font_mdi_32);
 LV_FONT_DECLARE(lv_font_mdi_40);
+LV_FONT_DECLARE(lv_font_amber_batt_16);
+LV_FONT_DECLARE(lv_font_amber_batt_24);
 static lv_font_t mdi_fb_16;
 static lv_font_t mdi_fb_24;
 static lv_font_t mdi_fb_32;
@@ -96,6 +99,7 @@ void uiFontsInit(void) {
     WIRE(font_icon_24, lv_font_amber_32, mdi_fb_24);   // 24 -> 30, snapped to 32
     WIRE(font_icon_32, lv_font_amber_40, mdi_fb_32);   // 32 -> 40
     WIRE(font_icon_40, lv_font_amber_40, mdi_fb_40);   // 40 -> 50, held at 40
+    WIRE(font_batt_16, lv_font_amber_batt_24, mdi_fb_16);   // 16 -> 20, snapped to 24, as font_icon_16
     // 32 -> 40, but there is no 40px weather face, and snapping UP to 64 does
     // not fit: the forecast rail stacks hour + icon + temperature in a fixed
     // cell, and 18 + 64 + 18 + 12 = 112px needs more room than the 102px that
@@ -132,6 +136,7 @@ void uiFontsInit(void) {
     WIRE(font_icon_24, lv_font_amber_24, mdi_fb_24);
     WIRE(font_icon_32, lv_font_amber_32, mdi_fb_32);
     WIRE(font_icon_40, lv_font_amber_40, mdi_fb_40);
+    WIRE(font_batt_16, lv_font_amber_batt_16, mdi_fb_16);
     font_icon_wx_32 = lv_font_amber_wx_32;
     font_icon_wx_64 = lv_font_amber_wx_64;
 #endif

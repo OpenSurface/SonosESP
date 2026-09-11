@@ -61,6 +61,9 @@ extern lv_font_t font_icon_16;
 extern lv_font_t font_icon_24;
 extern lv_font_t font_icon_32;
 extern lv_font_t font_icon_40;
+// The battery badge (issue #165): its glyphs, then the same MDI/text tail as
+// font_icon_16, so "<glyph> 64%" draws in one label.
+extern lv_font_t font_batt_16;
 
 // Sky glyphs for the Amber screensaver face. No fallback: they are never mixed
 // with text.

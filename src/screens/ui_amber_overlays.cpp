@@ -20,6 +20,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_battery.h"
 #include "ui_theme.h"
 #include "ui_fonts.h"
 #include "amber.h"
@@ -396,6 +397,11 @@ static void ovFillRooms(void) {
         lv_obj_t* st = ambOneLine(hit, &font_text_12,
                                   d->isPlaying ? AMB_LIVE : AMB_TEXT3, sub, 160);
         lv_obj_align(st, LV_ALIGN_LEFT_MID, SX(34), SY(11));
+
+        // Battery (issue #165), just left of where the selected row's slider sits,
+        // so the column holds whether or not a row has a slider.
+        lv_obj_t* bat = batteryBadgeCreate(card, i);
+        lv_obj_align(bat, LV_ALIGN_RIGHT_MID, SX(-(OV_SLIDER_W + 14)), 0);
 
         // ── Inline volume ───────────────────────────────────────────────────
         // Selected speaker only: see the note in ui_devices_screen.cpp. Every

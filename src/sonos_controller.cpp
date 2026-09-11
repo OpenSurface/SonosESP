@@ -4,6 +4,7 @@
  */
 
 #include "sonos_controller.h"
+#include "battery.h"
 #include "sonos_topology.h"   // parser under host test (test/test_topology)
 #include "config.h"
 #include "ui_network_guard.h"
@@ -2107,6 +2108,14 @@ void SonosController::pollingTaskFunction(void* param) {
                 continue;
             }
             // ─────────────────────────────────────────────────────────────────────
+
+            // ── Battery (issue #165) ─────────────────────────────────────────────
+            // After the mid-cycle guard, so never alongside an art download. At most
+            // one small GET per BATTERY_PROBE_SPACING_MS, and only when a speaker is
+            // due: a system without portables is probed once per speaker, then never.
+            if (batteryPollStep()) {
+                vTaskDelay(pdMS_TO_TICKS(200));  // let the network settle, as after GetMediaInfo
+            }
 
             // Detect station change and fetch station name immediately
             if (dev->isRadioStation && dev->currentURI != previousURI) {

@@ -83,6 +83,39 @@ const LOCAL_SYMBOLS = {
 // fallback later without colliding.
 const CP_BASE = 0xE000;
 
+// ── Battery glyphs (issue #165) ─────────────────────────────────────────────
+// Lucide's battery set - the family the canvas icons are drawn from - at the
+// canvas stroke weight (1.7; Lucide ships 2.0) so they match. 'bt-' ids are
+// ignored by the canvas run below, which takes 'ic-'/'sc-' only: these are
+// emitted by --battery into their own fonts and codepoint range, never into
+// the main set, so adding them cannot move an existing codepoint.
+const BATTERY_STROKE = ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"' +
+                       ' stroke-linecap="round" stroke-linejoin="round"';
+const BATTERY_CASE = '<path d="M22 14v-4"/><rect x="2" y="6" width="16" height="12" rx="2"/>';
+const BATTERY_SYMBOLS = {
+  'bt-full':     { attrs: BATTERY_STROKE,
+                   body: BATTERY_CASE + '<path d="M6 10v4"/><path d="M10 10v4"/><path d="M14 10v4"/>' },
+  'bt-medium':   { attrs: BATTERY_STROKE,
+                   body: BATTERY_CASE + '<path d="M6 10v4"/><path d="M10 10v4"/>' },
+  'bt-low':      { attrs: BATTERY_STROKE, body: BATTERY_CASE + '<path d="M6 10v4"/>' },
+  'bt-empty':    { attrs: BATTERY_STROKE, body: BATTERY_CASE },
+  'bt-charging': { attrs: BATTERY_STROKE,
+                   body: '<path d="m11 7-3 5h4l-3 5"/>' +
+                         '<path d="M14.856 6H16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.935"/>' +
+                         '<path d="M22 14v-4"/>' +
+                         '<path d="M5.14 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2.936"/>' },
+  'bt-warning':  { attrs: BATTERY_STROKE,
+                   body: '<path d="M10 17h.01"/><path d="M10 7v6"/>' +
+                         '<path d="M14 6h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2"/>' +
+                         '<path d="M22 14v-4"/>' +
+                         '<path d="M6 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/>' },
+};
+const BATTERY_ORDER = ['bt-full', 'bt-medium', 'bt-low', 'bt-empty', 'bt-charging', 'bt-warning'];
+// What font_icon_16 resolves to: 16 on the 4", 24 on the 7" (ui_fonts.cpp).
+const BATTERY_SIZES = [16, 24];
+// Clear of the canvas set at U+E000, with room for that to grow.
+const BATTERY_CP_BASE = 0xE100;
+
 // ── Baseline, per size ──────────────────────────────────────────────────────
 // lv_draw_label positions EVERY glyph using the LABEL's primary font metrics,
 // not the metrics of whichever font in the fallback chain actually supplied the
@@ -190,7 +223,7 @@ function pack8bpp(data) {
 }
 
 // ── Emit one font ───────────────────────────────────────────────────────────
-function emitFont(name, px, icons, symbols) {
+function emitFont(name, px, icons, symbols, cpBase = CP_BASE) {
   const glyphs = [];
   const bitmap = [];
   const lines = [];
@@ -214,7 +247,7 @@ function emitFont(name, px, icons, symbols) {
       ofs_x: c.ox, ofs_y,
     });
 
-    lines.push(`    /* U+${(CP_BASE + icons.indexOf(id)).toString(16).toUpperCase()} "${id}" */`);
+    lines.push(`    /* U+${(cpBase + icons.indexOf(id)).toString(16).toUpperCase()} "${id}" */`);
     for (let i = 0; i < bytes.length; i += 16) {
       lines.push('    ' + bytes.slice(i, i + 16).map(b => '0x' + b.toString(16).padStart(2, '0')).join(', ') + ',');
     }
@@ -249,7 +282,7 @@ function emitFont(name, px, icons, symbols) {
   s += '/*---------------------\n *  CHARACTER MAPPING\n *--------------------*/\n\n';
   // One contiguous PUA run, so the cheapest cmap format applies.
   s += 'static const lv_font_fmt_txt_cmap_t cmaps[] =\n{\n    {\n';
-  s += `        .range_start = ${CP_BASE}, .range_length = ${icons.length}, .glyph_id_start = 1,\n`;
+  s += `        .range_start = ${cpBase}, .range_length = ${icons.length}, .glyph_id_start = 1,\n`;
   s += '        .unicode_list = NULL, .glyph_id_ofs_list = NULL, .list_length = 0, .type = LV_FONT_FMT_TXT_CMAP_FORMAT0_TINY\n';
   s += '    }\n};\n\n';
 
@@ -277,6 +310,41 @@ function emitFont(name, px, icons, symbols) {
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
+// ── Battery mode ────────────────────────────────────────────────────────────
+//   node scripts/gen_amber_icons.js --battery [outdir]
+// Emits ONLY the battery glyphs, as their own small fonts plus
+// include/amber_battery_icons.h. Needs no canvas, and leaves lv_font_amber_*
+// and amber_icons.h exactly as they are.
+if (process.argv[2] === '--battery') {
+  const out = process.argv[3] || path.join('src', 'fonts');
+  const syms = new Map(Object.entries(BATTERY_SYMBOLS));
+  fs.mkdirSync(out, { recursive: true });
+  for (const px of BATTERY_SIZES) {
+    const name = `lv_font_amber_batt_${px}`;
+    const { source, bytes } = emitFont(name, px, BATTERY_ORDER, syms, BATTERY_CP_BASE);
+    fs.writeFileSync(path.join(out, name + '.c'), source);
+    console.log(`${name}.c  ${BATTERY_ORDER.length} glyphs, ${bytes} B`);
+  }
+  let bh = '';
+  bh += '/**\n * Battery icon codepoints (issue #165) - GENERATED by\n';
+  bh += ' * `node scripts/gen_amber_icons.js --battery`. Do not edit by hand.\n *\n';
+  bh += ' * Lucide battery shapes at the canvas stroke weight (1.7), through the same\n';
+  bh += ' * rasteriser as every Amber icon, so they sit in the same family. They have\n';
+  bh += ' * their own fonts and codepoint range - see BATTERY_SYMBOLS in the generator.\n */\n';
+  bh += '#ifndef AMBER_BATTERY_ICONS_H\n#define AMBER_BATTERY_ICONS_H\n\n#include "lvgl.h"\n\n';
+  for (const px of BATTERY_SIZES) bh += `LV_FONT_DECLARE(lv_font_amber_batt_${px});\n`;
+  bh += '\n';
+  BATTERY_ORDER.forEach((id, i) => {
+    const def = 'AMB_BAT_' + id.replace('bt-', '').toUpperCase().replace(/-/g, '_');
+    const cp = BATTERY_CP_BASE + i;
+    bh += `#define ${def.padEnd(20)} "${utf8Escape(cp)}"   // U+${cp.toString(16).toUpperCase()}  ${id}\n`;
+  });
+  bh += '\n#endif // AMBER_BATTERY_ICONS_H\n';
+  fs.writeFileSync(path.join('include', 'amber_battery_icons.h'), bh);
+  console.log('include/amber_battery_icons.h  ' + BATTERY_ORDER.length + ' defines');
+  process.exit(0);
+}
+
 const canvasDir = process.argv[2];
 const outDir = process.argv[3] || path.join('src', 'fonts');
 if (!canvasDir) {
