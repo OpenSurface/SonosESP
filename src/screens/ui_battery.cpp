@@ -16,9 +16,11 @@
 #include "amber.h"
 #include "amber_battery_icons.h"
 
-// Every speaker row on the Speakers, Groups and Rooms lists at once, plus the
-// header. A badge past this still draws; it just is not refreshed live.
-#define BADGE_MAX 104
+// Every badge that can be alive at once: a speaker appears once on Speakers,
+// up to twice on Groups (its group's row and an "Add" row), once in Rooms, and
+// the header has one - and all three lists persist once built. A badge past
+// this would still draw; it just would not be refreshed live.
+#define BADGE_MAX (4 * MAX_SONOS_DEVICES + 8)
 
 struct Badge {
     lv_obj_t* box;       // the row - what callers position, and what hides and blinks
