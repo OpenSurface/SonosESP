@@ -30,6 +30,17 @@ extern void resetScreenTimeout();
 #define TOUCH_TASK_PRIORITY 4       // above Sonos polling (3); sleeps between samples
 #define TOUCH_TASK_CORE     0       // mainAppTask renders on core 1
 
+// Wire's receive buffer has to hold the GT911's whole config block. TAMC_GT911's
+// reset() reads it in one Wire.requestFrom() - 185 bytes, 0x8047-0x80FF - while
+// Arduino's default buffer is 128, and requestFrom() hands the full length to
+// i2cRead() without clamping it. So every boot, on both panels, wrote 57 bytes
+// past the buffer into the heap. It went unnoticed until an unrelated change
+// moved the allocations and it landed on the I2C bus mutex: a Load access fault
+// at 0x29 in xTaskRemoveFromEventList, releasing that lock after the read.
+// Must be set before Wire.begin(), which is what allocates the buffer.
+#define TOUCH_WIRE_BUFFER   256
+static_assert((GT911_CONFIG_SIZE) <= TOUCH_WIRE_BUFFER, "the GT911 config read must fit Wire's buffer");
+
 #if SCREEN_SIZE != 7
 // ============================================================================
 // 4" GT911 — portrait sensor (480×800) mapped to landscape (800×480) via a
@@ -45,6 +56,9 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_GT911_SDA, TOUCH_GT911_SCL, TOUCH_GT911_INT, TO
                            max(TOUCH_MAP_Y1, TOUCH_MAP_Y2));
 
 static void touch_begin_hw(void) {
+    if (Wire.setBufferSize(TOUCH_WIRE_BUFFER) != TOUCH_WIRE_BUFFER) {
+        Serial.println("[Touch] WARNING: could not enlarge the I2C buffer");
+    }
     Wire.begin(TOUCH_GT911_SDA, TOUCH_GT911_SCL);
     ts.begin();
     ts.setRotation(ROTATION_NORMAL);  // Normal orientation - LVGL handles rotation
@@ -84,6 +98,9 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_GT911_SDA, TOUCH_GT911_SCL, TOUCH_GT911_INT, TO
                            TOUCH_PANEL_WIDTH, TOUCH_PANEL_HEIGHT);
 
 static void touch_begin_hw(void) {
+    if (Wire.setBufferSize(TOUCH_WIRE_BUFFER) != TOUCH_WIRE_BUFFER) {
+        Serial.println("[Touch] WARNING: could not enlarge the I2C buffer");
+    }
     Wire.begin(TOUCH_GT911_SDA, TOUCH_GT911_SCL);
     ts.begin();
     ts.setRotation(ROTATION_INVERTED);
