@@ -170,6 +170,8 @@
 // "stale" and never "no battery".
 #define BATTERY_POLL_MS            (5UL * 60UL * 1000UL)  // refresh a speaker known to have one
 #define BATTERY_RETRY_MS           (5UL * 60UL * 1000UL)  // re-probe one that has never answered
+#define BATTERY_NONE_RECHECK_MS    (60UL * 60UL * 1000UL) // ask a "no battery" speaker again, hourly
+#define BATTERY_STALE_MS           (15UL * 60UL * 1000UL) // no good reading for this long: show "--"
 #define BATTERY_PROBE_SPACING_MS   10000UL                // at most one battery request per 10 s
 #define BATTERY_HTTP_TIMEOUT_MS    2500                   // a sleeping Roam accepts TCP, then never answers
 #define BATTERY_BLINK_MS           600                    // low-battery blink, each way

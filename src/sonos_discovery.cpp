@@ -11,6 +11,15 @@
 // Discovery
 // ============================================================================
 int SonosController::discoverDevices() {
+    // Set before deviceCount goes to 0, cleared on every return by the guard's
+    // destructor. batteryPollStep() checks it and leaves devices[] alone while
+    // this rewrites it from the UI task (issue #165).
+    struct DiscoveringFlag {
+        volatile bool& flag;
+        explicit DiscoveringFlag(volatile bool& f) : flag(f) { flag = true; }
+        ~DiscoveringFlag() { flag = false; }
+    } discovering_guard(discovering);
+
     if (!devices) { Serial.println("[SONOS] devices array not allocated"); return 0; }
     Serial.printf("[SONOS] Starting discovery...\n");
     deviceCount = 0;
@@ -77,6 +86,7 @@ int SonosController::discoverDevices() {
 
                     if (!exists && deviceCount < MAX_SONOS_DEVICES) {
                         devices[deviceCount].ip = ip;
+                        devices[deviceCount].pairIP = IPAddress();
                         devices[deviceCount].roomName = ip.toString();
                         // Identity MUST be cleared with the rest of the slot. deviceCount
                         // was reset to 0 at the top of this scan, so slot 0 is very often
@@ -228,6 +238,8 @@ int SonosController::discoverDevices() {
 
         bool isDuplicate = false;
         int replaceIdx = -1;  // index in unique list to swap (if i is coordinator and j is not)
+        int keptIdx = -1;     // the entry i duplicates
+        bool twin = false;    // a stereo pair: same room, different speaker
 
         for (int j = 0; j < uniqueCount; j++) {
             String normalizedExisting = devices[j].roomName;
@@ -249,6 +261,8 @@ int SonosController::discoverDevices() {
                         devices[i].rinconID.c_str());
                 }
                 isDuplicate = true;
+                keptIdx = j;
+                twin = sameName && !sameUuid;
                 if (iIsCoord && !isCoordinator(devices[j])) {
                     // Current (i) is the coordinator; existing (j) is the slave — swap
                     replaceIdx = j;
@@ -275,7 +289,14 @@ int SonosController::discoverDevices() {
             }
             uniqueCount++;
         } else if (replaceIdx >= 0) {
+            const IPAddress slaveIP = devices[replaceIdx].ip;
             devices[replaceIdx] = devices[i];  // Replace slave with coordinator
+            if (twin) devices[replaceIdx].pairIP = slaveIP;
+        } else if (twin && keptIdx >= 0 && devices[keptIdx].pairIP == IPAddress()) {
+            // The dropped half of a stereo pair still has a battery if it is a
+            // portable (issue #165). Keep its address so it can be read. First
+            // twin wins: a home-theatre room drops several, none of them portable.
+            devices[keptIdx].pairIP = devices[i].ip;
         }
     }
 
@@ -550,6 +571,7 @@ bool SonosController::tryLoadCachedDevice() {
     devices[0].groupCoordinatorUUID = "";
     devices[0].isGroupCoordinator = true;
     devices[0].groupMemberCount = 1;
+    devices[0].pairIP = IPAddress();
 
     // -1 = cached by a build that did not store this yet. Resolve it once from
     // the device description (the device was just confirmed reachable above), and

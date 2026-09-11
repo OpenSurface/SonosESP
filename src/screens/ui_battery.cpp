@@ -16,9 +16,9 @@
 #include "amber.h"
 #include "amber_battery_icons.h"
 
-// Every row of the Speakers screen and the Rooms overlay at once, plus the
+// Every speaker row on the Speakers, Groups and Rooms lists at once, plus the
 // header. A badge past this still draws; it just is not refreshed live.
-#define BADGE_MAX 72
+#define BADGE_MAX 104
 
 struct Badge {
     lv_obj_t* box;       // the row - what callers position, and what hides and blinks
@@ -26,6 +26,8 @@ struct Badge {
     lv_obj_t* num;
     int       idx;       // sonos.getDevice() index, or BATTERY_BADGE_CURRENT
     bool      compact;   // no "%" - the Amber header
+    lv_obj_t* avoid;     // label to keep clear of, or nullptr
+    int32_t   avoid_w;   // its width as built, restored when the badge hides
 };
 
 static Badge       s_badges[BADGE_MAX];
@@ -102,6 +104,33 @@ static void setText(lv_obj_t* o, const char* t) {
     if (strcmp(lv_label_get_text(o), t) != 0) lv_label_set_text(o, t);
 }
 
+// Keep the room name out from under the badge. While the badge shows, narrow
+// the name to stop short of it; when it hides, give the width back. Only rows
+// that actually have a battery are ever touched.
+static void keepClear(const Badge& b, bool shown) {
+    if (!b.avoid) return;
+    if (!shown) {
+        if (lv_obj_get_style_width(b.avoid, LV_PART_MAIN) != b.avoid_w) {
+            lv_obj_set_width(b.avoid, b.avoid_w);
+        }
+        return;
+    }
+    lv_obj_update_layout(b.box);
+    lv_area_t bx, lx;
+    lv_obj_get_coords(b.box, &bx);
+    lv_obj_get_coords(b.avoid, &lx);
+    const int32_t limit = bx.x1 - lx.x1 - SX(8);
+    if (limit <= 0 || lv_area_get_width(&lx) <= limit) return;
+    // Truncate on one line. DOT needs a bounded height as well as a width: given
+    // only a width, an LVGL 9.5 label wraps and grows instead.
+    lv_label_set_long_mode(b.avoid, LV_LABEL_LONG_DOT);
+    if (lv_obj_get_style_height(b.avoid, LV_PART_MAIN) == LV_SIZE_CONTENT) {
+        lv_obj_set_height(b.avoid, lv_font_get_line_height(
+                                       lv_obj_get_style_text_font(b.avoid, LV_PART_MAIN)));
+    }
+    lv_obj_set_width(b.avoid, limit);
+}
+
 static void refresh(const Badge& b) {
     SonosDevice* d = b.idx == BATTERY_BADGE_CURRENT ? sonos.getCurrentDevice()
                                                     : sonos.getDevice(b.idx);
@@ -109,6 +138,7 @@ static void refresh(const Badge& b) {
     if (!v.present) {
         setBlink(b.box, false);
         setHidden(b.box, true);
+        keepClear(b, false);
         return;
     }
     setHidden(b.box, false);
@@ -124,6 +154,7 @@ static void refresh(const Badge& b) {
     setColor(b.glyph, c);
     setColor(b.num, c);
     setBlink(b.box, battery::warn(v));
+    keepClear(b, true);
 }
 
 static void tick(lv_timer_t*) {
@@ -140,7 +171,8 @@ static void onDelete(lv_event_t* e) {
     }
 }
 
-lv_obj_t* batteryBadgeCreate(lv_obj_t* parent, int deviceIndex, bool compact) {
+lv_obj_t* batteryBadgeCreate(lv_obj_t* parent, int deviceIndex, bool compact,
+                             lv_obj_t* keepClearOf) {
     lv_obj_t* box = lv_obj_create(parent);
     lv_obj_remove_style_all(box);
     lv_obj_set_size(box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
@@ -159,7 +191,10 @@ lv_obj_t* batteryBadgeCreate(lv_obj_t* parent, int deviceIndex, bool compact) {
     lv_obj_set_style_text_font(num, compact ? &font_text_12 : &font_text_14, 0);
     lv_label_set_text(num, "");
 
-    const Badge made = { box, glyph, num, deviceIndex, compact };
+    const Badge made = {
+        box, glyph, num, deviceIndex, compact, keepClearOf,
+        keepClearOf ? lv_obj_get_style_width(keepClearOf, LV_PART_MAIN) : 0,
+    };
     for (Badge& b : s_badges) {
         if (!b.box) {
             b = made;

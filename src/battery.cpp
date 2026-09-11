@@ -1,6 +1,12 @@
 /**
  * Battery level for portable speakers - the firmware half (issue #165).
  * The why, the parser and the display rules are in include/battery.h.
+ *
+ * Readings are kept per IP address, not per position in the device list. A
+ * rescan rebuilds and reorders that list, and a reading filed by position was
+ * lost - or could be shown against the wrong speaker - every time it did. A
+ * stereo pair is two addresses under one device (SonosDevice::pairIP) and shows
+ * the weaker of its two batteries.
  */
 #include "battery.h"
 #include "config.h"
@@ -16,22 +22,23 @@ namespace {
 
 enum Probe : uint8_t {
     PROBE_UNKNOWN = 0,   // never answered: retried, never assumed either way
-    PROBE_NONE,          // answered without a Level - mains only, never asked again
+    PROBE_NONE,          // answered without a Level - mains only; re-asked hourly
     PROBE_PRESENT,       // has answered with a Level: latched for the session
 };
 
-// One per device slot, keyed by IP, so a rescan that reorders or replaces
-// speakers resets the slot rather than showing another speaker's battery.
 struct Slot {
-    uint32_t ip;
+    uint32_t ip;           // 0 = free
     uint8_t  probe;
     int8_t   level;        // -1 until the first reading
     bool     charging;
-    bool     stale;
+    bool     stale;        // the last attempt got no reading
     uint32_t checked_ms;   // last attempt; 0 = never
+    uint32_t read_ms;      // last good reading
 };
 
-Slot     s_slots[MAX_SONOS_DEVICES];
+// Room for every speaker the list can hold, and a stereo twin for each.
+constexpr int SLOTS = MAX_SONOS_DEVICES * 2;
+Slot     s_slots[SLOTS];
 uint32_t s_last_request_ms = 0;
 
 // Simulator - see batterySerialCommand().
@@ -48,15 +55,64 @@ uint32_t ipKey(const IPAddress& ip) {
            ((uint32_t)ip[2] << 8)  |  (uint32_t)ip[3];
 }
 
-Slot& slotFor(int idx, const SonosDevice* d) {
-    Slot& s = s_slots[idx];
-    const uint32_t key = ipKey(d->ip);
-    if (s.ip != key) {
-        memset(&s, 0, sizeof(s));
-        s.ip = key;
-        s.level = -1;
+Slot* findSlot(uint32_t key) {
+    if (!key) return nullptr;
+    for (Slot& s : s_slots) {
+        if (s.ip == key) return &s;
     }
-    return s;
+    return nullptr;
+}
+
+// Whether any current speaker, or its stereo twin, still has this address.
+bool inUse(uint32_t key) {
+    const int cnt = sonos.getDeviceCount();
+    for (int i = 0; i < cnt; i++) {
+        const SonosDevice* d = sonos.getDevice(i);
+        if (d && (ipKey(d->ip) == key || ipKey(d->pairIP) == key)) return true;
+    }
+    return false;
+}
+
+// The slot for an address: its own, a free one, or one whose address no longer
+// belongs to any speaker - which is what a rescan leaves behind. Polling task only.
+Slot* claimSlot(uint32_t key) {
+    if (Slot* s = findSlot(key)) return s;
+    for (Slot& s : s_slots) {
+        if (s.ip == 0 || !inUse(s.ip)) {
+            memset(&s, 0, sizeof(s));
+            s.ip = key;
+            s.level = -1;
+            return &s;
+        }
+    }
+    return nullptr;   // SLOTS covers every speaker and its twin, so not reached
+}
+
+// Never asked: now. A known battery: every BATTERY_POLL_MS. Never answered:
+// every BATTERY_RETRY_MS. "No battery": hourly, so one bad answer from a
+// portable - mid-wake, say - cannot hide its battery until the next reboot.
+bool due(const Slot& s, uint32_t now) {
+    if (s.checked_ms == 0) return true;
+    uint32_t every;
+    switch (s.probe) {
+        case PROBE_PRESENT: every = BATTERY_POLL_MS;         break;
+        case PROBE_NONE:    every = BATTERY_NONE_RECHECK_MS; break;
+        default:            every = BATTERY_RETRY_MS;        break;
+    }
+    return now - s.checked_ms >= every;
+}
+
+battery::View viewOf(const Slot* s, uint32_t now) {
+    battery::View v = { false, -1, false, false };
+    if (!s || s->probe != PROBE_PRESENT) return v;
+    v.present  = true;
+    v.level    = s->level;
+    v.charging = s->charging;
+    // Stale when the last attempt failed, or when nothing has succeeded for
+    // BATTERY_STALE_MS. Polling pauses while the selected speaker is unreachable,
+    // and an old number must not go on passing for a current one.
+    v.stale = s->stale || (now - s->read_ms > BATTERY_STALE_MS);
+    return v;
 }
 
 // One GET, under the same guards as sendSOAP(): the general cooldown before the
@@ -101,64 +157,69 @@ int fetch(const IPAddress& ip, battery::Status& st) {
 }  // namespace
 
 bool batteryPollStep() {
+    // discoverDevices() runs on the UI task and rewrites the list this walks.
+    if (sonos.isDiscovering()) return false;
     const uint32_t now = millis();
     if (s_last_request_ms && now - s_last_request_ms < BATTERY_PROBE_SPACING_MS) return false;
     // The queue fetch's DMA floor: a battery reading is never worth an
     // allocation the next art download will need.
     if (heap_caps_get_free_size(MALLOC_CAP_DMA) < ART_MIN_DMA_PRE_BURST) return false;
 
+    // Pick the first address that is due, and copy it and the name NOW: the
+    // request can take seconds, and a scan started meanwhile rewrites them.
+    IPAddress target;
+    char name[48] = "";
+    Slot* pick = nullptr;
     const int cnt = sonos.getDeviceCount();
-    int pick = -1;
-    for (int i = 0; i < cnt && i < MAX_SONOS_DEVICES; i++) {
-        SonosDevice* d = sonos.getDevice(i);
+    for (int i = 0; i < cnt && !pick; i++) {
+        const SonosDevice* d = sonos.getDevice(i);
         if (!d) continue;
-        Slot& s = slotFor(i, d);
-        if (s.probe == PROBE_NONE) continue;
-        const uint32_t every = s.probe == PROBE_PRESENT ? BATTERY_POLL_MS : BATTERY_RETRY_MS;
-        if (s.checked_ms == 0 || now - s.checked_ms >= every) { pick = i; break; }
+        const IPAddress units[2] = { d->ip, d->pairIP };
+        for (int u = 0; u < 2 && !pick; u++) {
+            const uint32_t key = ipKey(units[u]);
+            if (!key) continue;
+            Slot* s = claimSlot(key);
+            if (s && due(*s, now)) {
+                pick = s;
+                target = units[u];
+                snprintf(name, sizeof(name), "%s%s", d->roomName.c_str(), u ? " (pair)" : "");
+            }
+        }
     }
-    if (pick < 0) return false;
-
-    SonosDevice* d = sonos.getDevice(pick);
-    Slot& s = s_slots[pick];
+    if (!pick) return false;
     s_last_request_ms = now;
 
     battery::Status st;
-    const int code = fetch(d->ip, st);
-    s.checked_ms = millis();
-    if (s.checked_ms == 0) s.checked_ms = 1;   // 0 means "never"
+    const int code = fetch(target, st);
+    pick->checked_ms = millis();
+    if (pick->checked_ms == 0) pick->checked_ms = 1;   // 0 means "never"
 
     if (code == HTTP_CODE_OK && st.hasLevel) {
-        s.probe    = PROBE_PRESENT;
-        s.level    = (int8_t)st.level;
-        s.charging = st.charging;
-        s.stale    = false;
-        Serial.printf("[BATT] %s: %d%% on %s (health %s, temperature %s)\n",
-                      d->roomName.c_str(), st.level,
+        pick->probe    = PROBE_PRESENT;
+        pick->level    = (int8_t)st.level;
+        pick->charging = st.charging;
+        pick->stale    = false;
+        pick->read_ms  = pick->checked_ms;
+        Serial.printf("[BATT] %s: %d%% on %s (health %s, temperature %s)\n", name, st.level,
                       st.powerSource[0] ? st.powerSource : "?",
                       st.health[0] ? st.health : "?",
                       st.temperature[0] ? st.temperature : "?");
-    } else if (code == HTTP_CODE_OK && s.probe != PROBE_PRESENT) {
-        s.probe = PROBE_NONE;
-        Serial.printf("[BATT] %s: no battery\n", d->roomName.c_str());
-    } else if (s.probe == PROBE_PRESENT) {
+    } else if (code == HTTP_CODE_OK && pick->probe != PROBE_PRESENT) {
+        pick->probe = PROBE_NONE;
+        Serial.printf("[BATT] %s: no battery\n", name);
+    } else if (pick->probe == PROBE_PRESENT) {
         // Asleep, most likely. Keep the capability and the last level, and mark
         // it stale so the badge shows "--" rather than a number nobody can vouch for.
-        s.stale = true;
-        Serial.printf("[BATT] %s: no reading (%d) - keeping the last one as stale\n",
-                      d->roomName.c_str(), code);
+        pick->stale = true;
+        Serial.printf("[BATT] %s: no reading (%d) - keeping the last one as stale\n", name, code);
     } else {
-        Serial.printf("[BATT] %s: no answer (%d) - will retry\n", d->roomName.c_str(), code);
+        Serial.printf("[BATT] %s: no answer (%d) - will retry\n", name, code);
     }
     return true;
 }
 
 battery::View batteryViewFor(const SonosDevice* dev) {
-    battery::View v;
-    v.present  = false;
-    v.level    = -1;
-    v.charging = false;
-    v.stale    = false;
+    battery::View v = { false, -1, false, false };
     if (!dev) return v;
 
     // The simulator stands in for the SELECTED speaker only, so every other row
@@ -171,21 +232,17 @@ battery::View batteryViewFor(const SonosDevice* dev) {
         return v;
     }
 
-    const uint32_t key = ipKey(dev->ip);
-    for (const Slot& s : s_slots) {
-        if (s.ip == key && s.probe == PROBE_PRESENT) {
-            v.present  = true;
-            v.level    = s.level;
-            v.charging = s.charging;
-            v.stale    = s.stale;
-            break;
-        }
-    }
+    const uint32_t now = millis();
+    v = battery::merge(viewOf(findSlot(ipKey(dev->ip)), now),
+                       viewOf(findSlot(ipKey(dev->pairIP)), now));
+    // The selected speaker is polled all the time, so losing it is known at once
+    // - no need to wait out BATTERY_STALE_MS before we stop vouching for it.
+    if (v.present && dev == sonos.getCurrentDevice() && !dev->connected) v.stale = true;
     return v;
 }
 
 // Demo: 100% down to 0 in 5% steps a second apart - through three bars, two,
-// one, the gold blink under 20% and the warning glyph at 10% - then charging
+// one, the red blink under 20% and the warning glyph at 10% - then charging
 // back up, then three seconds asleep, and round again. About 35 s a loop.
 void batterySimTick() {
     if (!s_sim || !s_sim_demo) return;
@@ -206,6 +263,22 @@ void batterySimTick() {
             s_sim_stale = true;
             if (--s_sim_hold <= 0) { s_sim_stale = false; s_sim_phase = 0; }
             break;
+    }
+}
+
+static void printUnit(const char* label, const IPAddress& ip) {
+    const uint32_t key = ipKey(ip);
+    if (!key) return;
+    const Slot* s = findSlot(key);
+    Serial.printf("[BATT]   %-26s %-15s ", label, ip.toString().c_str());
+    if (!s || s->probe == PROBE_UNKNOWN) {
+        Serial.println("not read yet");
+    } else if (s->probe == PROBE_NONE) {
+        Serial.println("no battery");
+    } else {
+        const battery::View v = viewOf(s, millis());
+        Serial.printf("%d%%%s%s\n", v.level, v.charging ? " on external power" : "",
+                      v.stale ? " (stale)" : "");
     }
 }
 
@@ -258,16 +331,10 @@ bool batterySerialCommand(const char* cmd) {
                 strlcpy(name, d->roomName.c_str(), sizeof(name));
                 xSemaphoreGive(sonos.getDeviceMutex());
             }
-            const Slot& s = s_slots[i];
-            const bool ours = s.ip == ipKey(d->ip);
-            const char* what = (!ours || s.probe == PROBE_UNKNOWN) ? "not read yet"
-                             : s.probe == PROBE_NONE ? "no battery" : "battery";
-            Serial.printf("[BATT]   %-24s %s", name, what);
-            if (ours && s.probe == PROBE_PRESENT) {
-                Serial.printf(" %d%%%s%s", s.level, s.charging ? " charging" : "",
-                              s.stale ? " (stale)" : "");
-            }
-            Serial.println();
+            printUnit(name, d->ip);
+            char twin[48];
+            snprintf(twin, sizeof(twin), "%s (pair)", name);
+            printUnit(twin, d->pairIP);
         }
         Serial.printf("[BATT]   simulator %s\n", s_sim ? (s_sim_demo ? "demo" : "on") : "off");
         return true;

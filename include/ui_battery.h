@@ -13,7 +13,11 @@
 #define BATTERY_BADGE_CURRENT (-1)
 
 // deviceIndex: the speaker's index for sonos.getDevice(), or BATTERY_BADGE_CURRENT.
-// compact:     the number in smaller text and without "%", for the Amber header,
-//              where "100%" does not fit between the room pill and LRC.
+// compact:     the number in smaller text and without "%", for the Amber header.
+// keepClearOf: a label in the same row - the room name - that must not run under
+//              the badge. While the badge shows, that label is narrowed to stop
+//              short of it; when the badge hides it gets its width back. Rows
+//              for speakers without a battery are left exactly as built.
 // Returns the badge's row object: position it like any other object.
-lv_obj_t* batteryBadgeCreate(lv_obj_t* parent, int deviceIndex, bool compact = false);
+lv_obj_t* batteryBadgeCreate(lv_obj_t* parent, int deviceIndex, bool compact = false,
+                             lv_obj_t* keepClearOf = nullptr);

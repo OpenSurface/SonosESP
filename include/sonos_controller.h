@@ -68,6 +68,10 @@ struct QueueItem {
 
 struct SonosDevice {
     IPAddress ip;
+    // The other half of a stereo pair. Discovery keeps one speaker per room and
+    // drops its twin; this keeps the twin's address so a portable pair's second
+    // battery can still be read (issue #165). 0.0.0.0 when there is none.
+    IPAddress pairIP;
     String name;
     String roomName;
     String rinconID;
@@ -123,6 +127,9 @@ private:
     SonosDevice* devices;
     int deviceCount;
     int currentDeviceIndex;
+    // True while discoverDevices() rewrites devices[] (issue #165). The battery
+    // poll on the polling task reads the list and has to stay out meanwhile.
+    volatile bool discovering = false;
     WiFiUDP udp;
     WiFiClient client;
     Preferences prefs;
@@ -173,6 +180,7 @@ public:
     bool tryLoadCachedDevice();        // Try to load cached device from NVS (fast boot)
     void cacheSelectedDevice();        // Save selected device to NVS
     int getDeviceCount() { return deviceCount; }
+    bool isDiscovering() const { return discovering; }
     SonosDevice* getDevice(int index);
     SonosDevice* getCurrentDevice();
     SemaphoreHandle_t getDeviceMutex() { return deviceMutex; }  // CR-1: let UI snapshot device fields under the lock

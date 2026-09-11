@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_battery.h"
 #include "ui_settings_card.h"   // addScreenHeader() - shared title row
 #include "ui_fonts.h"
 #include "amber_icons.h"
@@ -107,6 +108,10 @@ void refreshGroupsList() {
         lv_obj_set_style_text_color(sub, AMB_TEXT3, 0);
         lv_obj_set_style_text_font(sub, &font_text_14, 0);
         lv_obj_align(sub, LV_ALIGN_LEFT_MID, isPlaying ? SX(70) : SX(55), (isPlaying && hasTrack) ? SY(2) : SY(12));
+        // Battery (issue #165), at the right end of the subtitle line: the name
+        // line is already capped for the full width, and this one is short.
+        lv_obj_t* bat = batteryBadgeCreate(btn, i);
+        lv_obj_align(bat, LV_ALIGN_RIGHT_MID, SX(-8), (isPlaying && hasTrack) ? SY(2) : SY(12));
 
         // Now playing info (if playing)
         if (isPlaying && hasTrack) {
@@ -162,6 +167,9 @@ void refreshGroupsList() {
                 lv_obj_set_style_text_color(memLbl, AMB_TEXT, 0);
                 lv_obj_set_style_text_font(memLbl, &font_text_16, 0);
                 lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, SX(60), 0);
+                // Battery (issue #165), left of Remove; the name stops short of it.
+                lv_obj_t* bat = batteryBadgeCreate(memBtn, j, false, memLbl);
+                lv_obj_align(bat, LV_ALIGN_RIGHT_MID, SX(-5 - 90 - 10), 0);
 
                 // Remove from group button
                 lv_obj_t* removeBtn = lv_btn_create(memBtn);
@@ -255,6 +263,10 @@ void refreshGroupsList() {
                 lv_label_set_long_mode(addLbl, LV_LABEL_LONG_DOT);
                 lv_obj_align(addLbl, LV_ALIGN_LEFT_MID,
                              SX(60), (leadsGroup || followsOther) ? SY(-9) : 0);
+                // Battery (issue #165), on the name's line so the second line keeps
+                // its width; the name stops short of it.
+                lv_obj_t* bat = batteryBadgeCreate(addBtn, i, false, addLbl);
+                lv_obj_align(bat, LV_ALIGN_RIGHT_MID, SX(-8), (leadsGroup || followsOther) ? SY(-9) : 0);
 
                 // Second line only when the speaker is coming from somewhere, so the
                 // common standalone case looks exactly as it did before.

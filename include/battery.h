@@ -138,6 +138,23 @@ inline Tone toneFor(const View& v) {
     return TONE_LOW;
 }
 
+// A stereo pair of portables is one room with two batteries, and it goes quiet
+// when either runs out - so the pair shows the weaker of the two. On external
+// power only if both are, and stale if either is, since the pair's real level
+// is then not known.
+inline View merge(const View& a, const View& b) {
+    if (!a.present) return b;
+    if (!b.present) return a;
+    View m;
+    m.present  = true;
+    if (a.level < 0)      m.level = b.level;
+    else if (b.level < 0) m.level = a.level;
+    else                  m.level = a.level < b.level ? a.level : b.level;
+    m.charging = a.charging && b.charging;
+    m.stale    = a.stale || b.stale;
+    return m;
+}
+
 }  // namespace battery
 
 // ── Firmware API (src/battery.cpp) ──────────────────────────────────────────

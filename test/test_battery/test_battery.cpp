@@ -199,6 +199,28 @@ void test_traffic_light(void) {
     }
 }
 
+// A stereo pair shows its weaker battery, charging only if both are, and stale
+// if either is. A missing half leaves the other exactly as it was.
+void test_stereo_pair_merge(void) {
+    const View none = view(0, false, false, false);
+    TEST_ASSERT_EQUAL_INT(64, merge(view(64), none).level);
+    TEST_ASSERT_EQUAL_INT(64, merge(none, view(64)).level);
+    TEST_ASSERT_FALSE(merge(none, none).present);
+
+    const View m = merge(view(80), view(30));
+    TEST_ASSERT_TRUE(m.present);
+    TEST_ASSERT_EQUAL_INT(30, m.level);
+    TEST_ASSERT_EQUAL_UINT8(TONE_MID, toneFor(m));
+
+    TEST_ASSERT_EQUAL_INT(70, merge(view(-1), view(70)).level);   // one never read
+    TEST_ASSERT_TRUE(merge(view(50, true), view(40, true)).charging);
+    TEST_ASSERT_FALSE(merge(view(50, true), view(40)).charging);
+    TEST_ASSERT_TRUE(merge(view(90), view(90, false, true)).stale);
+
+    // The weak twin must still trigger the warning.
+    TEST_ASSERT_TRUE(warn(merge(view(90), view(12))));
+}
+
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -216,5 +238,6 @@ int main(int argc, char** argv) {
     RUN_TEST(test_glyph_special_states);
     RUN_TEST(test_when_it_warns);
     RUN_TEST(test_traffic_light);
+    RUN_TEST(test_stereo_pair_merge);
     return UNITY_END();
 }
