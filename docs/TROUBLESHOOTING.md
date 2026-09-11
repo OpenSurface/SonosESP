@@ -169,7 +169,15 @@ Credentials are saved in NVS and survive reboots and firmware updates.
 
 While firmware is written to flash, the processor's cache must be switched off. The display's image lives in external memory reached through that cache, so for those moments the panel is fed invalid data and flickers.
 
-The feature that avoids this (flash "auto-suspend") is [not supported on the ESP32-P4](https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/api-reference/peripherals/spi_flash/spi_flash_optional_feature.html) — Espressif's documentation says support "may be added in the future". It's harmless: let the update finish and the device reboots normally.
+The feature that avoids this is flash ["auto-suspend"](https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/api-reference/peripherals/spi_flash/spi_flash_optional_feature.html), which lets the cache keep running through a write. The ESP32-P4 itself supports it. The flash chip fitted to these panels does not — they ship a Boya BY25Q, and ESP-IDF's own driver for that part records suspend as unavailable. Parts from GigaDevice and a few others do support it, so this comes down to the chip soldered to your board rather than to the firmware or the processor.
+
+Your board reports its own chip in the serial log at boot:
+
+```
+[FLASH] Boya BY25Q 16MB (0x684018) - Auto-suspend: NO
+```
+
+It's harmless: let the update finish and the device reboots normally.
 
 ---
 
