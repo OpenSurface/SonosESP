@@ -14,9 +14,63 @@
 #include "ui_fonts.h"
 #include "amber.h"
 #include "display_driver.h"   // display_set_brightness()
+#include "reboot_log.h"
+#include <time.h>
 
 // Forward declaration (defined in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
+extern bool clock_12h;   // defined with the clock settings; declared here like the sidebar
+
+// ── Recent restarts (reboot_log.h) ──────────────────────────────────────────
+// One row per history slot, built once and filled on every visit. Filled late on
+// purpose: this screen is created during boot, before NTP has synced and before
+// the time zone is applied, so dates formatted at creation would be in UTC.
+static lv_obj_t* s_rb_what[reboot_log::CAPACITY];
+static lv_obj_t* s_rb_when[reboot_log::CAPACITY];
+static lv_obj_t* s_rb_empty;
+
+static void formatRebootWhen(char* buf, size_t n, uint32_t epoch) {
+    if (epoch == reboot_log::EPOCH_UNKNOWN) { snprintf(buf, n, "Time unknown"); return; }
+    const time_t t = (time_t)epoch;
+    struct tm tm;
+    localtime_r(&t, &tm);
+    strftime(buf, n, clock_12h ? "%b %d %I:%M %p" : "%b %d %H:%M", &tm);
+}
+
+static void refreshRebootList() {
+    const reboot_log::Log& log = rebootLogHistory();
+    for (int i = 0; i < reboot_log::CAPACITY; i++) {
+        if (!s_rb_what[i]) return;
+        lv_obj_t* row = lv_obj_get_parent(s_rb_what[i]);
+        const reboot_log::Entry* e = reboot_log::at(log, i);
+        if (!e) {
+            lv_obj_add_flag(row, LV_OBJ_FLAG_HIDDEN);
+            continue;
+        }
+        lv_obj_remove_flag(row, LV_OBJ_FLAG_HIDDEN);
+
+        lv_label_set_text(s_rb_what[i], reboot_log::label(*e));
+        // Gold for the ones worth reporting: crashes, freezes, power dips and the
+        // low-memory self-restarts. Amber has no red, and gold is already how this
+        // UI says "look here".
+        lv_obj_set_style_text_color(s_rb_what[i],
+                                    reboot_log::unexpected(*e) ? AMB_ACCENT : AMB_TEXT2, 0);
+
+        char when[32], up[16], line[56];
+        formatRebootWhen(when, sizeof(when), e->epoch);
+        if (e->uptime_s == reboot_log::UPTIME_UNKNOWN) {
+            snprintf(line, sizeof(line), "%s", when);
+        } else {
+            reboot_log::formatUptime(up, sizeof(up), e->uptime_s);
+            snprintf(line, sizeof(line), "%s, up %s", when, up);
+        }
+        lv_label_set_text(s_rb_when[i], line);
+    }
+    if (s_rb_empty) {
+        if (log.count) lv_obj_add_flag(s_rb_empty, LV_OBJ_FLAG_HIDDEN);
+        else           lv_obj_remove_flag(s_rb_empty, LV_OBJ_FLAG_HIDDEN);
+    }
+}
 
 void createGeneralScreen() {
     scr_general = lv_obj_create(NULL);
@@ -122,7 +176,7 @@ void createGeneralScreen() {
         lv_obj_t* slot = addSettingRow(card, "Restart",
                                        "Restarts the panel. Your Wi-Fi and speaker "
                                        "settings are kept.",
-                                       false);
+                                       true);
 
         // Arm-then-confirm, the same shape the queue's Clear button uses, rather
         // than a modal: one stray tap should not drop the music.
@@ -166,6 +220,7 @@ void createGeneralScreen() {
             // the C6 in a state the next boot has to recover from - which is the
             // failure the SDIO defence layers exist to avoid.
             Serial.println("[MAIN] Restart requested from Settings");
+            rebootNoteCause(reboot_log::CAUSE_USER);
             sonos.suspendTasks();
 
             // Backlight off before the reset, not after. Between esp_restart()
@@ -178,5 +233,60 @@ void createGeneralScreen() {
             vTaskDelay(pdMS_TO_TICKS(150));
             ESP.restart();
         }, LV_EVENT_CLICKED, NULL);
+
+        // ── Recent restarts ─────────────────────────────────────────────────
+        // Why the panel last went down, newest first. Before this it kept no
+        // record at all: a panel restarting four times a day could not say why
+        // unless a serial console happened to be attached at the time.
+        addSettingRow(card, "Recent restarts",
+                      "Newest first. The gold ones are worth reporting.", false);
+
+        lv_obj_t* list = lv_obj_create(card);
+        lv_obj_remove_style_all(list);
+        lv_obj_set_width(list, lv_pct(100));
+        lv_obj_set_height(list, LV_SIZE_CONTENT);
+        lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_style_pad_row(list, SY(6), 0);
+        lv_obj_remove_flag(list, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(list, LV_OBJ_FLAG_CLICKABLE);
+
+        const int32_t line_h = lv_font_get_line_height(&font_text_14);
+        for (int i = 0; i < reboot_log::CAPACITY; i++) {
+            lv_obj_t* row = lv_obj_create(list);
+            lv_obj_remove_style_all(row);
+            lv_obj_set_width(row, lv_pct(100));
+            lv_obj_set_height(row, LV_SIZE_CONTENT);
+            lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+            lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
+                                  LV_FLEX_ALIGN_CENTER);
+            lv_obj_set_style_pad_column(row, SX(12), 0);
+            lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_flag(row, LV_OBJ_FLAG_HIDDEN);
+
+            // DOT needs a bounded height as well as a width: given only a width,
+            // an LVGL 9.5 label wraps and grows instead of truncating.
+            lv_obj_t* what = lv_label_create(row);
+            lv_obj_set_style_text_font(what, &font_text_14, 0);
+            lv_obj_set_style_text_color(what, AMB_TEXT2, 0);
+            lv_obj_set_flex_grow(what, 1);
+            lv_obj_set_height(what, line_h);
+            lv_label_set_long_mode(what, LV_LABEL_LONG_DOT);
+            lv_label_set_text(what, "");
+
+            lv_obj_t* when = lv_label_create(row);
+            lv_obj_set_style_text_font(when, &font_text_12, 0);
+            lv_obj_set_style_text_color(when, AMB_TEXT3, 0);
+            lv_label_set_text(when, "");
+
+            s_rb_what[i] = what;
+            s_rb_when[i] = when;
+        }
+        s_rb_empty = addDescLabel(list, "Nothing recorded yet.");
     }
+
+    // Refilled on every visit - see refreshRebootList().
+    lv_obj_add_event_cb(scr_general, [](lv_event_t*) { refreshRebootList(); },
+                        LV_EVENT_SCREEN_LOAD_START, NULL);
+    refreshRebootList();
 }

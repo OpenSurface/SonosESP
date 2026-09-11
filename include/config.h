@@ -158,6 +158,12 @@
 // How long the Settings > General > Restart button stays armed after the first
 // tap (issue #159). Matches the queue Clear button's OV_CLEAR_ARM_MS.
 #define RESTART_ARM_MS          4000
+
+// The coredump summary and reboot history print this long after boot, from
+// mainAppTask, not in setup() (issue #164). Attaching a console resets the chip
+// over USB, and boot output written while the CDC link was still settling has
+// store-faulted hw_cdc_isr_handler. By this point the host has reconnected.
+#define BOOT_REPORT_DELAY_MS    6000
 #define ART_CHECK_INTERVAL_MS   100     // How often to check for new art requests
 #define ART_DECODE_MAX_FAILURES 3       // Give up on URL after N decode failures
 #define ART_SW_JPEG_FALLBACK    1       // Enable JPEGDEC SW fallback (progressive, non-div-8)
@@ -305,6 +311,7 @@
 #define NVS_KEY_PANEL_VAR       "panel_var"      // 7" LCD panel variant index (<=15 chars)
 #define NVS_KEY_PANEL_OK        "panel_ok"       // 1 = user confirmed the picture
 #define NVS_KEY_AUTODIM         "autodim_sec"
+#define NVS_KEY_REBOOT_LOG      "reboot_log"     // restart history blob, reboot_log.h (<=15 chars)
 #define NVS_KEY_THEME           "theme"         // player theme index (see ui_theme.h)
 #define NVS_KEY_THEME_VER       "theme_v"       // theme-index schema version (<=15 chars)
 // Index into THEMES[] (ui_theme.cpp): 0 SonosESP, 1 Immersive, 2 Amber.

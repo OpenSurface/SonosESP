@@ -22,6 +22,7 @@
  */
 
 #include "ui_common.h"
+#include "reboot_log.h"
 #include "ui_fonts.h"
 
 #if SCREEN_SIZE == 7
@@ -142,6 +143,7 @@ void runPanelWizard() {
 
     Serial.printf("[PANEL] No confirmation - trying variant %d next\n", next);
     wifiPrefs.putInt(NVS_KEY_PANEL_VAR, next);
+    rebootNoteCause(reboot_log::CAUSE_PANEL_WIZARD);
     display_set_brightness(0);          // don't flash garbage on the way down
     delay(150);
     ESP.restart();

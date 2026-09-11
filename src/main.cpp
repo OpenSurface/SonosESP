@@ -6,6 +6,8 @@
 
 #include "ui_common.h"
 #include "config.h"
+#include "reboot_log.h"
+#include <esp_app_desc.h>
 #include "lyrics.h"
 #include "clock_screen.h"
 #include "clock_face.h"
@@ -153,6 +155,16 @@ static void reportStoredCoreDump() {
                       (unsigned)sum->ex_info.mcause, (unsigned)sum->ex_info.mtval);
         Serial.printf("[COREDUMP]   ra     : 0x%08X   sp    : 0x%08X\n",
                       (unsigned)sum->ex_info.ra, (unsigned)sum->ex_info.sp);
+
+        // Which firmware crashed. The dump is never erased, so without this a
+        // crash stored weeks ago reads exactly like one from this morning.
+        char running[APP_ELF_SHA256_SZ] = {0};
+        esp_app_get_elf_sha256(running, sizeof(running));
+        const bool same = strncmp((const char*)sum->app_elf_sha256, running,
+                                  sizeof(running)) == 0;
+        Serial.printf("[COREDUMP]   build  : %.*s - %s\n", (int)(sizeof(running) - 1),
+                      (const char*)sum->app_elf_sha256,
+                      same ? "this firmware" : "a DIFFERENT firmware, not this version");
     } else {
         Serial.println("[COREDUMP] Summary unavailable; the raw dump is still readable.");
     }
@@ -207,7 +219,7 @@ void setup() {
     delay(500);
     Serial.println("\n=== SONOS CONTROLLER ===");
     logResetReason();
-    reportStoredCoreDump();
+    rebootLogBoot();   // why the last run ended - see reboot_log.h
     beginOtaTrial();
     Serial.printf("Free heap: %d, PSRAM: %d\n", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
@@ -535,6 +547,7 @@ void setup() {
         triggerPendingOTA();  // loads saved URL → performOTAUpdate() → ESP.restart() on success
         // If we reach here, all download retries failed (otaRecovery() was called).
         // Restart to return to normal operation; NVS_KEY_OTA_PENDING is already false.
+        rebootNoteCause(reboot_log::CAUSE_OTA_FAILED);
         vTaskDelay(pdMS_TO_TICKS(5000));  // let user read the error message
         ESP.restart();
     }
@@ -707,6 +720,15 @@ static void mainAppTask(void* param) {
     for (;;) {
         esp_task_wdt_reset();
 
+        rebootLogTick();   // RTC breadcrumb, at most once a second
+
+        // The long boot reports, once, after the boot burst has drained (#164).
+        static bool boot_reports_done = false;
+        if (!boot_reports_done && millis() > BOOT_REPORT_DELAY_MS) {
+            boot_reports_done = true;
+            reportStoredCoreDump();
+            rebootLogReport();
+        }
         lv_tick_inc(3);
 
         // Skip LVGL timer during OTA to prevent PSRAM access during flash writes
@@ -816,6 +838,7 @@ static void mainAppTask(void* param) {
                                               "(%uKB < %uKB) — restarting\n",
                                               (unsigned)(dma_post / 1024),
                                               (unsigned)(ART_MIN_DMA_PRE_BURST / 1024));
+                                rebootNoteCause(reboot_log::CAUSE_DMA_RECONNECT);
                                 esp_task_wdt_reset();
                                 vTaskDelay(pdMS_TO_TICKS(1000));
                                 esp_restart();
@@ -837,6 +860,7 @@ static void mainAppTask(void* param) {
                         art_dma_recovery_requested = false;  // signal art task: retry download
                     } else {
                         Serial.println("[MAIN] WiFi reconnect timed out — restarting");
+                        rebootNoteCause(reboot_log::CAUSE_WIFI_TIMEOUT);
                         esp_task_wdt_reset();
                         vTaskDelay(pdMS_TO_TICKS(1000));
                         esp_restart();
@@ -845,6 +869,7 @@ static void mainAppTask(void* param) {
                     // WiFi.stop() didn't help — DMA permanently fragmented, restart required
                     Serial.printf("[MAIN] DMA still low after WiFi stop (%u) — restarting\n",
                                   (unsigned)dma_after);
+                    rebootNoteCause(reboot_log::CAUSE_DMA_WIFI_STOP);
                     esp_task_wdt_reset();
                     vTaskDelay(pdMS_TO_TICKS(1000));
                     esp_restart();

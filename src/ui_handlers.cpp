@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "reboot_log.h"
 #include "ui_icons.h"
 #include <vector>
 #include "config.h"
@@ -1009,6 +1010,7 @@ static void otaCheckDMA() {
         lv_tick_inc(10);
         lv_refr_now(NULL);
         vTaskDelay(pdMS_TO_TICKS(2000));
+        rebootNoteCause(reboot_log::CAUSE_OTA);
         display_set_brightness(0);
         vTaskDelay(pdMS_TO_TICKS(100));
         ESP.restart();
@@ -1544,6 +1546,7 @@ static void performOTAUpdate() {
             lv_refr_now(NULL);
             vTaskDelay(pdMS_TO_TICKS(1000));
 
+            rebootNoteCause(reboot_log::CAUSE_OTA);
             display_set_brightness(0);
             vTaskDelay(pdMS_TO_TICKS(100));
 
@@ -1604,6 +1607,7 @@ void ev_install_update(lv_event_t* e) {
     lv_tick_inc(10);
     lv_refr_now(NULL);
     vTaskDelay(pdMS_TO_TICKS(1500));  // let user see the message
+    rebootNoteCause(reboot_log::CAUSE_OTA);
     display_set_brightness(0);
     vTaskDelay(pdMS_TO_TICKS(100));
     ESP.restart();
