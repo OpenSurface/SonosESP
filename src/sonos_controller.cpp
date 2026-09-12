@@ -284,6 +284,11 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
     http.addHeader("SOAPAction", soapActionHeader);
 
     int code = http.POST(body);
+    // Recorded before anything can fail: every path below returns an empty String
+    // for a failure, so this is the only thing that tells a caller a 500 apart
+    // from a timeout we stopped waiting for (issue #169). Written under
+    // network_mutex, read by the same task the moment sendSOAP() returns.
+    last_soap_http_code = code;
     String response = "";  // Keep String for return value (used by callers)
 
     if (code == 200) {
@@ -847,6 +852,39 @@ bool SonosController::playURI(const char* uri, const char* metadata) {
     return false;
 }
 
+// Did the AddURIToQueue we stopped waiting for actually land? (issue #169)
+//
+// Both callers empty the queue immediately before enqueuing, so a non-empty
+// queue can only be the work of that call. That makes the queue a far better
+// answer than a longer HTTP timeout would be: the mutex is released between
+// polls, so album art and the polling task keep their turn while the speaker
+// finishes expanding the playlist.
+//
+// Returns the track count as soon as it is non-zero - the question is whether
+// the call landed, not how many tracks arrived, and the speaker goes on filling
+// the queue while playback starts.
+int SonosController::waitForQueueToFill(uint32_t timeout_ms) {
+    const uint32_t start = millis();
+    while (millis() - start < timeout_ms) {
+        vTaskDelay(pdMS_TO_TICKS(SONOS_ENQUEUE_SETTLE_POLL_MS));
+
+        String resp = sendSOAP(transportTarget(), "AVTransport", "GetMediaInfo",
+                               "<InstanceID>0</InstanceID>");
+        if (resp.length() == 0) continue;   // busy speaker; ask again
+
+        String n = extractXML(resp, "NrTracks");
+        int tracks = n.toInt();
+        if (tracks > 0) {
+            Serial.printf("[QUEUE] %d tracks after %lums - the enqueue landed\n",
+                          tracks, (unsigned long)(millis() - start));
+            return tracks;
+        }
+    }
+    Serial.printf("[QUEUE] Still empty after %lums - the enqueue really failed\n",
+                  (unsigned long)timeout_ms);
+    return 0;
+}
+
 bool SonosController::playPlaylist(const char* playlistID, const char* title) {
     SonosDevice* dev = getCurrentDevice();
     if (!dev || !dev->connected) {
@@ -956,17 +994,32 @@ bool SonosController::playPlaylist(const char* playlistID, const char* title) {
 
     // 3-retry loop: Sonos may return HTTP 500 (transient) briefly after
     // RemoveAllTracksFromQueue even with the 500ms delay on slow devices.
+    // Same rule as playContainer(): retry a refusal, never a timeout. This
+    // function also empties the queue just above, so the same queue check
+    // applies (issue #169).
     String resp;
+    bool timed_out = false;
     for (int attempt = 0; attempt < 3; attempt++) {
         resp = sendSOAP(transportTarget(), "AVTransport", "AddURIToQueue", addArgs);
         if (resp.length() > 0 && resp.indexOf("Fault") < 0) {
+            break;
+        }
+        if (resp.length() == 0 && lastSoapHttpCode() == HTTPC_ERROR_READ_TIMEOUT) {
+            Serial.println("[PLAYLIST] AddURIToQueue timed out - not retrying, "
+                           "waiting for the queue instead");
+            timed_out = true;
             break;
         }
         Serial.printf("[PLAYLIST] AddURIToQueue attempt %d failed, retrying\n", attempt + 1);
         vTaskDelay(pdMS_TO_TICKS(400));
     }
 
-    if (resp.length() > 0 && resp.indexOf("Fault") < 0) {
+    // Either the speaker answered, or it went quiet and the queue shows it got
+    // there anyway. Both mean the playlist is loaded.
+    const bool enqueued = timed_out ? (waitForQueueToFill(SONOS_ENQUEUE_SETTLE_MS) > 0)
+                                    : (resp.length() > 0 && resp.indexOf("Fault") < 0);
+
+    if (enqueued) {
         vTaskDelay(pdMS_TO_TICKS(200));
 
         static char queueURI[128];
@@ -1095,15 +1148,32 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
                    + "<DesiredFirstTrackNumberEnqueued>1</DesiredFirstTrackNumberEnqueued>"
                    + "<EnqueueAsNext>0</EnqueueAsNext>";
 
+    // Retries here are for a speaker that REFUSED the request - a transient 500
+    // after RemoveAllTracksFromQueue, or a SOAP Fault. A read timeout is not a
+    // refusal: the speaker is still expanding the playlist and will finish, so
+    // sending it again enqueues everything twice more (issue #169). We stop
+    // asking and let waitForQueueToFill() tell us whether it landed.
     String resp;
+    bool timed_out = false;
     for (int attempt = 0; attempt < 3; attempt++) {
         resp = sendSOAP(transportTarget(), "AVTransport", "AddURIToQueue", addArgs.c_str());
         if (resp.length() > 0 && resp.indexOf("Fault") < 0) break;
+        if (resp.length() == 0 && lastSoapHttpCode() == HTTPC_ERROR_READ_TIMEOUT) {
+            Serial.println("[CONTAINER] AddURIToQueue timed out - not retrying, "
+                           "waiting for the queue instead");
+            timed_out = true;
+            break;
+        }
         Serial.printf("[CONTAINER] AddURIToQueue attempt %d failed, retrying\n", attempt + 1);
         vTaskDelay(pdMS_TO_TICKS(400));
     }
 
-    if (resp.length() == 0 || resp.indexOf("Fault") >= 0) {
+    if (timed_out) {
+        if (waitForQueueToFill(SONOS_ENQUEUE_SETTLE_MS) == 0) {
+            Serial.println("[CONTAINER] Failed to add container to queue");
+            return false;
+        }
+    } else if (resp.length() == 0 || resp.indexOf("Fault") >= 0) {
         Serial.println("[CONTAINER] Failed to add container to queue");
         return false;
     }

@@ -150,6 +150,22 @@ private:
     // H-7: explicit-target overload — addresses a specific device without mutating the
     // shared currentDeviceIndex that the polling task reads concurrently.
     String sendSOAP(SonosDevice* dev, const char* service, const char* action, const char* args);
+    // Why the last sendSOAP() failed. It returns an empty String for every
+    // failure - a refusal by the speaker and a timeout we gave up on look
+    // identical to the caller - and AddURIToQueue has to tell them apart: a 500
+    // is worth retrying, a timeout must never be (issue #169).
+    //
+    // One shared value across the three tasks that call sendSOAP(), which is
+    // safe only because network_mutex serialises them: the code is written
+    // while the mutex is still held, and read by the same task immediately on
+    // return. Anything reading it later may see another task's request.
+    int last_soap_http_code = 0;
+
+    // Waits for the queue to stop being empty, polling GetMediaInfo once a
+    // second with the mutex released between calls. Returns the track count, or
+    // 0 if it never filled. Only meaningful when the caller emptied the queue
+    // immediately beforehand.
+    int waitForQueueToFill(uint32_t timeout_ms);
     // Returns false when the device description could not be fetched or parsed,
     // in which case dev->hasLineIn is a DEFAULT (false) and not a result. Callers
     // that persist the flag must check this, or one timed-out 3s fetch is cached
@@ -166,6 +182,10 @@ private:
     void processCommand(CommandRequest_t* cmd);
     
 public:
+    // The HTTP status of the last SOAP request: 200, 500, or a negative
+    // HTTPClient error such as HTTPC_ERROR_READ_TIMEOUT (-11). See the member.
+    int lastSoapHttpCode() const { return last_soap_http_code; }
+
     SonosController();
     ~SonosController();
     

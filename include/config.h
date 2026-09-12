@@ -236,6 +236,19 @@
 
 // Timeouts
 #define SONOS_SOAP_TIMEOUT_MS   2000    // SOAP request timeout
+
+// AddURIToQueue on a music-service container is the one SOAP call that does real
+// work before answering: the speaker resolves every track with the service and
+// writes them into the queue. A large playlist takes longer than the timeout
+// above, and the call is NOT idempotent - retrying it enqueues the tracks again
+// (issue #169, a 337-track playlist became 1011).
+//
+// Rather than hold network_mutex for a long timeout with the link idle, the
+// caller empties the queue right before the call, so after a timeout the QUEUE
+// answers the question: tracks there means the speaker completed the work.
+// Polled with the mutex released between calls, so art and polling still run.
+#define SONOS_ENQUEUE_SETTLE_MS      15000  // give up waiting for the queue to fill
+#define SONOS_ENQUEUE_SETTLE_POLL_MS  1000  // one GetMediaInfo per second while waiting
 #define SONOS_DEBOUNCE_MS       400     // Command debounce time
 
 // Polling tick modulos (base interval = 300ms, so N ticks = N * 300ms)
