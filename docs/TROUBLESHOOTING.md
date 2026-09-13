@@ -181,6 +181,25 @@ It's harmless: let the update finish and the device reboots normally.
 
 ---
 
+## The panel restarted on its own
+
+Since v2.0.6 the panel keeps a record. **Settings → General → Device → Recent restarts** lists the last eight, newest first, with when each happened and how long the panel had been running. The ones in gold are worth reporting:
+
+| Shown as | What happened |
+|---|---|
+| **Crashed** | A firmware fault. The next boot prints a coredump summary in the [serial log](#how-to-get-a-serial-log) |
+| **Froze (watchdog)** | Something stopped responding and the watchdog restarted the panel |
+| **Power dipped** | The supply sagged. Try another USB power adapter or cable |
+| **Low memory (self-restart)** · **Low memory after reconnect** | The memory Wi-Fi needs ran low, and the panel restarted to recover |
+| **Wi-Fi did not reconnect** | Wi-Fi stayed down, and the panel restarted to try again |
+| **Update failed, recovered** | An update did not complete, and the panel restarted to recover |
+
+Everything else — **You restarted it**, **Firmware update**, **Powered on**, **USB connected** and the like — is expected. **USB connected** is what opening a serial monitor looks like.
+
+If gold entries keep appearing, [open an issue](https://github.com/OpenSurface/SonosESP/issues) with a photo of the list and, if you can, a serial log from the next boot.
+
+---
+
 ## Start completely fresh
 
 To wipe all settings (Wi-Fi, speaker choice, theme, clock and display preferences):
@@ -204,7 +223,7 @@ The log almost always names the exact failure, and it's the single most useful t
 3. Reproduce the problem
 4. Copy the output into your issue
 
-Useful lines to look for: `[OTA]`, `[WIFI]`, `[SONOS]`, `[ART]`, `[CLOCK]`.
+Useful lines to look for: `[OTA]`, `[WIFI]`, `[SONOS]`, `[ART]`, `[CLOCK]`, `[REBOOT]`, `[BATT]`, `[SLEEP]`.
 
 ---
 
@@ -213,6 +232,7 @@ Useful lines to look for: `[OTA]`, `[WIFI]`, `[SONOS]`, `[ART]`, `[CLOCK]`.
 [Open an issue](https://github.com/OpenSurface/SonosESP/issues) with:
 
 - What you were doing and what happened
-- Your screen size (4″ or 7″) and firmware version (**Settings → Firmware Update**)
+- Your screen size (4″ or 7″) and firmware version (**Settings → Update**)
 - A serial log if you can get one
+- If it restarted by itself, a photo of **Settings → General → Recent restarts**
 - A photo of the screen, if the problem is visual

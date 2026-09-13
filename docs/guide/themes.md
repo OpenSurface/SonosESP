@@ -6,7 +6,7 @@ Change in **Settings → General → Theme**. Applies immediately.
 
 | Theme | Look |
 |---|---|
-| **Amber** *(default)* | Flat warm panel, one gold accent. Artwork edge to edge on the left with a shelf beneath it, all controls visible on the right |
+| **Amber** *(default)* | Flat warm panel, one gold accent. Artwork edge to edge on the left with a shelf beneath it, all controls visible on the right, and the speaker's battery and the sleep timer along the bottom |
 | **SonosESP** | Blurred album art fills the screen behind the player |
 | **Immersive** | Full-bleed colour and a large animated lyric stage |
 
@@ -34,7 +34,9 @@ the weather overlay.
 | **Monolith** | Hours over minutes, details column, forecast rail |
 | **StandBy** | Oversized digits tinted from the current album art |
 
-Touch the screen at any point to go back to the player.
+With a sleep timer running, the Amber face's now-playing line says when the
+music stops: **UNTIL 22:15**. Touch the screen at any point to go back to the
+player.
 
 ## Queue and Rooms
 
