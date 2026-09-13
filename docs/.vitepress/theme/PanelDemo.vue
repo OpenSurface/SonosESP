@@ -37,9 +37,9 @@ const QUEUE = [
 ]
 
 const ROOMS = [
-  { name: 'Living Room', playing: true,  vol: 42 },
+  { name: 'Living Room', playing: true,  vol: 42, batt: 72 },   // batt: a Move or Roam
   { name: 'Kitchen',     playing: false, vol: 18 },
-  { name: 'Bedroom',     playing: false, vol: 30 },
+  { name: 'Bedroom',     playing: false, vol: 30, batt: 18 },
   { name: 'Office',      playing: false, vol: 55 },
 ]
 
@@ -54,12 +54,15 @@ const nowIdx = ref(0)
 const progress = ref(29)
 const shuffle = ref(false)
 const repeat = ref(false)
+const sleepMin = ref(0)   // the Sleep button: 0 = no timer. The panel opens a sheet of presets
 const rooms = reactive(ROOMS.map(r => ({ ...r })))
 const roomIdx = ref(0)
 const scanning = ref(false)
 
 const now = computed(() => queue.value[nowIdx.value] ?? QUEUE[0])
 const room = computed(() => rooms[roomIdx.value] ?? rooms[0])
+// The panel's traffic light: green from 50%, yellow below, red under 20%.
+const battTone = computed(() => room.value.batt >= 50 ? 'good' : room.value.batt >= 20 ? 'mid' : 'low')
 
 function mmss(total: number) {
   const m = Math.floor(total / 60), sec = Math.floor(total % 60)
@@ -438,6 +441,17 @@ onBeforeUnmount(() => {
                       </div>
                       <span class="vnum">{{ room.vol }}</span>
                     </div>
+
+                    <!-- Bottom row, as on the panel: the room's battery left, Sleep right -->
+                    <div class="brow">
+                      <span v-if="room.batt != null" class="batt" :class="battTone">
+                        <svg class="i20" viewBox="0 0 24 24"><use href="#ic-batt" /></svg>{{ room.batt }}%
+                      </span>
+                      <span class="grow"></span>
+                      <button class="sleepbtn" :class="{ armed: sleepMin > 0 }" @click="sleepMin = sleepMin ? 0 : 45">
+                        <svg class="i18" viewBox="0 0 24 24"><use href="#ic-sleep" /></svg>{{ sleepMin ? sleepMin + ' min' : 'Sleep' }}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -577,6 +591,9 @@ onBeforeUnmount(() => {
       <symbol id="ic-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4.5 20 12 8 19.5z"/></symbol>
       <symbol id="ic-pause" viewBox="0 0 24 24" fill="currentColor"><rect x="6.6" y="4.6" width="3.9" height="14.8" rx="1.4"/><rect x="13.5" y="4.6" width="3.9" height="14.8" rx="1.4"/></symbol>
       <symbol id="ic-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.6L12.4 5.5v13L7.6 14.5H4z" fill="currentColor" stroke="none"/><path d="M16 9.6a4 4 0 0 1 0 4.8"/><path d="M18.6 7.2a7.4 7.4 0 0 1 0 9.6"/></symbol>
+      <!-- The panel's own glyphs, from scripts/gen_amber_icons.js (bt-medium, st-sleep) -->
+      <symbol id="ic-batt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 14v-4"/><rect x="2" y="6" width="16" height="12" rx="2"/><path d="M6 10v4"/><path d="M10 10v4"/></symbol>
+      <symbol id="ic-sleep" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0.5 3) scale(0.86)" stroke-width="1.98"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></g><path d="M15 2.5h5.5L15 8h5.5"/></symbol>
       <symbol id="ic-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 17.5V5.6l10-2v11.5"/><circle cx="6.4" cy="17.6" r="2.6"/><circle cx="16.4" cy="15.5" r="2.6"/></symbol>
       <symbol id="ic-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 7a2 2 0 0 1 2-2h4l2.2 2.6H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
       <symbol id="ic-radio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="2.5" y="8" width="19" height="11.5" rx="2.4"/><path d="M7.5 4.6 15.5 2"/><circle cx="8.6" cy="13.8" r="2.6"/></symbol>
@@ -666,6 +683,18 @@ onBeforeUnmount(() => {
 .vol { display: flex; align-items: center; gap: 14px; }
 .vol .bar { margin-top: 0; }
 .vnum { font-size: 13px; color: #8E877D; font-variant-numeric: tabular-nums; width: 30px; text-align: right; }
+/* Bottom row (v2.0.7): battery flush left, Sleep flush right. */
+.brow { display: flex; align-items: center; height: 36px; margin-top: 14px; }
+.batt { display: flex; align-items: center; gap: 5px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.batt .i20 { color: inherit; }
+.batt.good { color: #6FCF8E; } .batt.mid { color: #E0B252; } .batt.low { color: #FF6B6B; }
+.screen .sleepbtn {
+  display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px 0 12px;
+  border-radius: 18px; background: #171513; border: 1px solid #2A2622; font-size: 14px; color: #C9C2B8;
+}
+.screen .sleepbtn:hover { background: #1F1C19; }
+.screen .sleepbtn.armed { background: #241F16; border-color: #4A3D22; color: #E0B252; }
+.sleepbtn .i18 { color: inherit; }
 
 .i16 { width: 16px; height: 16px; } .i17 { width: 17px; height: 17px; }
 .i18 { width: 18px; height: 18px; } .i19 { width: 19px; height: 19px; }

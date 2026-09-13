@@ -33,6 +33,7 @@ A wall-mount or desktop remote for Sonos speakers: album art, synced lyrics, ful
 - **Multi-room** — switch between Sonos zones, with live indicators showing which rooms are playing
 - **Speaker groups** — create and break groups from the panel
 - **Line-in and TV audio** — dedicated screens when a soundbar is on TV input or a device is on analogue line-in
+- **Sleep timer** — the Sleep button at the bottom of the Amber player stops the music after 15 to 90 minutes, with +15 and Turn off. It sets the speaker's own timer, so one set by voice or in the Sonos app shows on the panel too
 
 ### Display
 
@@ -42,14 +43,16 @@ A wall-mount or desktop remote for Sonos speakers: album art, synced lyrics, ful
 - **Three player themes** and **five screensaver faces** — see below
 - **Queue and Rooms as overlays** — both open over the player instead of replacing it, so the transport stays reachable
 - **Per-speaker volume** — adjust the selected room from the Speakers list or the Rooms overlay
+- **Battery levels** — Move and Roam show their charge in the Speakers, Groups and Rooms lists and at the bottom of the Amber player: green from 50%, yellow below that, red and blinking under 20%
 - **Weather** — current conditions and a 6-hour forecast from [Open-Meteo](https://open-meteo.com/), no API key
-- **Auto-dim** — configurable idle timeout and dimmed brightness
+- **Auto-dim** — configurable idle timeout and dimmed brightness, down to 1% on the 4″. While the clock screensaver is up, a new track no longer lights the screen
 
 ### System
 
 - **Two panel sizes, one codebase** — 4″ and 7″ build from the same source, with type and spacing scaling to the panel rather than being authored twice
 - **OTA updates** — install new firmware from the panel, on Stable or Nightly channels, with resumable downloads
 - **Browser installer** — flash over USB from Chrome, Edge or Opera; no toolchain required
+- **Restart history** — **Settings → General** lists the last eight restarts and why each happened, so a panel that restarted overnight can say why. See [Troubleshooting](docs/TROUBLESHOOTING.md#the-panel-restarted-on-its-own)
 
 ## Music sources
 
@@ -85,7 +88,7 @@ Switch in **Settings → General → Theme**. Adding one is a single registry en
 
 | Theme | Look |
 |---|---|
-| **Amber** *(default)* | Flat warm panel with one gold accent. Artwork edge to edge down the left with a shelf beneath it for the next track or the synced lyric; every control permanently visible on the right |
+| **Amber** *(default)* | Flat warm panel with one gold accent. Artwork edge to edge down the left with a shelf beneath it for the next track or the synced lyric; every control permanently visible on the right, with the speaker's battery and the sleep timer along the bottom |
 | **SonosESP** | The original: blurred album art fills the screen behind the player. The backdrop can be turned off in Display settings |
 | **Immersive** | Full-bleed colour, compact header, and a large animated lyric stage where each line fades in |
 
@@ -108,7 +111,8 @@ weather overlay. Adding one is a single registry entry — see
 | **Monolith** | Hours stacked over minutes, a details column for humidity, wind, UV and sun times, and a forecast rail |
 | **StandBy** | Oversized overlapping digits tinted from the current album art |
 
-Touch the screen at any time to return to the player.
+With a sleep timer running, the Amber face's now-playing line says when the music
+stops: **UNTIL 22:15**. Touch the screen at any time to return to the player.
 
 ## Hardware
 

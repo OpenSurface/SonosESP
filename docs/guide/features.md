@@ -8,6 +8,7 @@
 - **Complete library browsing** — every source your speaker exposes, not a fixed list. See [Music sources](/guide/sources)
 - **Favourites from any service** — anything saved in the Sonos app plays from the panel, Spotify and YouTube Music included, with no login on the device
 - **Line-in and TV audio** — dedicated screens when a soundbar is on TV input or something is plugged into the analogue input
+- **Sleep timer** — the Sleep button at the bottom of the Amber player stops the music after 15 to 90 minutes, with +15 and Turn off. It uses the speaker's own timer, so one set by voice or in the Sonos app shows up on the panel as well
 
 ## On screen
 
@@ -15,9 +16,10 @@
 - **Synced lyrics** — time-synced from [LRCLIB](https://lrclib.net/), following the track, hiding themselves when there are none, and colour-matched to the artwork
 - **Accented characters everywhere** — titles, artists, lyrics, menus, dropdowns and the on-screen keyboard all render Latin-1 and Latin Extended-A properly, so Beyoncé, Björk and Sigur Rós look right instead of losing their accents
 - **Weather** — current conditions and a 6-hour forecast from [Open-Meteo](https://open-meteo.com/), no API key needed
-- **Three player themes and four clock faces** — see [Themes](/guide/themes)
-- **Auto-dim** — configurable idle timeout and dimmed brightness level
-- **Clock screensaver** — takes over when idle, with an optional photo background
+- **Three player themes and five clock faces** — see [Themes](/guide/themes)
+- **Auto-dim** — configurable idle timeout and dimmed brightness, down to 1% on the 4-inch. While the clock screensaver is showing, a new track no longer lights the screen up
+- **Clock screensaver** — takes over when idle, with an optional photo background. The Amber face also shows when a sleep timer will stop the music
+- **Battery levels** — Move and Roam show their charge in the Speakers, Groups and Rooms lists and at the bottom of the Amber player: green from 50%, yellow below that, red and blinking under 20%
 
 ## Under it
 
@@ -25,6 +27,7 @@
 - **Updates over the air** — from the panel itself, on a stable or nightly channel, resuming rather than restarting if a download is interrupted
 - **Browser installer** — flash over USB from Chrome, Edge or Opera, no toolchain to install
 - **Settings survive updates** — Wi-Fi credentials and every preference live in flash and are kept across reboots and firmware upgrades
+- **Restart history** — **Settings → General** lists the last eight restarts and why each happened, so a panel that restarted overnight can say why
 - **Open source** — MIT licensed, [on GitHub](https://github.com/OpenSurface/SonosESP)
 
 ## Not supported
