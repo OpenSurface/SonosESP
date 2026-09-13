@@ -10,6 +10,7 @@
 #include "config.h"
 #include "ui_network_guard.h"
 #include <HTTPClient.h>
+#include <esp_task_wdt.h>   // waitForQueueToFill() feeds the UI task watchdog
 #include "lvgl.h"
 #include "ui_common.h"
 #include <new>  // placement new for PSRAM device array
@@ -892,14 +893,30 @@ bool SonosController::playURI(const char* uri, const char* metadata) {
 int SonosController::waitForQueueToFill(uint32_t timeout_ms) {
     const uint32_t start = millis();
     while (millis() - start < timeout_ms) {
+        // This runs on the UI task from the Browse tap handler, and that task is
+        // subscribed to the 30s task watchdog. Nothing else feeds it while we sit
+        // here: the whole sequence - the switch-to-queue retries, the clear, the
+        // add that timed out, then these checks - can outlast the watchdog on a
+        // struggling speaker and reboot the panel. Feed it on every pass.
+        esp_task_wdt_reset();
         vTaskDelay(pdMS_TO_TICKS(SONOS_ENQUEUE_SETTLE_POLL_MS));
 
-        String resp = sendSOAP(transportTarget(), "AVTransport", "GetMediaInfo",
-                               "<InstanceID>0</InstanceID>");
+        // Browse Q:0, NOT GetMediaInfo. Both callers carry on even when the
+        // switch to the queue transport failed, and NrTracks then describes
+        // whatever is actually playing - a radio stream, the previous queue -
+        // rather than the queue we just filled. TotalMatches always counts the
+        // queue itself, so it cannot answer about the wrong thing. Same call
+        // updateQueue() makes; RequestedCount 0 asks for the count alone.
+        String resp = sendSOAP(transportTarget(), "ContentDirectory", "Browse",
+                               "<ObjectID>Q:0</ObjectID>"
+                               "<BrowseFlag>BrowseDirectChildren</BrowseFlag>"
+                               "<Filter>dc:title</Filter>"
+                               "<StartingIndex>0</StartingIndex>"
+                               "<RequestedCount>0</RequestedCount>"
+                               "<SortCriteria></SortCriteria>");
         if (resp.length() == 0) continue;   // busy speaker; ask again
 
-        String n = extractXML(resp, "NrTracks");
-        int tracks = n.toInt();
+        int tracks = extractXML(resp, "TotalMatches").toInt();
         if (tracks > 0) {
             Serial.printf("[QUEUE] %d tracks after %lums - the enqueue landed\n",
                           tracks, (unsigned long)(millis() - start));
@@ -1030,9 +1047,15 @@ bool SonosController::playPlaylist(const char* playlistID, const char* title) {
         if (resp.length() > 0 && resp.indexOf("Fault") < 0) {
             break;
         }
-        if (resp.length() == 0 && lastSoapHttpCode() == HTTPC_ERROR_READ_TIMEOUT) {
-            Serial.println("[PLAYLIST] AddURIToQueue timed out - not retrying, "
-                           "waiting for the queue instead");
+        // -11 and -5 both mean the request left the panel: a read timeout gave
+        // up waiting for an answer, a lost connection dropped one that may well
+        // have been sent. Either way the speaker may have done the work, and
+        // AddURIToQueue is not idempotent. Only -1 and -4 prove it never went
+        // out, and those keep their retries along with 500 and Fault.
+        if (resp.length() == 0 && (lastSoapHttpCode() == HTTPC_ERROR_READ_TIMEOUT ||
+                                   lastSoapHttpCode() == HTTPC_ERROR_CONNECTION_LOST)) {
+            Serial.printf("[PLAYLIST] AddURIToQueue did not answer (%d) - not retrying, "
+                          "waiting for the queue instead\n", lastSoapHttpCode());
             timed_out = true;
             break;
         }
@@ -1184,9 +1207,15 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
     for (int attempt = 0; attempt < 3; attempt++) {
         resp = sendSOAP(transportTarget(), "AVTransport", "AddURIToQueue", addArgs.c_str());
         if (resp.length() > 0 && resp.indexOf("Fault") < 0) break;
-        if (resp.length() == 0 && lastSoapHttpCode() == HTTPC_ERROR_READ_TIMEOUT) {
-            Serial.println("[CONTAINER] AddURIToQueue timed out - not retrying, "
-                           "waiting for the queue instead");
+        // -11 and -5 both mean the request left the panel: a read timeout gave
+        // up waiting for an answer, a lost connection dropped one that may well
+        // have been sent. Either way the speaker may have done the work, and
+        // AddURIToQueue is not idempotent. Only -1 and -4 prove it never went
+        // out, and those keep their retries along with 500 and Fault.
+        if (resp.length() == 0 && (lastSoapHttpCode() == HTTPC_ERROR_READ_TIMEOUT ||
+                                   lastSoapHttpCode() == HTTPC_ERROR_CONNECTION_LOST)) {
+            Serial.printf("[CONTAINER] AddURIToQueue did not answer (%d) - not retrying, "
+                          "waiting for the queue instead\n", lastSoapHttpCode());
             timed_out = true;
             break;
         }
