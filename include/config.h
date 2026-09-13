@@ -97,6 +97,10 @@
     #define PANEL_HEIGHT        800     // Physical panel height (portrait)
     #define DISPLAY_MODEL       "ST7701 4\" (800x480)"
     #define PANEL_SIZE_LABEL    "4\""   // short form for the settings rail / boot footer
+    // Lowest "Dimmed brightness" (issue #172). The ST7701 backlight is 10-bit,
+    // so 1% is a real step: still lit, and clearly darker than 5% on a
+    // JC4880P443C in a dark room.
+    #define BRIGHTNESS_DIM_MIN  1
     #define LCD_RST             5       // Reset GPIO for ST7701
     #define TOUCH_GT911_SDA     7
     #define TOUCH_GT911_SCL     8
@@ -115,6 +119,9 @@
     #define PANEL_HEIGHT        600     // Physical panel height (no rotation)
     #define DISPLAY_MODEL       "JD9165 7\" (1024x600)"
     #define PANEL_SIZE_LABEL    "7\""   // short form for the settings rail / boot footer
+    // The JD9165 driver lifts any level above 0 to 5% (duty 409 of 8191), so a
+    // lower "Dimmed brightness" would only be a number that changes nothing.
+    #define BRIGHTNESS_DIM_MIN  5
     #define LCD_RST             23      // Reset GPIO for JD9165 (CoopsInChina fork)
     #define TOUCH_GT911_SDA     7
     #define TOUCH_GT911_SCL     8
@@ -175,6 +182,14 @@
 #define BATTERY_PROBE_SPACING_MS   10000UL                // at most one battery request per 10 s
 #define BATTERY_HTTP_TIMEOUT_MS    2500                   // a sleeping Roam accepts TCP, then never answers
 #define BATTERY_BLINK_MS           600                    // low-battery blink, each way
+
+// Sleep timer (issue #173). The speaker holds the countdown; this only paces
+// how often the panel asks it - one small SOAP, after the same guards as
+// battery. Often enough that a timer set in the Sonos app or by voice shows up
+// while you are still looking. 5 min when idle was tried first, and a real test
+// read it, fairly, as "the panel does not see timers set in the app".
+#define SLEEP_POLL_MS              15000UL
+#define SLEEP_SET_SETTLE_MS        3000UL                 // after a set, the network task reads back
 #define ART_CHECK_INTERVAL_MS   100     // How often to check for new art requests
 #define ART_DECODE_MAX_FAILURES 3       // Give up on URL after N decode failures
 #define ART_SW_JPEG_FALLBACK    1       // Enable JPEGDEC SW fallback (progressive, non-div-8)

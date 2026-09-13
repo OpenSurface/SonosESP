@@ -34,6 +34,8 @@
 #include "nocturne.h"
 #include "amber.h"
 #include "amber_icons.h"
+#include "amber_battery_icons.h"   // AMB_ST_SLEEP
+#include "ui_theme.h"              // amberSleepStopTime()
 #include <string.h>
 #include <ctype.h>
 
@@ -178,6 +180,12 @@ void buildAmberFace(lv_obj_t* parent) {
 
     af_now_state = ambCaption(now, AMB_TEXT3, "", 3);
     lv_obj_set_pos(af_now_state, SX(18), 0);
+    // One line, ending in "..." at the chip's edge. A long room name could
+    // already outrun 290px, and the sleep timer's "UNTIL 10:15 PM" makes it
+    // likelier. DOT needs a bounded height as well as the width.
+    lv_obj_set_size(af_now_state, SX(AF_NOW_W - 18), lv_font_get_line_height(&font_text_12));
+    lv_label_set_long_mode(af_now_state, LV_LABEL_LONG_DOT);
+    lv_label_set_recolor(af_now_state, true);   // the timer's stop time is drawn in gold
 
     af_now_title = ambLabel(now, &font_text_14, AMB_TEXT2, "");
     lv_obj_set_pos(af_now_title, 0, SY(17));
@@ -283,12 +291,31 @@ void amberFaceTick(const struct tm* now) {
     // ── Now playing ─────────────────────────────────────────────────────────
     SonosDevice* dev = sonos.getCurrentDevice();
     if (dev && dev->currentTrack.length()) {
-        snprintf(buf, sizeof(buf), "%s · %s",
-                 dev->isPlaying ? "PLAYING" : "PAUSED",
-                 dev->roomName.length() ? dev->roomName.c_str() : "SONOS");
-        for (char* c = buf; *c; c++) *c = (char)toupper((unsigned char)*c);
-        lv_label_set_text(af_now_icon, dev->isPlaying ? AMB_IC_PLAY : AMB_IC_PAUSE);
-        lv_label_set_text(af_now_state, buf);
+        char room[48];
+        snprintf(room, sizeof(room), "%s", dev->roomName.length() ? dev->roomName.c_str() : "SONOS");
+        // Uppercase, and no '#': in a recolour label that opens a colour tag.
+        for (char* c = room; *c; c++) *c = (*c == '#') ? ' ' : (char)toupper((unsigned char)*c);
+
+        // A running sleep timer takes the play-state slot (issue #173): "UNTIL
+        // 22:15 · KIDS ROOM", with its glyph and time in gold. It replaces a line
+        // rather than adding one, on the screen that is up all night.
+        char until[16];
+        const int left = sonos.sleepTimerRemaining();
+        const bool timer = left > 0 && amberSleepStopTime(until, sizeof(until), left);
+
+        char state[96];
+        if (timer) snprintf(state, sizeof(state), "#%06X UNTIL %s# · %s",
+                            (unsigned)AMB_HEX_ACCENT, until, room);
+        else       snprintf(state, sizeof(state), "%s · %s",
+                            dev->isPlaying ? "PLAYING" : "PAUSED", room);
+
+        const lv_font_t* ico_font = timer ? &font_batt_16 : &font_icon_16;
+        if (lv_obj_get_style_text_font(af_now_icon, LV_PART_MAIN) != ico_font)
+            lv_obj_set_style_text_font(af_now_icon, ico_font, 0);
+        lv_obj_set_style_text_color(af_now_icon, timer ? AMB_ACCENT : AMB_TEXT3, 0);
+        lv_label_set_text(af_now_icon, timer ? AMB_ST_SLEEP
+                                             : dev->isPlaying ? AMB_IC_PLAY : AMB_IC_PAUSE);
+        lv_label_set_text(af_now_state, state);
         lv_label_set_text(af_now_title, dev->currentTrack.c_str());
     } else {
         lv_label_set_text(af_now_icon, "");
