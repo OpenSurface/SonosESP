@@ -97,6 +97,10 @@
     #define PANEL_HEIGHT        800     // Physical panel height (portrait)
     #define DISPLAY_MODEL       "ST7701 4\" (800x480)"
     #define PANEL_SIZE_LABEL    "4\""   // short form for the settings rail / boot footer
+    // Lowest "Dimmed brightness" (issue #172). The ST7701 backlight is 10-bit,
+    // so 1% is a real step: still lit, and clearly darker than 5% on a
+    // JC4880P443C in a dark room.
+    #define BRIGHTNESS_DIM_MIN  1
     #define LCD_RST             5       // Reset GPIO for ST7701
     #define TOUCH_GT911_SDA     7
     #define TOUCH_GT911_SCL     8
@@ -115,6 +119,9 @@
     #define PANEL_HEIGHT        600     // Physical panel height (no rotation)
     #define DISPLAY_MODEL       "JD9165 7\" (1024x600)"
     #define PANEL_SIZE_LABEL    "7\""   // short form for the settings rail / boot footer
+    // The JD9165 driver lifts any level above 0 to 5% (duty 409 of 8191), so a
+    // lower "Dimmed brightness" would only be a number that changes nothing.
+    #define BRIGHTNESS_DIM_MIN  5
     #define LCD_RST             23      // Reset GPIO for JD9165 (CoopsInChina fork)
     #define TOUCH_GT911_SDA     7
     #define TOUCH_GT911_SCL     8

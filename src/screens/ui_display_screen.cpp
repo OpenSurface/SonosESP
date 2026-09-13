@@ -60,7 +60,9 @@ void createDisplaySettingsScreen() {
                                          false, &lbl_dimmed_brightness_val);
         lv_label_set_text_fmt(lbl_dimmed_brightness_val, "%d%%", brightness_dimmed);
 
-        lv_obj_t* slider_dimmed_brightness = addSlider(row_dim, 5, 50, brightness_dimmed);
+        // Down to 1% on the 4" (issue #172); the 7" backlight cannot go below 5%.
+        lv_obj_t* slider_dimmed_brightness = addSlider(row_dim, BRIGHTNESS_DIM_MIN, 50,
+                                                       brightness_dimmed);
         lv_obj_add_event_cb(slider_dimmed_brightness, [](lv_event_t* e) {
             lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
             brightness_dimmed = lv_slider_get_value(slider);

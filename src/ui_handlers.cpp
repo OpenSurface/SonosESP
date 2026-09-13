@@ -42,7 +42,8 @@ void checkAutoDim() {
     if (screen_dimmed) return;  // Already dimmed
 
     if ((millis() - last_touch_time) > (autodim_timeout * 1000)) {
-        int dimmed = constrain(brightness_dimmed, 5, 100);
+        // Floor per panel (issue #172): 1% on the 4", 5% on the 7" - see config.h.
+        int dimmed = constrain(brightness_dimmed, BRIGHTNESS_DIM_MIN, 100);
 
         // Smooth fade to dimmed brightness (1 second fade)
         lv_anim_t anim;

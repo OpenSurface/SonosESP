@@ -103,8 +103,8 @@ void jd9165_lcd::example_bsp_set_lcd_backlight(uint32_t level)
     
     ledc_set_duty(BACKLIGHT_MODE, BACKLIGHT_CHANNEL, duty);
     ledc_update_duty(BACKLIGHT_MODE, BACKLIGHT_CHANNEL);
-    
-    Serial.printf("[Backlight] Set to %d%% (duty: %d)\n", level, duty);
+    // No log here. The 1 s auto-dim fade calls this on every animation frame,
+    // which printed a line per step - dozens per dim, all night.
 }
 
 

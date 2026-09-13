@@ -12,6 +12,7 @@
 #include "config.h"
 #include "ui_theme.h"
 #include "ui_network_guard.h"
+#include "clock_screen.h"   // clock_state - see requestAlbumArt()
 #include <lwip/sockets.h>   // lwip_setsockopt / SO_RCVBUF
 #include <lwip/netdb.h>     // getaddrinfo / freeaddrinfo (for artPreConnectHTTP)
 #include <PNGdec.h>
@@ -2012,5 +2013,10 @@ void requestAlbumArt(const String& url) {
     // Track change from any controller (ESP32 or Sonos app) counts as activity.
     // Prevents the clock screensaver firing just because the user controlled Sonos
     // from their phone/computer without touching the ESP32.
-    resetScreenTimeout();
+    //
+    // Only while the clock is NOT up (issue #172). That trigger is evaluated in
+    // CLOCK_IDLE alone, so once the clock is showing the reason is gone - and
+    // the wake was an instant full-brightness flash at every new track, all
+    // night, in a dark bedroom. The artwork still loads; only the wake is skipped.
+    if (clock_state == CLOCK_IDLE) resetScreenTimeout();
 }
