@@ -34,7 +34,9 @@
 #include "ui_theme.h"
 #include "ui_fonts.h"
 #include "amber_icons.h"
+#include "amber_battery_icons.h"   // AMB_ST_SLEEP
 #include "amber.h"
+#include "sleep_timer.h"
 
 // ── Grid ────────────────────────────────────────────────────────────────────
 #define AP_ART        344                  // artwork column width AND art edge
@@ -77,6 +79,35 @@ static lv_obj_t* ap_shelf_next = nullptr;   // the "NEXT" block
 static lv_obj_t* ap_lyric_slot = nullptr;   // the lyrics overlay's wrapper
 static lv_obj_t* ap_lyric_cur  = nullptr;   // the current line, auto-fitted
 static lv_timer_t* ap_shelf_timer = nullptr;
+
+// Sleep timer button, right end of the bottom row (issue #173).
+static lv_obj_t*   ap_sleep_btn   = nullptr;
+static lv_obj_t*   ap_sleep_ico   = nullptr;
+static lv_obj_t*   ap_sleep_lbl   = nullptr;
+static lv_timer_t* ap_sleep_timer = nullptr;
+
+// Once a second: the minutes left in gold, or "Sleep" when nothing runs. Every
+// write is guarded - LVGL invalidates on a same-value write, and this runs
+// whether or not anything changed.
+static void sleepButtonTick(lv_timer_t*) {
+    if (!ap_sleep_btn) return;
+    const int left = sonos.sleepTimerRemaining();
+    const bool armed = left > 0;
+
+    char txt[16];
+    if (armed) snprintf(txt, sizeof(txt), "%d min", sleep_timer::minutesLeft(left));
+    else       snprintf(txt, sizeof(txt), "Sleep");
+    if (strcmp(lv_label_get_text(ap_sleep_lbl), txt) != 0) lv_label_set_text(ap_sleep_lbl, txt);
+
+    const lv_color_t fg = armed ? AMB_ACCENT : AMB_TEXT2;
+    if (!lv_color_eq(lv_obj_get_style_text_color(ap_sleep_lbl, LV_PART_MAIN), fg)) {
+        lv_obj_set_style_text_color(ap_sleep_lbl, fg, 0);
+        lv_obj_set_style_text_color(ap_sleep_ico, fg, 0);
+        lv_obj_set_style_bg_color(ap_sleep_btn, armed ? AMB_ACCENT_WASH : AMB_CARD, 0);
+        lv_obj_set_style_border_color(ap_sleep_btn, armed ? AMB_ACCENT_DIM : AMB_BORDER, 0);
+    }
+    amberRefreshSleep();   // the sheet's minutes, when it is open
+}
 
 // Defined below, next to the reasoning for it; used by shelfSwapCb() above it.
 static void spFitLyric(lv_obj_t* lbl, const char* text);
@@ -147,6 +178,8 @@ static void spFitLyric(lv_obj_t* lbl, const char* text) {
 // so it has to be torn down with it or it fires on freed widgets.
 static void ap_screen_deleted(lv_event_t*) {
     if (ap_shelf_timer) { lv_timer_del(ap_shelf_timer); ap_shelf_timer = nullptr; }
+    if (ap_sleep_timer) { lv_timer_del(ap_sleep_timer); ap_sleep_timer = nullptr; }
+    ap_sleep_btn = ap_sleep_ico = ap_sleep_lbl = nullptr;
     ap_shelf_next = nullptr;
     ap_lyric_slot = nullptr;
     ap_lyric_cur  = nullptr;
@@ -420,9 +453,9 @@ void buildAmberPlayer() {
     lv_obj_set_style_border_width(pill, 1, 0);
     lv_obj_set_style_shadow_width(pill, 0, 0);
     lv_obj_set_style_pad_all(pill, 0, 0);
-    // A row, so the name gives up exactly the room the battery badge takes
-    // when one shows (issue #165) and gets it back when it hides. The padding
-    // puts the dot, name and chevron where their absolute positions used to.
+    // A row: dot, name, chevron. The padding puts them where their absolute
+    // positions used to be. The battery badge sat between name and chevron
+    // until v2.0.7; it now has the bottom row, with the sleep timer.
     lv_obj_set_flex_flow(pill, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(pill, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_left(pill, SX(14), 0);
@@ -432,7 +465,7 @@ void buildAmberPlayer() {
     lv_obj_add_event_cb(pill, ev_devices, LV_EVENT_CLICKED, NULL);
 
     // Green is reserved for live playback state - this dot, and a healthy
-    // battery beside the name (issue #165), are the only places it appears.
+    // battery in the bottom row (issue #165), are the only places it appears.
     lv_obj_t* dot = ambRoundRect(pill, 7, 7, 4, AMB_LIVE);
 
     lbl_device_name = lv_label_create(pill);
@@ -443,11 +476,6 @@ void buildAmberPlayer() {
     lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_color(lbl_device_name, AMB_TEXT, 0);
     lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
-
-    // The selected speaker's battery, after the name. Compact - no "%" - so
-    // the name keeps as much room as it can. Hidden for a speaker without a
-    // battery, and then the name has its full width back.
-    batteryBadgeCreate(pill, BATTERY_BADGE_CURRENT, true);
 
     lv_obj_t* chev = lv_label_create(pill);
     lv_label_set_text(chev, AMB_IC_CHEV);
@@ -600,6 +628,58 @@ void buildAmberPlayer() {
         lv_obj_t* l  = (lv_obj_t*)lv_obj_get_user_data(sl);
         if (l) lv_label_set_text_fmt(l, "%d", (int)lv_slider_get_value(sl));
     }, LV_EVENT_VALUE_CHANGED, NULL);
+
+    // ── Bottom row: battery and sleep timer (issues #165, #173) ─────────────
+    // The band under the volume row - from the mute button's foot (AP_VOL_Y +
+    // 18 = 422) to the bottom edge, 58px on the 4" and 72 on the 7" - was
+    // empty. Laid out like the time row: one thing on each edge of the column.
+    //
+    //   left   the selected speaker's battery, under the speaker icon. Hidden
+    //          for a speaker without one.
+    //   right  the sleep timer: "Sleep", or the minutes left in gold.
+    //
+    // Each is aligned to its own edge rather than flexed apart, so the sleep
+    // button does not jump left when there is no battery to show.
+    {
+        const int band_y = AP_VOL_Y + 18;
+        const int band_h = 480 - band_y;
+        lv_obj_t* row = lv_obj_create(panel_right);
+        lv_obj_remove_style_all(row);
+        lv_obj_set_pos(row, SX(AP_R), SY(band_y));
+        lv_obj_set_size(row, SX(AP_RW), SY(band_h));
+        lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t* bat = batteryBadgeCreate(row, BATTERY_BADGE_CURRENT);
+        lv_obj_align(bat, LV_ALIGN_LEFT_MID, 0, 0);
+
+        ap_sleep_btn = lv_button_create(row);
+        lv_obj_set_size(ap_sleep_btn, LV_SIZE_CONTENT, SY(36));
+        lv_obj_align(ap_sleep_btn, LV_ALIGN_RIGHT_MID, 0, 0);
+        lv_obj_set_style_radius(ap_sleep_btn, SMIN(18), 0);
+        lv_obj_set_style_bg_color(ap_sleep_btn, AMB_CARD, 0);
+        lv_obj_set_style_border_color(ap_sleep_btn, AMB_BORDER, 0);
+        lv_obj_set_style_border_width(ap_sleep_btn, 1, 0);
+        lv_obj_set_style_shadow_width(ap_sleep_btn, 0, 0);
+        lv_obj_set_style_pad_left(ap_sleep_btn, SX(12), 0);
+        lv_obj_set_style_pad_right(ap_sleep_btn, SX(16), 0);
+        lv_obj_set_style_pad_ver(ap_sleep_btn, 0, 0);
+        lv_obj_set_style_pad_column(ap_sleep_btn, SX(6), 0);
+        lv_obj_set_flex_flow(ap_sleep_btn, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(ap_sleep_btn, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
+                              LV_FLEX_ALIGN_CENTER);
+        // A bigger target than it looks: it is reached for in the dark. 8px
+        // still stops short of the volume row above.
+        lv_obj_set_ext_click_area(ap_sleep_btn, SMIN(8));
+        pressFade(ap_sleep_btn);
+        lv_obj_add_event_cb(ap_sleep_btn, [](lv_event_t*) { amberShowSleep(); },
+                            LV_EVENT_CLICKED, NULL);
+
+        ap_sleep_ico = ambLabel(ap_sleep_btn, &font_batt_16, AMB_TEXT2, AMB_ST_SLEEP);
+        ap_sleep_lbl = ambLabel(ap_sleep_btn, &font_text_14, AMB_TEXT2, "Sleep");
+
+        ap_sleep_timer = lv_timer_create(sleepButtonTick, 1000, nullptr);
+    }
 
     // ── Overlays ────────────────────────────────────────────────────────────
     // Created LAST so they sit above both panels with no z-order juggling, and

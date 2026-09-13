@@ -25,6 +25,10 @@
 #include "ui_fonts.h"
 #include "amber.h"
 #include "amber_icons.h"
+#include "clock_screen.h"   // clock_12h, for the sleep timer's stop time
+#include "sleep_timer.h"
+#include <ctype.h>
+#include <time.h>
 
 // ── Geometry, 800x480 design space ──────────────────────────────────────────
 #define OV_DRAWER_W    400
@@ -33,6 +37,7 @@
 #define OV_ROOMS_Y     56
 #define OV_ROW_H       62
 #define OV_SLIDER_W    150
+#define OV_SLEEP_Y     104   // the sleep sheet: Rooms' frame, lower, as it is shorter
 
 static lv_obj_t* ov_scrim       = nullptr;
 static lv_obj_t* ov_queue       = nullptr;
@@ -41,6 +46,12 @@ static lv_obj_t* ov_queue_sub   = nullptr;
 static lv_obj_t* ov_rooms       = nullptr;
 static lv_obj_t* ov_rooms_list  = nullptr;
 static lv_obj_t* ov_clear_btn   = nullptr;   // arms on first tap, clears on second
+static lv_obj_t* ov_sleep       = nullptr;   // sleep timer sheet (issue #173)
+static lv_obj_t* ov_sleep_sub   = nullptr;   // "STOPS KIDS ROOM"
+static lv_obj_t* ov_sleep_pick  = nullptr;   // no timer: the presets
+static lv_obj_t* ov_sleep_armed = nullptr;   // a timer runs: minutes left, +15, Turn off
+static lv_obj_t* ov_sleep_left  = nullptr;   // "23"
+static lv_obj_t* ov_sleep_at    = nullptr;   // "Music stops at 22:15"
 static uint32_t  ov_clear_armed_ms = 0;
 #define OV_CLEAR_ARM_MS 4000
 
@@ -61,6 +72,8 @@ static void ov_deleted(lv_event_t* e) {
     ov_owner = nullptr;
     ov_scrim = ov_queue = ov_queue_list = ov_queue_sub = nullptr;
     ov_rooms = ov_rooms_list = ov_clear_btn = nullptr;
+    ov_sleep = ov_sleep_sub = ov_sleep_pick = ov_sleep_armed = nullptr;
+    ov_sleep_left = ov_sleep_at = nullptr;
     ov_clear_armed_ms = 0;
 }
 
@@ -433,6 +446,163 @@ static void ovFillRooms(void) {
     }
 }
 
+// ── Sleep timer sheet (issue #173) ──────────────────────────────────────────
+// The Rooms modal's frame around one of two bodies: five presets while no
+// timer runs, or the minutes left with +15 and Turn off while one does.
+//
+// Presets, not a slider. It is used in the dark, half asleep, and one tap on
+// "45" beats dragging a knob to exactly 45; +15 covers the in-between.
+static const int kSleepPresetMin[] = { 15, 30, 45, 60, 90 };
+
+static void ovSetHidden(lv_obj_t* o, bool hidden) {
+    if (!o || lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN) == hidden) return;
+    if (hidden) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+    else        lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void ovSetText(lv_obj_t* l, const char* t) {
+    if (l && strcmp(lv_label_get_text(l), t) != 0) lv_label_set_text(l, t);
+}
+
+static void ovSleepPick(lv_event_t* e) {
+    sonos.setSleepTimer((int)(intptr_t)lv_event_get_user_data(e) * 60);
+    amberHideOverlay();
+}
+
+// A bare flex container: no background, border or padding, not clickable.
+static lv_obj_t* ovBox(lv_obj_t* parent, lv_flex_flow_t flow) {
+    lv_obj_t* o = lv_obj_create(parent);
+    lv_obj_remove_style_all(o);
+    lv_obj_set_size(o, lv_pct(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(o, flow);
+    lv_obj_remove_flag(o, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(o, LV_OBJ_FLAG_CLICKABLE);
+    return o;
+}
+
+// Raised, hairline-bordered, contents centred - presets, actions and chips.
+static lv_obj_t* ovSleepBtn(lv_obj_t* parent, int h, int radius, lv_event_cb_t cb, void* ud) {
+    lv_obj_t* b = lv_button_create(parent);
+    lv_obj_set_height(b, SY(h));
+    lv_obj_set_style_radius(b, SMIN(radius), 0);
+    lv_obj_set_style_bg_color(b, AMB_RAISED, 0);
+    lv_obj_set_style_border_width(b, 1, 0);
+    lv_obj_set_style_border_color(b, AMB_BORDER, 0);
+    lv_obj_set_style_border_color(b, AMB_ACCENT, LV_STATE_PRESSED);
+    lv_obj_set_style_shadow_width(b, 0, 0);
+    lv_obj_set_style_pad_all(b, 0, 0);
+    lv_obj_set_flex_flow(b, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(b, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, ud);
+    return b;
+}
+
+static void ovBuildSleep(lv_obj_t* parent) {
+    ov_sleep = lv_obj_create(parent);
+    lv_obj_set_size(ov_sleep, SX(OV_ROOMS_W), LV_SIZE_CONTENT);
+    lv_obj_set_pos(ov_sleep, SX(OV_ROOMS_X), SY(OV_SLEEP_Y));
+    lv_obj_set_style_bg_color(ov_sleep, AMB_MODAL, 0);
+    lv_obj_set_style_radius(ov_sleep, SMIN(16), 0);
+    lv_obj_set_style_border_width(ov_sleep, 1, 0);
+    lv_obj_set_style_border_color(ov_sleep, AMB_BORDER, 0);
+    lv_obj_set_style_pad_all(ov_sleep, 0, 0);
+    lv_obj_set_style_pad_row(ov_sleep, 0, 0);
+    lv_obj_set_flex_flow(ov_sleep, LV_FLEX_FLOW_COLUMN);
+    lv_obj_remove_flag(ov_sleep, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN);
+
+    // Header: title, who it stops, close.
+    lv_obj_t* head = lv_obj_create(ov_sleep);
+    lv_obj_set_size(head, lv_pct(100), SY(64));
+    lv_obj_set_style_bg_opa(head, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_radius(head, 0, 0);
+    lv_obj_set_style_border_width(head, 1, 0);
+    lv_obj_set_style_border_side(head, LV_BORDER_SIDE_BOTTOM, 0);
+    lv_obj_set_style_border_color(head, AMB_LINE, 0);
+    lv_obj_set_style_pad_hor(head, SX(20), 0);
+    lv_obj_set_style_pad_ver(head, 0, 0);
+    lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(head, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t* t = ambLabel(head, &font_text_20, AMB_TEXT, "Sleep timer");
+    lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, SY(-9));
+    ov_sleep_sub = ambCaption(head, AMB_TEXT3, "", 3);
+    lv_obj_align(ov_sleep_sub, LV_ALIGN_LEFT_MID, 0, SY(13));
+    lv_obj_t* x = ovCloseBtn(head, 38);
+    lv_obj_align(x, LV_ALIGN_RIGHT_MID, 0, 0);
+
+    // ── No timer: the presets ───────────────────────────────────────────────
+    ov_sleep_pick = ovBox(ov_sleep, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(ov_sleep_pick, SMIN(18), 0);
+    lv_obj_set_style_pad_row(ov_sleep_pick, SY(12), 0);
+
+    lv_obj_t* row = ovBox(ov_sleep_pick, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(row, SX(10), 0);
+    for (int m : kSleepPresetMin) {
+        lv_obj_t* b = ovSleepBtn(row, 74, 12, ovSleepPick, (void*)(intptr_t)m);
+        lv_obj_set_flex_grow(b, 1);
+        lv_obj_set_flex_flow(b, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_style_pad_row(b, SY(2), 0);
+        char n[4];
+        snprintf(n, sizeof(n), "%d", m);
+        ambLabel(b, &font_text_24, AMB_TEXT, n);
+        ambLabel(b, &font_text_12, AMB_TEXT3, "min");
+    }
+    lv_obj_t* hint = ambLabel(ov_sleep_pick, &font_text_12, AMB_TEXT3,
+                              "Set by voice or in the Sonos app? It shows up here too.");
+    lv_obj_set_width(hint, lv_pct(100));
+    lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
+
+    // ── A timer running: minutes left, when it ends, +15, Turn off ──────────
+    ov_sleep_armed = ovBox(ov_sleep, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(ov_sleep_armed, SMIN(18), 0);
+    lv_obj_set_style_pad_row(ov_sleep_armed, SY(14), 0);
+    lv_obj_add_flag(ov_sleep_armed, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_t* top = ovBox(ov_sleep_armed, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(top, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
+    lv_obj_t* big = ovBox(top, LV_FLEX_FLOW_ROW);
+    lv_obj_set_width(big, LV_SIZE_CONTENT);
+    lv_obj_set_flex_align(big, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
+    lv_obj_set_style_pad_column(big, SX(8), 0);
+    ov_sleep_left = ambLabel(big, &font_text_48, AMB_ACCENT, "--");
+    lv_obj_t* unit = ambLabel(big, &font_text_16, AMB_TEXT2, "min left");
+    lv_obj_set_style_pad_bottom(unit, SY(8), 0);
+    ov_sleep_at = ambLabel(top, &font_text_14, AMB_TEXT3, "");
+    lv_obj_set_style_pad_bottom(ov_sleep_at, SY(10), 0);
+
+    lv_obj_t* acts = ovBox(ov_sleep_armed, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(acts, SX(10), 0);
+    lv_obj_t* plus = ovSleepBtn(acts, 44, 22, [](lv_event_t*) {
+        sonos.setSleepTimer(sleep_timer::extend(sonos.sleepTimerRemaining(), 15 * 60));
+        amberRefreshSleep();
+    }, nullptr);
+    lv_obj_set_width(plus, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_hor(plus, SX(18), 0);
+    lv_obj_t* pl = ambLabel(plus, &font_icon_16, AMB_TEXT, "");
+    lv_label_set_text_fmt(pl, "%s 15 min", AMB_IC_PLUS);
+    lv_obj_t* off = ovSleepBtn(acts, 44, 22, [](lv_event_t*) {
+        sonos.setSleepTimer(0);
+        amberHideOverlay();
+    }, nullptr);
+    lv_obj_set_width(off, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_hor(off, SX(18), 0);
+    ambLabel(off, &font_text_14, AMB_TEXT, "Turn off");
+
+    lv_obj_t* chg = ovBox(ov_sleep_armed, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(chg, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(chg, SX(8), 0);
+    ambLabel(chg, &font_text_12, AMB_TEXT3, "Change to");
+    for (int m : kSleepPresetMin) {
+        lv_obj_t* b = ovSleepBtn(chg, 32, 16, ovSleepPick, (void*)(intptr_t)m);
+        lv_obj_set_width(b, SX(50));
+        lv_obj_set_style_bg_opa(b, LV_OPA_TRANSP, 0);
+        char n[4];
+        snprintf(n, sizeof(n), "%d", m);
+        ambLabel(b, &font_text_14, AMB_TEXT2, n);
+    }
+}
+
 // ── Public API ──────────────────────────────────────────────────────────────
 void amberBuildOverlays(lv_obj_t* screen) {
     // The scrim dims the player and swallows taps outside the panels, so tapping
@@ -452,6 +622,7 @@ void amberBuildOverlays(lv_obj_t* screen) {
 
     ovBuildQueue(screen);
     ovBuildRooms(screen);
+    ovBuildSleep(screen);
     ov_owner = screen;
     lv_obj_add_event_cb(screen, ov_deleted, LV_EVENT_DELETE, nullptr);
 
@@ -469,6 +640,7 @@ bool amberShowQueue(void) {
     // unreachable while one is open, but nothing enforces that, and two stacked
     // panels would be a confusing way to find out.
     if (ov_rooms) lv_obj_add_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
+    if (ov_sleep) lv_obj_add_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN);
     ovFillQueue();
     lv_obj_remove_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
@@ -480,6 +652,7 @@ bool amberShowQueue(void) {
 bool amberShowRooms(void) {
     if (!ov_rooms || !ov_scrim) return false;
     if (ov_queue) lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
+    if (ov_sleep) lv_obj_add_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN);
     ovFillRooms();
     lv_obj_remove_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
@@ -503,8 +676,62 @@ void amberHideOverlay(void) {
     if (ov_scrim) lv_obj_add_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
     if (ov_queue) lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
     if (ov_rooms) lv_obj_add_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
+    if (ov_sleep) lv_obj_add_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN);
 }
 
 bool amberOverlayOpen(void) {
     return ov_scrim && !lv_obj_has_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
+}
+
+bool amberSleepStopTime(char* out, size_t n, int secs_left) {
+    time_t now = time(nullptr);
+    // Before NTP has synced, time() is 1970 plus uptime - not a clock to read.
+    if (!out || n == 0 || secs_left <= 0 || now < 1600000000) return false;
+    now += secs_left;
+    struct tm tmv;
+    localtime_r(&now, &tmv);
+    strftime(out, n, clock_12h ? "%I:%M %p" : "%H:%M", &tmv);
+    if (clock_12h && out[0] == '0') memmove(out, out + 1, strlen(out));   // "9:15 PM"
+    return true;
+}
+
+void amberRefreshSleep(void) {
+    if (!ov_sleep || lv_obj_has_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN)) return;
+    const int left = sonos.sleepTimerRemaining();
+    const bool armed = left > 0;
+    ovSetHidden(ov_sleep_pick, armed);
+    ovSetHidden(ov_sleep_armed, !armed);
+    if (!armed) return;
+
+    char buf[40];
+    snprintf(buf, sizeof(buf), "%d", sleep_timer::minutesLeft(left));
+    ovSetText(ov_sleep_left, buf);
+    char at[16];
+    if (amberSleepStopTime(at, sizeof(at), left)) snprintf(buf, sizeof(buf), "Music stops at %s", at);
+    else                                          buf[0] = '\0';
+    ovSetText(ov_sleep_at, buf);
+}
+
+bool amberShowSleep(void) {
+    if (!ov_sleep || !ov_scrim) return false;
+    if (ov_queue) lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
+    if (ov_rooms) lv_obj_add_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
+
+    // Name everything it stops. The timer belongs to the group, so a grouped
+    // room stops its partners too, and that should not be a surprise.
+    char sub[64] = "";
+    if (SonosDevice* d = sonos.getCurrentDevice()) {
+        const int others = d->groupMemberCount > 1 ? d->groupMemberCount - 1 : 0;
+        if (others > 0) snprintf(sub, sizeof(sub), "Stops %s + %d", d->roomName.c_str(), others);
+        else            snprintf(sub, sizeof(sub), "Stops %s", d->roomName.c_str());
+        for (char* c = sub; *c; c++) *c = (char)toupper((unsigned char)*c);
+    }
+    ovSetText(ov_sleep_sub, sub);
+
+    lv_obj_remove_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(ov_scrim);
+    lv_obj_move_foreground(ov_sleep);
+    amberRefreshSleep();
+    return true;
 }

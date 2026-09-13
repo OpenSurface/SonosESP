@@ -5,6 +5,7 @@
 
 #include "sonos_controller.h"
 #include "battery.h"
+#include "sleep_timer.h"      // format/parse under host test (test/test_sleep_timer)
 #include "sonos_topology.h"   // parser under host test (test/test_topology)
 #include "config.h"
 #include "ui_network_guard.h"
@@ -147,6 +148,7 @@ void SonosController::selectDevice(int index) {
     if (index >= 0 && index < deviceCount) {
         currentDeviceIndex = index;
         devices[index].connected = true;
+        sleepPollNow = true;   // the sleep timer reading was for the old room (issue #173)
         Serial.printf("[SONOS] Selected: %s\n", devices[index].ip.toString().c_str());
 
         // Cache the selected device for fast boot next time
@@ -554,6 +556,30 @@ void SonosController::setDeviceVolume(int deviceIndex, int vol) {
 void SonosController::clearQueue() {
     CommandRequest_t cmd = { CMD_CLEAR_QUEUE, 0, 0 };
     xQueueSend(commandQueue, &cmd, 0);
+}
+
+void SonosController::setSleepTimer(int seconds) {
+    if (seconds < 0) seconds = 0;
+    if (seconds > sleep_timer::MAX_SECONDS) seconds = sleep_timer::MAX_SECONDS;
+    // Show it straight away. The network task then arms the speaker and reads
+    // back what it really holds, which corrects this if the call went nowhere.
+    SonosDevice* dev = getCurrentDevice();
+    if (dev) {
+        sleepSetMs      = millis();
+        sleepReadMs     = sleepSetMs;
+        sleepLeftAtRead = seconds;
+        sleepForIp      = (uint32_t)dev->ip;
+    }
+    CommandRequest_t cmd = { CMD_SET_SLEEP_TIMER, seconds, 0 };
+    xQueueSend(commandQueue, &cmd, 0);
+}
+
+int SonosController::sleepTimerRemaining() {
+    SonosDevice* dev = getCurrentDevice();
+    const int32_t left = sleepLeftAtRead;
+    if (!dev || left < 0 || sleepForIp != (uint32_t)dev->ip) return -1;
+    const int32_t gone = (int32_t)((millis() - sleepReadMs) / 1000);
+    return left > gone ? (int)(left - gone) : 0;
 }
 
 void SonosController::volumeUp(int step) {
@@ -1540,6 +1566,46 @@ bool SonosController::updateTransportSettings() {
     return false;
 }
 
+// Sleep timer (issue #173): ask the speaker what is left. The group's
+// coordinator owns the timer, like every AVTransport call (transportTarget()) -
+// a member answers for itself, not for the group that is actually playing.
+bool SonosController::updateSleepTimer() {
+    SonosDevice* dev = getCurrentDevice();
+    if (!dev) return false;
+    const uint32_t forIp = (uint32_t)dev->ip;
+    const int32_t before = (sleepForIp == forIp) ? sleepLeftAtRead : -1;
+    sleepPolledMs = millis();
+    String resp = sendSOAP(transportTarget(), "AVTransport", "GetRemainingSleepTimerDuration",
+                           "<InstanceID>0</InstanceID>");
+    if (resp.length() == 0) return false;   // keep the last reading; the cadence retries
+    const int left = sleep_timer::parseRemaining(
+        extractXML(resp, "RemainingSleepTimerDuration").c_str());
+    if (left < 0) return false;
+    sleepReadMs     = millis();
+    sleepLeftAtRead = left;
+    sleepForIp      = forIp;
+    // Changes only - while a timer runs this is read every 30 s. Catches one set
+    // or cancelled by voice or in the Sonos app, and the moment one runs out.
+    if (before < 0 || (before > 0) != (left > 0)) {
+        if (left > 0) Serial.printf("[SLEEP] Timer running on %s: %d s left\n", dev->roomName.c_str(), left);
+        else          Serial.printf("[SLEEP] No timer on %s\n", dev->roomName.c_str());
+    }
+    return true;
+}
+
+// When the polling task should ask again. Every 30 s while the last reading had
+// a timer running (that also catches the moment it ends) or while we do not
+// know; every 5 min otherwise, which is how a timer set by voice or in the Sonos
+// app turns up. Not for a few seconds after a set: the network task reads back
+// itself, and a poll racing it would flash the timer the set just replaced.
+bool SonosController::sleepPollDue() {
+    const uint32_t now = millis();
+    if (sleepSetMs != 0 && now - sleepSetMs < SLEEP_SET_SETTLE_MS) return false;
+    if (sleepPollNow) return true;
+    const uint32_t every = sleepLeftAtRead != 0 ? SLEEP_POLL_ARMED_MS : SLEEP_POLL_IDLE_MS;
+    return now - sleepPolledMs >= every;
+}
+
 bool SonosController::updateQueue(int startIndex) {
     // SONOS_QUEUE_BATCH_SIZE=10 → ~4KB response, ~3 WiFi RX buffers.
     // Was 50 items → ~20KB, 14 TCP segs, all 32 WiFi RX buffers (~51KB DMA) — never released.
@@ -1850,6 +1916,25 @@ void SonosController::processCommand(CommandRequest_t* cmd) {
             break;
         }
 
+        case CMD_SET_SLEEP_TIMER: {
+            // The countdown lives in the speaker - the group's coordinator, like
+            // every AVTransport call. An empty duration turns it off. Then read
+            // back what it holds, so a refused or lost call does not leave the
+            // panel showing a timer that is not there (issue #173).
+            char dur[12];
+            sleep_timer::formatDuration(dur, sizeof(dur), cmd->value);
+            snprintf(args, sizeof(args),
+                "<InstanceID>0</InstanceID><NewSleepTimerDuration>%s</NewSleepTimerDuration>", dur);
+            sendSOAP(transportTarget(), "AVTransport", "ConfigureSleepTimer", args);
+            vTaskDelay(pdMS_TO_TICKS(200));
+            if (updateSleepTimer())
+                Serial.printf("[SLEEP] Set %s - speaker now holds %d s\n",
+                              dur[0] ? dur : "off", (int)sleepLeftAtRead);
+            else
+                Serial.printf("[SLEEP] Set %s - could not read it back\n", dur[0] ? dur : "off");
+            break;
+        }
+
         case CMD_UPDATE_QUEUE: {
             // Triggered by the queue screen refresh button — runs here in the network task,
             // NOT on the UI/mainAppTask thread, so SDIO cooldowns and mutex are handled properly.
@@ -2115,6 +2200,15 @@ void SonosController::pollingTaskFunction(void* param) {
             // due: a system without portables is probed once per speaker, then never.
             if (batteryPollStep()) {
                 vTaskDelay(pdMS_TO_TICKS(200));  // let the network settle, as after GetMediaInfo
+            }
+
+            // ── Sleep timer (issue #173) ─────────────────────────────────────────
+            // Same slot and the same reasoning as battery: one small SOAP, never
+            // alongside an art download. See sleepPollDue() for the cadence.
+            if (ctrl->sleepPollDue()) {
+                ctrl->sleepPollNow = false;
+                ctrl->updateSleepTimer();
+                vTaskDelay(pdMS_TO_TICKS(200));
             }
 
             // Detect station change and fetch station name immediately

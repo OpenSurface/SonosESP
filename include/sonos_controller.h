@@ -31,7 +31,8 @@ typedef enum {
     CMD_JOIN_GROUP,
     CMD_LEAVE_GROUP,
     CMD_SET_DEVICE_VOLUME,   // value = level, value2 = device index
-    CMD_CLEAR_QUEUE
+    CMD_CLEAR_QUEUE,
+    CMD_SET_SLEEP_TIMER      // value = seconds; 0 turns the timer off (issue #173)
 } SonosCommand_e;
 
 typedef struct {
@@ -130,6 +131,17 @@ private:
     // True while discoverDevices() rewrites devices[] (issue #165). The battery
     // poll on the polling task reads the list and has to stay out meanwhile.
     volatile bool discovering = false;
+
+    // Sleep timer (issue #173). The speaker holds the countdown; these hold the
+    // last reading of it. Written by the Sonos tasks, read by the UI - each a
+    // single 32-bit word, so no lock: the worst a torn read can do is show a
+    // minute that is corrected at the next second's refresh.
+    volatile int32_t  sleepLeftAtRead = -1;   // seconds left when read; -1 unknown, 0 none
+    volatile uint32_t sleepReadMs     = 0;    // millis() of that reading
+    volatile uint32_t sleepForIp      = 0;    // the selected speaker it was read for
+    volatile uint32_t sleepPolledMs   = 0;    // last GetRemainingSleepTimerDuration attempt
+    volatile uint32_t sleepSetMs      = 0;    // last setSleepTimer() from the UI
+    volatile bool     sleepPollNow    = true; // read at the next chance: boot, room change
     WiFiUDP udp;
     WiFiClient client;
     Preferences prefs;
@@ -159,7 +171,9 @@ private:
     bool fetchDevicePlayingState(SonosDevice* dev);
     int timeToSeconds(const String& time);
     void notifyUI(UIUpdateType_e type);
-    
+    bool updateSleepTimer();         // GetRemainingSleepTimerDuration -> sleepLeftAtRead
+    bool sleepPollDue();
+
     // Task functions
     static void networkTaskFunction(void* parameter);
     static void pollingTaskFunction(void* parameter);
@@ -223,6 +237,14 @@ public:
 
     // Empties the current queue (AVTransport::RemoveAllTracksFromQueue).
     void clearQueue();
+
+    // Sleep timer (issue #173). Queued like every command, and sent to the
+    // group's coordinator, which owns the countdown. seconds <= 0 turns it off.
+    void setSleepTimer(int seconds);
+
+    // Seconds left on the selected room's timer: 0 when none is running, -1 when
+    // not known yet (just booted, or the room just changed). Safe from the UI.
+    int sleepTimerRemaining();
 
     void volumeUp(int step = 5);
     void volumeDown(int step = 5);

@@ -182,6 +182,12 @@
 #define BATTERY_PROBE_SPACING_MS   10000UL                // at most one battery request per 10 s
 #define BATTERY_HTTP_TIMEOUT_MS    2500                   // a sleeping Roam accepts TCP, then never answers
 #define BATTERY_BLINK_MS           600                    // low-battery blink, each way
+
+// Sleep timer (issue #173). The speaker holds the countdown; these only pace
+// how often the panel asks it. One small SOAP, after the same guards as battery.
+#define SLEEP_POLL_ARMED_MS        30000UL                // a timer runs, or we do not know yet
+#define SLEEP_POLL_IDLE_MS         (5UL * 60UL * 1000UL)  // none: catches one set by voice or the app
+#define SLEEP_SET_SETTLE_MS        3000UL                 // after a set, the network task reads back
 #define ART_CHECK_INTERVAL_MS   100     // How often to check for new art requests
 #define ART_DECODE_MAX_FAILURES 3       // Give up on URL after N decode failures
 #define ART_SW_JPEG_FALLBACK    1       // Enable JPEGDEC SW fallback (progressive, non-div-8)

@@ -123,4 +123,11 @@ void amberHideOverlay(void);
 void amberRefreshQueue(void);   // no-op unless the queue drawer is open
 bool amberOverlayOpen(void);
 
+// Sleep timer sheet (issue #173), opened from the strip under play/pause.
+bool amberShowSleep(void);
+void amberRefreshSleep(void);   // no-op unless the sheet is open
+// Clock time a timer with secs_left to go ends at: "22:15", or "10:15 PM" in
+// 12-hour mode. False before NTP has synced, when there is no clock to read.
+bool amberSleepStopTime(char* out, size_t n, int secs_left);
+
 #endif // UI_THEME_H
