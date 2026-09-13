@@ -1593,17 +1593,15 @@ bool SonosController::updateSleepTimer() {
     return true;
 }
 
-// When the polling task should ask again. Every 30 s while the last reading had
-// a timer running (that also catches the moment it ends) or while we do not
-// know; every 5 min otherwise, which is how a timer set by voice or in the Sonos
-// app turns up. Not for a few seconds after a set: the network task reads back
+// When the polling task should ask again: every SLEEP_POLL_MS whether or not a
+// timer runs - one set, extended or cancelled in the Sonos app or by voice has
+// to show up either way - and straight away after boot, a room change or the
+// sheet opening. Not for a few seconds after a set: the network task reads back
 // itself, and a poll racing it would flash the timer the set just replaced.
 bool SonosController::sleepPollDue() {
     const uint32_t now = millis();
     if (sleepSetMs != 0 && now - sleepSetMs < SLEEP_SET_SETTLE_MS) return false;
-    if (sleepPollNow) return true;
-    const uint32_t every = sleepLeftAtRead != 0 ? SLEEP_POLL_ARMED_MS : SLEEP_POLL_IDLE_MS;
-    return now - sleepPolledMs >= every;
+    return sleepPollNow || now - sleepPolledMs >= SLEEP_POLL_MS;
 }
 
 bool SonosController::updateQueue(int startIndex) {

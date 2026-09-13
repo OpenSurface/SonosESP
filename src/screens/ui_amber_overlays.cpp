@@ -716,6 +716,9 @@ bool amberShowSleep(void) {
     if (!ov_sleep || !ov_scrim) return false;
     if (ov_queue) lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
     if (ov_rooms) lv_obj_add_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
+    // A timer may have been set or changed in the Sonos app since the last read.
+    // Ask now; the button's one-second tick redraws the sheet when it lands.
+    sonos.refreshSleepTimer();
 
     // Name everything it stops. The timer belongs to the group, so a grouped
     // room stops its partners too, and that should not be a surprise.

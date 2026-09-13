@@ -141,7 +141,7 @@ private:
     volatile uint32_t sleepForIp      = 0;    // the selected speaker it was read for
     volatile uint32_t sleepPolledMs   = 0;    // last GetRemainingSleepTimerDuration attempt
     volatile uint32_t sleepSetMs      = 0;    // last setSleepTimer() from the UI
-    volatile bool     sleepPollNow    = true; // read at the next chance: boot, room change
+    volatile bool     sleepPollNow    = true; // read at the next chance: boot, room change, sheet
     WiFiUDP udp;
     WiFiClient client;
     Preferences prefs;
@@ -245,6 +245,10 @@ public:
     // Seconds left on the selected room's timer: 0 when none is running, -1 when
     // not known yet (just booted, or the room just changed). Safe from the UI.
     int sleepTimerRemaining();
+
+    // Ask the speaker at the next poll rather than the next scheduled one. The
+    // sleep sheet calls this as it opens, so it shows what is true now.
+    void refreshSleepTimer() { sleepPollNow = true; }
 
     void volumeUp(int step = 5);
     void volumeDown(int step = 5);

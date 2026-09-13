@@ -183,10 +183,12 @@
 #define BATTERY_HTTP_TIMEOUT_MS    2500                   // a sleeping Roam accepts TCP, then never answers
 #define BATTERY_BLINK_MS           600                    // low-battery blink, each way
 
-// Sleep timer (issue #173). The speaker holds the countdown; these only pace
-// how often the panel asks it. One small SOAP, after the same guards as battery.
-#define SLEEP_POLL_ARMED_MS        30000UL                // a timer runs, or we do not know yet
-#define SLEEP_POLL_IDLE_MS         (5UL * 60UL * 1000UL)  // none: catches one set by voice or the app
+// Sleep timer (issue #173). The speaker holds the countdown; this only paces
+// how often the panel asks it - one small SOAP, after the same guards as
+// battery. Often enough that a timer set in the Sonos app or by voice shows up
+// while you are still looking. 5 min when idle was tried first, and a real test
+// read it, fairly, as "the panel does not see timers set in the app".
+#define SLEEP_POLL_MS              15000UL
 #define SLEEP_SET_SETTLE_MS        3000UL                 // after a set, the network task reads back
 #define ART_CHECK_INTERVAL_MS   100     // How often to check for new art requests
 #define ART_DECODE_MAX_FAILURES 3       // Give up on URL after N decode failures
