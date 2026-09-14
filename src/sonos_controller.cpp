@@ -879,6 +879,21 @@ bool SonosController::playURI(const char* uri, const char* metadata) {
     return false;
 }
 
+// Should a failed AddURIToQueue be sent again? (issue #169)
+//
+// Retry only what provably never reached the speaker, or what it refused: the
+// HTTPClient transport errors -1 to -4, any HTTP status of 400 and up, or a
+// SOAP Fault in an otherwise-good response. Everything else - a read timeout,
+// a lost connection, some code neither of us has seen yet - may well have been
+// carried out, and AddURIToQueue is not idempotent, so it waits on the queue
+// instead. Listing what is safe to repeat rather than what is not means a new
+// code costs at most a 15s wait, never a playlist enqueued twice.
+static bool enqueueShouldRetry(int http_code, const String& resp) {
+    if (resp.indexOf("Fault") >= 0)          return true;   // the speaker refused it
+    if (http_code >= 400)                    return true;   // 500 and friends
+    return http_code <= -1 && http_code >= -4;              // never left the panel
+}
+
 // Did the AddURIToQueue we stopped waiting for actually land? (issue #169)
 //
 // Both callers empty the queue immediately before enqueuing, so a non-empty
@@ -1041,32 +1056,27 @@ bool SonosController::playPlaylist(const char* playlistID, const char* title) {
     // function also empties the queue just above, so the same queue check
     // applies (issue #169).
     String resp;
-    bool timed_out = false;
+    bool wait_on_queue = false;
     for (int attempt = 0; attempt < 3; attempt++) {
         resp = sendSOAP(transportTarget(), "AVTransport", "AddURIToQueue", addArgs);
         if (resp.length() > 0 && resp.indexOf("Fault") < 0) {
             break;
         }
-        // -11 and -5 both mean the request left the panel: a read timeout gave
-        // up waiting for an answer, a lost connection dropped one that may well
-        // have been sent. Either way the speaker may have done the work, and
-        // AddURIToQueue is not idempotent. Only -1 and -4 prove it never went
-        // out, and those keep their retries along with 500 and Fault.
-        if (resp.length() == 0 && (lastSoapHttpCode() == HTTPC_ERROR_READ_TIMEOUT ||
-                                   lastSoapHttpCode() == HTTPC_ERROR_CONNECTION_LOST)) {
+        if (!enqueueShouldRetry(lastSoapHttpCode(), resp)) {
             Serial.printf("[PLAYLIST] AddURIToQueue did not answer (%d) - not retrying, "
                           "waiting for the queue instead\n", lastSoapHttpCode());
-            timed_out = true;
+            wait_on_queue = true;
             break;
         }
-        Serial.printf("[PLAYLIST] AddURIToQueue attempt %d failed, retrying\n", attempt + 1);
+        Serial.printf("[PLAYLIST] AddURIToQueue attempt %d failed (%d), retrying\n",
+                      attempt + 1, lastSoapHttpCode());
         vTaskDelay(pdMS_TO_TICKS(400));
     }
 
     // Either the speaker answered, or it went quiet and the queue shows it got
     // there anyway. Both mean the playlist is loaded.
-    const bool enqueued = timed_out ? (waitForQueueToFill(SONOS_ENQUEUE_SETTLE_MS) > 0)
-                                    : (resp.length() > 0 && resp.indexOf("Fault") < 0);
+    const bool enqueued = wait_on_queue ? (waitForQueueToFill(SONOS_ENQUEUE_SETTLE_MS) > 0)
+                                        : (resp.length() > 0 && resp.indexOf("Fault") < 0);
 
     if (enqueued) {
         vTaskDelay(pdMS_TO_TICKS(200));
@@ -1203,27 +1213,22 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
     // sending it again enqueues everything twice more (issue #169). We stop
     // asking and let waitForQueueToFill() tell us whether it landed.
     String resp;
-    bool timed_out = false;
+    bool wait_on_queue = false;
     for (int attempt = 0; attempt < 3; attempt++) {
         resp = sendSOAP(transportTarget(), "AVTransport", "AddURIToQueue", addArgs.c_str());
         if (resp.length() > 0 && resp.indexOf("Fault") < 0) break;
-        // -11 and -5 both mean the request left the panel: a read timeout gave
-        // up waiting for an answer, a lost connection dropped one that may well
-        // have been sent. Either way the speaker may have done the work, and
-        // AddURIToQueue is not idempotent. Only -1 and -4 prove it never went
-        // out, and those keep their retries along with 500 and Fault.
-        if (resp.length() == 0 && (lastSoapHttpCode() == HTTPC_ERROR_READ_TIMEOUT ||
-                                   lastSoapHttpCode() == HTTPC_ERROR_CONNECTION_LOST)) {
+        if (!enqueueShouldRetry(lastSoapHttpCode(), resp)) {
             Serial.printf("[CONTAINER] AddURIToQueue did not answer (%d) - not retrying, "
                           "waiting for the queue instead\n", lastSoapHttpCode());
-            timed_out = true;
+            wait_on_queue = true;
             break;
         }
-        Serial.printf("[CONTAINER] AddURIToQueue attempt %d failed, retrying\n", attempt + 1);
+        Serial.printf("[CONTAINER] AddURIToQueue attempt %d failed (%d), retrying\n",
+                      attempt + 1, lastSoapHttpCode());
         vTaskDelay(pdMS_TO_TICKS(400));
     }
 
-    if (timed_out) {
+    if (wait_on_queue) {
         if (waitForQueueToFill(SONOS_ENQUEUE_SETTLE_MS) == 0) {
             Serial.println("[CONTAINER] Failed to add container to queue");
             return false;
