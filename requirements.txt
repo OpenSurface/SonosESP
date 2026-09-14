@@ -9,4 +9,4 @@
 # esptool removed in v1.15.1: no workflow invokes it any more (the merge-bin step
 # is gone). PlatformIO does not use this one either - it ships its own
 # tool-esptoolpy, which reports v5.2.0 in build output regardless of what pip has.
-platformio==6.1.19
+platformio==6.2.0
