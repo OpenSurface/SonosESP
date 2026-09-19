@@ -51,6 +51,12 @@ void resetScreenTimeout() {
     if (!screen_dimmed) return;
     screen_dimmed = false;
 
+    // Stop the auto-dim fade first. It drives the same backlight through the same
+    // callback, so a touch landing inside its 1s run left two animations fighting
+    // - and on the instant path below, the fade simply carried on pulling the
+    // screen back down after the wake.
+    lv_anim_delete(NULL, brightness_anim_cb);
+
     if (!nightNow()) {
         // Instant wake-up - no animation
         display_set_brightness(brightness_level);
@@ -83,11 +89,17 @@ void checkAutoDim() {
         int dimmed = nightNow() ? constrain(night_level, 0, 100)
                                 : constrain(brightness_dimmed, BRIGHTNESS_DIM_MIN, 100);
 
-        // Smooth fade to dimmed brightness (1 second fade)
+        // Smooth fade to dimmed brightness (1 second fade). Starts from where the
+        // screen actually is: a wake during night hours leaves it at the touch
+        // level, not at brightness_level, and starting from the latter made the
+        // fade jump up before going down.
+        const int from = nightNow() ? constrain(night_touch_level, NIGHT_TOUCH_MIN, NIGHT_TOUCH_MAX)
+                                    : brightness_level;
+        lv_anim_delete(NULL, brightness_anim_cb);
         lv_anim_t anim;
         lv_anim_init(&anim);
         lv_anim_set_var(&anim, NULL);
-        lv_anim_set_values(&anim, brightness_level, dimmed);
+        lv_anim_set_values(&anim, from, dimmed);
         lv_anim_set_duration(&anim, 1000);  // 1 second smooth fade
         lv_anim_set_exec_cb(&anim, brightness_anim_cb);
         lv_anim_set_path_cb(&anim, lv_anim_path_ease_in);
