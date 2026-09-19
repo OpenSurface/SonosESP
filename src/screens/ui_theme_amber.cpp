@@ -34,9 +34,8 @@
 #include "ui_theme.h"
 #include "ui_fonts.h"
 #include "amber_icons.h"
-#include "amber_battery_icons.h"   // AMB_ST_SLEEP
 #include "amber.h"
-#include "sleep_timer.h"
+#include "ui_sleep_button.h"   // the sleep timer, shared with the other players
 
 // ── Grid ────────────────────────────────────────────────────────────────────
 #define AP_ART        344                  // artwork column width AND art edge
@@ -80,34 +79,6 @@ static lv_obj_t* ap_lyric_slot = nullptr;   // the lyrics overlay's wrapper
 static lv_obj_t* ap_lyric_cur  = nullptr;   // the current line, auto-fitted
 static lv_timer_t* ap_shelf_timer = nullptr;
 
-// Sleep timer button, right end of the bottom row (issue #173).
-static lv_obj_t*   ap_sleep_btn   = nullptr;
-static lv_obj_t*   ap_sleep_ico   = nullptr;
-static lv_obj_t*   ap_sleep_lbl   = nullptr;
-static lv_timer_t* ap_sleep_timer = nullptr;
-
-// Once a second: the minutes left in gold, or "Sleep" when nothing runs. Every
-// write is guarded - LVGL invalidates on a same-value write, and this runs
-// whether or not anything changed.
-static void sleepButtonTick(lv_timer_t*) {
-    if (!ap_sleep_btn) return;
-    const int left = sonos.sleepTimerRemaining();
-    const bool armed = left > 0;
-
-    char txt[16];
-    if (armed) snprintf(txt, sizeof(txt), "%d min", sleep_timer::minutesLeft(left));
-    else       snprintf(txt, sizeof(txt), "Sleep");
-    if (strcmp(lv_label_get_text(ap_sleep_lbl), txt) != 0) lv_label_set_text(ap_sleep_lbl, txt);
-
-    const lv_color_t fg = armed ? AMB_ACCENT : AMB_TEXT2;
-    if (!lv_color_eq(lv_obj_get_style_text_color(ap_sleep_lbl, LV_PART_MAIN), fg)) {
-        lv_obj_set_style_text_color(ap_sleep_lbl, fg, 0);
-        lv_obj_set_style_text_color(ap_sleep_ico, fg, 0);
-        lv_obj_set_style_bg_color(ap_sleep_btn, armed ? AMB_ACCENT_WASH : AMB_CARD, 0);
-        lv_obj_set_style_border_color(ap_sleep_btn, armed ? AMB_ACCENT_DIM : AMB_BORDER, 0);
-    }
-    amberRefreshSleep();   // the sheet's minutes, when it is open
-}
 
 // Defined below, next to the reasoning for it; used by shelfSwapCb() above it.
 static void spFitLyric(lv_obj_t* lbl, const char* text);
@@ -178,8 +149,6 @@ static void spFitLyric(lv_obj_t* lbl, const char* text) {
 // so it has to be torn down with it or it fires on freed widgets.
 static void ap_screen_deleted(lv_event_t*) {
     if (ap_shelf_timer) { lv_timer_del(ap_shelf_timer); ap_shelf_timer = nullptr; }
-    if (ap_sleep_timer) { lv_timer_del(ap_sleep_timer); ap_sleep_timer = nullptr; }
-    ap_sleep_btn = ap_sleep_ico = ap_sleep_lbl = nullptr;
     ap_shelf_next = nullptr;
     ap_lyric_slot = nullptr;
     ap_lyric_cur  = nullptr;
@@ -244,6 +213,32 @@ static void park(lv_obj_t* o) {
     if (!o) return;
     lv_obj_set_pos(o, SX(900), SY(600));
     lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+}
+
+// ── Track label geometry (issues #151, #177) ────────────────────────────────
+// Re-applies what the builder below sets, for themeRestoreTrackLabels() when a
+// radio, line-in or TV mode ends. Those handlers used to write Classic's own
+// numbers back on every theme: after one radio station this title sat 26px
+// high, on top of the artist, until the panel was rebooted (issue #177).
+//
+// Same AP_* constants and the same font-derived heights as the builder, so
+// moving a row moves both.
+void amberRestoreTrackLabels(void) {
+    if (lbl_artist) {
+        lv_obj_set_pos(lbl_artist, SX(AP_R), SY(AP_ARTIST_Y));
+        lv_obj_set_size(lbl_artist, SX(AP_RW), lv_font_get_line_height(&font_text_12));
+        lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    }
+    if (lbl_title) {
+        lv_obj_set_pos(lbl_title, SX(AP_R), SY(AP_TITLE_Y));
+        lv_obj_set_size(lbl_title, SX(AP_RW), SY(AP_TITLE_H));
+        lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_DOT);
+    }
+    if (lbl_album) {
+        lv_obj_set_pos(lbl_album, SX(AP_R), SY(AP_ALBUM_Y));
+        lv_obj_set_size(lbl_album, SX(AP_RW), lv_font_get_line_height(&font_text_14));
+        lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    }
 }
 
 // ── Builder ─────────────────────────────────────────────────────────────────
@@ -510,6 +505,7 @@ void buildAmberPlayer() {
              AP_RIGHT - chip, AP_HEAD_Y, chip, ev_settings, true, AMB_TEXT2);
 
     // ── Track meta ──────────────────────────────────────────────────────────
+    // Geometry for all three comes from amberRestoreTrackLabels(), below.
     lbl_artist = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_artist, SX(AP_R), SY(AP_ARTIST_Y));
     // Height from the FONT, not a design-space constant. SY() scales by 1.25 on
@@ -653,32 +649,9 @@ void buildAmberPlayer() {
         lv_obj_t* bat = batteryBadgeCreate(row, BATTERY_BADGE_CURRENT);
         lv_obj_align(bat, LV_ALIGN_LEFT_MID, 0, 0);
 
-        ap_sleep_btn = lv_button_create(row);
-        lv_obj_set_size(ap_sleep_btn, LV_SIZE_CONTENT, SY(36));
-        lv_obj_align(ap_sleep_btn, LV_ALIGN_RIGHT_MID, 0, 0);
-        lv_obj_set_style_radius(ap_sleep_btn, SMIN(18), 0);
-        lv_obj_set_style_bg_color(ap_sleep_btn, AMB_CARD, 0);
-        lv_obj_set_style_border_color(ap_sleep_btn, AMB_BORDER, 0);
-        lv_obj_set_style_border_width(ap_sleep_btn, 1, 0);
-        lv_obj_set_style_shadow_width(ap_sleep_btn, 0, 0);
-        lv_obj_set_style_pad_left(ap_sleep_btn, SX(12), 0);
-        lv_obj_set_style_pad_right(ap_sleep_btn, SX(16), 0);
-        lv_obj_set_style_pad_ver(ap_sleep_btn, 0, 0);
-        lv_obj_set_style_pad_column(ap_sleep_btn, SX(6), 0);
-        lv_obj_set_flex_flow(ap_sleep_btn, LV_FLEX_FLOW_ROW);
-        lv_obj_set_flex_align(ap_sleep_btn, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
-                              LV_FLEX_ALIGN_CENTER);
-        // A bigger target than it looks: it is reached for in the dark. 8px
-        // still stops short of the volume row above.
-        lv_obj_set_ext_click_area(ap_sleep_btn, SMIN(8));
-        pressFade(ap_sleep_btn);
-        lv_obj_add_event_cb(ap_sleep_btn, [](lv_event_t*) { amberShowSleep(); },
-                            LV_EVENT_CLICKED, NULL);
-
-        ap_sleep_ico = ambLabel(ap_sleep_btn, &font_batt_16, AMB_TEXT2, AMB_ST_SLEEP);
-        ap_sleep_lbl = ambLabel(ap_sleep_btn, &font_text_14, AMB_TEXT2, "Sleep");
-
-        ap_sleep_timer = lv_timer_create(sleepButtonTick, 1000, nullptr);
+        // Shared with Classic and Immersive (ui_sleep_button.cpp): one
+        // implementation of the countdown, its colours and its tap target.
+        lv_obj_align(sleepButtonCreate(row, SLEEP_BTN_PILL), LV_ALIGN_RIGHT_MID, 0, 0);
     }
 
     // ── Overlays ────────────────────────────────────────────────────────────

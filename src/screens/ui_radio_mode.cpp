@@ -10,6 +10,7 @@
  */
 
 #include "ui_common.h"
+#include "ui_theme.h"   // the labels' geometry belongs to the active theme (#177)
 
 // Track if we're currently in radio mode
 static bool is_radio_mode = false;
@@ -41,28 +42,24 @@ void setRadioMode(bool enable) {
         if (lbl_next_artist) lv_obj_add_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
         if (lbl_next_header) lv_obj_add_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
 
-        // Station name (lbl_title, Montserrat 32) stays at y=68 — already prominent.
-        // Programme/stream text (lbl_artist) is below it at y=112 with room to wrap.
-        // Allow 2-line wrap so long programme names ("Artist - Song Title on Station") show fully.
-        if (lbl_artist) {
-            lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_WRAP);
-            lv_obj_set_height(lbl_artist, SY(44));  // 2 × 22px line height for Montserrat 16
-        }
+        // A two-line programme name ("Artist - Song Title on Station") is worth
+        // the room where the layout has it, which is Classic. The theme decides:
+        // on Amber the same 44px box reached down over the title (issue #177).
+        themeApplyRadioArtist(true);
         // Hide album label — irrelevant for radio and would overlap with 2-line artist
         if (lbl_album) lv_obj_add_flag(lbl_album, LV_OBJ_FLAG_HIDDEN);
 
     } else {
         Serial.println("[RADIO UI] Switching to music mode");
 
-        // Restore title to music-mode position (y=68, Montserrat 32)
-        if (lbl_title) lv_obj_set_y(lbl_title, SY(88));
-        // Restore artist to single-line truncated mode
-        if (lbl_artist) {
-            lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_DOT);
-            lv_obj_set_height(lbl_artist, LV_SIZE_CONTENT);
-        }
-        // Restore album label
         if (lbl_album) lv_obj_clear_flag(lbl_album, LV_OBJ_FLAG_HIDDEN);
+
+        // Hand the labels back to the theme that built them. This used to write
+        // Classic's own numbers - SY(88) for the title, a content-height DOT box
+        // for the artist - onto whichever theme was running, so one radio session
+        // left Amber's title sitting on its artist until the panel was rebooted
+        // (issue #177). Last, so it wins over anything above.
+        themeRestoreTrackLabels();
 
         // Show all music controls
         if (btn_next) lv_obj_clear_flag(btn_next, LV_OBJ_FLAG_HIDDEN);

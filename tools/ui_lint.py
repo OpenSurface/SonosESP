@@ -313,6 +313,58 @@ def check_unbounded_dot(findings):
                           'Use ambOneLine().' % (var, widthed[var])))
 
 
+# The player's track labels are GLOBALS, and every theme builder puts them
+# somewhere different. Geometry written to them from anywhere else applies one
+# theme's coordinates to whichever theme happens to be running.
+SHARED_PLAYER_LABELS = {'lbl_title', 'lbl_artist', 'lbl_album', 'lbl_device_name'}
+
+# The files that own a layout, and may therefore position these labels.
+LABEL_GEOMETRY_OWNERS = {
+    'ui_main_screen.cpp',       # Classic
+    'ui_theme_immersive.cpp',   # Immersive
+    'ui_theme_amber.cpp',       # Amber
+}
+
+
+def check_shared_label_geometry(findings):
+    """Geometry written to a shared player label outside its theme builder.
+
+    This is issue #177. setRadioMode(false) put the title back at SY(88) —
+    Classic's position, correct when Classic was the only layout — on every
+    theme. On Amber the title belongs 26px lower, so after one radio station the
+    title sat on top of the artist, and nothing put it back until the panel was
+    rebooted or the theme switched. Line-in and TV carried the same defect in a
+    milder form: they forced Classic's artist height onto all three layouts.
+
+    The fix is themeRestoreTrackLabels(), which asks the active theme to restore
+    position, size and long mode together. This rule stops the next mode handler
+    reintroducing the pattern.
+
+    Locals that merely share the name (several screens build their own
+    `lbl_title`) are skipped: a declaration in the same file means it is not the
+    global.
+    """
+    call_re = re.compile(
+        r'\b(lv_obj_set_(?:pos|x|y|size|width|height)|lv_obj_align(?:_to)?)\s*\(\s*(\w+)')
+    decl_re = re.compile(r'lv_obj_t\s*\*\s*(\w+)\s*=')
+    for path in source_files():
+        if os.path.basename(path) in LABEL_GEOMETRY_OWNERS:
+            continue
+        with open(path, encoding='utf-8', errors='replace') as fh:
+            lines = [strip_comment(l) for l in fh]
+
+        locals_here = {m.group(1) for m in (decl_re.search(l) for l in lines) if m}
+        for n, line in enumerate(lines, 1):
+            m = call_re.search(line)
+            if not m:
+                continue
+            var = m.group(2)
+            if var in SHARED_PLAYER_LABELS and var not in locals_here:
+                findings['shared-label-geometry'].append(
+                    (path, n, '%s(%s) - the theme builders own this label\'s geometry; '
+                              'call themeRestoreTrackLabels()' % (m.group(1), var)))
+
+
 def check_helper_bypass(findings):
     """Settings screens hand-rolling a widget that already has a shared helper."""
     helpers = {
@@ -345,6 +397,7 @@ def main():
     check_parts(findings)
     check_content_overflow(findings)
     check_unbounded_dot(findings)
+    check_shared_label_geometry(findings)
     check_helper_bypass(findings)
 
     order = [
@@ -355,6 +408,7 @@ def main():
         ('content-overflow',          'Child overflows the settings content area'),
         ('unbounded-dot',             'LONG_DOT without a height - wraps instead of truncating'),
         ('unbounded-dot-known',       'Same defect, pre-existing (see UNBOUNDED_DOT_BASELINE)'),
+        ('shared-label-geometry',     'Player label positioned outside its theme builder'),
         ('helper-bypassed',           'Shared helper bypassed'),
         ('geometry-unscaled',         'Raw pixels, will not scale to the 7in panel'),
         ('colour-one-off',            'One-off literal (informational)'),

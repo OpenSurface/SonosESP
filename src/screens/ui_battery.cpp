@@ -173,6 +173,50 @@ static void onDelete(lv_event_t* e) {
     }
 }
 
+lv_obj_t* batteryChipCreate(lv_obj_t* parent, int deviceIndex, int size) {
+    lv_obj_t* box = lv_obj_create(parent);
+    lv_obj_remove_style_all(box);
+    lv_obj_set_size(box, SMIN(size), SMIN(size));
+    lv_obj_set_style_radius(box, SMIN(size / 2), 0);
+    // The header's own treatment: a dark disc with a faint ring, so this sits in
+    // the row rather than on top of it.
+    lv_obj_set_style_bg_color(box, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(box, LV_OPA_20, 0);
+    lv_obj_set_style_border_width(box, 1, 0);
+    lv_obj_set_style_border_color(box, COL_TEXT, 0);
+    lv_obj_set_style_border_opa(box, LV_OPA_40, 0);
+    lv_obj_set_flex_flow(box, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(box, 0, 0);
+    lv_obj_set_style_pad_row(box, 0, 0);
+    lv_obj_remove_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(box, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(box, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_t* glyph = lv_label_create(box);
+    lv_obj_set_style_text_font(glyph, &font_batt_16, 0);
+    lv_label_set_text(glyph, "");
+
+    // No "%" — at this size the number has to carry, and 46px of circle has room
+    // for two digits under the glyph, not three characters.
+    lv_obj_t* num = lv_label_create(box);
+    lv_obj_set_style_text_font(num, &font_text_12, 0);
+    lv_label_set_text(num, "");
+
+    const Badge made = { box, glyph, num, deviceIndex, true, nullptr, 0 };
+    for (Badge& b : s_badges) {
+        if (!b.box) {
+            b = made;
+            lv_obj_add_event_cb(box, onDelete, LV_EVENT_DELETE, nullptr);
+            break;
+        }
+    }
+    if (!s_timer) s_timer = lv_timer_create(tick, 1000, nullptr);
+
+    refresh(made);
+    return box;
+}
+
 lv_obj_t* batteryBadgeCreate(lv_obj_t* parent, int deviceIndex, bool compact,
                              lv_obj_t* keepClearOf) {
     lv_obj_t* box = lv_obj_create(parent);

@@ -68,11 +68,20 @@ const ThemeDef* themeCurrent(void) {
     return &THEMES[active_theme < THEME_COUNT ? active_theme : 0];
 }
 
-lv_label_long_mode_t themeTitleLongMode(void) {
-    // Amber gives the title a two-line box and truncates; every other theme
-    // scrolls a single line.
-    return themeCurrent()->build == buildAmberPlayer ? LV_LABEL_LONG_DOT
-                                                      : LV_LABEL_LONG_SCROLL_CIRCULAR;
+// Dispatch to the builder that owns the current layout. Deliberately by build
+// function rather than by index: the registry can be reordered (it has been —
+// see themeMigrate) without silently pointing these at the wrong geometry.
+void themeRestoreTrackLabels(void) {
+    ThemeBuildFn b = themeCurrent()->build;
+    if      (b == buildAmberPlayer)     amberRestoreTrackLabels();
+    else if (b == buildImmersivePlayer) immersiveRestoreTrackLabels();
+    else                                classicRestoreTrackLabels();
+}
+
+void themeApplyRadioArtist(bool radio) {
+    // Only Classic has the row height for a second line. The others keep their
+    // single scrolling line, which is also what a long programme name needs.
+    if (themeCurrent()->build == buildClassicPlayer) classicApplyRadioArtist(radio);
 }
 
 bool themeUsesArtAccent(void) {

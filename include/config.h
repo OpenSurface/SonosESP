@@ -77,6 +77,27 @@
 #define MIN_BRIGHTNESS          5       // Minimum brightness allowed
 #define MAX_BRIGHTNESS          100     // Maximum brightness
 
+// ── Night (issue #172) ───────────────────────────────────────────────────────
+// Between these hours the panel rests at NIGHT level instead of the dimmed one,
+// and a touch wakes it to NIGHT_TOUCH rather than full brightness. The point is
+// a bedside panel that never flashes a dark room: dious38's report is a playlist
+// running all night with the clock up, and a screen that kept lighting itself.
+//
+// Times are minutes past midnight so the window can cross midnight, which is the
+// normal case. The window is closed at its end: 21:00-07:00 means 07:00 is day.
+#define DEFAULT_NIGHT_ON        0       // off until someone turns it on
+#define DEFAULT_NIGHT_FROM      (21 * 60)
+#define DEFAULT_NIGHT_TO        (7 * 60)
+#define DEFAULT_NIGHT_TOUCH     20      // a touch at night wakes to this
+#define NIGHT_TOUCH_MIN         5
+#define NIGHT_TOUCH_MAX         50
+#define NIGHT_STEP_MIN          30      // the time chips move in half hours
+// Fade to the touch level rather than snapping, which is the whole complaint.
+#define NIGHT_WAKE_FADE_MS      600
+// How long after a wake a tap still counts as "that was the wake" — the clock
+// stays up for it, and only the next tap opens the player.
+#define NIGHT_WAKE_GRACE_MS     1200
+
 // =============================================================================
 // SCREEN VARIANT  (build-time: -DSCREEN_SIZE=4 | 7 ; defaults to 4")
 // -----------------------------------------------------------------------------
@@ -350,6 +371,12 @@
 #define NVS_KEY_PANEL_VAR       "panel_var"      // 7" LCD panel variant index (<=15 chars)
 #define NVS_KEY_PANEL_OK        "panel_ok"       // 1 = user confirmed the picture
 #define NVS_KEY_AUTODIM         "autodim_sec"
+// Night (issue #172). All <=15 chars — see the note above.
+#define NVS_KEY_NIGHT_ON        "night_on"
+#define NVS_KEY_NIGHT_FROM      "night_from"
+#define NVS_KEY_NIGHT_TO        "night_to"
+#define NVS_KEY_NIGHT_LEVEL     "night_lvl"
+#define NVS_KEY_NIGHT_TOUCH     "night_touch"
 #define NVS_KEY_REBOOT_LOG      "reboot_log"     // restart history blob, reboot_log.h (<=15 chars)
 #define NVS_KEY_THEME           "theme"         // player theme index (see ui_theme.h)
 #define NVS_KEY_THEME_VER       "theme_v"       // theme-index schema version (<=15 chars)
