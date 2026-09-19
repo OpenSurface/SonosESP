@@ -45,6 +45,14 @@
 #define IM_STAGE_Y     152
 #define IM_STAGE_BOT   372
 
+// ── Header chips ────────────────────────────────────────────────────────────
+// A row of circles at the right of the header, filled from the right edge:
+// settings, queue, LRC, battery. IM_CHIP_X(n) is the nth from that edge.
+#define IM_CHIP        46
+#define IM_CHIP_GAP    12
+#define IM_CHIP_X(n)   (IM_RIGHT - (IM_CHIP + IM_CHIP_GAP) * (n) - IM_CHIP)
+#define IM_CHIPS       4                  // settings, queue, LRC, battery
+
 #define IM_BAR_Y       386
 #define IM_BAR_H       94                   // 386 + 94 = 480, flush to the bottom
 
@@ -93,6 +101,20 @@ static void im_show(const char* txt, bool lively) {
     lv_anim_delete(im_stage, im_anim_y);
 
     lv_label_set_text(im_stage, txt ? txt : "");
+
+    // Fit the line to the stage instead of letting a long one run off the
+    // bottom. A lyric is whatever the songwriter wrote: at 48px a 60-character
+    // line is five rows, which is taller than the 220px stage, and the part that
+    // gets cut is the end — the part that rhymes. Measure at each size and keep
+    // the largest that fits, exactly as the Amber shelf does.
+    static const lv_font_t* const kStageFonts[] = {
+        &font_text_48, &font_text_32, &font_text_24, &font_text_20
+    };
+    for (const lv_font_t* f : kStageFonts) {
+        lv_obj_set_style_text_font(im_stage, f, 0);
+        lv_obj_update_layout(im_stage);
+        if (lv_obj_get_height(im_stage) <= SY(IM_STAGE_BOT - IM_STAGE_Y)) break;
+    }
 
     lv_text_align_t align = LV_TEXT_ALIGN_CENTER;
     int y = SY(IM_STAGE_Y + 40);
@@ -306,8 +328,13 @@ static void park(lv_obj_t* o) {
     lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
 }
 
-// Width of the header text column: stops short of the three 46px buttons.
-#define IM_TEXT_W  ((IM_RIGHT - 2 * 46 - 12 - 16) - IM_TEXT_X)
+// Width of the header text column: stops 16px short of the leftmost chip.
+//
+// This used to be written as if the header held two buttons, so the column ran
+// to x=648 while the LRC chip started at 606: a long title or artist scrolled
+// straight under it. Derived from the chip row now, so adding the battery chip
+// moved the text rather than putting a fourth circle on top of it.
+#define IM_TEXT_W  ((IM_CHIP_X(IM_CHIPS - 1) - 16) - IM_TEXT_X)
 
 // ── Track label geometry (issue #177) ───────────────────────────────────────
 // The one definition of this layout's header text block. The builder calls it,
@@ -440,18 +467,18 @@ void buildImmersivePlayer() {
     lv_obj_set_style_text_opa(lbl_device_name, LV_OPA_60, 0);
     lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
 
-    // The selected speaker's battery, at the right end of the room line (#165).
-    // Immersive had no badge at all, so on the theme whose header IS the
-    // metadata a Move or Roam could not say how much charge it had left.
-    // keepClearOf narrows the room name only while a battery is showing.
-    lv_obj_set_pos(batteryBadgeCreate(panel_right, BATTERY_BADGE_CURRENT, false, lbl_device_name),
-                   SX(IM_TEXT_X + head_text_w - 76), SY(IM_HEAD_Y + 82));
+    // The selected speaker's battery, as the fourth header chip (#165). It was
+    // a pill on the room line first, which read as a label stuck to the text
+    // rather than part of the header; a circle beside LRC belongs to the row.
+    lv_obj_set_pos(batteryChipCreate(panel_right, BATTERY_BADGE_CURRENT, IM_CHIP),
+                   SX(IM_CHIP_X(3)), SY(IM_HEAD_Y + 6));
 
-    // Right-aligned header buttons: settings hugs the right margin, then queue,
-    // then the lyrics indicator, each 12 left of the last.
-    roundBtn(panel_right, MDI_COG, &lv_font_mdi_24, IM_RIGHT - 46, IM_HEAD_Y + 6, 46, ev_settings, true);
+    // Right-aligned header chips: settings hugs the right margin, then queue,
+    // the lyrics indicator, and the battery, each 12 left of the last.
+    roundBtn(panel_right, MDI_COG, &lv_font_mdi_24, IM_CHIP_X(0), IM_HEAD_Y + 6, IM_CHIP,
+             ev_settings, true);
     btn_queue = roundBtn(panel_right, MDI_PLAYLIST, &lv_font_mdi_24,
-                         IM_RIGHT - 46 - 12 - 46, IM_HEAD_Y + 6, 46, ev_queue, true);
+                         IM_CHIP_X(1), IM_HEAD_Y + 6, IM_CHIP, ev_queue, true);
     lv_obj_set_ext_click_area(btn_queue, 8);
 
     // Lyrics indicator, same as Amber and SonosESP carry. Immersive was the only
@@ -462,7 +489,7 @@ void buildImmersivePlayer() {
     // for it only creates a way for the two to disagree. updateLyricsStatus()
     // lights it; see btn_lyrics in ui_common.h.
     btn_lyrics = roundBtn(panel_right, "", &font_text_12,
-                          IM_RIGHT - (46 + 12) * 2 - 46, IM_HEAD_Y + 6, 46, NULL, true);
+                          IM_CHIP_X(2), IM_HEAD_Y + 6, IM_CHIP, NULL, true);
     lv_obj_remove_flag(btn_lyrics, LV_OBJ_FLAG_CLICKABLE);
     if (lv_obj_get_child_count(btn_lyrics)) {
         lv_obj_t* l = lv_obj_get_child(btn_lyrics, 0);

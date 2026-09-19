@@ -21,3 +21,10 @@
 // Returns the badge's row object: position it like any other object.
 lv_obj_t* batteryBadgeCreate(lv_obj_t* parent, int deviceIndex, bool compact = false,
                              lv_obj_t* keepClearOf = nullptr);
+
+// The same reading as a round header chip: glyph over the number, sized and
+// outlined like the LRC / queue / settings buttons it sits beside. For a header
+// that is a row of circles, a wide pill reads as a foreign object — Immersive's
+// is, so that is what it gets. Refreshed by the same timer as every badge, and
+// hidden the same way for a speaker with no battery.
+lv_obj_t* batteryChipCreate(lv_obj_t* parent, int deviceIndex, int size = 46);
