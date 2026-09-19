@@ -632,19 +632,26 @@ static void lyricsHide() {
 // Instant show — cancel any fade-out, snap to full opacity
 static void lyricsShow() {
     if (!lyrics_container) return;
+    // Already up and not fading? Do nothing. This is called on every position
+    // update, which is now ten times a second rather than once per Sonos event,
+    // and lv_obj_set_style_opa() invalidates the container whether or not the
+    // value changed — ten full redraws a second of the largest overlay on the
+    // screen, for nothing.
+    if (!lv_obj_has_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN) &&
+        lv_obj_get_style_opa(lyrics_container, LV_PART_MAIN) == LV_OPA_COVER &&
+        !lv_anim_get(lyrics_container, lyrics_fade_cb)) return;
     lv_anim_del(lyrics_container, lyrics_fade_cb);
     lv_obj_remove_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_style_opa(lyrics_container, LV_OPA_COVER, 0);
 }
 
-void updateLyricsDisplay(int position_seconds) {
+// Position is in milliseconds — see the declaration in lyrics.h.
+void updateLyricsDisplay(int pos_ms) {
     if (!lyrics_container || !lyric_lines) return;  // Check buffer allocated
     if (!lyrics_ready || !lyrics_enabled || lyric_count == 0) {
         lyricsHide();
         return;
     }
-
-    int pos_ms = position_seconds * 1000;
 
     // Find current line (last line where time_ms <= pos_ms)
     int idx = -1;

@@ -10,6 +10,7 @@
 #include "config.h"
 #include "ui_theme.h"
 #include "lyrics.h"
+#include "position_estimate.h"
 #include "clock_screen.h"
 #include <esp_task_wdt.h>
 #include "ui_fonts.h"
@@ -110,6 +111,24 @@ void checkAutoDim() {
 }
 
 // ============================================================================
+// Playback Position
+// ============================================================================
+// The panel's own clock for where the track is, so the progress bar and the
+// lyrics move continuously instead of stepping whenever a poll happens to land.
+// Lives on the LVGL thread and nothing else touches it; see
+// include/position_estimate.h for why it exists and how it defers to the
+// speaker.
+static position_estimate::Estimator s_pos;
+
+// The panel seeked. Show the destination at once rather than waiting out the
+// command queue, the SOAP call and the next poll — about a second in which the
+// bar would otherwise spring back under the finger that just moved it.
+static void playbackPositionSeeked(int seconds) { s_pos.onSeek(seconds, millis()); }
+
+// Different music from here on: a track change, a room change, a disconnect.
+static void playbackPositionReset(void) { s_pos.reset(); }
+
+// ============================================================================
 // Playback Event Handlers
 // ============================================================================
 void ev_play(lv_event_t* e) {
@@ -143,7 +162,12 @@ void ev_progress(lv_event_t* e) {
     if (code == LV_EVENT_PRESSING) dragging_prog = true;
     else if (code == LV_EVENT_RELEASED) {
         SonosDevice* d = sonos.getCurrentDevice();
-        if (d && d->durationSeconds > 0) sonos.seek((lv_slider_get_value(slider_progress) * d->durationSeconds) / 100);
+        if (d && d->durationSeconds > 0) {
+            const int target = (int)(((int64_t)lv_slider_get_value(slider_progress)
+                                      * d->durationSeconds) / PROGRESS_SLIDER_MAX);
+            sonos.seek(target);
+            playbackPositionSeeked(target);
+        }
         dragging_prog = false;
     }
 }
@@ -1748,6 +1772,7 @@ static bool updateConnectionState(SonosDevice* d) {
             lv_label_set_text(lbl_time, "0:00");
             lv_label_set_text(lbl_time_remaining, "0:00");
             lv_slider_set_value(slider_progress, 0, LV_ANIM_OFF);
+            playbackPositionReset();   // whatever comes back, it starts over
 
             lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
             lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
@@ -2112,6 +2137,75 @@ static void updateAlbumArtRequest(SonosDevice* d) {
 }
 
 // ============================================================================
+// Playback position → the bar, the clocks and the lyrics
+// ============================================================================
+// Everything read here is a single 32-bit scalar, so it is read without
+// deviceMutex like the rest of updateUI()'s scalars. The Strings are not
+// touched — that is why the radio clock stays behind in updateUI(), where the
+// snapshot under the lock lives.
+static void refreshPlaybackPosition(SonosDevice* d) {
+    if (!d || !slider_progress || !lbl_time || !lbl_time_remaining) return;
+
+    const uint32_t now = millis();
+    s_pos.tick(d->relTimeSeconds, d->durationSeconds, d->isPlaying, d->posReadMs, now);
+
+    const int32_t pos_ms = s_pos.positionMs(now);
+    if (pos_ms < 0) return;   // nothing read yet — leave the widgets as they are
+
+    if (d->durationSeconds > 0) {
+        const int el = pos_ms / 1000;
+        char buf[16];
+
+        // Both clocks carry whole seconds, so nine of every ten writes would be
+        // the same text — and LVGL reallocates and invalidates on set_text
+        // whatever the content. Compared against what the label already holds
+        // rather than against a remembered value: reading the widget back means
+        // a rebuilt player (a theme switch) repaints on the very next tick,
+        // where a cache would have left both clocks blank until the second
+        // turned.
+        //
+        // Hours only when there are hours: "1:02:15", else "2:15". The old code
+        // got that by trimming a leading "0:" off the speaker's own string.
+        if (el >= 3600) snprintf(buf, sizeof(buf), "%d:%02d:%02d", el / 3600, (el / 60) % 60, el % 60);
+        else            snprintf(buf, sizeof(buf), "%d:%02d", el / 60, el % 60);
+        if (strcmp(lv_label_get_text(lbl_time), buf) != 0) lv_label_set_text(lbl_time, buf);
+
+        // Remaining as a negative countdown: -M:SS (Apple Music / Spotify style)
+        int rem = d->durationSeconds - el;
+        if (rem < 0) rem = 0;
+        snprintf(buf, sizeof(buf), "-%d:%02d", rem / 60, rem % 60);
+        if (strcmp(lv_label_get_text(lbl_time_remaining), buf) != 0)
+            lv_label_set_text(lbl_time_remaining, buf);
+
+        if (!dragging_prog) {
+            const int32_t v = (int32_t)(((int64_t)pos_ms * PROGRESS_SLIDER_MAX)
+                                        / ((int64_t)d->durationSeconds * 1000));
+            lv_slider_set_value(slider_progress, v, LV_ANIM_OFF);
+        }
+    }
+
+    // Lyrics run off the same clock, in milliseconds, so a line lands on its
+    // beat instead of up to a second late.
+    updateLyricsDisplay(pos_ms);
+}
+
+// Keeps the bar moving between Sonos events. processUpdates() only calls
+// updateUI() when the speaker has said something, and at most every 200ms;
+// polling itself goes quiet for seconds at a time while album art downloads.
+// Neither is a reason for the music to appear to stop.
+static void playbackPositionTickCb(lv_timer_t*) {
+    if (lv_screen_active() != scr_main) return;   // player not on screen
+    SonosDevice* d = sonos.getCurrentDevice();
+    if (!d || !d->connected) return;
+    refreshPlaybackPosition(d);
+}
+
+void playbackPositionInit(void) {
+    static lv_timer_t* t = nullptr;
+    if (!t) t = lv_timer_create(playbackPositionTickCb, PROGRESS_TICK_MS, nullptr);
+}
+
+// ============================================================================
 // UI Update Function
 // ============================================================================
 void updateUI() {
@@ -2157,6 +2251,11 @@ void updateUI() {
     String lyrics_key = s_artist + "|" + s_track;
     if (lyrics_key != lyrics_last_track && s_track.length() > 0) {
         last_track_change_ms = millis();
+        // New track: the old anchor describes music that is no longer playing.
+        // Polling is suppressed for a second after a track change, so without
+        // this the bar would keep climbing through the gap on the previous
+        // track's position.
+        playbackPositionReset();
         if (lyrics_enabled && !d->isRadioStation && !d->isLineIn && !d->isTvAudio) {
             // Abort any running task FIRST. requestLyrics() checks artist.length()==0
             // at line 1 and returns false without ever touching lyrics_abort_requested —
@@ -2208,28 +2307,19 @@ void updateUI() {
     // had a chance to re-push its value into the (possibly rebuilt) widgets.
     ui_force_refresh = false;
 
-    // Time display
-    String t = s_relTime;
-    if (t.startsWith("0:")) t = t.substring(2);
-    lv_label_set_text(lbl_time, t.c_str());
-
-    // Remaining time as negative countdown: -M:SS (Apple Music / Spotify style)
-    if (d->durationSeconds > 0) {
-        int rem = d->durationSeconds - d->relTimeSeconds;
-        if (rem < 0) rem = 0;
-        int rm = rem / 60;
-        int rs = rem % 60;
-        char buf[16];
-        snprintf(buf, sizeof(buf), "-%d:%02d", rm, rs);
-        lv_label_set_text(lbl_time_remaining, buf);
+    // Time display. A stream has no duration and no meaningful position, so the
+    // speaker's own RelTime string is all there is; for a track both labels and
+    // the bar are driven from the interpolated estimate instead, in
+    // refreshPlaybackPosition() below.
+    if (d->durationSeconds <= 0) {
+        String t = s_relTime;
+        if (t.startsWith("0:")) t = t.substring(2);
+        lv_label_set_text(lbl_time, t.c_str());
     }
 
-    // Progress slider
-    if (!dragging_prog && d->durationSeconds > 0)
-        lv_slider_set_value(slider_progress, (d->relTimeSeconds * 100) / d->durationSeconds, LV_ANIM_OFF);
-
-    // Update synced lyrics display and status indicator
-    updateLyricsDisplay(d->relTimeSeconds);
+    // Progress bar, time labels and lyric timing. Called here so a poll shows
+    // up immediately, and on its own timer so it keeps moving between polls.
+    refreshPlaybackPosition(d);
     updateLyricsStatus();  // Update status indicator from main thread
 
     // Play/Pause button

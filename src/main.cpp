@@ -469,6 +469,7 @@ void setup() {
     themeLoad();
 
     createMainScreen();
+    playbackPositionInit();   // the timer that keeps the progress bar moving
     bootScreenProgress(35);
 
     createDevicesScreen();

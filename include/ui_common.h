@@ -276,6 +276,12 @@ void refreshDeviceList();
 void refreshQueueList();
 void refreshGroupsList();
 
+// Starts the timer that advances the progress bar, the two time clocks and the
+// lyric line between Sonos polls (include/position_estimate.h). Call once, after
+// the player exists; it is idempotent and survives a theme rebuild, since it
+// drives the widget globals rather than any one theme's widgets.
+void playbackPositionInit(void);
+
 // ============================================================================
 // Function Declarations - Event Handlers
 // ============================================================================

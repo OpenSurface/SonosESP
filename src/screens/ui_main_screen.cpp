@@ -313,7 +313,7 @@ void buildClassicPlayer() {
     slider_progress = lv_slider_create(panel_right);
     lv_obj_set_pos(slider_progress, SX(15), SY(182));
     lv_obj_set_size(slider_progress, SX(320), SY(8));  // 8px: easier touch target, more visual weight
-    lv_slider_set_range(slider_progress, 0, 100);
+    lv_slider_set_range(slider_progress, 0, PROGRESS_SLIDER_MAX);
     lv_obj_set_style_bg_color(slider_progress, COL_BTN, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_progress, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_progress, COL_ACCENT, LV_PART_KNOB);
