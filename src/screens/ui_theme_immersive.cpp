@@ -30,6 +30,8 @@
 #include "ui_theme.h"        // amberBuildOverlays() - the queue drawer / rooms modal
 #include <esp_random.h>
 #include "ui_fonts.h"
+#include "ui_battery.h"        // the selected speaker's battery (#165)
+#include "ui_sleep_button.h"   // the sleep timer (#173)
 
 // ── Grid constants (design space) ───────────────────────────────────────────
 #define IM_MARGIN      32
@@ -438,6 +440,13 @@ void buildImmersivePlayer() {
     lv_obj_set_style_text_opa(lbl_device_name, LV_OPA_60, 0);
     lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
 
+    // The selected speaker's battery, at the right end of the room line (#165).
+    // Immersive had no badge at all, so on the theme whose header IS the
+    // metadata a Move or Roam could not say how much charge it had left.
+    // keepClearOf narrows the room name only while a battery is showing.
+    lv_obj_set_pos(batteryBadgeCreate(panel_right, BATTERY_BADGE_CURRENT, false, lbl_device_name),
+                   SX(IM_TEXT_X + head_text_w - 76), SY(IM_HEAD_Y + 82));
+
     // Right-aligned header buttons: settings hugs the right margin, then queue,
     // then the lyrics indicator, each 12 left of the last.
     roundBtn(panel_right, MDI_COG, &lv_font_mdi_24, IM_RIGHT - 46, IM_HEAD_Y + 6, 46, ev_settings, true);
@@ -576,6 +585,12 @@ void buildImmersivePlayer() {
         if (im_vol_open) { ev_mute(e); im_vol_poke(); }
         else             { im_vol_set_open(true); }
     }, LV_EVENT_CLICKED, NULL);
+
+    // Sleep timer (issue #173), in the gap between next and the volume icon:
+    // 664..708, so 14px clear of next and 16px clear of mute. Icon only — this
+    // bar is icon-only by design and the minutes live in the sheet it opens —
+    // and it lights in the accent colour while a timer runs.
+    lv_obj_set_pos(sleepButtonCreate(bar, SLEEP_BTN_ROUND), SX(664), SY(IM_BAR_MID(44)));
 
     // Shares the progress row's slot — only one of the two is visible at a time.
     slider_vol = lv_slider_create(bar);

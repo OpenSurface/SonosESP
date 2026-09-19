@@ -16,6 +16,8 @@
 #include "ui_icons.h"
 #include "ui_theme.h"
 #include "ui_fonts.h"
+#include "ui_battery.h"        // the selected speaker's battery (#165)
+#include "ui_sleep_button.h"   // the sleep timer (#173)
 
 // Entry point: hands off to the active theme's builder (see ui_theme.cpp).
 // Each builder is responsible for creating scr_main and every player widget global.
@@ -511,6 +513,23 @@ void buildClassicPlayer() {
             sonos.next();
         }
     }, LV_EVENT_ALL, NULL);
+
+    // ── Battery and sleep timer (issues #165, #173) ─────────────────────────
+    // The band between the volume row (which ends at 400) and Next up (440) was
+    // empty. Same arrangement as Amber's bottom row, so the two players read
+    // alike: the selected speaker's battery flush left with the text column, the
+    // sleep timer flush right. Each hides itself when it has nothing to show.
+    {
+        lv_obj_t* row = lv_obj_create(panel_right);
+        lv_obj_remove_style_all(row);
+        lv_obj_set_pos(row, SX(15), SY(402));
+        lv_obj_set_size(row, SX(320), SY(36));
+        lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_align(batteryBadgeCreate(row, BATTERY_BADGE_CURRENT), LV_ALIGN_LEFT_MID, 0, 0);
+        lv_obj_align(sleepButtonCreate(row, SLEEP_BTN_PILL), LV_ALIGN_RIGHT_MID, 0, 0);
+    }
 
     // ── Overlays ────────────────────────────────────────────────────────────
     // The queue drawer and rooms modal, so the queue button and the room control
