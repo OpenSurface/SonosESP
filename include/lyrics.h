@@ -36,8 +36,12 @@ void clearLyrics();
 // Create the lyrics overlay UI (called once from createMainScreen)
 void createLyricsOverlay(lv_obj_t* parent);
 
-// Update lyrics display based on playback position (called from updateUI)
-void updateLyricsDisplay(int position_seconds);
+// Update lyrics display based on playback position, in MILLISECONDS.
+// Milliseconds, not seconds: the caller interpolates between the speaker's
+// whole-second readings (include/position_estimate.h), and a lyric line is cued
+// to a beat - rounding its position to the second put every line up to a second
+// late, which is long enough to read as "the lyrics lag the music".
+void updateLyricsDisplay(int position_ms);
 
 // Show/hide lyrics overlay
 void setLyricsVisible(bool show);

@@ -556,7 +556,7 @@ void buildImmersivePlayer() {
     slider_progress = lv_slider_create(bar);
     lv_obj_set_pos(slider_progress, SX(IM_ROW_X), SY(IM_BAR_MID(6)));
     lv_obj_set_size(slider_progress, SX(IM_ROW_W), SY(6));
-    lv_slider_set_range(slider_progress, 0, 100);
+    lv_slider_set_range(slider_progress, 0, PROGRESS_SLIDER_MAX);
     lv_obj_set_style_bg_color(slider_progress, COL_BTN, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_progress, COL_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_progress, COL_ACCENT, LV_PART_KNOB);

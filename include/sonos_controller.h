@@ -93,6 +93,14 @@ struct SonosDevice {
     String trackDuration;    // Total duration "0:03:47"
     int relTimeSeconds;      // Current position in seconds
     int durationSeconds;     // Total duration in seconds
+    // millis() when relTimeSeconds was last written. The UI interpolates
+    // between readings to move the progress bar and cue lyrics smoothly
+    // (include/position_estimate.h), and for that it has to know how old a
+    // reading is and whether it is new - RelTime alone cannot say, since two
+    // polls 300ms apart legitimately report the same second. Written by the
+    // polling task under deviceMutex, read lock-free by the UI: a single
+    // 32-bit word, like every other scalar here. 0 means never read.
+    volatile uint32_t posReadMs;
 
     // Radio station info
     bool isRadioStation;          // True if playing radio (detected by URI pattern)

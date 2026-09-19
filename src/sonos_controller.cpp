@@ -1437,6 +1437,10 @@ bool SonosController::updateTrackInfo() {
 
         dev->relTime = extractXML(resp, "RelTime");
         dev->relTimeSeconds = timeToSeconds(dev->relTime);
+        // Stamped on every successful read, not only when the second changes:
+        // the UI's position estimate needs "this is a fresh reading" and "it is
+        // this old", and an unchanged RelTime still carries both.
+        dev->posReadMs = millis();
 
         dev->trackDuration = extractXML(resp, "TrackDuration");
         dev->durationSeconds = timeToSeconds(dev->trackDuration);

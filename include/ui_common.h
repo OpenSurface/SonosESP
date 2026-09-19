@@ -21,7 +21,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "2.0.8"
+#define FIRMWARE_VERSION "2.1.0"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -275,6 +275,12 @@ void createClockSettingsScreen();
 void refreshDeviceList();
 void refreshQueueList();
 void refreshGroupsList();
+
+// Starts the timer that advances the progress bar, the two time clocks and the
+// lyric line between Sonos polls (include/position_estimate.h). Call once, after
+// the player exists; it is idempotent and survives a theme rebuild, since it
+// drives the widget globals rather than any one theme's widgets.
+void playbackPositionInit(void);
 
 // ============================================================================
 // Function Declarations - Event Handlers

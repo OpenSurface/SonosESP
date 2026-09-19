@@ -547,6 +547,9 @@ void buildAmberPlayer() {
 
     // ── Progress ────────────────────────────────────────────────────────────
     slider_progress = amberSlider(panel_right, AP_R, AP_PROG_Y, AP_RW, AMB_ACCENT, ev_progress);
+    // Overrides amberSlider()'s 0-100, which is right for the volume below and
+    // far too coarse for a track position — see PROGRESS_SLIDER_MAX.
+    lv_slider_set_range(slider_progress, 0, PROGRESS_SLIDER_MAX);
 
     lbl_time = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_time, SX(AP_R), SY(AP_TIME_Y));

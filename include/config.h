@@ -294,6 +294,22 @@
 #define POLL_MEDIA_INFO_MODULO  50      // Radio station info every 15s
 #define POLL_BASE_INTERVAL_MS   300     // Base polling interval
 
+// Progress bar and lyric timing (include/position_estimate.h).
+//
+// The bar's value range. At 0-100 it could only move once every hundredth of
+// the track - 2.4 seconds on a four-minute song, in a jump of several pixels -
+// so the position could be as smooth as it liked and the bar would still climb
+// a staircase. 10000 puts a step well under a pixel on both panels.
+#define PROGRESS_SLIDER_MAX     10000
+
+// How often the player redraws the bar, the two time labels and the lyric line
+// from the interpolated position. Deliberately independent of the network: this
+// is what keeps the bar moving while polling is held off for art or an SDIO
+// cooldown. 10Hz is far more than the eye needs for a bar that takes minutes to
+// cross the screen, and the labels are only rewritten when their second
+// actually changes, so the cost is one slider value per tick.
+#define PROGRESS_TICK_MS        100
+
 // =============================================================================
 // OTA UPDATES
 // =============================================================================
