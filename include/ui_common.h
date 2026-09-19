@@ -113,6 +113,20 @@ extern Preferences wifiPrefs;
 extern int brightness_level;
 extern int brightness_dimmed;
 extern int autodim_timeout;
+// Night (issue #172): see nightNow() in ui_handlers.cpp. Times are minutes past
+// midnight, so the window can cross midnight.
+extern bool night_enabled;
+extern int  night_from_min;
+extern int  night_to_min;
+extern int  night_level;        // where the screen rests at night; 0 = off
+extern int  night_touch_level;  // what a touch at night wakes it to
+// millis() of the last wake-from-dim during night hours. The clock screen reads
+// it so the touch that lit the screen does not also dismiss the clock.
+extern volatile uint32_t night_wake_ms;
+
+// True when night hours are on AND the clock has a real time AND now is inside
+// the window. Before NTP syncs there is no clock to judge by, so it is false.
+bool nightNow();
 extern int panel_variant;   // PANEL_VARIANT_* — which 7" LCD panel is fitted
 extern bool lyrics_enabled;
 extern bool blur_bg_enabled;

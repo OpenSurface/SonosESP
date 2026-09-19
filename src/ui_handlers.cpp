@@ -23,18 +23,53 @@ void setBrightness(int level) {
     wifiPrefs.putInt(NVS_KEY_BRIGHTNESS, brightness_level);
 }
 
-void resetScreenTimeout() {
-    last_touch_time = millis();
-    if (screen_dimmed) {
-        // Instant wake-up - no animation
-        display_set_brightness(brightness_level);
-        screen_dimmed = false;
-    }
+// Night hours (issue #172). Minutes past midnight, and the window normally
+// crosses midnight, so 21:00-07:00 is "x >= from OR x < to". Closed at the end:
+// at 07:00 exactly it is morning again, and the panel goes back to normal on its
+// own - nothing to switch back.
+//
+// Before NTP syncs, time() is 1970 plus uptime. That is not a clock, and judging
+// night by it would dim a panel at noon, so this is false until the clock is real.
+bool nightNow() {
+    if (!night_enabled) return false;
+    const time_t now = time(nullptr);
+    if (now < 1600000000) return false;
+    struct tm tm;
+    localtime_r(&now, &tm);
+    const int x = tm.tm_hour * 60 + tm.tm_min;
+    return night_from_min < night_to_min ? (x >= night_from_min && x < night_to_min)
+                                         : (x >= night_from_min || x < night_to_min);
 }
 
 // Brightness animation callback for smooth dimming
 static void brightness_anim_cb(void* var, int32_t v) {
     display_set_brightness(v);
+}
+
+void resetScreenTimeout() {
+    last_touch_time = millis();
+    if (!screen_dimmed) return;
+    screen_dimmed = false;
+
+    if (!nightNow()) {
+        // Instant wake-up - no animation
+        display_set_brightness(brightness_level);
+        return;
+    }
+
+    // At night, wake gently and only part way: a bedside panel snapping to 100%
+    // in a dark room is the complaint this feature exists for. The clock screen
+    // reads night_wake_ms so this same touch does not also dismiss the clock.
+    night_wake_ms = millis();
+    const int target = constrain(night_touch_level, NIGHT_TOUCH_MIN, NIGHT_TOUCH_MAX);
+    lv_anim_t anim;
+    lv_anim_init(&anim);
+    lv_anim_set_var(&anim, NULL);
+    lv_anim_set_values(&anim, constrain(night_level, 0, 100), target);
+    lv_anim_set_duration(&anim, NIGHT_WAKE_FADE_MS);
+    lv_anim_set_exec_cb(&anim, brightness_anim_cb);
+    lv_anim_set_path_cb(&anim, lv_anim_path_ease_out);
+    lv_anim_start(&anim);
 }
 
 void checkAutoDim() {
@@ -43,7 +78,10 @@ void checkAutoDim() {
 
     if ((millis() - last_touch_time) > (autodim_timeout * 1000)) {
         // Floor per panel (issue #172): 1% on the 4", 5% on the 7" - see config.h.
-        int dimmed = constrain(brightness_dimmed, BRIGHTNESS_DIM_MIN, 100);
+        // During night hours the screen rests at the night level instead, which
+        // may be 0: the backlight goes off entirely, which both panels can do.
+        int dimmed = nightNow() ? constrain(night_level, 0, 100)
+                                : constrain(brightness_dimmed, BRIGHTNESS_DIM_MIN, 100);
 
         // Smooth fade to dimmed brightness (1 second fade)
         lv_anim_t anim;

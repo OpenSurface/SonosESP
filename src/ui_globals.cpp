@@ -46,6 +46,14 @@ Preferences wifiPrefs;
 int brightness_level = 100;
 int brightness_dimmed = 20;
 int autodim_timeout = 30;
+// Night (issue #172). night_level defaults to the panel's floor: on the 4" that
+// is 1%, which is the level the whole feature exists for.
+bool night_enabled    = (bool)DEFAULT_NIGHT_ON;
+int  night_from_min   = DEFAULT_NIGHT_FROM;
+int  night_to_min     = DEFAULT_NIGHT_TO;
+int  night_level      = BRIGHTNESS_DIM_MIN;
+int  night_touch_level = DEFAULT_NIGHT_TOUCH;
+volatile uint32_t night_wake_ms = 0;
 bool lyrics_enabled = true;
 // Defaults on: this shipped as always-on for the Classic theme, so an existing
 // device must look identical until its owner decides otherwise.

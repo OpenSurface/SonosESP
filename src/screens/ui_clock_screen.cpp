@@ -1185,9 +1185,15 @@ void createClockScreen() {
 
     // (Tap-to-dismiss: whole screen is clickable, so no separate hint needed)
 
-    // Touch anywhere on the screen to dismiss
+    // Touch anywhere on the screen to dismiss — except the touch that just woke
+    // the screen during night hours (issue #172). At 3am you want to see the
+    // time, not the player: the first tap lights the clock, the next one leaves.
     lv_obj_add_flag(scr_clock, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(scr_clock, [](lv_event_t* /*e*/) {
+        if (night_wake_ms && millis() - night_wake_ms < NIGHT_WAKE_GRACE_MS) {
+            night_wake_ms = 0;   // consumed: the next tap dismisses as usual
+            return;
+        }
         exitClockScreen();
     }, LV_EVENT_CLICKED, NULL);
 }

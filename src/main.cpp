@@ -271,6 +271,11 @@ void setup() {
     brightness_level = wifiPrefs.getInt(NVS_KEY_BRIGHTNESS, DEFAULT_BRIGHTNESS);
     brightness_dimmed = wifiPrefs.getInt(NVS_KEY_BRIGHTNESS_DIM, DEFAULT_BRIGHTNESS_DIM);
     autodim_timeout = wifiPrefs.getInt(NVS_KEY_AUTODIM, DEFAULT_AUTODIM_SEC);
+    night_enabled      = wifiPrefs.getBool(NVS_KEY_NIGHT_ON,    (bool)DEFAULT_NIGHT_ON);
+    night_from_min     = wifiPrefs.getInt(NVS_KEY_NIGHT_FROM,   DEFAULT_NIGHT_FROM);
+    night_to_min       = wifiPrefs.getInt(NVS_KEY_NIGHT_TO,     DEFAULT_NIGHT_TO);
+    night_level        = wifiPrefs.getInt(NVS_KEY_NIGHT_LEVEL,  BRIGHTNESS_DIM_MIN);
+    night_touch_level  = wifiPrefs.getInt(NVS_KEY_NIGHT_TOUCH,  DEFAULT_NIGHT_TOUCH);
     lyrics_enabled = wifiPrefs.getBool(NVS_KEY_LYRICS, true);
     blur_bg_enabled = wifiPrefs.getBool(NVS_KEY_BLUR_BG, true);   // #49, defaults on
     // 7" panel variant. MUST be loaded before display_init() — it selects the

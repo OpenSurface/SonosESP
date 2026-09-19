@@ -12,9 +12,68 @@
 #include "amber.h"
 #include "ui_settings_card.h"
 #include "ui_theme.h"
+#include "display_driver.h"   // preview a night level without persisting it
+#include "clock_screen.h"     // clock_12h - the time chips follow it
 
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
+
+// ── Night card helpers (issue #172) ─────────────────────────────────────────
+// "21:00", or "9:00 PM" when the clock is set to 12-hour.
+static void nightTimeText(char* out, size_t n, int minutes) {
+    const int h = (minutes / 60) % 24, m = minutes % 60;
+    if (!clock_12h) { snprintf(out, n, "%02d:%02d", h, m); return; }
+    const int h12 = (h % 12) == 0 ? 12 : h % 12;
+    snprintf(out, n, "%d:%02d %s", h12, m, h < 12 ? "AM" : "PM");
+}
+
+// 0 is not "0%": the backlight is off, and saying so is the point of allowing it.
+static const char* nightLevelText(int level) {
+    static char buf[8];
+    if (level <= 0) snprintf(buf, sizeof(buf), "Off");
+    else            snprintf(buf, sizeof(buf), "%d%%", level);
+    return buf;
+}
+
+// The two ends of the window, as chips that step half an hour a tap and wrap at
+// midnight. A roller each would be more precise than "about bedtime" needs, and
+// this stays readable at arm's length in a dark room.
+struct NightChip { int* minutes; const char* key; lv_obj_t* lbl; };
+static NightChip s_night_from;
+static NightChip s_night_to;
+
+static void nightChipClicked(lv_event_t* e) {
+    NightChip* c = (NightChip*)lv_event_get_user_data(e);
+    *c->minutes = (*c->minutes + NIGHT_STEP_MIN) % (24 * 60);
+    wifiPrefs.putInt(c->key, *c->minutes);
+    char txt[12];
+    nightTimeText(txt, sizeof(txt), *c->minutes);
+    lv_label_set_text(c->lbl, txt);
+}
+
+static lv_obj_t* nightChip(lv_obj_t* parent, NightChip* state) {
+    lv_obj_t* b = lv_button_create(parent);
+    lv_obj_set_size(b, LV_SIZE_CONTENT, SY(34));
+    lv_obj_set_style_radius(b, SMIN(17), 0);
+    lv_obj_set_style_bg_color(b, AMB_RAISED, 0);
+    lv_obj_set_style_border_width(b, 1, 0);
+    lv_obj_set_style_border_color(b, AMB_BORDER, 0);
+    lv_obj_set_style_border_color(b, AMB_ACCENT, LV_STATE_PRESSED);
+    lv_obj_set_style_shadow_width(b, 0, 0);
+    lv_obj_set_style_pad_hor(b, SX(14), 0);
+    lv_obj_set_style_pad_ver(b, 0, 0);
+    lv_obj_set_flex_flow(b, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(b, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_add_event_cb(b, nightChipClicked, LV_EVENT_CLICKED, state);
+
+    char txt[12];
+    nightTimeText(txt, sizeof(txt), *state->minutes);
+    state->lbl = lv_label_create(b);
+    lv_obj_set_style_text_font(state->lbl, &font_text_16, 0);
+    lv_obj_set_style_text_color(state->lbl, AMB_TEXT, 0);
+    lv_label_set_text(state->lbl, txt);
+    return b;
+}
 
 // ============================================================================
 // Display Settings Screen
@@ -70,6 +129,71 @@ void createDisplaySettingsScreen() {
             wifiPrefs.putInt(NVS_KEY_BRIGHTNESS_DIM, brightness_dimmed);
             if (screen_dimmed) setBrightness(brightness_dimmed);
         }, LV_EVENT_VALUE_CHANGED, lbl_dimmed_brightness_val);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // CARD — Night  (issue #172)
+    // ------------------------------------------------------------------------
+    // A bedside panel should not light a dark room. Between these hours the
+    // screen rests at the night level instead of the dimmed one, and a touch
+    // wakes it part way rather than to full brightness. Morning needs no action:
+    // the window ends and everything behaves as before.
+    // ────────────────────────────────────────────────────────────────────────
+    {
+        lv_obj_t* card = addCard(content, "Night");
+
+        lv_obj_t* slot = addSettingRow(card, "Night hours",
+                                       "A quieter screen between these times", false);
+        lv_obj_t* sw_night = addSwitch(slot, night_enabled);
+        lv_obj_add_event_cb(sw_night, [](lv_event_t* e) {
+            lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
+            night_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
+            wifiPrefs.putBool(NVS_KEY_NIGHT_ON, night_enabled);
+        }, LV_EVENT_VALUE_CHANGED, NULL);
+
+        // From / to, as two chips that step half an hour a tap. A roller for
+        // each would be more precise than anyone needs for "about bedtime", and
+        // this stays readable at arm's length in the dark.
+        lv_obj_t* times = addSettingRow(card, "From / to",
+                                        "Tap a time to move it half an hour", false);
+        lv_obj_set_style_pad_column(times, SX(8), 0);
+        s_night_from = { &night_from_min, NVS_KEY_NIGHT_FROM, nullptr };
+        s_night_to   = { &night_to_min,   NVS_KEY_NIGHT_TO,   nullptr };
+        nightChip(times, &s_night_from);
+        addValueLabel(times, "→");
+        nightChip(times, &s_night_to);
+
+        static lv_obj_t* lbl_night_val;
+        lv_obj_t* row_night = addSliderRow(card, "Night brightness",
+                                           "Where the screen rests at night. 0 turns it off.",
+                                           false, &lbl_night_val);
+        lv_label_set_text(lbl_night_val, nightLevelText(night_level));
+        lv_obj_t* sl_night = addSlider(row_night, 0, 20, night_level);
+        lv_obj_add_event_cb(sl_night, [](lv_event_t* e) {
+            lv_obj_t* s = (lv_obj_t*)lv_event_get_target(e);
+            night_level = lv_slider_get_value(s);
+            lv_label_set_text((lv_obj_t*)lv_event_get_user_data(e), nightLevelText(night_level));
+            wifiPrefs.putInt(NVS_KEY_NIGHT_LEVEL, night_level);
+            // Preview it while dragging, but only if the screen is already
+            // resting: overriding a wake would fight the user's own touch.
+            // display_set_brightness() drives the backlight without touching
+            // brightness_level or NVS, which is exactly what a preview wants.
+            if (screen_dimmed) display_set_brightness(night_level);
+        }, LV_EVENT_VALUE_CHANGED, lbl_night_val);
+
+        static lv_obj_t* lbl_touch_val;
+        lv_obj_t* row_touch = addSliderRow(card, "Touch at night wakes to",
+                                           "The clock stays up. Tap again for the player.",
+                                           false, &lbl_touch_val);
+        lv_label_set_text_fmt(lbl_touch_val, "%d%%", night_touch_level);
+        lv_obj_t* sl_touch = addSlider(row_touch, NIGHT_TOUCH_MIN, NIGHT_TOUCH_MAX,
+                                       night_touch_level);
+        lv_obj_add_event_cb(sl_touch, [](lv_event_t* e) {
+            lv_obj_t* s = (lv_obj_t*)lv_event_get_target(e);
+            night_touch_level = lv_slider_get_value(s);
+            lv_label_set_text_fmt((lv_obj_t*)lv_event_get_user_data(e), "%d%%", night_touch_level);
+            wifiPrefs.putInt(NVS_KEY_NIGHT_TOUCH, night_touch_level);
+        }, LV_EVENT_VALUE_CHANGED, lbl_touch_val);
     }
 
     // ────────────────────────────────────────────────────────────────────────
