@@ -37,6 +37,41 @@ static void headerCircle(lv_obj_t* b) {
     lv_obj_set_style_shadow_width(b, 0, 0);
 }
 
+// ── Track label geometry (issues #63, #151, #177) ───────────────────────────
+// The one definition of Classic's title/artist/album boxes. The builder calls
+// it, and so does themeRestoreTrackLabels() when a radio, line-in or TV mode
+// ends. Those handlers used to carry their own copy of these numbers and write
+// them onto whichever theme was running, which is how a radio station left
+// Amber's title sitting on top of its artist until the panel was rebooted.
+void classicRestoreTrackLabels(void) {
+    if (lbl_title) {
+        lv_obj_set_pos(lbl_title, SX(15), SY(88));
+        lv_obj_set_width(lbl_title, SX(265));
+        lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    }
+    if (lbl_artist) {
+        lv_obj_set_pos(lbl_artist, SX(15), SY(132));
+        // Fixed height: a wrapping artist grew over the album line (issue #63).
+        lv_obj_set_size(lbl_artist, SX(265), SY(20));
+        // Scroll like the title — shows the full name rather than truncating.
+        lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    }
+    if (lbl_album) {
+        lv_obj_set_pos(lbl_album, SX(15), SY(154));
+        lv_obj_set_size(lbl_album, SX(265), SY(20));
+        lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    }
+}
+
+// Radio mode gives the artist two lines, so a long programme name ("Artist -
+// Song Title on Station") shows in full. Only this layout has the row height
+// for it; the others keep one scrolling line. Undone by the restore above.
+void classicApplyRadioArtist(bool radio) {
+    if (!lbl_artist || !radio) return;
+    lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_WRAP);
+    lv_obj_set_height(lbl_artist, SY(44));   // 2 x 22px lines of Montserrat 16
+}
+
 // ==================== CLASSIC LAYOUT — used by Classic + Ambient ============
 // Ambient shares this layout and differs only in backdrop treatment, which is
 // applied by themeApplyBackdrop() from the art colour animation.
@@ -215,19 +250,15 @@ void buildClassicPlayer() {
 
     // ===== TRACK INFO =====
     // Title (white, large) — FIRST: modern players put title above artist
+    // Geometry comes from classicRestoreTrackLabels(), called once all three
+    // exist, so the builder and the mode handlers cannot drift apart (#177).
     lbl_title = lv_label_create(panel_right);
-    lv_obj_set_pos(lbl_title, SX(15), SY(88));
-    lv_obj_set_width(lbl_title, SX(265));
-    lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_title, "Not Playing");
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_set_style_text_font(lbl_title, &font_text_32, 0);
 
     // Artist (gray, smaller) — below title
     lbl_artist = lv_label_create(panel_right);
-    lv_obj_set_pos(lbl_artist, SX(15), SY(132));
-    lv_obj_set_size(lbl_artist, SX(265), SY(20));  // Fixed height prevents text wrapping over elements below (issue #63)
-    lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);  // Scroll like title — shows full name
     lv_label_set_text(lbl_artist, "");
     lv_obj_set_style_text_color(lbl_artist, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_artist, &font_text_16, 0);
@@ -269,12 +300,12 @@ void buildClassicPlayer() {
 
     // Album name — below artist
     lbl_album = lv_label_create(panel_right);
-    lv_obj_set_size(lbl_album, SX(265), SY(20));
-    lv_obj_set_pos(lbl_album, SX(15), SY(154));
-    lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_album, "");
     lv_obj_set_style_text_color(lbl_album, COL_TEXT2, 0);
     lv_obj_set_style_text_font(lbl_album, &font_text_14, 0);
+
+    // Title, artist and album placed from their single definition above.
+    classicRestoreTrackLabels();
 
     // ===== PROGRESS BAR =====
     slider_progress = lv_slider_create(panel_right);

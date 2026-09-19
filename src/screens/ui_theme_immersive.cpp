@@ -304,6 +304,28 @@ static void park(lv_obj_t* o) {
     lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
 }
 
+// Width of the header text column: stops short of the three 46px buttons.
+#define IM_TEXT_W  ((IM_RIGHT - 2 * 46 - 12 - 16) - IM_TEXT_X)
+
+// ── Track label geometry (issue #177) ───────────────────────────────────────
+// The one definition of this layout's header text block. The builder calls it,
+// and so does themeRestoreTrackLabels() when a radio, line-in or TV mode ends —
+// those handlers used to put Classic's coordinates back on every theme. The
+// album line has no place here, so it stays parked off-canvas.
+void immersiveRestoreTrackLabels(void) {
+    if (lbl_title) {
+        lv_obj_set_pos(lbl_title, SX(IM_TEXT_X), SY(IM_HEAD_Y + 6));
+        lv_obj_set_size(lbl_title, SX(IM_TEXT_W), SY(40));
+        lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    }
+    if (lbl_artist) {
+        lv_obj_set_pos(lbl_artist, SX(IM_TEXT_X), SY(IM_HEAD_Y + 52));
+        lv_obj_set_size(lbl_artist, SX(IM_TEXT_W), SY(26));
+        lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    }
+    park(lbl_album);
+}
+
 // ── Builder ─────────────────────────────────────────────────────────────────
 void buildImmersivePlayer() {
     im_stage = nullptr; im_timer = nullptr;
@@ -387,21 +409,16 @@ void buildImmersivePlayer() {
     }
 
     // ── Header: text block ──────────────────────────────────────────────────
-    // Width stops short of the two 46px buttons + gap on the right.
-    const int head_text_w = (IM_RIGHT - 2 * 46 - 12 - 16) - IM_TEXT_X;
+    // Geometry comes from immersiveRestoreTrackLabels(), called once the three
+    // labels exist, so the builder and the mode handlers share one copy (#177).
+    const int head_text_w = IM_TEXT_W;
 
     lbl_title = lv_label_create(panel_right);
-    lv_obj_set_pos(lbl_title, SX(IM_TEXT_X), SY(IM_HEAD_Y + 6));
-    lv_obj_set_size(lbl_title, SX(head_text_w), SY(40));
-    lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_title, "Not Playing");
     lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
     lv_obj_set_style_text_font(lbl_title, &font_text_32, 0);
 
     lbl_artist = lv_label_create(panel_right);
-    lv_obj_set_pos(lbl_artist, SX(IM_TEXT_X), SY(IM_HEAD_Y + 52));
-    lv_obj_set_size(lbl_artist, SX(head_text_w), SY(26));
-    lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(lbl_artist, "");
     lv_obj_set_style_text_color(lbl_artist, COL_TEXT, 0);
     lv_obj_set_style_text_opa(lbl_artist, LV_OPA_80, 0);
@@ -600,7 +617,10 @@ void buildImmersivePlayer() {
     lbl_album = lv_label_create(panel_right);
     lv_label_set_text(lbl_album, "");
     lv_obj_set_style_text_font(lbl_album, &font_text_14, 0);
-    park(lbl_album);
+
+    // Places the header text block and parks the album line, from the single
+    // definition above.
+    immersiveRestoreTrackLabels();
 
     img_next_album = lv_img_create(panel_right);
     lv_obj_set_size(img_next_album, SMIN(40), SMIN(40));

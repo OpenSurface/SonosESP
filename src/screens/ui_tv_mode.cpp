@@ -65,9 +65,10 @@ void setTvAudioMode(bool enable) {
             lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_CLIP);
             lv_label_set_text(lbl_title, "TV Audio");
         }
+        // Long mode only - the box belongs to the theme builder, and the exit
+        // path asks it to restore everything (issue #177).
         if (lbl_artist) {
             lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
-            lv_obj_set_height(lbl_artist, SY(20));
             lv_label_set_text(lbl_artist, "");
         }
 
@@ -104,16 +105,11 @@ void setTvAudioMode(bool enable) {
 
         if (lbl_album) lv_obj_clear_flag(lbl_album, LV_OBJ_FLAG_HIDDEN);
 
-        // Restore the ACTIVE THEME's long mode, not a hardcoded one. Amber gives
-        // the title a two-line truncating box; forcing scroll here left it
-        // side-scrolling for the rest of the session after a single line-in play,
-        // recoverable only by switching theme.
-        const lv_label_long_mode_t lm = themeTitleLongMode();
-        if (lbl_title)  lv_label_set_long_mode(lbl_title,  lm);
-        if (lbl_artist) {
-            lv_label_set_long_mode(lbl_artist, lm);
-            lv_obj_set_height(lbl_artist, SY(20));
-        }
+        // Hand the labels back to the theme that built them: position, size and
+        // long mode together. Restoring only the title's long mode left the
+        // artist carrying the TITLE's mode and Classic's height, on every theme
+        // (issue #177).
+        themeRestoreTrackLabels();
     }
 }
 

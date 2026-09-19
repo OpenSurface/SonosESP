@@ -59,11 +59,29 @@ extern uint8_t active_theme;
 
 const ThemeDef* themeCurrent(void);
 
-// The long mode lbl_title should return to when a mode overlay (line-in, TV)
-// clears. Those handlers used to hardcode LV_LABEL_LONG_SCROLL_CIRCULAR, which
-// silently undid Amber's deliberate wrap-and-truncate title for the rest of the
-// session — the canvas is explicit that the title must not side-scroll.
-lv_label_long_mode_t themeTitleLongMode(void);
+// Puts lbl_title / lbl_artist / lbl_album back exactly as the ACTIVE theme's
+// builder made them: position, size AND long mode together.
+//
+// lbl_* are globals, and every theme places them somewhere different. The radio,
+// line-in and TV handlers each used to write their own idea of the geometry back
+// when their mode ended — Classic's, because Classic was the only layout when
+// they were written. After a single radio session Amber's title sat 26px high,
+// on top of its artist, until the panel was rebooted: issue #177.
+//
+// Call this instead of touching those labels. The builders own their geometry.
+void themeRestoreTrackLabels(void);
+
+// Radio mode wants a two-line artist so a long programme name fits. That is a
+// Classic-layout nicety — its artist row has the room — so the theme decides:
+// on Amber the same 44px box covered the title. Off is the restore above.
+void themeApplyRadioArtist(bool radio);
+
+// Per-theme implementations of the two above, defined next to the builder that
+// owns each layout, so the numbers live in one place per theme.
+void classicRestoreTrackLabels(void);
+void immersiveRestoreTrackLabels(void);
+void amberRestoreTrackLabels(void);
+void classicApplyRadioArtist(bool radio);
 
 // False for a theme whose accents are FIXED. The art-colour animation recolours
 // the progress bar, its knob and the transport's pressed states from the album,

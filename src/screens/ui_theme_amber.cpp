@@ -246,6 +246,32 @@ static void park(lv_obj_t* o) {
     lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
 }
 
+// ── Track label geometry (issues #151, #177) ────────────────────────────────
+// Re-applies what the builder below sets, for themeRestoreTrackLabels() when a
+// radio, line-in or TV mode ends. Those handlers used to write Classic's own
+// numbers back on every theme: after one radio station this title sat 26px
+// high, on top of the artist, until the panel was rebooted (issue #177).
+//
+// Same AP_* constants and the same font-derived heights as the builder, so
+// moving a row moves both.
+void amberRestoreTrackLabels(void) {
+    if (lbl_artist) {
+        lv_obj_set_pos(lbl_artist, SX(AP_R), SY(AP_ARTIST_Y));
+        lv_obj_set_size(lbl_artist, SX(AP_RW), lv_font_get_line_height(&font_text_12));
+        lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    }
+    if (lbl_title) {
+        lv_obj_set_pos(lbl_title, SX(AP_R), SY(AP_TITLE_Y));
+        lv_obj_set_size(lbl_title, SX(AP_RW), SY(AP_TITLE_H));
+        lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_DOT);
+    }
+    if (lbl_album) {
+        lv_obj_set_pos(lbl_album, SX(AP_R), SY(AP_ALBUM_Y));
+        lv_obj_set_size(lbl_album, SX(AP_RW), lv_font_get_line_height(&font_text_14));
+        lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    }
+}
+
 // ── Builder ─────────────────────────────────────────────────────────────────
 void buildAmberPlayer() {
     scr_main = lv_obj_create(NULL);
@@ -510,6 +536,7 @@ void buildAmberPlayer() {
              AP_RIGHT - chip, AP_HEAD_Y, chip, ev_settings, true, AMB_TEXT2);
 
     // ── Track meta ──────────────────────────────────────────────────────────
+    // Geometry for all three comes from amberRestoreTrackLabels(), below.
     lbl_artist = lv_label_create(panel_right);
     lv_obj_set_pos(lbl_artist, SX(AP_R), SY(AP_ARTIST_Y));
     // Height from the FONT, not a design-space constant. SY() scales by 1.25 on
