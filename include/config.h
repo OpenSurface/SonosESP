@@ -284,7 +284,7 @@
 // answers the question: tracks there means the speaker completed the work.
 // Polled with the mutex released between calls, so art and polling still run.
 #define SONOS_ENQUEUE_SETTLE_MS      15000  // give up waiting for the queue to fill
-#define SONOS_ENQUEUE_SETTLE_POLL_MS  1000  // one GetMediaInfo per second while waiting
+#define SONOS_ENQUEUE_SETTLE_POLL_MS  1000  // one Browse Q:0 per second while waiting
 #define SONOS_DEBOUNCE_MS       400     // Command debounce time
 
 // Polling tick modulos (base interval = 300ms, so N ticks = N * 300ms)

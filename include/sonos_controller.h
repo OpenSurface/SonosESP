@@ -181,9 +181,9 @@ private:
     // return. Anything reading it later may see another task's request.
     int last_soap_http_code = 0;
 
-    // Waits for the queue to stop being empty, polling GetMediaInfo once a
-    // second with the mutex released between calls. Returns the track count, or
-    // 0 if it never filled. Only meaningful when the caller emptied the queue
+    // Waits for the queue to stop being empty, polling Browse Q:0 once a second
+    // with the mutex released between calls. Returns the track count, or 0 if it
+    // never filled. Only meaningful when the caller emptied the queue
     // immediately beforehand.
     int waitForQueueToFill(uint32_t timeout_ms);
     // Returns false when the device description could not be fetched or parsed,
