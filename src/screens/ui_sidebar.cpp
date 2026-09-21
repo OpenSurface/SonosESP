@@ -67,22 +67,40 @@ static void sbDockWrite(SbDock& d) {
     if (!d.title) return;
 
     SonosDevice* dev = sonos.getCurrentDevice();
-    const bool have = dev && dev->currentTrack.length();
+
+    // Snapshot the Strings under deviceMutex, then do every LVGL call outside it
+    // — the same contract updateUI() and updateNextTrackUI() already follow.
+    // This runs on a 500ms timer, so it used to read currentTrack/currentArtist/
+    // roomName straight out of the shared slot while the polling task was
+    // reassigning them; a String assignment frees the buffer c_str() just handed
+    // to LVGL. Never hold the lock across an LVGL call.
+    String track, artist, room;
+    bool playing = false;
+    if (dev) {
+        if (xSemaphoreTake(sonos.getDeviceMutex(), pdMS_TO_TICKS(30))) {
+            track   = dev->currentTrack;
+            artist  = dev->currentArtist;
+            room    = dev->roomName;
+            playing = dev->isPlaying;
+            xSemaphoreGive(sonos.getDeviceMutex());
+        } else {
+            return;   // polling is mid-write; the next tick is 500ms away
+        }
+    }
+    const bool have = track.length() > 0;
 
     if (have) {
-        lv_label_set_text(d.title, dev->currentTrack.c_str());
-        if (dev->currentArtist.length() && dev->roomName.length())
-            lv_label_set_text_fmt(d.meta, "%s · %s",
-                                  dev->currentArtist.c_str(), dev->roomName.c_str());
-        else if (dev->roomName.length())
-            lv_label_set_text(d.meta, dev->roomName.c_str());
+        lv_label_set_text(d.title, track.c_str());
+        if (artist.length() && room.length())
+            lv_label_set_text_fmt(d.meta, "%s · %s", artist.c_str(), room.c_str());
+        else if (room.length())
+            lv_label_set_text(d.meta, room.c_str());
         else
-            lv_label_set_text(d.meta, dev->currentArtist.c_str());
-        lv_label_set_text(d.play_icon, dev->isPlaying ? AMB_IC_PAUSE : AMB_IC_PLAY);
+            lv_label_set_text(d.meta, artist.c_str());
+        lv_label_set_text(d.play_icon, playing ? AMB_IC_PAUSE : AMB_IC_PLAY);
     } else {
         lv_label_set_text(d.title, "Not Playing");
-        lv_label_set_text(d.meta, dev && dev->roomName.length()
-                                      ? dev->roomName.c_str() : "No speaker selected");
+        lv_label_set_text(d.meta, room.length() ? room.c_str() : "No speaker selected");
         lv_label_set_text(d.play_icon, AMB_IC_PLAY);
     }
 
@@ -94,8 +112,8 @@ static void sbDockWrite(SbDock& d) {
     if (!d.art) return;
     const bool art_ok = have && art_dsc.data != nullptr;
     if (art_ok) {
-        if (d.art_track != dev->currentTrack) {
-            d.art_track = dev->currentTrack;
+        if (d.art_track != track) {
+            d.art_track = track;
             // Re-binding is what refreshes it: the descriptor POINTER never
             // changes, so LVGL has no way to notice new pixels behind it.
             lv_image_set_src(d.art, &art_dsc);

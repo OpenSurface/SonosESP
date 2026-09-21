@@ -96,18 +96,36 @@ void updateRadioModeUI() {
     // The currentTrack field may contain current song from streamContent
     // or it may contain URL junk - we need to be smart about this
 
+    // Snapshot the Strings under deviceMutex, then work only from the copies.
+    //
+    // This runs at the END of every updateUI() — immediately after the block
+    // that takes this same lock to snapshot title/artist/album for exactly this
+    // reason. Reading radioStationName/currentTrack/currentArtist straight out
+    // of the shared slot left that fix half-done: the polling task reassigns all
+    // three in updateTrackInfo()/updateMediaInfo(), and a String assignment
+    // frees the buffer we would still be reading.
+    String stationName, curTrack, curArtist;
+    if (xSemaphoreTake(sonos.getDeviceMutex(), pdMS_TO_TICKS(30))) {
+        stationName = dev->radioStationName;
+        curTrack    = dev->currentTrack;
+        curArtist   = dev->currentArtist;
+        xSemaphoreGive(sonos.getDeviceMutex());
+    } else {
+        return;   // polling is mid-write; skip this tick (retries in ~200ms)
+    }
+
     String displayTitle = "";
     String displayArtist = "";
 
     // Priority 1: Use radioStationName from GetMediaInfo (the actual station name)
-    if (dev->radioStationName.length() > 0) {
-        displayTitle = dev->radioStationName;
+    if (stationName.length() > 0) {
+        displayTitle = stationName;
     }
 
     // Priority 2: If currentTrack looks valid (not URL junk), use it
     // This could be the current song from streamContent parsing
-    if (dev->currentTrack.length() > 0) {
-        String track = dev->currentTrack;
+    if (curTrack.length() > 0) {
+        String track = curTrack;
         bool isJunk = (track.indexOf("?") > 0 ||
                       track.indexOf(".mp3") > 0 ||
                       track.indexOf(".m3u8") > 0 ||
@@ -134,8 +152,8 @@ void updateRadioModeUI() {
     }
 
     // Artist: Use currentArtist if available, otherwise "Live Radio"
-    if (dev->currentArtist.length() > 0) {
-        displayArtist = dev->currentArtist;
+    if (curArtist.length() > 0) {
+        displayArtist = curArtist;
     } else {
         displayArtist = "Live Radio";
     }
@@ -149,7 +167,7 @@ void updateRadioModeUI() {
         Serial.printf("[RADIO UI] Updating display - Title: '%s', Artist: '%s'\n",
                      displayTitle.c_str(), displayArtist.c_str());
         Serial.printf("[RADIO UI] Source data - StationName: '%s', CurrentTrack: '%s', CurrentArtist: '%s'\n",
-                     dev->radioStationName.c_str(), dev->currentTrack.c_str(), dev->currentArtist.c_str());
+                     stationName.c_str(), curTrack.c_str(), curArtist.c_str());
         last_displayed_title = displayTitle;
         last_displayed_artist = displayArtist;
     }
