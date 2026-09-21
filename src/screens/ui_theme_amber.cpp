@@ -614,6 +614,8 @@ void buildAmberPlayer() {
     // Narrowed to leave room for the readout the canvas puts at the end of the row.
     slider_vol = amberSlider(panel_right, AP_R + 34, AP_VOL_Y, AP_RW - 34 - 40,
                               AMB_TEXT_BRIGHT, ev_vol_slider);
+    // Only remote changes animate; a drag is gated on !dragging_vol.
+    lv_obj_set_style_anim_duration(slider_vol, VOL_GLIDE_MS, 0);
 
     // Volume readout. Kept in step from the slider itself rather than from
     // updateUI(), which only writes slider_vol and has no label for this.

@@ -348,14 +348,14 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
         lv_obj_add_event_cb(btn, [](lv_event_t* e) {
             int idx = (int)(intptr_t)lv_event_get_user_data(e);
             switch(idx) {
-                case 0: lv_screen_load(scr_general);        break;
-                case 1: lv_screen_load(scr_devices);        break;
-                case 2: lv_screen_load(scr_groups);         break;
-                case 3: lv_screen_load(scr_sources);        break;
-                case 4: lv_screen_load(scr_display);        break;
-                case 5: lv_screen_load(scr_wifi);           break;
-                case 6: lv_screen_load(scr_clock_settings); break;
-                case 7: lv_screen_load(scr_ota);            break;
+                case 0: lv_screen_load_anim(scr_general, LV_SCR_LOAD_ANIM_FADE_IN, SETTINGS_FADE_MS, 0, false);        break;
+                case 1: lv_screen_load_anim(scr_devices, LV_SCR_LOAD_ANIM_FADE_IN, SETTINGS_FADE_MS, 0, false);        break;
+                case 2: lv_screen_load_anim(scr_groups, LV_SCR_LOAD_ANIM_FADE_IN, SETTINGS_FADE_MS, 0, false);         break;
+                case 3: lv_screen_load_anim(scr_sources, LV_SCR_LOAD_ANIM_FADE_IN, SETTINGS_FADE_MS, 0, false);        break;
+                case 4: lv_screen_load_anim(scr_display, LV_SCR_LOAD_ANIM_FADE_IN, SETTINGS_FADE_MS, 0, false);        break;
+                case 5: lv_screen_load_anim(scr_wifi, LV_SCR_LOAD_ANIM_FADE_IN, SETTINGS_FADE_MS, 0, false);           break;
+                case 6: lv_screen_load_anim(scr_clock_settings, LV_SCR_LOAD_ANIM_FADE_IN, SETTINGS_FADE_MS, 0, false); break;
+                case 7: lv_screen_load_anim(scr_ota, LV_SCR_LOAD_ANIM_FADE_IN, SETTINGS_FADE_MS, 0, false);            break;
             }
         }, LV_EVENT_CLICKED, (void*)(intptr_t)i);
 

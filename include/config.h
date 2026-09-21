@@ -310,6 +310,22 @@
 // actually changes, so the cost is one slider value per tick.
 #define PROGRESS_TICK_MS        100
 
+// Album art fades up instead of cutting. The cover arrives seconds after the
+// track changed - it has to be downloaded and decoded first - so swapping the
+// pixels between two frames read as a glitch rather than as the artwork
+// landing. The clock screen already cross-fades at 300ms; this is a shade
+// quicker because it happens on every track.
+#define ART_FADE_MS             260
+
+// The volume bar glides when the level changes from somewhere else (the Sonos
+// app, another controller, a voice command). A drag is never animated - that
+// path is gated on !dragging_vol - so this only smooths remote changes.
+#define VOL_GLIDE_MS            200
+
+// Settings navigation cross-fades. The clock already does; the settings pages
+// cut hard, which is the inconsistency rather than the intent.
+#define SETTINGS_FADE_MS        160
+
 // =============================================================================
 // OTA UPDATES
 // =============================================================================
