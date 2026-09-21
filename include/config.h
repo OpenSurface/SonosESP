@@ -284,7 +284,7 @@
 // answers the question: tracks there means the speaker completed the work.
 // Polled with the mutex released between calls, so art and polling still run.
 #define SONOS_ENQUEUE_SETTLE_MS      15000  // give up waiting for the queue to fill
-#define SONOS_ENQUEUE_SETTLE_POLL_MS  1000  // one GetMediaInfo per second while waiting
+#define SONOS_ENQUEUE_SETTLE_POLL_MS  1000  // one Browse Q:0 per second while waiting
 #define SONOS_DEBOUNCE_MS       400     // Command debounce time
 
 // Polling tick modulos (base interval = 300ms, so N ticks = N * 300ms)
@@ -309,6 +309,19 @@
 // cross the screen, and the labels are only rewritten when their second
 // actually changes, so the cost is one slider value per tick.
 #define PROGRESS_TICK_MS        100
+
+// Album art fades up instead of cutting. The cover arrives seconds after the
+// track changed - it has to be downloaded and decoded first - so swapping the
+// pixels between two frames read as a glitch rather than as the artwork
+// landing. The clock screen already cross-fades at 300ms; this is a shade
+// quicker because it happens on every track.
+#define ART_FADE_MS             260
+
+// The volume bar glides when the level changes from somewhere else (the Sonos
+// app, another controller, a voice command). A drag is never animated - that
+// path is gated on !dragging_vol - so this only smooths remote changes.
+#define VOL_GLIDE_MS            200
+
 
 // =============================================================================
 // OTA UPDATES

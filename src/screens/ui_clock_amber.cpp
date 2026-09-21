@@ -290,9 +290,29 @@ void amberFaceTick(const struct tm* now) {
 
     // ── Now playing ─────────────────────────────────────────────────────────
     SonosDevice* dev = sonos.getCurrentDevice();
-    if (dev && dev->currentTrack.length()) {
+
+    // Snapshot under deviceMutex, then do all LVGL work from the copies. The
+    // clock tick runs every second, for the whole night, while the polling task
+    // reassigns currentTrack and roomName — and a String assignment frees the
+    // buffer c_str() just handed to LVGL.
+    String np_track, np_room;
+    bool np_playing = false;
+    bool np_read    = (dev == nullptr);   // "no device" is itself a valid answer
+    if (dev && xSemaphoreTake(sonos.getDeviceMutex(), pdMS_TO_TICKS(30))) {
+        np_track   = dev->currentTrack;
+        np_room    = dev->roomName;
+        np_playing = dev->isPlaying;
+        xSemaphoreGive(sonos.getDeviceMutex());
+        np_read = true;
+    }
+
+    // Lock busy: leave the line exactly as it is rather than blanking it for a
+    // tick. This face is on screen all night and a flicker would be obvious.
+    if (!np_read) {
+        // nothing to do this tick
+    } else if (np_track.length()) {
         char room[48];
-        snprintf(room, sizeof(room), "%s", dev->roomName.length() ? dev->roomName.c_str() : "SONOS");
+        snprintf(room, sizeof(room), "%s", np_room.length() ? np_room.c_str() : "SONOS");
         // Uppercase, and no '#': in a recolour label that opens a colour tag.
         for (char* c = room; *c; c++) *c = (*c == '#') ? ' ' : (char)toupper((unsigned char)*c);
 
@@ -307,16 +327,16 @@ void amberFaceTick(const struct tm* now) {
         if (timer) snprintf(state, sizeof(state), "#%06X UNTIL %s# · %s",
                             (unsigned)AMB_HEX_ACCENT, until, room);
         else       snprintf(state, sizeof(state), "%s · %s",
-                            dev->isPlaying ? "PLAYING" : "PAUSED", room);
+                            np_playing ? "PLAYING" : "PAUSED", room);
 
         const lv_font_t* ico_font = timer ? &font_batt_16 : &font_icon_16;
         if (lv_obj_get_style_text_font(af_now_icon, LV_PART_MAIN) != ico_font)
             lv_obj_set_style_text_font(af_now_icon, ico_font, 0);
         lv_obj_set_style_text_color(af_now_icon, timer ? AMB_ACCENT : AMB_TEXT3, 0);
         lv_label_set_text(af_now_icon, timer ? AMB_ST_SLEEP
-                                             : dev->isPlaying ? AMB_IC_PLAY : AMB_IC_PAUSE);
+                                             : np_playing ? AMB_IC_PLAY : AMB_IC_PAUSE);
         lv_label_set_text(af_now_state, state);
-        lv_label_set_text(af_now_title, dev->currentTrack.c_str());
+        lv_label_set_text(af_now_title, np_track.c_str());
     } else {
         lv_label_set_text(af_now_icon, "");
         lv_label_set_text(af_now_state, "");

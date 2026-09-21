@@ -1812,6 +1812,40 @@ static bool updateConnectionState(SonosDevice* d) {
     return true;  // connected
 }
 
+// Album art used to change in a hard cut. The cover is fetched and decoded in
+// the background, so it lands a second or three AFTER the track already
+// changed: the old sleeve sat there, then the new one appeared between two
+// frames. That reads as a glitch rather than as the artwork arriving.
+//
+// Fading it up says "this just loaded". The clock screen already cross-fades,
+// so this is the house language rather than a new idea.
+static void artFadeCb(void* var, int32_t v) {
+    lv_obj_set_style_opa((lv_obj_t*)var, (lv_opa_t)v, 0);
+}
+
+// Land on exactly COVER. A rapid track change deletes the running fade
+// mid-way, and without this the cover could be left at a partial opacity for
+// good - the same collision that the brightness fade hit.
+static void artFadeDone(lv_anim_t* a) {
+    lv_obj_set_style_opa((lv_obj_t*)a->var, LV_OPA_COVER, 0);
+}
+
+static void artFadeIn(lv_obj_t* img) {
+    if (!img) return;
+    lv_anim_delete(img, artFadeCb);            // never two fades on one image
+    lv_obj_set_style_opa(img, LV_OPA_TRANSP, 0);   // before the unhide, so it
+                                                   // cannot flash at full first
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, img);
+    lv_anim_set_values(&a, LV_OPA_TRANSP, LV_OPA_COVER);
+    lv_anim_set_duration(&a, ART_FADE_MS);
+    lv_anim_set_exec_cb(&a, artFadeCb);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_completed_cb(&a, artFadeDone);
+    lv_anim_start(&a);
+}
+
 // Displays art or placeholder from the background art task.
 // Must be called on the main LVGL thread. Takes art_mutex internally.
 static void displayCompletedArt() {
@@ -1829,6 +1863,7 @@ static void displayCompletedArt() {
         art_dsc.data        = (const uint8_t*)art_buffer;
         lv_img_set_src(img_album, &art_dsc);
         themeApplyArtGeometry(img_album);   // HERO (Classic) vs THUMB (Immersive)
+        artFadeIn(img_album);               // fade up; see the note on artFadeIn
         lv_obj_remove_flag(img_album, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
         art_ready = false;
@@ -2334,7 +2369,7 @@ void updateUI() {
 
     // Volume slider update
     if (!dragging_vol && d->volume != ui_vol && slider_vol) {
-        lv_slider_set_value(slider_vol, d->volume, LV_ANIM_OFF);
+        lv_slider_set_value(slider_vol, d->volume, LV_ANIM_ON);
         // LVGL does not raise VALUE_CHANGED for a programmatic set, and the
         // Amber player hangs its volume readout off exactly that event. Raising
         // it here keeps the number in step when the volume moves from the app or

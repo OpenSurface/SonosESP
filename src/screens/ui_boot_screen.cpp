@@ -66,6 +66,11 @@ static lv_obj_t* bt_fill     = nullptr;   // progress indicator
 static lv_obj_t* bt_status   = nullptr;
 static lv_obj_t* bt_row[BOOT_CHECK_COUNT]   = {};
 static lv_obj_t* bt_value[BOOT_CHECK_COUNT] = {};
+// Kept so a check that FAILED can be restyled after the row is built. Without
+// these the chip and its glyph were unreachable once created, which is why every
+// row wore the same gold tick whatever it went on to report.
+static lv_obj_t* bt_chip[BOOT_CHECK_COUNT]  = {};
+static lv_obj_t* bt_tick[BOOT_CHECK_COUNT]  = {};
 static bool      bt_revealed = false;
 // A check can land while the wordmark is still up. Its value is held here and
 // applied at reveal, so nothing is lost by showing the wordmark for longer.
@@ -198,6 +203,8 @@ void bootScreenCreate(void) {
         lv_obj_t* chip = ambRoundRect(row, 22, 22, 11, AMB_ACCENT_WASH);
         lv_obj_t* tick = ambLabel(chip, &font_icon_16, AMB_ACCENT, AMB_SC_CHECK);
         lv_obj_center(tick);
+        bt_chip[i] = chip;
+        bt_tick[i] = tick;
 
         ambLabel(row, &font_text_16, AMB_TEXT, kLabel[i]);
 
@@ -257,11 +264,28 @@ void bootScreenProgress(int percent) {
     bootPump(10);
 }
 
-void bootScreenCheck(BootCheck which, const char* value) {
+void bootScreenCheck(BootCheck which, const char* value, bool ok) {
     if (which < 0 || which >= BOOT_CHECK_COUNT) return;
     if (!bt_row[which]) return;
 
     if (value && bt_value[which]) lv_label_set_text(bt_value[which], value);
+
+    // A gold tick beside "Not connected" is a lie the boot screen used to tell:
+    // the chip was drawn ticked when the row was BUILT, so every check looked
+    // like it had passed no matter what it went on to report.
+    //
+    // A failed check keeps its row - the value text is the useful part - but
+    // wears the palette's existing disabled language rather than the accent.
+    // No red: the Amber palette deliberately has no error colour, and inventing
+    // one here would be the only red on the device.
+    if (!ok) {
+        if (bt_chip[which]) lv_obj_set_style_bg_color(bt_chip[which], AMB_GROOVE, 0);
+        if (bt_tick[which]) {
+            lv_label_set_text(bt_tick[which], AMB_IC_X);
+            lv_obj_set_style_text_color(bt_tick[which], AMB_FAINT, 0);
+        }
+        if (bt_value[which]) lv_obj_set_style_text_color(bt_value[which], AMB_FAINT, 0);
+    }
 
     // Before the reveal the header is still transparent, so fading a row into it
     // would be invisible work. Record it and let bootScreenReveal() land it.
@@ -295,6 +319,7 @@ void bootScreenFinish(lv_obj_t* next) {
     bt_scr = bt_wordmark = bt_header = bt_fill = bt_status = nullptr;
     for (int i = 0; i < BOOT_CHECK_COUNT; i++) {
         bt_row[i] = nullptr; bt_value[i] = nullptr; bt_pending[i] = false;
+        bt_chip[i] = nullptr; bt_tick[i] = nullptr;
     }
     bt_revealed = false;
 }

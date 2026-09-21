@@ -624,6 +624,8 @@ void buildImmersivePlayer() {
     lv_obj_set_pos(slider_vol, SX(IM_ROW_X), SY(IM_BAR_MID(6)));
     lv_obj_set_size(slider_vol, SX(IM_ROW_W + 120), SY(6));
     lv_slider_set_range(slider_vol, 0, 100);
+    // Only remote changes animate; a drag is gated on !dragging_vol.
+    lv_obj_set_style_anim_duration(slider_vol, VOL_GLIDE_MS, 0);
     lv_obj_set_style_bg_color(slider_vol, COL_BTN, LV_PART_MAIN);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider_vol, COL_TEXT, LV_PART_KNOB);

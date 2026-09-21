@@ -181,9 +181,9 @@ private:
     // return. Anything reading it later may see another task's request.
     int last_soap_http_code = 0;
 
-    // Waits for the queue to stop being empty, polling GetMediaInfo once a
-    // second with the mutex released between calls. Returns the track count, or
-    // 0 if it never filled. Only meaningful when the caller emptied the queue
+    // Waits for the queue to stop being empty, polling Browse Q:0 once a second
+    // with the mutex released between calls. Returns the track count, or 0 if it
+    // never filled. Only meaningful when the caller emptied the queue
     // immediately beforehand.
     int waitForQueueToFill(uint32_t timeout_ms);
     // Returns false when the device description could not be fetched or parsed,
@@ -207,6 +207,13 @@ public:
     // The HTTP status of the last SOAP request: 200, 500, or a negative
     // HTTPClient error such as HTTPC_ERROR_READ_TIMEOUT (-11). See the member.
     int lastSoapHttpCode() const { return last_soap_http_code; }
+
+    // sendSOAP() returns "" for EVERY failure, and the HTTP code is how callers
+    // tell them apart. A request that never left the panel - the network mutex
+    // timed out before it was built - used to leave the PREVIOUS call's code
+    // standing, so enqueueShouldRetry() judged it on an unrelated number.
+    // Distinct from any HTTPClient error, which are small negatives.
+    static constexpr int SOAP_NOT_SENT = -50;
 
     SonosController();
     ~SonosController();

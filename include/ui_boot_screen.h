@@ -47,7 +47,13 @@ void bootScreenProgress(int percent);
 
 // Lands one check line with the value it resolved to. `value` may be NULL for a
 // line with nothing to report. Implies bootScreenReveal().
-void bootScreenCheck(BootCheck which, const char* value);
+//
+// `ok` is whether the subsystem actually came up. It defaults to true because
+// most checks cannot fail (the display is up by definition — it is what this is
+// drawn on), but Wi-Fi and Speakers can, and a row that reports "Not connected"
+// must not wear the same gold tick as one that succeeded. A failed line keeps
+// its value text and takes the palette's disabled treatment instead.
+void bootScreenCheck(BootCheck which, const char* value, bool ok = true);
 
 // A transient message under the checks (the boot-OTA "Waiting for WiFi ..."
 // line). Pass NULL to clear it.
