@@ -322,15 +322,6 @@
 // path is gated on !dragging_vol - so this only smooths remote changes.
 #define VOL_GLIDE_MS            200
 
-// Settings navigation cross-fades.
-//
-// 80ms, not the 160 this started at. The clock's fade and this one look like
-// the same thing and are not: drifting into the screensaver is a mood change,
-// where the softness IS the point, while a settings tap is a utility action
-// that should feel like it already happened. At 160 the dissolve read as lag
-// on every menu press. 80 is around the threshold where motion still smooths
-// the swap without the eye scoring it as a delay.
-#define SETTINGS_FADE_MS        80
 
 // =============================================================================
 // OTA UPDATES
