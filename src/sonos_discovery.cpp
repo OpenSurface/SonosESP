@@ -22,7 +22,15 @@ int SonosController::discoverDevices() {
 
     if (!devices) { Serial.println("[SONOS] devices array not allocated"); return 0; }
     Serial.printf("[SONOS] Starting discovery...\n");
-    deviceCount = 0;
+    // Under the lock: the polling task holds pointers into devices[] and reads
+    // them against deviceCount. Dropping it to 0 unlocked meant getCurrentDevice()
+    // could hand back a slot this function was about to overwrite.
+    if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(200))) {
+        deviceCount = 0;
+        xSemaphoreGive(deviceMutex);
+    } else {
+        deviceCount = 0;   // proceed anyway; a scan the user asked for must not stall
+    }
 
     udp.stop();
     vTaskDelay(pdMS_TO_TICKS(50));
@@ -47,6 +55,13 @@ int SonosController::discoverDevices() {
     IPAddress broadcast(255, 255, 255, 255);
 
     for (int burst = 0; burst < 5; burst++) {
+        // Held only across the two sends, never across the listen window below:
+        // the receive loop runs for 15s and holding the link that long would
+        // starve polling and the art task into the SDIO idle/clock-gate state
+        // the cooldowns exist to avoid.
+        const bool locked = network_mutex &&
+            xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS)) == pdTRUE;
+
         // Send to multicast address (standard UPnP)
         udp.beginPacket(multicast, 1900);
         udp.write((const uint8_t*)msg, strlen(msg));
@@ -56,6 +71,11 @@ int SonosController::discoverDevices() {
         udp.beginPacket(broadcast, 1900);
         udp.write((const uint8_t*)msg, strlen(msg));
         udp.endPacket();
+
+        if (locked) {
+            last_network_end_ms = millis();
+            xSemaphoreGive(network_mutex);
+        }
 
         Serial.printf("[SONOS] Sent discovery burst %d/5 (multicast + broadcast)\n", burst + 1);
 
@@ -83,6 +103,15 @@ int SonosController::discoverDevices() {
                     for (int i = 0; i < deviceCount; i++) {
                         if (devices[i].ip == ip) { exists = true; break; }
                     }
+
+                    // Initialising a slot writes several Strings (roomName,
+                    // rinconID, repeatMode, groupCoordinatorUUID). A String
+                    // assignment frees the previous buffer, so this has to be
+                    // closed to the polling task and the UI, both of which read
+                    // those fields.
+                    const bool slot_locked =
+                        !exists && deviceCount < MAX_SONOS_DEVICES &&
+                        xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(200)) == pdTRUE;
 
                     if (!exists && deviceCount < MAX_SONOS_DEVICES) {
                         devices[deviceCount].ip = ip;
@@ -113,6 +142,7 @@ int SonosController::discoverDevices() {
                         Serial.printf("[SONOS] SSDP Response #%d: %s\n", deviceCount + 1, ip.toString().c_str());
                         deviceCount++;
                         rawDeviceCount++;
+                        if (slot_locked) xSemaphoreGive(deviceMutex);
                     } else if (exists) {
                         Serial.printf("[SONOS] Ignoring duplicate SSDP response from: %s\n", ip.toString().c_str());
                     }
@@ -176,6 +206,13 @@ int SonosController::discoverDevices() {
     // getRoomName() never replaced the placeholder name (roomName is still the raw IP).
     // A speaker that names itself but loses its UDN to a transient failure is kept.
     {
+        // `devices[kept] = devices[i]` copies a struct holding ten-odd Strings:
+        // the destination's buffers are freed and reallocated. Compaction runs
+        // while the polling task may be reading the very slots being shuffled,
+        // so the whole pass is closed to it. Released BEFORE the early return
+        // below - returning while holding it would strand the mutex for good.
+        const bool compact_locked =
+            xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(500)) == pdTRUE;
         int kept = 0;
         for (int i = 0; i < deviceCount; i++) {
             bool identified = devices[i].rinconID.length() > 0 ||
@@ -193,6 +230,7 @@ int SonosController::discoverDevices() {
             Serial.printf("[SONOS] Dropped %d unidentified responder(s)\n", deviceCount - kept);
             deviceCount = kept;
         }
+        if (compact_locked) xSemaphoreGive(deviceMutex);
         if (deviceCount == 0) {
             Serial.println("[SONOS] No identifiable Sonos devices after filtering");
             return 0;
@@ -229,6 +267,11 @@ int SonosController::discoverDevices() {
     // Coordinator-aware deduplication by room name.
     // When two IPs share the same room name (stereo pair / bonded zone), keep the coordinator.
     Serial.printf("[SONOS] Starting coordinator-aware deduplication...\n");
+    // Same reasoning as compaction above: this pass both reads every slot's
+    // Strings and overwrites slots wholesale. No network or LVGL call happens
+    // inside it, so holding the lock for the pass is safe - and it has no early
+    // return, so there is nothing to strand.
+    const bool dedup_locked = xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(500)) == pdTRUE;
     int uniqueCount = 0;
     for (int i = 0; i < deviceCount; i++) {
         String normalizedCurrent = devices[i].roomName;
@@ -307,6 +350,7 @@ int SonosController::discoverDevices() {
         Serial.printf("[SONOS] No duplicates found - all %d devices are unique\n", uniqueCount);
     }
     deviceCount = uniqueCount;
+    if (dedup_locked) xSemaphoreGive(deviceMutex);
 
     // Fetch playing state for each unique zone so the devices screen shows which rooms are active
     Serial.printf("[SONOS] Fetching playing state for %d zone(s)...\n", deviceCount);
@@ -352,6 +396,21 @@ int SonosController::fetchTopologyCoordinators(IPAddress ip, String* coordinator
         "</u:GetZoneGroupState>"
         "</s:Body></s:Envelope>";
 
+    // Serialised on network_mutex like every other network call in the firmware.
+    //
+    // Discovery used to be the ONE path that skipped it. Every other caller -
+    // sendSOAP(), the album art download, the lyrics fetch, the clock's weather,
+    // the battery probe - takes this mutex, because the C6 SDIO link asserts when
+    // two TCP conversations fill pkt_rxbuff at the same time. That is the whole
+    // reason the mutex exists (see the SDIO defence notes). A scan fired one of
+    // these per speaker straight past all eight defence layers, while the polling
+    // task was mid-SOAP and the art task could be mid-download.
+    if (!network_mutex ||
+        xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+        Serial.println("[SONOS] Topology fetch skipped - network busy");
+        return 0;
+    }
+
     http.begin(url);
     http.setTimeout(3000);
     http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
@@ -394,6 +453,10 @@ int SonosController::fetchTopologyCoordinators(IPAddress ip, String* coordinator
         Serial.printf("[SONOS] GetZoneGroupState failed (HTTP %d)\n", code);
     }
     http.end();
+    // Same bookkeeping sendSOAP() does, so the art and lyrics cooldowns can see
+    // that the link was busy just now.
+    last_network_end_ms = millis();
+    xSemaphoreGive(network_mutex);
     return count;
 }
 
@@ -413,6 +476,15 @@ bool SonosController::fetchDevicePlayingState(SonosDevice* dev) {
         "<InstanceID>0</InstanceID></u:GetTransportInfo>"
         "</s:Body></s:Envelope>";
 
+    // Serialised - see the note in fetchTopologyCoordinators(). This one runs once
+    // per discovered zone, so on a large system it was the biggest offender.
+    if (!network_mutex ||
+        xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+        Serial.printf("[SONOS]   Playing-state fetch skipped for %s - network busy\n",
+                      dev->ip.toString().c_str());
+        return false;
+    }
+
     http.begin(url);
     http.setTimeout(3000);
     http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
@@ -425,6 +497,8 @@ bool SonosController::fetchDevicePlayingState(SonosDevice* dev) {
         playing = (resp.indexOf("PLAYING") >= 0);
     }
     http.end();
+    last_network_end_ms = millis();
+    xSemaphoreGive(network_mutex);
     return playing;
 }
 
@@ -433,49 +507,88 @@ bool SonosController::getRoomName(SonosDevice* dev) {
     // caller that persists hasLineIn can tell a real "no line-in" from a failed
     // request; see the cache write in tryLoadCachedDevice().
     bool parsed = false;
-    dev->hasLineIn = false;   // default off: a failed fetch must not offer a dead row
     HTTPClient http;
     char url[128];
     snprintf(url, sizeof(url), "http://%s:1400/xml/device_description.xml", dev->ip.toString().c_str());
+
+    // Serialised - see the note in fetchTopologyCoordinators(). Like the
+    // playing-state probe, this runs once per responder, so a scan of a large
+    // system used to put a dozen unserialised TCP conversations onto the SDIO
+    // link while the polling task was using it.
+    if (!network_mutex ||
+        xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+        Serial.printf("[SONOS]   Room name fetch skipped for %s - network busy\n",
+                      dev->ip.toString().c_str());
+        return false;
+    }
 
     http.begin(url);
     http.setTimeout(3000);  // Increased from 2s to 3s for slower networks
 
     int code = http.GET();
-    if (code == 200) {
-        String xml = http.getString();  // Keep String for XML parsing (indexOf/substring)
-        int start = xml.indexOf("<roomName>");
-        int end = xml.indexOf("</roomName>");
-        if (start > 0 && end > start) {
-            // Decode XML entities (&apos;) and UTF-8 smart punctuation (e.g. U+2019
-            // curly apostrophe in "Raquel's Office") so they don't render as tofu in
-            // the ASCII-only Montserrat label font.
-            dev->roomName = decodeHTML(xml.substring(start + 10, end));
-            Serial.printf("[SONOS]   Room name fetched successfully: '%s'\n", dev->roomName.c_str());
-
-            // Line-in is not browsable content — ObjectID "AI:" returns nothing on
-            // S2 — so the only way to know a player has a physical input is whether
-            // it advertises the AudioIn service here. Five/Amp/Port/Beam do; One
-            // and SL do not, and offering them a Line-In source would be a dead row.
-            dev->hasLineIn = (xml.indexOf("AudioIn") >= 0);
-            Serial.printf("[SONOS]   Line-in: %s\n", dev->hasLineIn ? "yes" : "no");
-            parsed = true;
-        } else {
-            Serial.printf("[SONOS]   Failed to parse room name from XML for %s\n", dev->ip.toString().c_str());
-        }
-
-        start = xml.indexOf("<UDN>uuid:");
-        end = xml.indexOf("</UDN>", start);
-        if (start > 0 && end > start) {
-            dev->rinconID = xml.substring(start + 10, end);
-            Serial.printf("[SONOS]   RINCON ID: %s\n", dev->rinconID.c_str());
-        } else {
-            Serial.printf("[SONOS]   Failed to parse RINCON ID from XML for %s\n", dev->ip.toString().c_str());
-        }
-    } else {
-        Serial.printf("[SONOS]   HTTP GET failed with code %d for %s (keeping IP as name)\n", code, dev->ip.toString().c_str());
-    }
+    String xml;
+    if (code == 200) xml = http.getString();  // Keep String for XML parsing (indexOf/substring)
     http.end();
+    last_network_end_ms = millis();
+    xSemaphoreGive(network_mutex);
+
+    if (code != 200) {
+        Serial.printf("[SONOS]   HTTP GET failed with code %d for %s (keeping IP as name)\n",
+                      code, dev->ip.toString().c_str());
+        if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(100))) {
+            dev->hasLineIn = false;   // default off: a failed fetch must not offer a dead row
+            xSemaphoreGive(deviceMutex);
+        }
+        return false;
+    }
+
+    // Parse into locals first, then publish under deviceMutex.
+    //
+    // roomName and rinconID are Strings that the polling task and the UI both
+    // read. Assigning a String frees the old heap buffer and allocates a new
+    // one, so writing them straight into the shared slot - which is what this
+    // used to do - could free a buffer another task was still reading from.
+    String roomName, rincon;
+    const bool hasLineIn = (xml.indexOf("AudioIn") >= 0);
+
+    int start = xml.indexOf("<roomName>");
+    int end   = xml.indexOf("</roomName>");
+    if (start > 0 && end > start) {
+        // Decode XML entities (&apos;) and UTF-8 smart punctuation (e.g. U+2019
+        // curly apostrophe in "Raquel's Office") so they don't render as tofu in
+        // the ASCII-only Montserrat label font.
+        roomName = decodeHTML(xml.substring(start + 10, end));
+        parsed = true;
+    } else {
+        Serial.printf("[SONOS]   Failed to parse room name from XML for %s\n", dev->ip.toString().c_str());
+    }
+
+    start = xml.indexOf("<UDN>uuid:");
+    end   = xml.indexOf("</UDN>", start);
+    if (start > 0 && end > start) {
+        rincon = xml.substring(start + 10, end);
+    } else {
+        Serial.printf("[SONOS]   Failed to parse RINCON ID from XML for %s\n", dev->ip.toString().c_str());
+    }
+
+    if (xSemaphoreTake(deviceMutex, pdMS_TO_TICKS(100))) {
+        // Line-in is not browsable content — ObjectID "AI:" returns nothing on
+        // S2 — so the only way to know a player has a physical input is whether
+        // it advertises the AudioIn service here. Five/Amp/Port/Beam do; One
+        // and SL do not, and offering them a Line-In source would be a dead row.
+        dev->hasLineIn = hasLineIn;
+        if (roomName.length() > 0) dev->roomName = roomName;
+        if (rincon.length()   > 0) dev->rinconID = rincon;
+        xSemaphoreGive(deviceMutex);
+    } else {
+        Serial.printf("[SONOS]   Parsed %s but deviceMutex busy - not published\n",
+                      dev->ip.toString().c_str());
+        return false;
+    }
+
+    if (parsed) Serial.printf("[SONOS]   Room name fetched successfully: '%s'\n", roomName.c_str());
+    Serial.printf("[SONOS]   Line-in: %s\n", hasLineIn ? "yes" : "no");
+    if (rincon.length() > 0) Serial.printf("[SONOS]   RINCON ID: %s\n", rincon.c_str());
     return parsed;
 }
 
