@@ -25,19 +25,18 @@ const props = defineProps<{ active?: boolean }>()
 /* The queue is the source of truth for what is playing: the transport, the
    drawer and the artwork column all read the same row, so skipping a track
    moves every one of them together the way the firmware does. */
-/* `art` is one abstract cover per ALBUM, so skipping a track visibly changes
-   the artwork column the way the real panel does. They are generated shapes in
-   the site's own palette rather than the real sleeves: this repo is MIT
-   licensed and cannot redistribute someone else's cover art. */
+/* `art` is the album's real cover, so skipping a track changes the artwork
+   column the way the panel does with a live queue. Sleeves come from the Cover
+   Art Archive; see docs/public/demo-art/README.md for provenance and rights. */
 const QUEUE = [
-  { t: 'To Crawl Under Your Skin',    a: 'Neurosis', al: 'Souls At Zero \u00b7 1992', d: '7:52', secs: 472, art: '/demo-art/souls-at-zero.svg' },
-  { t: 'Cleanse III (Live In London)', a: 'Neurosis', al: 'Times Of Grace \u00b7 1999', d: '8:12', secs: 492, art: '/demo-art/times-of-grace.svg' },
-  { t: 'Takeahnase',                   a: 'Neurosis', al: 'Through Silver In Blood \u00b7 1996', d: '6:04', secs: 364, art: '/demo-art/through-silver.svg' },
-  { t: 'Syndic Calls',                 a: 'ISIS',     al: 'Oceanic \u00b7 2002', d: '9:32', secs: 572, art: '/demo-art/oceanic.svg' },
-  { t: 'Weight',                       a: 'ISIS',     al: 'Oceanic \u00b7 2002', d: '5:41', secs: 341, art: '/demo-art/oceanic.svg' },
-  { t: 'Grey Machine',                 a: 'Godflesh', al: 'Streetcleaner \u00b7 1989', d: '6:18', secs: 378, art: '/demo-art/streetcleaner.svg' },
-  { t: 'Like Rats',                    a: 'Godflesh', al: 'Streetcleaner \u00b7 1989', d: '4:12', secs: 252, art: '/demo-art/streetcleaner.svg' },
-  { t: 'Locust Star',                  a: 'Neurosis', al: 'Through Silver In Blood \u00b7 1996', d: '6:47', secs: 407, art: '/demo-art/through-silver.svg' },
+  { t: 'To Crawl Under Your Skin',    a: 'Neurosis', al: 'Souls At Zero \u00b7 1992', d: '7:52', secs: 472, art: '/demo-art/souls-at-zero.jpg' },
+  { t: 'Cleanse III (Live In London)', a: 'Neurosis', al: 'Times Of Grace \u00b7 1999', d: '8:12', secs: 492, art: '/demo-art/times-of-grace.jpg' },
+  { t: 'Takeahnase',                   a: 'Neurosis', al: 'Through Silver In Blood \u00b7 1996', d: '6:04', secs: 364, art: '/demo-art/through-silver.jpg' },
+  { t: 'Syndic Calls',                 a: 'ISIS',     al: 'Oceanic \u00b7 2002', d: '9:32', secs: 572, art: '/demo-art/oceanic.jpg' },
+  { t: 'Weight',                       a: 'ISIS',     al: 'Oceanic \u00b7 2002', d: '5:41', secs: 341, art: '/demo-art/oceanic.jpg' },
+  { t: 'Grey Machine',                 a: 'Godflesh', al: 'Streetcleaner \u00b7 1989', d: '6:18', secs: 378, art: '/demo-art/streetcleaner.jpg' },
+  { t: 'Like Rats',                    a: 'Godflesh', al: 'Streetcleaner \u00b7 1989', d: '4:12', secs: 252, art: '/demo-art/streetcleaner.jpg' },
+  { t: 'Locust Star',                  a: 'Neurosis', al: 'Through Silver In Blood \u00b7 1996', d: '6:47', secs: 407, art: '/demo-art/through-silver.jpg' },
 ]
 
 const ROOMS = [
