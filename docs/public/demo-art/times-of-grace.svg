@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600" role="img" aria-label="Abstract cover: amber horizontal strata">
+  <defs>
+    <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#141008"/>
+      <stop offset="55%"  stop-color="#2A1E0C"/>
+      <stop offset="100%" stop-color="#0A0806"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="600" fill="url(#tg)"/>
+  <g fill="#E0B252">
+    <rect y="196" width="600" height="3"  fill-opacity=".72"/>
+    <rect y="226" width="600" height="2"  fill-opacity=".5"/>
+    <rect y="250" width="600" height="8"  fill-opacity=".85"/>
+    <rect y="278" width="600" height="2"  fill-opacity=".42"/>
+    <rect y="300" width="600" height="1.5" fill-opacity=".3"/>
+    <rect y="330" width="600" height="5"  fill-opacity=".6"/>
+    <rect y="356" width="600" height="1.5" fill-opacity=".22"/>
+  </g>
+  <rect width="600" height="600" fill="#0A0806" fill-opacity=".12"/>
+</svg>

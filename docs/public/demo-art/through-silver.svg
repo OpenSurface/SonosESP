@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600" role="img" aria-label="Abstract cover: silver vertical bars with a red seam">
+  <rect width="600" height="600" fill="#0E0E0F"/>
+  <g fill="#C9C2B8">
+    <rect x="36"  width="14" height="600" fill-opacity=".14"/>
+    <rect x="84"  width="26" height="600" fill-opacity=".3"/>
+    <rect x="140" width="9"  height="600" fill-opacity=".1"/>
+    <rect x="176" width="34" height="600" fill-opacity=".42"/>
+    <rect x="236" width="12" height="600" fill-opacity=".16"/>
+    <rect x="330" width="30" height="600" fill-opacity=".36"/>
+    <rect x="382" width="10" height="600" fill-opacity=".12"/>
+    <rect x="420" width="22" height="600" fill-opacity=".26"/>
+    <rect x="470" width="8"  height="600" fill-opacity=".1"/>
+    <rect x="512" width="30" height="600" fill-opacity=".34"/>
+  </g>
+  <rect x="296" width="5" height="600" fill="#9E2B1E" fill-opacity=".85"/>
+  <rect width="600" height="600" fill="#0E0E0F" fill-opacity=".18"/>
+</svg>

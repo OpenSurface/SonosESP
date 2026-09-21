@@ -25,15 +25,19 @@ const props = defineProps<{ active?: boolean }>()
 /* The queue is the source of truth for what is playing: the transport, the
    drawer and the artwork column all read the same row, so skipping a track
    moves every one of them together the way the firmware does. */
+/* `art` is one abstract cover per ALBUM, so skipping a track visibly changes
+   the artwork column the way the real panel does. They are generated shapes in
+   the site's own palette rather than the real sleeves: this repo is MIT
+   licensed and cannot redistribute someone else's cover art. */
 const QUEUE = [
-  { t: 'To Crawl Under Your Skin',    a: 'Neurosis', al: 'Souls At Zero \u00b7 1992', d: '7:52', secs: 472 },
-  { t: 'Cleanse III (Live In London)', a: 'Neurosis', al: 'Times Of Grace \u00b7 1999', d: '8:12', secs: 492 },
-  { t: 'Takeahnase',                   a: 'Neurosis', al: 'Through Silver In Blood \u00b7 1996', d: '6:04', secs: 364 },
-  { t: 'Syndic Calls',                 a: 'ISIS',     al: 'Oceanic \u00b7 2002', d: '9:32', secs: 572 },
-  { t: 'Weight',                       a: 'ISIS',     al: 'Oceanic \u00b7 2002', d: '5:41', secs: 341 },
-  { t: 'Grey Machine',                 a: 'Godflesh', al: 'Streetcleaner \u00b7 1989', d: '6:18', secs: 378 },
-  { t: 'Like Rats',                    a: 'Godflesh', al: 'Streetcleaner \u00b7 1989', d: '4:12', secs: 252 },
-  { t: 'Locust Star',                  a: 'Neurosis', al: 'Through Silver In Blood \u00b7 1996', d: '6:47', secs: 407 },
+  { t: 'To Crawl Under Your Skin',    a: 'Neurosis', al: 'Souls At Zero \u00b7 1992', d: '7:52', secs: 472, art: '/demo-art/souls-at-zero.svg' },
+  { t: 'Cleanse III (Live In London)', a: 'Neurosis', al: 'Times Of Grace \u00b7 1999', d: '8:12', secs: 492, art: '/demo-art/times-of-grace.svg' },
+  { t: 'Takeahnase',                   a: 'Neurosis', al: 'Through Silver In Blood \u00b7 1996', d: '6:04', secs: 364, art: '/demo-art/through-silver.svg' },
+  { t: 'Syndic Calls',                 a: 'ISIS',     al: 'Oceanic \u00b7 2002', d: '9:32', secs: 572, art: '/demo-art/oceanic.svg' },
+  { t: 'Weight',                       a: 'ISIS',     al: 'Oceanic \u00b7 2002', d: '5:41', secs: 341, art: '/demo-art/oceanic.svg' },
+  { t: 'Grey Machine',                 a: 'Godflesh', al: 'Streetcleaner \u00b7 1989', d: '6:18', secs: 378, art: '/demo-art/streetcleaner.svg' },
+  { t: 'Like Rats',                    a: 'Godflesh', al: 'Streetcleaner \u00b7 1989', d: '4:12', secs: 252, art: '/demo-art/streetcleaner.svg' },
+  { t: 'Locust Star',                  a: 'Neurosis', al: 'Through Silver In Blood \u00b7 1996', d: '6:47', secs: 407, art: '/demo-art/through-silver.svg' },
 ]
 
 const ROOMS = [
@@ -380,7 +384,11 @@ onBeforeUnmount(() => {
                 <!-- ── player ───────────────────────────────────────────── -->
                 <div class="row">
                   <div class="art-col">
-                    <img class="art" :src="withBase('/demo-art.jpg')" alt="Album art" />
+                    <!-- Keyed on the source so Vue swaps the element on a skip;
+                         without it the browser keeps the decoded old image and
+                         the column looked static however far you skipped. -->
+                    <img class="art" :key="now.art" :src="withBase(now.art)"
+                         :alt="`${now.al} cover`" />
                     <div class="shelf">
                       <template v-if="!lyrics">
                         <div class="tag">NEXT</div>
