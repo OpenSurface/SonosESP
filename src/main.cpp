@@ -442,13 +442,14 @@ void setup() {
     // away, carrying the SSID and signal it actually got rather than a tick.
     {
         char wifi_val[80];
-        if (WiFi.status() == WL_CONNECTED)
+        const bool wifi_ok = (WiFi.status() == WL_CONNECTED);
+        if (wifi_ok)
             snprintf(wifi_val, sizeof(wifi_val), "%s · %d dBm",
                      WiFi.SSID().c_str(), (int)WiFi.RSSI());
         else
             snprintf(wifi_val, sizeof(wifi_val), "%s",
                      ssid.length() ? "Not connected" : "Not configured");
-        bootScreenCheck(BOOT_CHECK_WIFI, wifi_val);
+        bootScreenCheck(BOOT_CHECK_WIFI, wifi_val, wifi_ok);
     }
 
     // Add global touch callback for screen wake
@@ -596,13 +597,24 @@ void setup() {
     {
         char spk[96];
         SonosDevice* dev = sonos_started ? sonos.getCurrentDevice() : nullptr;
-        if (dev && dev->roomName.length())
-            snprintf(spk, sizeof(spk), "%s", dev->roomName.c_str());
+
+        // Snapshot under deviceMutex: startTasks() has already run by here on the
+        // cached-boot path, so the polling task is alive and roomName is a String
+        // another task can reassign underneath this read.
+        String room;
+        if (dev && xSemaphoreTake(sonos.getDeviceMutex(), pdMS_TO_TICKS(100))) {
+            room = dev->roomName;
+            xSemaphoreGive(sonos.getDeviceMutex());
+        }
+
+        const bool spk_ok = room.length() > 0;
+        if (spk_ok)
+            snprintf(spk, sizeof(spk), "%s", room.c_str());
         else if (WiFi.status() != WL_CONNECTED)
             snprintf(spk, sizeof(spk), "%s", "Waiting for network");
         else
             snprintf(spk, sizeof(spk), "%s", "None - scan in Settings");
-        bootScreenCheck(BOOT_CHECK_SPEAKERS, spk);
+        bootScreenCheck(BOOT_CHECK_SPEAKERS, spk, spk_ok);
     }
 
     bootScreenProgress(100);  // Complete!
