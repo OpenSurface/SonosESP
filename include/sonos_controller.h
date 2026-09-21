@@ -208,6 +208,13 @@ public:
     // HTTPClient error such as HTTPC_ERROR_READ_TIMEOUT (-11). See the member.
     int lastSoapHttpCode() const { return last_soap_http_code; }
 
+    // sendSOAP() returns "" for EVERY failure, and the HTTP code is how callers
+    // tell them apart. A request that never left the panel - the network mutex
+    // timed out before it was built - used to leave the PREVIOUS call's code
+    // standing, so enqueueShouldRetry() judged it on an unrelated number.
+    // Distinct from any HTTPClient error, which are small negatives.
+    static constexpr int SOAP_NOT_SENT = -50;
+
     SonosController();
     ~SonosController();
     

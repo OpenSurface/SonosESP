@@ -206,6 +206,8 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
     // Acquire network_mutex to serialize WiFi access
     if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
         Serial.println("[SOAP] Failed to acquire network mutex - request failed");
+        // Nothing was sent, so say that rather than leaving the last call's code.
+        last_soap_http_code = SOAP_NOT_SENT;
         return "";
     }
 
@@ -891,6 +893,9 @@ bool SonosController::playURI(const char* uri, const char* metadata) {
 static bool enqueueShouldRetry(int http_code, const String& resp) {
     if (resp.indexOf("Fault") >= 0)          return true;   // the speaker refused it
     if (http_code >= 400)                    return true;   // 500 and friends
+    // The mutex timed out, so this one demonstrably never reached the speaker:
+    // repeating it cannot duplicate anything.
+    if (http_code == SonosController::SOAP_NOT_SENT) return true;
     return http_code <= -1 && http_code >= -4;              // never left the panel
 }
 
