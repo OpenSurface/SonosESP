@@ -322,6 +322,24 @@
 // path is gated on !dragging_vol - so this only smooths remote changes.
 #define VOL_GLIDE_MS            200
 
+// Synced lyrics: when the shelf stops showing a line and hands itself back to
+// Next-up. Only the Amber player shares one shelf between the two, but the
+// timing is the same everywhere.
+//
+// END - the last lyric has been up this long with none left to come, so the
+// song's words are finished.
+#define LYRIC_END_HOLD_MS      3000
+
+// GAP - one line has been the newest for this long while ANOTHER is still
+// coming: an instrumental bridge, a solo, a long intro.
+//
+// This was 10s, which was far too eager. A twenty-second bridge flipped the
+// shelf to Next-up at ten seconds and then snapped back to lyrics the moment
+// singing resumed - twice in a single song, with nothing the listener did to
+// cause it. 30s rides out a normal bridge and gives the shelf up only on a
+// silence long enough that a stale line would look stuck.
+#define LYRIC_GAP_HOLD_MS     30000
+
 
 // =============================================================================
 // OTA UPDATES

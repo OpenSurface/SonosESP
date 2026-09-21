@@ -682,16 +682,18 @@ void updateLyricsDisplay(int pos_ms) {
 
     int time_since_current = pos_ms - lyric_lines[idx].time_ms;
 
-    // Past last lyric by 3 seconds — fade out
-    if (idx == lyric_count - 1 && time_since_current > 3000) {
+    // Past the last lyric — the song's words are done, so let the shelf go.
+    if (idx == lyric_count - 1 && time_since_current > LYRIC_END_HOLD_MS) {
         lyricsHide();
         return;
     }
 
-    // Long gap before next lyric (10s shown, next still far) — fade out
+    // A long gap with more lyrics still to come - a bridge or a solo. Hold the
+    // line rather than swapping the shelf out and straight back in; see
+    // LYRIC_GAP_HOLD_MS for why this is not the same as the rule above.
     if (idx < lyric_count - 1) {
         int time_to_next = lyric_lines[idx + 1].time_ms - pos_ms;
-        if (time_since_current >= 10000 && time_to_next > 0) {
+        if (time_since_current >= LYRIC_GAP_HOLD_MS && time_to_next > 0) {
             lyricsHide();
             return;
         }
