@@ -618,6 +618,17 @@ static void lyrics_fadeout_done_cb(lv_anim_t* a) {
 // Smooth 300ms fade-out then hide
 static void lyricsHide() {
     if (!lyrics_container || lv_obj_has_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN)) return;
+    // A fade-out is already running: let it finish.
+    //
+    // The HIDDEN flag is set by the COMPLETION callback, so during the fade the
+    // container is not hidden yet and the guard above does not catch it.
+    // updateLyricsDisplay() calls this on every tick once the track is past its
+    // last lyric - ten times a second - and each call restarted the fade with a
+    // fresh 300ms timer, so it never completed and HIDDEN was never set. The
+    // container then sat at opacity ~0 but un-hidden for ever, which on Amber
+    // keeps the NEXT block hidden behind it: the shelf goes blank at the end of
+    // every track with lyrics and never comes back.
+    if (lv_anim_get(lyrics_container, lyrics_fade_cb)) return;
     lv_anim_t anim;
     lv_anim_init(&anim);
     lv_anim_set_var(&anim, lyrics_container);
