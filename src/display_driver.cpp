@@ -62,7 +62,20 @@ static size_t cache_line_size = 0;
 #if USE_PPA_ACCELERATION
 // Hardware-accelerated rotation using ESP32-P4 PPA
 static void rotate_image_90_ppa(const uint16_t *src, uint16_t *dst, int width, int height) {
-    ppa_srm_oper_config_t oper_config;
+    // ZERO-INITIALISED, and this is not a style preference - it is the third and
+    // final reason hardware rotation was abandoned here.
+    //
+    // ppa_srm_oper_config_t has fields this function never assigns: mirror_x,
+    // mirror_y, alpha_update_mode, the alpha union, user_data, and yuv_range /
+    // yuv_std inside BOTH the in and out block configs. Declared bare, every one
+    // of them is whatever was on the stack. Several are enums, so the driver was
+    // handed values outside their valid range and aborted inside its descriptor
+    // setup (dma2d_desc_pixel_format_to_pbyte_value, via
+    // ppa_srm_transaction_on_picked).
+    //
+    // Stack contents vary run to run, which is exactly why the original symptom
+    // was "glitches" rather than a clean, reproducible failure.
+    ppa_srm_oper_config_t oper_config = {};
 
     // Input configuration
     oper_config.in.buffer = (void *)src;
