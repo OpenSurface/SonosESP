@@ -129,7 +129,7 @@ static void rotate_image_90_ppa(const uint16_t *src, uint16_t *dst, int width, i
 //
 // The split is the whole point. A 60fps budget is 16,667us per frame; the two
 // numbers say how much of it this consumes and which half to attack.
-static void displayPerfTrace(uint32_t rotate_us, uint32_t xfer_us) {
+static void displayPerfTrace(uint32_t rotate_us, uint32_t xfer_us, const char *path) {
     static uint32_t frames = 0, rot_total = 0, rot_worst = 0,
                     xfer_total = 0, xfer_worst = 0, window_ms = 0;
     if (window_ms == 0) window_ms = millis();
@@ -143,9 +143,9 @@ static void displayPerfTrace(uint32_t rotate_us, uint32_t xfer_us) {
 
     const uint32_t rot_avg  = rot_total  / frames;
     const uint32_t xfer_avg = xfer_total / frames;
-    Serial.printf("[PERF/flush] %u flushes/%ums = %.1f fps | rotate avg %uus worst %uus"
+    Serial.printf("[PERF/flush] path=%s | %u flushes/%ums = %.1f fps | rotate avg %uus worst %uus"
                   " | xfer avg %uus worst %uus | frame avg %uus (%.0f%% of a 60fps budget)\n",
-                  frames, elapsed, frames * 1000.0f / elapsed,
+                  path, frames, elapsed, frames * 1000.0f / elapsed,
                   rot_avg, rot_worst, xfer_avg, xfer_worst,
                   rot_avg + xfer_avg, (rot_avg + xfer_avg) / 166.67f);
 
@@ -307,7 +307,13 @@ void display_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *px_ma
 
 #if DISPLAY_PERF_TRACE
     displayPerfTrace((uint32_t)(t_rot1 - t_rot0),
-                     (uint32_t)(esp_timer_get_time() - t_rot1));
+                     (uint32_t)(esp_timer_get_time() - t_rot1),
+#if USE_PPA_ACCELERATION
+                     ppa_handle ? "PPA" : "SW(ppa-init-failed)"
+#else
+                     "SW(compiled-out)"
+#endif
+                     );
 #endif
 
     lv_display_flush_ready(disp_drv);
