@@ -14,6 +14,7 @@ typedef jd9165_lcd panel_lcd_t;
 typedef st7701_lcd panel_lcd_t;
 #endif
 #include <esp_heap_caps.h>
+#include <esp_timer.h>        // esp_timer_get_time() for DISPLAY_PERF_TRACE
 #include <esp_lcd_panel_ops.h>
 #include <esp_private/esp_cache_private.h>
 #include <driver/ppa.h>
@@ -72,6 +73,40 @@ static void rotate_image_90_ppa(const uint16_t *src, uint16_t *dst, int width, i
     oper_config.mode = PPA_TRANS_MODE_BLOCKING;
 
     ppa_do_scale_rotate_mirror(ppa_handle, &oper_config);
+}
+#endif
+
+#if DISPLAY_PERF_TRACE
+// Accumulates flush costs and prints one line every 5s. Called from the flush
+// callback, so it must stay cheap: two adds and a compare on the common path.
+//
+// rotate_us  - the 800x480 -> 480x800 transpose, 384,000 pixels, CPU, PSRAM.
+// xfer_us    - handing the 750KB portrait buffer to the panel over MIPI DSI.
+//
+// The split is the whole point. A 60fps budget is 16,667us per frame; the two
+// numbers say how much of it this consumes and which half to attack.
+static void displayPerfTrace(uint32_t rotate_us, uint32_t xfer_us) {
+    static uint32_t frames = 0, rot_total = 0, rot_worst = 0,
+                    xfer_total = 0, xfer_worst = 0, window_ms = 0;
+    if (window_ms == 0) window_ms = millis();
+
+    frames++;
+    rot_total  += rotate_us;  if (rotate_us > rot_worst)  rot_worst  = rotate_us;
+    xfer_total += xfer_us;    if (xfer_us   > xfer_worst) xfer_worst = xfer_us;
+
+    const uint32_t elapsed = millis() - window_ms;
+    if (elapsed < 5000 || frames == 0) return;
+
+    const uint32_t rot_avg  = rot_total  / frames;
+    const uint32_t xfer_avg = xfer_total / frames;
+    Serial.printf("[PERF/flush] %u flushes/%ums = %.1f fps | rotate avg %uus worst %uus"
+                  " | xfer avg %uus worst %uus | frame avg %uus (%.0f%% of a 60fps budget)\n",
+                  frames, elapsed, frames * 1000.0f / elapsed,
+                  rot_avg, rot_worst, xfer_avg, xfer_worst,
+                  rot_avg + xfer_avg, (rot_avg + xfer_avg) / 166.67f);
+
+    frames = rot_total = rot_worst = xfer_total = xfer_worst = 0;
+    window_ms = millis();
 }
 #endif
 
@@ -189,6 +224,9 @@ void display_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *px_ma
 
     // Rotate the entire frame from landscape 800x480 to portrait 480x800 for panel
     // Panel DPI is now configured for 480×800 portrait
+#if DISPLAY_PERF_TRACE
+    const int64_t t_rot0 = esp_timer_get_time();
+#endif
 #if USE_PPA_ACCELERATION
     if (ppa_handle) {
         // Use hardware-accelerated rotation
@@ -202,8 +240,17 @@ void display_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *px_ma
     rotate_image_90((uint16_t *)px_map, (uint16_t *)rotate_buf, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 #endif
 
+#if DISPLAY_PERF_TRACE
+    const int64_t t_rot1 = esp_timer_get_time();
+#endif
+
     // Send rotated buffer to panel in portrait orientation
     lcd->lcd_draw_bitmap(0, 0, PANEL_WIDTH, PANEL_HEIGHT, (uint16_t *)rotate_buf);
+
+#if DISPLAY_PERF_TRACE
+    displayPerfTrace((uint32_t)(t_rot1 - t_rot0),
+                     (uint32_t)(esp_timer_get_time() - t_rot1));
+#endif
 
     lv_display_flush_ready(disp_drv);
 }

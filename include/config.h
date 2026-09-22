@@ -340,6 +340,22 @@
 // silence long enough that a stale line would look stuck.
 #define LYRIC_GAP_HOLD_MS     30000
 
+// ── Display performance trace ───────────────────────────────────────────────
+// MEASUREMENT BUILD ONLY - must be 0 before any release.
+//
+// The 4" panel is physically portrait (480x800) and the UI is drawn landscape
+// (800x480), so every flush rotates the whole frame on the CPU. Nobody has ever
+// measured what that costs: PPA hardware rotation is switched off (see
+// USE_PPA_ACCELERATION, "causes glitches", from the initial commit and never
+// revisited) and LV_USE_PERF_MONITOR is off for production.
+//
+// With this at 1 the driver prints, every 5 seconds: achieved flush rate, and
+// the average/worst cost of the rotate and of the panel transfer SEPARATELY -
+// because which of those two dominates decides the fix. If the rotate
+// dominates, PPA is the answer. If the transfer dominates, PPA changes nothing
+// and partial render mode is the answer.
+#define DISPLAY_PERF_TRACE      1
+
 
 // =============================================================================
 // OTA UPDATES
