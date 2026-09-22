@@ -341,7 +341,16 @@
 #define LYRIC_GAP_HOLD_MS     30000
 
 // ── Display performance trace ───────────────────────────────────────────────
-// MEASUREMENT BUILD ONLY - must be 0 before any release.
+// 0 for release. Set to 1 to re-measure; the driver then prints the achieved
+// flush rate and the rotate/transfer split every 5 seconds.
+//
+// What it found, kept here because the numbers are the reason the PPA path is
+// enabled and the reason it is not enabled harder: the software transpose cost
+// 17,755us per flush against 638us to reach the panel. Aligning the buffers took
+// the transfer to 94us; moving the rotate onto the PPA took it only to 15,354us.
+// Hardware is no faster because the limit is not the CPU - 800x480 RGB565 is
+// 1.5MB of PSRAM traffic per frame and a transposed write gets ~102MB/s out of a
+// ~400MB/s bus. The next real win is partial rendering: move less, not faster.
 //
 // The 4" panel is physically portrait (480x800) and the UI is drawn landscape
 // (800x480), so every flush rotates the whole frame on the CPU. Nobody has ever
@@ -354,7 +363,7 @@
 // because which of those two dominates decides the fix. If the rotate
 // dominates, PPA is the answer. If the transfer dominates, PPA changes nothing
 // and partial render mode is the answer.
-#define DISPLAY_PERF_TRACE      1
+#define DISPLAY_PERF_TRACE      0
 
 
 // =============================================================================
