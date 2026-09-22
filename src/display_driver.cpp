@@ -16,10 +16,29 @@ typedef st7701_lcd panel_lcd_t;
 #include <esp_heap_caps.h>
 #include <esp_timer.h>        // esp_timer_get_time() for DISPLAY_PERF_TRACE
 #include <esp_lcd_panel_ops.h>
-#include <esp_private/esp_cache_private.h>
+#include <esp_private/esp_cache_private.h>   // esp_cache_get_alignment()
+#include <esp_cache.h>                        // esp_cache_msync() - PPA coherency
 #include <driver/ppa.h>
 
-#define USE_PPA_ACCELERATION 0  // Disable hardware acceleration (causes glitches)
+// Hardware rotation on the ESP32-P4's Pixel Processing Accelerator.
+//
+// This was 0 from the initial commit - "causes glitches" - and the glitches were
+// real, but the cause is known and it is not the PPA. Two things were missing:
+//
+//   1. ALIGNMENT. PPA needs both buffers aligned to the cache line (64B).
+//      heap_caps_malloc() promises no alignment at all. The old code aligned
+//      out.buffer_SIZE and never the addresses, so the transfer was rejected or
+//      landed skewed. (LVGL issue #9978 is this exact error.)
+//
+//   2. CACHE COHERENCY. LVGL renders through the CPU cache; PPA is a DMA
+//      peripheral reading PSRAM directly and cannot see dirty cache lines. With
+//      no esp_cache_msync() the accelerator rotated STALE pixels, which is the
+//      tearing and blinking people report (LVGL issue #9046). esp_cache_private.h
+//      was already included here and never used.
+//
+// Measured before fixing: the software transpose cost 17.7ms per flush - 110% of
+// an entire 60fps frame budget - against 0.6ms to hand the result to the panel.
+#define USE_PPA_ACCELERATION 1
 
 static panel_lcd_t* lcd = NULL;
 static lv_color_t *buf1 = NULL;
@@ -72,7 +91,19 @@ static void rotate_image_90_ppa(const uint16_t *src, uint16_t *dst, int width, i
     oper_config.byte_swap = 0;
     oper_config.mode = PPA_TRANS_MODE_BLOCKING;
 
+    // Write the CPU's dirty cache lines back to PSRAM so the accelerator reads
+    // the frame LVGL just drew rather than whatever was in memory before it.
+    // This is the step whose absence produced the "glitches".
+    const size_t bytes = ALIGN_UP(sizeof(uint16_t) * width * height, cache_line_size);
+    esp_cache_msync((void *)src, bytes,
+                    ESP_CACHE_MSYNC_FLAG_TYPE_DATA | ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+
     ppa_do_scale_rotate_mirror(ppa_handle, &oper_config);
+
+    // And drop any cached view of the destination, so nothing the CPU still holds
+    // for that buffer can be evicted over what the accelerator just wrote.
+    esp_cache_msync((void *)dst, bytes,
+                    ESP_CACHE_MSYNC_FLAG_TYPE_DATA | ESP_CACHE_MSYNC_FLAG_DIR_M2C);
 }
 #endif
 
@@ -168,10 +199,24 @@ bool display_init(void) {
     Serial.println("[Display] ST7701 LCD initialized successfully");
 
     // Allocate LVGL buffers in PSRAM - LANDSCAPE dimensions for LVGL (800x480)
-    buf1 = (lv_color_t *)heap_caps_malloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
-    buf2 = (lv_color_t *)heap_caps_malloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
-    // Allocate rotation buffer - PORTRAIT dimensions for panel (480x800)
-    rotate_buf = (lv_color_t *)heap_caps_malloc(DISPLAY_HEIGHT * DISPLAY_WIDTH * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
+    //
+    // Cache-line ALIGNED when PPA is driving the rotation: the accelerator reads
+    // and writes these directly and rejects unaligned addresses. Both the address
+    // and the length have to be aligned, which is why the size is rounded up too.
+    // Plain heap_caps_malloc() guarantees neither, and that was half of why
+    // hardware rotation was abandoned here.
+    const size_t fb_bytes = DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(lv_color_t);
+#if USE_PPA_ACCELERATION
+    if (cache_line_size == 0) cache_line_size = 64;   // PPA init failed; stay sane
+    const size_t fb_alloc = ALIGN_UP(fb_bytes, cache_line_size);
+    buf1       = (lv_color_t *)heap_caps_aligned_alloc(cache_line_size, fb_alloc, MALLOC_CAP_SPIRAM);
+    buf2       = (lv_color_t *)heap_caps_aligned_alloc(cache_line_size, fb_alloc, MALLOC_CAP_SPIRAM);
+    rotate_buf = (lv_color_t *)heap_caps_aligned_alloc(cache_line_size, fb_alloc, MALLOC_CAP_SPIRAM);
+#else
+    buf1       = (lv_color_t *)heap_caps_malloc(fb_bytes, MALLOC_CAP_SPIRAM);
+    buf2       = (lv_color_t *)heap_caps_malloc(fb_bytes, MALLOC_CAP_SPIRAM);
+    rotate_buf = (lv_color_t *)heap_caps_malloc(fb_bytes, MALLOC_CAP_SPIRAM);
+#endif
 
     if (!buf1 || !buf2 || !rotate_buf) {
         Serial.println("[Display] ERROR: Failed to allocate buffers!");
