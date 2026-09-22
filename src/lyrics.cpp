@@ -618,6 +618,17 @@ static void lyrics_fadeout_done_cb(lv_anim_t* a) {
 // Smooth 300ms fade-out then hide
 static void lyricsHide() {
     if (!lyrics_container || lv_obj_has_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN)) return;
+    // A fade-out is already running: let it finish.
+    //
+    // The HIDDEN flag is set by the COMPLETION callback, so during the fade the
+    // container is not hidden yet and the guard above does not catch it.
+    // updateLyricsDisplay() calls this on every tick once the track is past its
+    // last lyric - ten times a second - and each call restarted the fade with a
+    // fresh 300ms timer, so it never completed and HIDDEN was never set. The
+    // container then sat at opacity ~0 but un-hidden for ever, which on Amber
+    // keeps the NEXT block hidden behind it: the shelf goes blank at the end of
+    // every track with lyrics and never comes back.
+    if (lv_anim_get(lyrics_container, lyrics_fade_cb)) return;
     lv_anim_t anim;
     lv_anim_init(&anim);
     lv_anim_set_var(&anim, lyrics_container);
@@ -671,16 +682,18 @@ void updateLyricsDisplay(int pos_ms) {
 
     int time_since_current = pos_ms - lyric_lines[idx].time_ms;
 
-    // Past last lyric by 3 seconds — fade out
-    if (idx == lyric_count - 1 && time_since_current > 3000) {
+    // Past the last lyric — the song's words are done, so let the shelf go.
+    if (idx == lyric_count - 1 && time_since_current > LYRIC_END_HOLD_MS) {
         lyricsHide();
         return;
     }
 
-    // Long gap before next lyric (10s shown, next still far) — fade out
+    // A long gap with more lyrics still to come - a bridge or a solo. Hold the
+    // line rather than swapping the shelf out and straight back in; see
+    // LYRIC_GAP_HOLD_MS for why this is not the same as the rule above.
     if (idx < lyric_count - 1) {
         int time_to_next = lyric_lines[idx + 1].time_ms - pos_ms;
-        if (time_since_current >= 10000 && time_to_next > 0) {
+        if (time_since_current >= LYRIC_GAP_HOLD_MS && time_to_next > 0) {
             lyricsHide();
             return;
         }

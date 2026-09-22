@@ -14,11 +14,31 @@ typedef jd9165_lcd panel_lcd_t;
 typedef st7701_lcd panel_lcd_t;
 #endif
 #include <esp_heap_caps.h>
+#include <esp_timer.h>        // esp_timer_get_time() for DISPLAY_PERF_TRACE
 #include <esp_lcd_panel_ops.h>
-#include <esp_private/esp_cache_private.h>
+#include <esp_private/esp_cache_private.h>   // esp_cache_get_alignment()
+#include <esp_cache.h>                        // esp_cache_msync() - PPA coherency
 #include <driver/ppa.h>
 
-#define USE_PPA_ACCELERATION 0  // Disable hardware acceleration (causes glitches)
+// Hardware rotation on the ESP32-P4's Pixel Processing Accelerator.
+//
+// This was 0 from the initial commit - "causes glitches" - and the glitches were
+// real, but the cause is known and it is not the PPA. Two things were missing:
+//
+//   1. ALIGNMENT. PPA needs both buffers aligned to the cache line (64B).
+//      heap_caps_malloc() promises no alignment at all. The old code aligned
+//      out.buffer_SIZE and never the addresses, so the transfer was rejected or
+//      landed skewed. (LVGL issue #9978 is this exact error.)
+//
+//   2. CACHE COHERENCY. LVGL renders through the CPU cache; PPA is a DMA
+//      peripheral reading PSRAM directly and cannot see dirty cache lines. With
+//      no esp_cache_msync() the accelerator rotated STALE pixels, which is the
+//      tearing and blinking people report (LVGL issue #9046). esp_cache_private.h
+//      was already included here and never used.
+//
+// Measured before fixing: the software transpose cost 17.7ms per flush - 110% of
+// an entire 60fps frame budget - against 0.6ms to hand the result to the panel.
+#define USE_PPA_ACCELERATION 1
 
 static panel_lcd_t* lcd = NULL;
 static lv_color_t *buf1 = NULL;
@@ -42,7 +62,20 @@ static size_t cache_line_size = 0;
 #if USE_PPA_ACCELERATION
 // Hardware-accelerated rotation using ESP32-P4 PPA
 static void rotate_image_90_ppa(const uint16_t *src, uint16_t *dst, int width, int height) {
-    ppa_srm_oper_config_t oper_config;
+    // ZERO-INITIALISED, and this is not a style preference - it is the third and
+    // final reason hardware rotation was abandoned here.
+    //
+    // ppa_srm_oper_config_t has fields this function never assigns: mirror_x,
+    // mirror_y, alpha_update_mode, the alpha union, user_data, and yuv_range /
+    // yuv_std inside BOTH the in and out block configs. Declared bare, every one
+    // of them is whatever was on the stack. Several are enums, so the driver was
+    // handed values outside their valid range and aborted inside its descriptor
+    // setup (dma2d_desc_pixel_format_to_pbyte_value, via
+    // ppa_srm_transaction_on_picked).
+    //
+    // Stack contents vary run to run, which is exactly why the original symptom
+    // was "glitches" rather than a clean, reproducible failure.
+    ppa_srm_oper_config_t oper_config = {};
 
     // Input configuration
     oper_config.in.buffer = (void *)src;
@@ -71,7 +104,53 @@ static void rotate_image_90_ppa(const uint16_t *src, uint16_t *dst, int width, i
     oper_config.byte_swap = 0;
     oper_config.mode = PPA_TRANS_MODE_BLOCKING;
 
+    // Write the CPU's dirty cache lines back to PSRAM so the accelerator reads
+    // the frame LVGL just drew rather than whatever was in memory before it.
+    // This is the step whose absence produced the "glitches".
+    const size_t bytes = ALIGN_UP(sizeof(uint16_t) * width * height, cache_line_size);
+    esp_cache_msync((void *)src, bytes,
+                    ESP_CACHE_MSYNC_FLAG_TYPE_DATA | ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+
     ppa_do_scale_rotate_mirror(ppa_handle, &oper_config);
+
+    // And drop any cached view of the destination, so nothing the CPU still holds
+    // for that buffer can be evicted over what the accelerator just wrote.
+    esp_cache_msync((void *)dst, bytes,
+                    ESP_CACHE_MSYNC_FLAG_TYPE_DATA | ESP_CACHE_MSYNC_FLAG_DIR_M2C);
+}
+#endif
+
+#if DISPLAY_PERF_TRACE
+// Accumulates flush costs and prints one line every 5s. Called from the flush
+// callback, so it must stay cheap: two adds and a compare on the common path.
+//
+// rotate_us  - the 800x480 -> 480x800 transpose, 384,000 pixels, CPU, PSRAM.
+// xfer_us    - handing the 750KB portrait buffer to the panel over MIPI DSI.
+//
+// The split is the whole point. A 60fps budget is 16,667us per frame; the two
+// numbers say how much of it this consumes and which half to attack.
+static void displayPerfTrace(uint32_t rotate_us, uint32_t xfer_us, const char *path) {
+    static uint32_t frames = 0, rot_total = 0, rot_worst = 0,
+                    xfer_total = 0, xfer_worst = 0, window_ms = 0;
+    if (window_ms == 0) window_ms = millis();
+
+    frames++;
+    rot_total  += rotate_us;  if (rotate_us > rot_worst)  rot_worst  = rotate_us;
+    xfer_total += xfer_us;    if (xfer_us   > xfer_worst) xfer_worst = xfer_us;
+
+    const uint32_t elapsed = millis() - window_ms;
+    if (elapsed < 5000 || frames == 0) return;
+
+    const uint32_t rot_avg  = rot_total  / frames;
+    const uint32_t xfer_avg = xfer_total / frames;
+    Serial.printf("[PERF/flush] path=%s | %u flushes/%ums = %.1f fps | rotate avg %uus worst %uus"
+                  " | xfer avg %uus worst %uus | frame avg %uus (%.0f%% of a 60fps budget)\n",
+                  path, frames, elapsed, frames * 1000.0f / elapsed,
+                  rot_avg, rot_worst, xfer_avg, xfer_worst,
+                  rot_avg + xfer_avg, (rot_avg + xfer_avg) / 166.67f);
+
+    frames = rot_total = rot_worst = xfer_total = xfer_worst = 0;
+    window_ms = millis();
 }
 #endif
 
@@ -133,10 +212,24 @@ bool display_init(void) {
     Serial.println("[Display] ST7701 LCD initialized successfully");
 
     // Allocate LVGL buffers in PSRAM - LANDSCAPE dimensions for LVGL (800x480)
-    buf1 = (lv_color_t *)heap_caps_malloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
-    buf2 = (lv_color_t *)heap_caps_malloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
-    // Allocate rotation buffer - PORTRAIT dimensions for panel (480x800)
-    rotate_buf = (lv_color_t *)heap_caps_malloc(DISPLAY_HEIGHT * DISPLAY_WIDTH * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
+    //
+    // Cache-line ALIGNED when PPA is driving the rotation: the accelerator reads
+    // and writes these directly and rejects unaligned addresses. Both the address
+    // and the length have to be aligned, which is why the size is rounded up too.
+    // Plain heap_caps_malloc() guarantees neither, and that was half of why
+    // hardware rotation was abandoned here.
+    const size_t fb_bytes = DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(lv_color_t);
+#if USE_PPA_ACCELERATION
+    if (cache_line_size == 0) cache_line_size = 64;   // PPA init failed; stay sane
+    const size_t fb_alloc = ALIGN_UP(fb_bytes, cache_line_size);
+    buf1       = (lv_color_t *)heap_caps_aligned_alloc(cache_line_size, fb_alloc, MALLOC_CAP_SPIRAM);
+    buf2       = (lv_color_t *)heap_caps_aligned_alloc(cache_line_size, fb_alloc, MALLOC_CAP_SPIRAM);
+    rotate_buf = (lv_color_t *)heap_caps_aligned_alloc(cache_line_size, fb_alloc, MALLOC_CAP_SPIRAM);
+#else
+    buf1       = (lv_color_t *)heap_caps_malloc(fb_bytes, MALLOC_CAP_SPIRAM);
+    buf2       = (lv_color_t *)heap_caps_malloc(fb_bytes, MALLOC_CAP_SPIRAM);
+    rotate_buf = (lv_color_t *)heap_caps_malloc(fb_bytes, MALLOC_CAP_SPIRAM);
+#endif
 
     if (!buf1 || !buf2 || !rotate_buf) {
         Serial.println("[Display] ERROR: Failed to allocate buffers!");
@@ -189,6 +282,9 @@ void display_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *px_ma
 
     // Rotate the entire frame from landscape 800x480 to portrait 480x800 for panel
     // Panel DPI is now configured for 480×800 portrait
+#if DISPLAY_PERF_TRACE
+    const int64_t t_rot0 = esp_timer_get_time();
+#endif
 #if USE_PPA_ACCELERATION
     if (ppa_handle) {
         // Use hardware-accelerated rotation
@@ -202,8 +298,23 @@ void display_flush(lv_display_t *disp_drv, const lv_area_t *area, uint8_t *px_ma
     rotate_image_90((uint16_t *)px_map, (uint16_t *)rotate_buf, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 #endif
 
+#if DISPLAY_PERF_TRACE
+    const int64_t t_rot1 = esp_timer_get_time();
+#endif
+
     // Send rotated buffer to panel in portrait orientation
     lcd->lcd_draw_bitmap(0, 0, PANEL_WIDTH, PANEL_HEIGHT, (uint16_t *)rotate_buf);
+
+#if DISPLAY_PERF_TRACE
+    displayPerfTrace((uint32_t)(t_rot1 - t_rot0),
+                     (uint32_t)(esp_timer_get_time() - t_rot1),
+#if USE_PPA_ACCELERATION
+                     ppa_handle ? "PPA" : "SW(ppa-init-failed)"
+#else
+                     "SW(compiled-out)"
+#endif
+                     );
+#endif
 
     lv_display_flush_ready(disp_drv);
 }

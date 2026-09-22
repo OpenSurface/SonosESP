@@ -322,6 +322,49 @@
 // path is gated on !dragging_vol - so this only smooths remote changes.
 #define VOL_GLIDE_MS            200
 
+// Synced lyrics: when the shelf stops showing a line and hands itself back to
+// Next-up. Only the Amber player shares one shelf between the two, but the
+// timing is the same everywhere.
+//
+// END - the last lyric has been up this long with none left to come, so the
+// song's words are finished.
+#define LYRIC_END_HOLD_MS      3000
+
+// GAP - one line has been the newest for this long while ANOTHER is still
+// coming: an instrumental bridge, a solo, a long intro.
+//
+// This was 10s, which was far too eager. A twenty-second bridge flipped the
+// shelf to Next-up at ten seconds and then snapped back to lyrics the moment
+// singing resumed - twice in a single song, with nothing the listener did to
+// cause it. 30s rides out a normal bridge and gives the shelf up only on a
+// silence long enough that a stale line would look stuck.
+#define LYRIC_GAP_HOLD_MS     30000
+
+// ── Display performance trace ───────────────────────────────────────────────
+// 0 for release. Set to 1 to re-measure; the driver then prints the achieved
+// flush rate and the rotate/transfer split every 5 seconds.
+//
+// What it found, kept here because the numbers are the reason the PPA path is
+// enabled and the reason it is not enabled harder: the software transpose cost
+// 17,755us per flush against 638us to reach the panel. Aligning the buffers took
+// the transfer to 94us; moving the rotate onto the PPA took it only to 15,354us.
+// Hardware is no faster because the limit is not the CPU - 800x480 RGB565 is
+// 1.5MB of PSRAM traffic per frame and a transposed write gets ~102MB/s out of a
+// ~400MB/s bus. The next real win is partial rendering: move less, not faster.
+//
+// The 4" panel is physically portrait (480x800) and the UI is drawn landscape
+// (800x480), so every flush rotates the whole frame on the CPU. Nobody has ever
+// measured what that costs: PPA hardware rotation is switched off (see
+// USE_PPA_ACCELERATION, "causes glitches", from the initial commit and never
+// revisited) and LV_USE_PERF_MONITOR is off for production.
+//
+// With this at 1 the driver prints, every 5 seconds: achieved flush rate, and
+// the average/worst cost of the rotate and of the panel transfer SEPARATELY -
+// because which of those two dominates decides the fix. If the rotate
+// dominates, PPA is the answer. If the transfer dominates, PPA changes nothing
+// and partial render mode is the answer.
+#define DISPLAY_PERF_TRACE      0
+
 
 // =============================================================================
 // OTA UPDATES
