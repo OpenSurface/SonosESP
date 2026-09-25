@@ -1804,10 +1804,20 @@ static bool updateConnectionState(SonosDevice* d) {
 
             // PLAY, not pause. This is the "nothing is playing" path — it clears
             // the title to "Not Playing" and then drew a pause glyph, offering to
-            // pause silence. The font is the builder's business too; forcing
-            // lv_font_mdi_40 here overrode whichever face the active theme chose.
+            // pause silence.
+            //
+            // The font IS set, and the second half of the old comment here —
+            // "the font is the builder's business too" — was wrong. It reads as a
+            // deliberate decision, and it is why the same line was later deleted
+            // from updateUI(), which produced a visibly low play glyph. Writing an
+            // MDI codepoint into a label whose font is the theme's icon face means
+            // the glyph comes from the fallback while the baseline comes from the
+            // primary: font_icon_40 wraps lv_font_amber_40 at line_height 42 versus
+            // the MDI font's 36, so the glyph drops six pixels. See the fuller note
+            // at the updateUI() play/pause site.
             lv_obj_t* lbl = lv_obj_get_child(btn_play, 0);
             lv_label_set_text(lbl, MDI_PLAY);
+            lv_obj_set_style_text_font(lbl, &lv_font_mdi_40, 0);
             lv_obj_center(lbl);
 
             ui_title = "";
@@ -2401,15 +2411,25 @@ void updateUI() {
     if (d->isPlaying != ui_playing) {
         lv_obj_t* lbl = lv_obj_get_child(btn_play, 0);
         lv_label_set_text(lbl, d->isPlaying ? MDI_PAUSE : MDI_PLAY);
-        // No font here. The FONT is the builder's business, same as the repeat
-        // button below and the disconnect path above — both already fixed, this
-        // one was missed. Amber gives the play icon font_icon_40, which chains
-        // lv_font_amber_40 -> mdi_fb_40 -> font_text_32; stamping the raw
-        // lv_font_mdi_40 swapped in a different face with no fallback chain and a
-        // line height of 36 against 42, so the glyph changed shape and shrank
-        // ~14% inside the button. themeSet() inverts ui_playing, so this fired on
-        // the very first play/pause after every theme change. Immersive got the
-        // opposite: its builder uses mdi_32 and this bumped it to 40.
+        // The font MUST be set here, because the text above is an MDI codepoint.
+        //
+        // This line was removed once on the theory that "the font is the builder's
+        // business" — which is true for the repeat button, whose text stays in the
+        // theme's own icon set. It is NOT true here. Amber's builder puts
+        // AMB_IC_PAUSE (U+E00A) in font_icon_40, but this function overwrites the
+        // text with MDI_PAUSE (U+F03E4), a codepoint that font does not contain.
+        // It then resolves through the fallback chain to lv_font_mdi_40.
+        //
+        // LVGL positions a glyph using the LABEL's font metrics but the FALLBACK's
+        // glyph box. font_icon_40 wraps lv_font_amber_40: line_height 42, base_line
+        // 2, so the baseline lands 40px down. The MDI glyph was drawn for
+        // line_height 36, baseline 34. Six pixels of drop — the play icon visibly
+        // sits low in its circle. Setting the font makes the metrics match the
+        // glyph again.
+        //
+        // The real fix is for the theme to expose its own play/pause codepoints so
+        // this function never writes a foreign one. Until then, this line stays.
+        lv_obj_set_style_text_font(lbl, &lv_font_mdi_40, 0);
         lv_obj_center(lbl);  // MDI icons are optically centered — no offset needed
 
         ui_playing = d->isPlaying;
