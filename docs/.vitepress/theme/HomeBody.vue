@@ -200,6 +200,8 @@ const showcaseUrl =
     </div>
   </section>
 
+  <StatsPanel />
+
   <!-- ---- footer ---- -->
   <footer class="site-foot">
     <div class="wrap foot-inner">

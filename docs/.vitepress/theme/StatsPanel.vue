@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 
 // Reads a static file, never the GoatCounter API.
 //
@@ -13,6 +13,9 @@ import { ref, computed, onMounted } from 'vue'
 const stats = ref(null)
 const rolled = ref(false)
 const settled = ref(false)
+const root = ref(null)
+let io = null
+let fallbackTimer = 0
 
 // Full rotations before landing. Without these each reel travelled only as far
 // as its own digit, so a 1 barely moved while a 9 spun — the giveaway that it
@@ -34,11 +37,44 @@ onMounted(async () => {
     settled.value = true
     return
   }
-  // Two frames: one to paint the reels at rest, one for the transition to pick
-  // up the change. Rolling from a standing start is the whole effect.
-  requestAnimationFrame(() => requestAnimationFrame(() => { rolled.value = true }))
-  // Blur lifts as the last reel arrives, so the number sharpens into place.
-  setTimeout(() => { settled.value = true }, 1500 + digits.value.length * 80)
+
+  await nextTick()
+
+  // Roll when it scrolls into view, not on load.
+  //
+  // The panel sits just above the footer, so on load it is far below the fold —
+  // rolling there means the effect is always over before anyone sees it, and the
+  // reader just finds a static number.
+  //
+  // The fallback timer matters as much as the observer: a reel left at 0 shows
+  // the WRONG COUNT, so if IntersectionObserver is missing, or never fires
+  // because the viewport is tall enough that the panel is already visible, the
+  // number still arrives.
+  const start = () => {
+    if (rolled.value) return
+    // Two frames: one to paint the reels at rest, one for the transition to pick
+    // up the change. Rolling from a standing start is the whole effect.
+    requestAnimationFrame(() => requestAnimationFrame(() => { rolled.value = true }))
+    // Blur lifts as the last reel arrives, so the number sharpens into place.
+    setTimeout(() => { settled.value = true }, 1500 + digits.value.length * 80)
+    io?.disconnect()
+    clearTimeout(fallbackTimer)
+  }
+
+  if (root.value && 'IntersectionObserver' in window) {
+    io = new IntersectionObserver((entries) => {
+      if (entries.some(e => e.isIntersecting)) start()
+    }, { threshold: 0.35 })
+    io.observe(root.value)
+    fallbackTimer = setTimeout(start, 6000)
+  } else {
+    start()
+  }
+})
+
+onUnmounted(() => {
+  io?.disconnect()
+  clearTimeout(fallbackTimer)
 })
 
 const digits = computed(() =>
@@ -63,7 +99,7 @@ function flag(cc) {
 </script>
 
 <template>
-  <section v-if="stats" class="sp">
+  <section v-if="stats" ref="root" class="sp" :class="{ 'is-rolled': rolled }">
     <div class="sp-head">
       <div class="sp-odo" :class="{ 'is-settled': settled }"
            role="img" :aria-label="`${stats.panels} panels running SonosESP`">
@@ -133,16 +169,22 @@ function flag(cc) {
   color: var(--se-gold);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+  /* drop-shadow on the CONTAINER, not text-shadow on the digits.
+     Each slot is overflow:hidden, so a text-shadow inside one gets clipped to
+     that slot's box — which paints a visible rectangle of glow behind every
+     digit. A filter on the parent is outside the clip and follows the glyph
+     shapes instead. */
+  filter: drop-shadow(0 0 26px var(--se-accent-glow));
 }
 .sp-slot {
   position: relative;
   display: block;
   width: .60em;
   height: 1em;
+  /* overflow:hidden alone. A feathered mask was tried here to soften the clip
+     edge and it read as a visible box behind every digit — three grey squares
+     under the number. The glow below is the only effect the digits need. */
   overflow: hidden;
-  /* Feathered ends: a hard edge reads as clipped text, a soft one as a drum. */
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 26%, #000 74%, transparent);
-          mask-image: linear-gradient(180deg, transparent, #000 26%, #000 74%, transparent);
 }
 .sp-reel {
   display: block;
@@ -159,14 +201,10 @@ function flag(cc) {
   font-weight: 700;
   text-align: center;
 }
-/* Glow on the container, not each digit: on the reel it smears down the strip. */
-.sp-odo { text-shadow: 0 0 44px var(--se-accent-glow); }
-
 .sp-sep { display: block; align-self: flex-end; opacity: .4; margin: 0 -.08em; }
 
 @media (prefers-reduced-motion: reduce) {
   .sp-reel { transition: none; filter: none; }
-  .sp-slot { -webkit-mask-image: none; mask-image: none; }
 }
 
 .sp-label {
@@ -204,14 +242,19 @@ function flag(cc) {
 .sp-mono { font-family: var(--se-mono); font-size: .84rem; }
 
 .sp-bar { height: 6px; border-radius: 3px; background: var(--vp-c-gutter); overflow: hidden; }
+/* Driven by the same scroll trigger as the reels, not by a load animation —
+   otherwise the bars have already grown by the time the panel is scrolled to. */
 .sp-bar i {
   display: block; height: 100%; border-radius: 3px;
   background: linear-gradient(90deg, var(--se-accent-dim), var(--se-gold));
   transform-origin: left;
-  animation: sp-grow 1.1s cubic-bezier(.16, 1, .3, 1) both .5s;
+  transform: scaleX(0);
+  transition: transform 1.1s cubic-bezier(.16, 1, .3, 1) .45s;
 }
-@keyframes sp-grow { from { transform: scaleX(0); } }
-@media (prefers-reduced-motion: reduce) { .sp-bar i { animation: none; } }
+.is-rolled .sp-bar i { transform: scaleX(1); }
+@media (prefers-reduced-motion: reduce) {
+  .sp-bar i { transition: none; transform: scaleX(1); }
+}
 
 .sp-n { font-family: var(--se-mono); font-size: .82rem; color: var(--vp-c-text-2); font-variant-numeric: tabular-nums; }
 
