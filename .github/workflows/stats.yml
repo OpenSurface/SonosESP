@@ -24,6 +24,7 @@ on:
 
 permissions:
   contents: write
+  actions: write     # to dispatch deploy-pages; see the last step
 
 concurrency:
   group: stats
@@ -50,6 +51,7 @@ jobs:
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Commit if changed
+        id: commit
         if: steps.fetch.outputs.skip == 'false'
         run: |
           # Stage FIRST, then compare the index.
@@ -68,3 +70,20 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "chore: refresh install stats"
           git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      # Without this the numbers are committed and never published.
+      #
+      # GitHub deliberately does not start workflows from a push made with the
+      # default GITHUB_TOKEN — it is recursion protection. So the commit above
+      # matches deploy-pages' own 'docs/**' path filter and still does not
+      # trigger it: the file sits on main while the live site keeps serving the
+      # previous build, or 404s if this was the first run. It would only publish
+      # later, by accident, on whatever unrelated docs push came next.
+      #
+      # deploy-pages already has workflow_dispatch, so ask for it explicitly.
+      - name: Publish the site so the new numbers appear
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main
