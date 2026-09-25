@@ -757,6 +757,10 @@ static void mainAppTask(void* param) {
         }
 
         if (!skip_updates) {
+            // Screen wake on behalf of the touch sampler, which runs on core 0 and
+            // must not touch LVGL's animation list while we walk it here.
+            if (touch_take_wake_request()) resetScreenTimeout();
+
             lv_timer_handler();
             processUpdates();
             checkAutoDim();
