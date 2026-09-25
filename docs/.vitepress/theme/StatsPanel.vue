@@ -88,8 +88,16 @@ function reelFor(ch) {
   return out
 }
 
-function pct(n, total) {
-  return total ? Math.max(1.5, Math.round((n / total) * 100)) : 0
+// Bars are relative to the biggest row in their OWN list, not to the headline.
+//
+// The headline counts unique panels; these lists count boots, so they do not sum
+// to it — five panels produced eight boots here. Dividing by the headline made
+// Canada render at 6/5 = 120% and the version bars overflow past 100%. Sizing
+// against the list's own maximum keeps the top row full width and every other
+// row an honest share of it, with no implied relationship to the headline.
+function barPct(n, rows) {
+  const max = Math.max(1, ...rows.map(r => r.count))
+  return Math.max(2, Math.round((n / max) * 100))
 }
 
 function flag(cc) {
@@ -126,7 +134,7 @@ function flag(cc) {
           <li v-for="c in stats.countries.slice(0, 8)" :key="c.code">
             <span class="sp-flag">{{ flag(c.code) }}</span>
             <span class="sp-name">{{ c.name }}</span>
-            <span class="sp-bar"><i :style="{ width: pct(c.count, stats.panels) + '%' }" /></span>
+            <span class="sp-bar"><i :style="{ width: barPct(c.count, stats.countries) + '%' }" /></span>
             <span class="sp-n">{{ c.count }}</span>
           </li>
         </ul>
@@ -137,17 +145,21 @@ function flag(cc) {
         <ul class="sp-list vers">
           <li v-for="v in stats.versions.slice(0, 8)" :key="v.version">
             <span class="sp-name sp-mono">v{{ v.version }}</span>
-            <span class="sp-bar"><i :style="{ width: pct(v.count, stats.panels) + '%' }" /></span>
+            <span class="sp-bar"><i :style="{ width: barPct(v.count, stats.versions) + '%' }" /></span>
             <span class="sp-n">{{ v.count }}</span>
           </li>
         </ul>
       </div>
     </div>
 
+    <!-- Names the unit the two lists are counting. Without it the cards look
+         like they should add up to the headline and do not: the headline is
+         unique panels, the rows are startups. -->
     <p v-if="stats.updated" class="sp-foot">
+      <span v-if="stats.boots">{{ stats.boots.toLocaleString() }} startups</span>
+      <span v-if="stats.boots && stats.windowDays"> in the last {{ stats.windowDays }} days · </span>
       Updated {{ new Date(stats.updated).toLocaleDateString(undefined,
         { year: 'numeric', month: 'short', day: 'numeric' }) }}
-      <span v-if="stats.windowDays"> · last {{ stats.windowDays }} days</span>
     </p>
   </section>
 </template>
