@@ -1,4 +1,4 @@
-﻿/**
+/**
  * UI TV Audio Mode Handler
  * Dedicated UI for Sonos soundbar TV audio (x-sonos-htastream: URI).
  *
@@ -17,15 +17,8 @@ static void _tv_anim_cb(void* obj, int32_t val) {
     lv_obj_set_style_text_opa((lv_obj_t*)obj, (lv_opa_t)val, 0);
 }
 
-
-// Forget the latched state without touching widgets.
-//
-// themeSet() rebuilds every player widget from scratch, but this flag survives
-// the rebuild — so a theme change while this source was active left the setter
-// early-returning and the NEW widgets never got hidden. Resetting to false is
-// correct both ways: a fresh builder leaves everything visible, so if the source
-// is still active the next tick re-applies the hiding, and if it is not, the
-// setter simply no-ops.
+// Forget the latched state after themeSet() rebuilds the player widgets.
+// See the fuller note at radioModeForget().
 void tvAudioModeForget(void) { is_tv_audio_mode = false; }
 
 void setTvAudioMode(bool enable) {
@@ -35,7 +28,7 @@ void setTvAudioMode(bool enable) {
     if (enable) {
         Serial.println("[TV UI] Switching to TV audio mode");
 
-        // â”€â”€ Left panel: swap album art for TV icon â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Left panel: swap album art for TV icon ───────────────────────────
         if (img_blur_bg)     lv_obj_add_flag(img_blur_bg,     LV_OBJ_FLAG_HIDDEN);
         if (img_album)       lv_obj_add_flag(img_album,       LV_OBJ_FLAG_HIDDEN);
         if (art_placeholder) lv_obj_add_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
@@ -54,7 +47,7 @@ void setTvAudioMode(bool enable) {
         }
         if (lbl_tv_subtitle) lv_obj_clear_flag(lbl_tv_subtitle, LV_OBJ_FLAG_HIDDEN);
 
-        // â”€â”€ Right panel: hide all music-specific controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Right panel: hide all music-specific controls ────────────────────
         if (btn_prev)     lv_obj_add_flag(btn_prev,     LV_OBJ_FLAG_HIDDEN);
         if (btn_next)     lv_obj_add_flag(btn_next,     LV_OBJ_FLAG_HIDDEN);
         if (btn_queue)    lv_obj_add_flag(btn_queue,    LV_OBJ_FLAG_HIDDEN);
@@ -86,7 +79,7 @@ void setTvAudioMode(bool enable) {
     } else {
         Serial.println("[TV UI] Leaving TV audio mode");
 
-        // â”€â”€ Restore left panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Restore left panel ───────────────────────────────────────────────
         if (lbl_tv_icon) {
             lv_anim_delete(lbl_tv_icon, _tv_anim_cb);
             lv_obj_set_style_text_opa(lbl_tv_icon, LV_OPA_COVER, 0);
@@ -98,7 +91,7 @@ void setTvAudioMode(bool enable) {
         if (art_placeholder) lv_obj_clear_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
         if (img_blur_bg)     lv_obj_clear_flag(img_blur_bg,     LV_OBJ_FLAG_HIDDEN);
 
-        // â”€â”€ Restore right panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Restore right panel ──────────────────────────────────────────────
         if (btn_prev)     lv_obj_clear_flag(btn_prev,     LV_OBJ_FLAG_HIDDEN);
         if (btn_next)     lv_obj_clear_flag(btn_next,     LV_OBJ_FLAG_HIDDEN);
         if (btn_queue)    lv_obj_clear_flag(btn_queue,    LV_OBJ_FLAG_HIDDEN);

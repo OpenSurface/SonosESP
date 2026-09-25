@@ -1,4 +1,4 @@
-﻿name: Code Quality
+name: Code Quality
 
 on:
   push:
@@ -16,7 +16,7 @@ permissions:
 jobs:
   # ============================================================
   # Job 0: host unit tests
-  # Runs on the runner, not on hardware. Covers include/sonos_topology.h â€”
+  # Runs on the runner, not on hardware. Covers include/sonos_topology.h —
   # the ZoneGroupState parser and RINCON comparison, which is where both of the
   # v1.15.2 group defects lived. Fast (no toolchain download, no firmware build),
   # so it gates the slower jobs below.
@@ -136,7 +136,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================
-  # Job 1: cppcheck â€” static bug analysis
+  # Job 1: cppcheck — static bug analysis
   # Results appear as inline annotations on PR diffs via SARIF.
   # ============================================================
   cppcheck:
@@ -151,7 +151,7 @@ jobs:
         run: sudo apt-get install -y cppcheck
 
       - name: Run cppcheck
-        # || true: don't fail here â€” let the SARIF upload + summary step control pass/fail
+        # || true: don't fail here — let the SARIF upload + summary step control pass/fail
         run: |
           cppcheck \
             --enable=warning,performance,portability \
@@ -171,9 +171,9 @@ jobs:
             src/ include/ \
             2> cppcheck.xml || true
 
-      - name: Convert XML â†’ SARIF
+      - name: Convert XML → SARIF
         # SARIF lets GitHub show results as inline PR diff annotations
-        # and tracks them in Security â†’ Code Scanning across branches.
+        # and tracks them in Security → Code Scanning across branches.
         if: always()
         run: |
           python3 << 'PYEOF'
@@ -264,7 +264,7 @@ jobs:
           print(f'SARIF written: {len(results)} result(s)')
           PYEOF
 
-      - name: Upload SARIF â†’ GitHub Code Scanning
+      - name: Upload SARIF → GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
@@ -274,11 +274,11 @@ jobs:
       - name: Job summary + fail on errors
         if: always()
         run: |
-          echo "## ðŸ” cppcheck Static Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 cppcheck Static Analysis" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ ! -s cppcheck.xml ]; then
-            echo "âœ… No issues found." >> $GITHUB_STEP_SUMMARY
+            echo "✅ No issues found." >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
 
@@ -289,21 +289,21 @@ jobs:
 
           echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|------:|" >> $GITHUB_STEP_SUMMARY
-          echo "| ðŸ”´ error | $ERRORS |" >> $GITHUB_STEP_SUMMARY
-          echo "| ðŸŸ¡ warning | $WARNINGS |" >> $GITHUB_STEP_SUMMARY
-          echo "| ðŸ”µ performance | $PERF |" >> $GITHUB_STEP_SUMMARY
-          echo "| âšª portability | $PORT |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔴 error | $ERRORS |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟡 warning | $WARNINGS |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔵 performance | $PERF |" >> $GITHUB_STEP_SUMMARY
+          echo "| ⚪ portability | $PORT |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> Inline annotations visible in the **Security â†’ Code scanning** tab and on PR diffs." >> $GITHUB_STEP_SUMMARY
+          echo "> Inline annotations visible in the **Security → Code scanning** tab and on PR diffs." >> $GITHUB_STEP_SUMMARY
 
           if [ "$ERRORS" -gt "0" ] 2>/dev/null; then
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "âŒ **Build failed: $ERRORS error(s) detected.**" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Build failed: $ERRORS error(s) detected.**" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
   # ============================================================
-  # Job 2: lizard â€” cyclomatic complexity
+  # Job 2: lizard — cyclomatic complexity
   # Flags functions that are too complex to safely modify.
   # sonos_controller.cpp / ui_album_art.cpp have deep nesting
   # and long functions that are prime candidates for subtle bugs.
@@ -322,7 +322,7 @@ jobs:
       - name: Run lizard
         run: |
           # CCN threshold 30: realistic ceiling for LVGL UI-heavy embedded code.
-          # LVGL widget setup inflates CCN via ternaries in style calls â€” raw
+          # LVGL widget setup inflates CCN via ternaries in style calls — raw
           # business-logic threshold of 15 produces false positives on this codebase.
           # Length threshold 200: screen-creation functions are inherently verbose.
           # --warnings-only removed: not supported by all lizard versions; use awk filter.
@@ -334,7 +334,7 @@ jobs:
           # Extract violations manually (CCN > 30 OR length > 200).
           # Lizard's columns are: NLOC CCN token PARAM length location
           # so CCN is $2 and length is $5 ($6 is the "name@line-line@file" string).
-          # NB: `length` is an awk builtin â€” assigning to it is a fatal syntax
+          # NB: `length` is an awk builtin — assigning to it is a fatal syntax
           # error, so the local must be called something else (this gate silently
           # never fired until 2026-08 because of exactly that).
           awk '$6 ~ /@/ {
@@ -345,19 +345,19 @@ jobs:
       - name: Job summary
         if: always()
         run: |
-          echo "## ðŸ§  Complexity Analysis (lizard)" >> $GITHUB_STEP_SUMMARY
+          echo "## 🧠 Complexity Analysis (lizard)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Thresholds: **CCN > 30** or **function length > 200 lines**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -s lizard-warnings.txt ]; then
             WARN_COUNT=$(wc -l < lizard-warnings.txt)
-            echo "### âš ï¸ $WARN_COUNT function(s) exceed thresholds" >> $GITHUB_STEP_SUMMARY
+            echo "### ⚠️ $WARN_COUNT function(s) exceed thresholds" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat lizard-warnings.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           else
-            echo "âœ… All functions within complexity thresholds." >> $GITHUB_STEP_SUMMARY
+            echo "✅ All functions within complexity thresholds." >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -368,10 +368,10 @@ jobs:
 
       - name: Fail on high complexity
         # Warn but don't block: complexity is technical debt, not a crash risk.
-        # Change exit 0 â†’ exit 1 here when you want to enforce the threshold.
+        # Change exit 0 → exit 1 here when you want to enforce the threshold.
         if: always()
         run: |
           if [ -s lizard-warnings.txt ]; then
-            echo "âš ï¸ Complex functions detected (see summary). Not blocking build."
+            echo "⚠️ Complex functions detected (see summary). Not blocking build."
             exit 0
           fi

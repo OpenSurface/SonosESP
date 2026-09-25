@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ESP32-P4 Sonos Controller
  * 480x800 MIPI DSI Display with Touch
  * Modern UI matching reference design
@@ -28,8 +28,8 @@
 static volatile bool sonos_started = false;  // true once Sonos tasks are running (written by deferred task, read by mainAppTask)
 static volatile bool deferred_discovery_running = false;  // guards the one-shot deferred discovery task (issue #69)
 static TaskHandle_t mainAppTaskHandle = nullptr;
-static void mainAppTask(void* param);            // forward declaration â€” defined after loop()
-static void deferredDiscoveryTask(void* param);  // forward declaration â€” one-shot, runs off mainAppTask
+static void mainAppTask(void* param);            // forward declaration — defined after loop()
+static void deferredDiscoveryTask(void* param);  // forward declaration — one-shot, runs off mainAppTask
 
 // Why the chip started. Printed on every boot because the console is USB CDC:
 // the peripheral belongs to the chip, so a reset tears the port down and anything
@@ -304,7 +304,7 @@ void setup() {
     lyrics_enabled = wifiPrefs.getBool(NVS_KEY_LYRICS, true);
     analytics_enabled = wifiPrefs.getBool(NVS_KEY_ANALYTICS, ANALYTICS_ENABLED);
     blur_bg_enabled = wifiPrefs.getBool(NVS_KEY_BLUR_BG, true);   // #49, defaults on
-    // 7" panel variant. MUST be loaded before display_init() â€” it selects the
+    // 7" panel variant. MUST be loaded before display_init() — it selects the
     // panel init sequence and DSI timings.
     panel_variant = wifiPrefs.getInt(NVS_KEY_PANEL_VAR, PANEL_VARIANT_DEFAULT);
 #if SCREEN_SIZE == 7
@@ -334,7 +334,7 @@ void setup() {
     // Index range: 0..CLOCK_CITY_COUNT-1 = predefined cities (0 = Auto); CLOCK_CITY_COUNT = Custom (issue #74).
     if (clock_weather_city_idx < 0 || clock_weather_city_idx > CLOCK_LOC_CUSTOM_IDX) clock_weather_city_idx = 0;
     clock_wx_fahrenheit    = wifiPrefs.getBool(NVS_KEY_CLOCK_WEATHER_FAHR, (bool)CLOCK_DEFAULT_WEATHER_FAHR);
-    // Custom location override (#74) â€” load as String from NVS (text form, full precision),
+    // Custom location override (#74) — load as String from NVS (text form, full precision),
     // then parse into the atomic float globals the bg task reads. 0.0f = unset.
     {
         String lat_s  = wifiPrefs.getString(NVS_KEY_CLOCK_WX_CUSTOM_LAT,  "");
@@ -353,7 +353,7 @@ void setup() {
                   clock_weather_enabled ? "on" : "off",
                   // Custom is a sentinel index one PAST the array, so it must not
                   // be dereferenced. Every other consumer special-cases it; this
-                  // boot log did not, and it runs before display_init() â€” so the
+                  // boot log did not, and it runs before display_init() — so the
                   // fault would present as a black screen with no diagnostic.
                   clock_weather_city_idx == CLOCK_LOC_CUSTOM_IDX
                       ? (clock_custom_name[0] ? clock_custom_name : "Custom")
@@ -363,7 +363,7 @@ void setup() {
     Serial.println("[DISPLAY] ESP32-P4 uses ST7701 backlight control (no PWM needed)");
 
     WiFi.mode(WIFI_STA);
-    WiFi.setSleep(false);  // keep C6 radio always active â€” no modem sleep on mains-powered device
+    WiFi.setSleep(false);  // keep C6 radio always active — no modem sleep on mains-powered device
     // ESP32-C6 WiFi initialization delay - fixes ESP-Hosted SDIO timing issues
     vTaskDelay(pdMS_TO_TICKS(WIFI_INIT_DELAY_MS));
     WiFi.begin(ssid.c_str(), pass.c_str());
@@ -375,7 +375,7 @@ void setup() {
     }
     if (WiFi.status() == WL_CONNECTED) {
         Serial.printf("\n[WIFI] Connected - IP: %s\n", WiFi.localIP().toString().c_str());
-        // Start NTP sync (SNTP daemon â€” no HTTPS, tiny UDP packets)
+        // Start NTP sync (SNTP daemon — no HTTPS, tiny UDP packets)
         configTime(0, 0, "pool.ntp.org", "time.nist.gov");
         // Apply user-selected timezone via POSIX TZ string
         setenv("TZ", CLOCK_ZONES[clock_tz_idx].posix, 1);
@@ -387,7 +387,7 @@ void setup() {
 
     // === Memory map logged once at boot (post-WiFi, pre-LVGL) ===
     // Used to diagnose DMA depletion: compare to runtime [ART/*/MEM] logs.
-    // DMA SRAM is the crash-critical pool â€” WiFi/TCP/JPEG all draw from it.
+    // DMA SRAM is the crash-critical pool — WiFi/TCP/JPEG all draw from it.
     {
         size_t dma_free    = heap_caps_get_free_size(MALLOC_CAP_DMA);
         size_t dma_total   = heap_caps_get_total_size(MALLOC_CAP_DMA);
@@ -444,7 +444,7 @@ void setup() {
         // SRAM" implied five tasks competing for the crash-critical pool, which is
         // the opposite of the truth.
         Serial.println("  --- Task stacks ---");
-        Serial.printf("  mainAppTask: %uKB (internal SRAM â€” NVS-write safe)\n",
+        Serial.printf("  mainAppTask: %uKB (internal SRAM — NVS-write safe)\n",
                       MAIN_APP_TASK_STACK/1024);
         Serial.printf("  PSRAM stacks: SonosPoll %uKB  SonosNet %uKB  Lyrics %uKB  ClockBG %uKB\n",
                       SONOS_POLL_TASK_STACK/1024, SONOS_NET_TASK_STACK/1024,
@@ -453,7 +453,7 @@ void setup() {
     }
 
     // Wire the Latin-1 / Latin-Ext-A fallbacks onto the text fonts. Must run before
-    // any screen is built, since builders capture &font_text_* at creation time â€”
+    // any screen is built, since builders capture &font_text_* at creation time —
     // and before lv_init(), because LV_FONT_DEFAULT now points at font_text_16 and
     // the default theme captures that pointer while initialising.
     uiFontsInit();
@@ -468,7 +468,7 @@ void setup() {
         .trigger_panic = true // Reboot on timeout
     };
     esp_task_wdt_reconfigure(&wdt_config);
-    // mainAppTask registers itself with the watchdog on startup (not loopTask â€” it becomes idle)
+    // mainAppTask registers itself with the watchdog on startup (not loopTask — it becomes idle)
     Serial.printf("[WDT] Watchdog configured: %d sec timeout\n", WATCHDOG_TIMEOUT_SEC);
 
     // Panel confirmation. After touch (I2C, so it works regardless of what the
@@ -486,7 +486,7 @@ void setup() {
     bootScreenCreate();
     bootScreenProgress(10);  // Initial display
 
-    // The display is up by definition â€” this is the first thing drawn on it.
+    // The display is up by definition — this is the first thing drawn on it.
     bootScreenCheck(BOOT_CHECK_DISPLAY, DISPLAY_MODEL);
 
     // Wi-Fi resolved before the panel existed, so its line can land straight
@@ -495,7 +495,7 @@ void setup() {
         char wifi_val[80];
         const bool wifi_ok = (WiFi.status() == WL_CONNECTED);
         if (wifi_ok)
-            snprintf(wifi_val, sizeof(wifi_val), "%s Â· %d dBm",
+            snprintf(wifi_val, sizeof(wifi_val), "%s · %d dBm",
                      WiFi.SSID().c_str(), (int)WiFi.RSSI());
         else
             snprintf(wifi_val, sizeof(wifi_val), "%s",
@@ -515,7 +515,7 @@ void setup() {
     // Initialize lyrics PSRAM buffer before creating screens
     initLyrics();
 
-    // Resolve the saved player theme BEFORE the first build â€” createMainScreen()
+    // Resolve the saved player theme BEFORE the first build — createMainScreen()
     // dispatches to the active theme's builder. Clamps stale/invalid indices.
     themeMigrate();   // rewrite pre-1.16 indices (Ambient was removed)
     themeLoad();
@@ -549,25 +549,25 @@ void setup() {
     bootScreenReveal();
 
     // =========================================================================
-    // BOOT OTA FAST PATH â€” before any background tasks start
+    // BOOT OTA FAST PATH — before any background tasks start
     // =========================================================================
     // If ev_install_update() saved a URL to NVS and restarted, run the OTA
     // download RIGHT HERE, before art/Sonos/lyrics tasks are created.
     //
     // Why this matters (DMA budget):
-    //   With tasks running: ~105KB DMA free â†’ TLS uses ~71KB â†’ ~34KB post-TLS
-    //     â†’ SDIO RX pool + AES alignment + Update.begin() all fight over 34KB â†’ crash
-    //   At this boot point: ~125KB DMA free â†’ TLS uses ~71KB â†’ ~54KB post-TLS
-    //     â†’ plenty of headroom for SDIO (~16KB) + AES + Update.begin() (~6KB)
+    //   With tasks running: ~105KB DMA free → TLS uses ~71KB → ~34KB post-TLS
+    //     → SDIO RX pool + AES alignment + Update.begin() all fight over 34KB → crash
+    //   At this boot point: ~125KB DMA free → TLS uses ~71KB → ~54KB post-TLS
+    //     → plenty of headroom for SDIO (~16KB) + AES + Update.begin() (~6KB)
     //
     // PSRAM is irrelevant: flash writes and TLS buffers use DMA SRAM only.
-    // wifiPrefs is already open (read-write) from setup() â€” no new handle needed.
+    // wifiPrefs is already open (read-write) from setup() — no new handle needed.
     //
     // If OTA is pending but the initial WiFi connect timed out, wait up to 30 extra seconds.
-    // Some routers/channels take 30â€“40s to assign an IP â€” the 20s initial window can be too short.
-    // We must NOT call triggerPendingOTA() without WiFi â€” it would silently fail and clear the URL.
+    // Some routers/channels take 30–40s to assign an IP — the 20s initial window can be too short.
+    // We must NOT call triggerPendingOTA() without WiFi — it would silently fail and clear the URL.
     if (wifiPrefs.getBool(NVS_KEY_OTA_PENDING, false) && WiFi.status() != WL_CONNECTED) {
-        Serial.println("[OTA] Boot OTA pending â€” waiting for WiFi...");
+        Serial.println("[OTA] Boot OTA pending — waiting for WiFi...");
         char ota_msg[96];
         snprintf(ota_msg, sizeof(ota_msg), "Waiting for WiFi: %s ...", ssid.c_str());
         bootScreenStatus(ota_msg);
@@ -577,7 +577,7 @@ void setup() {
             // At 15s: if still not connected, disconnect and retry WiFi.begin()
             // Handles SDIO/C6 re-init stall after OTA firmware flash + restart
             if (ota_wifi_tries == 30) {
-                Serial.println("[OTA] WiFi stalled â€” retrying WiFi.begin()");
+                Serial.println("[OTA] WiFi stalled — retrying WiFi.begin()");
                 snprintf(ota_msg, sizeof(ota_msg), "Retrying WiFi: %s ...", ssid.c_str());
                 bootScreenStatus(ota_msg);
                 WiFi.disconnect();
@@ -586,23 +586,23 @@ void setup() {
             }
         }
         if (WiFi.status() == WL_CONNECTED) {
-            Serial.printf("[OTA] WiFi connected â€” IP: %s\n", WiFi.localIP().toString().c_str());
+            Serial.printf("[OTA] WiFi connected — IP: %s\n", WiFi.localIP().toString().c_str());
             configTime(0, 0, "pool.ntp.org", "time.nist.gov");
             setenv("TZ", CLOCK_ZONES[clock_tz_idx].posix, 1);
             tzset();
         } else {
-            Serial.println("[OTA] WiFi still not connected after 60s â€” skipping boot OTA");
+            Serial.println("[OTA] WiFi still not connected after 60s — skipping boot OTA");
             wifiPrefs.putBool(NVS_KEY_OTA_PENDING, false);  // clear flag to avoid infinite reboot loop
         }
         bootScreenStatus(nullptr);
     }
     if (WiFi.status() == WL_CONNECTED && wifiPrefs.getBool(NVS_KEY_OTA_PENDING, false)) {
-        wifiPrefs.putBool(NVS_KEY_OTA_PENDING, false);  // clear immediately â€” prevent reboot loops
+        wifiPrefs.putBool(NVS_KEY_OTA_PENDING, false);  // clear immediately — prevent reboot loops
         Serial.printf("[OTA] Boot OTA: %d bytes DMA free (pre-task)\n",
                       heap_caps_get_free_size(MALLOC_CAP_DMA));
-        esp_task_wdt_add(NULL);  // subscribe loopTask â€” performOTAUpdate() calls esp_task_wdt_reset()
+        esp_task_wdt_add(NULL);  // subscribe loopTask — performOTAUpdate() calls esp_task_wdt_reset()
                                  // which spams "task not found" errors if the calling task isn't subscribed
-        triggerPendingOTA();  // loads saved URL â†’ performOTAUpdate() â†’ ESP.restart() on success
+        triggerPendingOTA();  // loads saved URL → performOTAUpdate() → ESP.restart() on success
         // If we reach here, all download retries failed (otaRecovery() was called).
         // Restart to return to normal operation; NVS_KEY_OTA_PENDING is already false.
         rebootNoteCause(reboot_log::CAUSE_OTA_FAILED);
@@ -620,7 +620,7 @@ void setup() {
     bootScreenProgress(85);
 
     art_mutex = xSemaphoreCreateMutex();
-    createArtTask();  // PSRAM stack â€” frees 20KB internal SRAM for SDIO/WiFi DMA
+    createArtTask();  // PSRAM stack — frees 20KB internal SRAM for SDIO/WiFi DMA
     bootScreenProgress(90);
 
     sonos.begin();
@@ -701,7 +701,7 @@ void checkWiFiReconnect() {
     // has timed out, so the dialog's "save on WL_CONNECTED" never fired and the creds were
     // lost on reboot. Now that the link is genuinely up, persist any pending creds. We only
     // ever reach here when truly connected, so a wrong password is never persisted.
-    // Runs on mainAppTask (SRAM stack) â†’ NVS-write-safe.
+    // Runs on mainAppTask (SRAM stack) → NVS-write-safe.
     if (wifi_creds_need_save && pending_wifi_ssid.length() > 0) {
         wifiPrefs.putString(NVS_KEY_SSID, pending_wifi_ssid);
         wifiPrefs.putString(NVS_KEY_PASSWORD, pending_wifi_pass);
@@ -712,7 +712,7 @@ void checkWiFiReconnect() {
     if (!sonos_started && !deferred_discovery_running) {
         // WiFi connected but Sonos not yet started (WiFi was down at boot).
         // tryLoadCachedDevice() does a blocking HTTP reachability GET (up to 5s). Running it
-        // here â€” on mainAppTask, the same thread as lv_timer_handler() â€” froze LVGL and blocked
+        // here — on mainAppTask, the same thread as lv_timer_handler() — froze LVGL and blocked
         // touch for the full timeout (issue #69). Hand it to a one-shot background task so the
         // UI thread stays responsive. The 10s lastWifiCheck throttle + the guard flag ensure
         // only one task is ever in flight; it retries on the next tick if discovery fails.
@@ -721,7 +721,7 @@ void checkWiFiReconnect() {
     }
 }
 
-// One-shot deferred Sonos init â€” runs off mainAppTask to avoid freezing touch (issue #69).
+// One-shot deferred Sonos init — runs off mainAppTask to avoid freezing touch (issue #69).
 // Pinned to internal SRAM (default xTaskCreate): tryLoadCachedDevice() reads NVS and
 // startTasks() may touch flash, both of which assert if the calling stack is in PSRAM.
 // Self-deletes when done; deferred_discovery_running gates re-entry.
@@ -759,7 +759,7 @@ void logHeapStatus() {
     DMA_LOG("[HEAP] Free: %dKB | Min: %dKB | PSRAM: %dKB | DMA: %dKB\n",
                   free_heap / 1024, min_heap / 1024, free_psram / 1024, free_dma / 1024);
 
-    // Log task stack high water marks â€” minimum free bytes ever observed.
+    // Log task stack high water marks — minimum free bytes ever observed.
     // On ESP-IDF 5.x (ESP32-P4 RISC-V), uxTaskGetStackHighWaterMark returns bytes directly.
     // Lower number = more stack used, closer to overflow. 0 = already overflowed.
     DMA_LOG("[STACK] Main:%d ", uxTaskGetStackHighWaterMark(NULL));  // NULL = mainAppTask
@@ -786,14 +786,14 @@ void logHeapStatus() {
         static uint32_t last_dma_warn_ms = 0;
         if (last_dma_warn_ms == 0 || millis() - last_dma_warn_ms >= 600000) {
             last_dma_warn_ms = millis();
-            Serial.printf("[DMA] WARNING: DMA critically low (%dKB) â€” art/lyrics will abort. "
+            Serial.printf("[DMA] WARNING: DMA critically low (%dKB) — art/lyrics will abort. "
                           "WiFi reconnect fires at 3 consecutive aborts.\n",
                           (int)(free_dma / 1024));
         }
     }
 }
 
-// Main application task â€” runs all LVGL and UI logic with a 16KB internal SRAM stack.
+// Main application task — runs all LVGL and UI logic with a 16KB internal SRAM stack.
 // The Arduino loopTask (fixed 8KB) becomes idle below; it was regularly hitting
 // only ~976 bytes free, causing Store access fault crashes via LVGL buffer corruption.
 static void mainAppTask(void* param) {
@@ -812,7 +812,7 @@ static void mainAppTask(void* param) {
             rebootLogReport();
         }
 
-        // Anonymous install counter â€” one HTTPS GET, once, 90s in. No-op until
+        // Anonymous install counter — one HTTPS GET, once, 90s in. No-op until
         // then, and a no-op forever after it has fired. See include/analytics.h
         // for exactly what is sent (firmware version and panel size, nothing else).
         analyticsTick();
@@ -836,12 +836,12 @@ static void mainAppTask(void* param) {
             checkClockTrigger();
             checkWiFiReconnect();
             logHeapStatus();  // Periodic memory monitoring
-            screenshotPoll();  // serial "screenshot" command â€” no-op otherwise
+            screenshotPoll();  // serial "screenshot" command — no-op otherwise
 
-            // â”€â”€ DMA recovery handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── DMA recovery handler ─────────────────────────────────────────────
             // Art task (PSRAM stack) cannot call esp_restart() or Preferences.begin()
-            // directly â€” both call spi_flash_disable_interrupts_caches_and_other_cpu()
-            // which asserts esp_task_stack_is_sane_cache_disabled() â†’ cache_utils.c:127.
+            // directly — both call spi_flash_disable_interrupts_caches_and_other_cpu()
+            // which asserts esp_task_stack_is_sane_cache_disabled() → cache_utils.c:127.
             // mainAppTask has an internal SRAM stack so both are safe here.
             if (art_dma_recovery_requested) {
                 // Set flag BEFORE disconnect: pollingTask must not fire any SOAPs during the
@@ -850,12 +850,12 @@ static void mainAppTask(void* param) {
                 // creating ~44KB of TIME_WAIT PCBs.  Those PCBs survive WiFi stop (lwIP runs
                 // independently) and are still live when WiFi reconnects, consuming extra DMA.
                 // With flag set here, no new PCBs form; existing ones expire during the ~47s
-                // window â†’ DMA after reconnect â‰ˆ 117KB - 49KB (WiFi RX pool) = 68KB > 64KB âœ“.
+                // window → DMA after reconnect ≈ 117KB - 49KB (WiFi RX pool) = 68KB > 64KB ✓.
                 art_download_in_progress = true;
                 Serial.println("[MAIN] DMA recovery: stopping WiFi to release dynamic RX pool");
                 WiFi.disconnect(true);   // esp_wifi_stop() releases ~51KB WiFi dynamic RX buffers
                 esp_task_wdt_reset();
-                // Keep UI responsive during WiFi stop drain (2s) â€” pump LVGL in 5ms ticks
+                // Keep UI responsive during WiFi stop drain (2s) — pump LVGL in 5ms ticks
                 { unsigned long t_drain = millis();
                   while (millis() - t_drain < 2000) {
                       lv_tick_inc(5); lv_timer_handler();
@@ -869,7 +869,7 @@ static void mainAppTask(void* param) {
                               (unsigned)dma_after, (unsigned)ART_MIN_DMA_PRE_BURST);
 
                 if (dma_after > ART_MIN_DMA_PRE_BURST) {
-                    // DMA recovered â€” reconnect using saved credentials (NVS safe from SRAM stack)
+                    // DMA recovered — reconnect using saved credentials (NVS safe from SRAM stack)
                     Preferences prefs;
                     prefs.begin(NVS_NAMESPACE, true);
                     String ssid = prefs.getString(NVS_KEY_SSID, "");
@@ -877,13 +877,13 @@ static void mainAppTask(void* param) {
                     prefs.end();
                     Serial.printf("[MAIN] Reconnecting WiFi to '%s'\n", ssid.c_str());
                     WiFi.begin(ssid.c_str(), pass.c_str());
-                    // Keep UI responsive during reconnect (up to 30s) â€” pump LVGL in 5ms ticks.
+                    // Keep UI responsive during reconnect (up to 30s) — pump LVGL in 5ms ticks.
                     // Retry WiFi.begin() at 15s: mesh routers (ORBI95 etc.) sometimes miss the
                     // first scan but respond immediately to a second attempt.
                     unsigned long t = millis();
                     // Latch, not a time window: the old "elapsed >= 15000 && < 15100"
                     // test stayed true for ~10-20 iterations of this ~5ms loop, firing
-                    // that many WiFi.begin() calls back-to-back at the C6 over SDIO â€”
+                    // that many WiFi.begin() calls back-to-back at the C6 over SDIO —
                     // during a DMA-depleted recovery, which is the worst possible moment.
                     bool begin_retried = false;
                     while (WiFi.status() != WL_CONNECTED && millis() - t < 30000) {
@@ -892,12 +892,12 @@ static void mainAppTask(void* param) {
                         vTaskDelay(pdMS_TO_TICKS(5));
                         if (!begin_retried && WiFi.status() != WL_CONNECTED && millis() - t >= 15000) {
                             begin_retried = true;
-                            Serial.println("[MAIN] WiFi still not connected at 15s â€” retrying WiFi.begin()");
+                            Serial.println("[MAIN] WiFi still not connected at 15s — retrying WiFi.begin()");
                             WiFi.begin(ssid.c_str(), pass.c_str());
                         }
                     }
                     if (WiFi.status() == WL_CONNECTED) {
-                        Serial.printf("[MAIN] WiFi reconnected â€” DMA=%uKB, stabilising...\n",
+                        Serial.printf("[MAIN] WiFi reconnected — DMA=%uKB, stabilising...\n",
                                       (unsigned)(heap_caps_get_free_size(MALLOC_CAP_DMA) / 1024));
                         // Wait for DMA to stabilise: with no new PCBs forming (flag set early),
                         // existing TIME_WAIT PCBs (TCP_MSL*2=12s) expire during this window.
@@ -905,7 +905,7 @@ static void mainAppTask(void* param) {
                         // + 44KB recovered PCBs). Early-exit once above comfort threshold.
                         {
                             unsigned long t_stab = millis();
-                            const size_t kComfortDMA = ART_MIN_DMA_PRE_BURST + 4000;   // 68KB â€” reachable ceiling with WiFi connected
+                            const size_t kComfortDMA = ART_MIN_DMA_PRE_BURST + 4000;   // 68KB — reachable ceiling with WiFi connected
                             while (millis() - t_stab < 15000) {
                                 lv_tick_inc(5); lv_timer_handler();
                                 esp_task_wdt_reset();
@@ -917,7 +917,7 @@ static void mainAppTask(void* param) {
                                           millis() - t_stab);
                         }
                         // If DMA is still below the art-download threshold after the full
-                        // stabilisation window, the heap is permanently fragmented â€” the WiFi
+                        // stabilisation window, the heap is permanently fragmented — the WiFi
                         // RX pool plus residual PCBs consume more DMA than the system has
                         // available.  Releasing the art task here would cause it to abort
                         // immediately and request another recovery cycle, looping indefinitely.
@@ -926,7 +926,7 @@ static void mainAppTask(void* param) {
                             size_t dma_post = heap_caps_get_free_size(MALLOC_CAP_DMA);
                             if (dma_post < ART_MIN_DMA_PRE_BURST) {
                                 Serial.printf("[MAIN] DMA still insufficient after stabilisation "
-                                              "(%uKB < %uKB) â€” restarting\n",
+                                              "(%uKB < %uKB) — restarting\n",
                                               (unsigned)(dma_post / 1024),
                                               (unsigned)(ART_MIN_DMA_PRE_BURST / 1024));
                                 rebootNoteCause(reboot_log::CAUSE_DMA_RECONNECT);
@@ -938,9 +938,9 @@ static void mainAppTask(void* param) {
                         // Stamp network timestamps before releasing the art task.
                         // Both last_art_download_end_ms and last_queue_fetch_time are stale
                         // (from before the ~40s reconnect window), so all sdioPreWait
-                        // cooldowns would be near-zero and art would fire immediately â€”
+                        // cooldowns would be near-zero and art would fire immediately —
                         // concurrent with the polling task's first updateQueue() (which
-                        // queued up during reconnect) â†’ pkt_rxbuff overflow â†’ :928.
+                        // queued up during reconnect) → pkt_rxbuff overflow → :928.
                         // Setting them to now enforces the full inter-download (1s) and
                         // queue-poll (3s) cooldowns on the first post-reconnect download.
                         last_art_download_end_ms = millis();
@@ -950,15 +950,15 @@ static void mainAppTask(void* param) {
                         art_download_in_progress = false;
                         art_dma_recovery_requested = false;  // signal art task: retry download
                     } else {
-                        Serial.println("[MAIN] WiFi reconnect timed out â€” restarting");
+                        Serial.println("[MAIN] WiFi reconnect timed out — restarting");
                         rebootNoteCause(reboot_log::CAUSE_WIFI_TIMEOUT);
                         esp_task_wdt_reset();
                         vTaskDelay(pdMS_TO_TICKS(1000));
                         esp_restart();
                     }
                 } else {
-                    // WiFi.stop() didn't help â€” DMA permanently fragmented, restart required
-                    Serial.printf("[MAIN] DMA still low after WiFi stop (%u) â€” restarting\n",
+                    // WiFi.stop() didn't help — DMA permanently fragmented, restart required
+                    Serial.printf("[MAIN] DMA still low after WiFi stop (%u) — restarting\n",
                                   (unsigned)dma_after);
                     rebootNoteCause(reboot_log::CAUSE_DMA_WIFI_STOP);
                     esp_task_wdt_reset();
@@ -966,7 +966,7 @@ static void mainAppTask(void* param) {
                     esp_restart();
                 }
             }
-            // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ────────────────────────────────────────────────────────────────────
         }
 
         vTaskDelay(pdMS_TO_TICKS(3));
@@ -974,7 +974,7 @@ static void mainAppTask(void* param) {
 }
 
 void loop() {
-    // Idle â€” all UI/LVGL work is done in mainAppTask (32KB stack).
+    // Idle — all UI/LVGL work is done in mainAppTask (32KB stack).
     // loopTask hard-coded 8KB stack cannot be changed via build flags.
     //
     // The one thing that does run here: confirming a freshly OTA'd image once it
