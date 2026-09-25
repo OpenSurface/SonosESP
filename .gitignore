@@ -18,6 +18,11 @@ SOURCES_PLAN.md
 UPNP_DEPRECATION.md
 V2_0_3_PLAN.md
 
+# Same trap, still open until now: CONTRIBUTING.md used to point contributors at
+# "memory/MEMORY.md", and a directory of that name holds private session notes.
+# Nothing stopped one being committed from the project root.
+memory/
+
 # Node.js (font generation tooling — @mdi/font + lv_font_conv)
 node_modules/
 
@@ -25,6 +30,9 @@ node_modules/
 *.bin
 *.elf
 *.map
+
+# Private docs, not build artifacts — they were filed under the heading above,
+# which reads like they are regenerable. They are not; they exist only locally.
 WORKFLOW.md
 ARCHITECTURE.md
 
