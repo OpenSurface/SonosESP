@@ -12,3 +12,4 @@ footer: false
 
 <HomeHero />
 <HomeBody />
+<StatsPanel />
