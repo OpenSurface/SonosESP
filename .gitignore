@@ -14,6 +14,7 @@ FLOWS.md
 # Private planning docs — untracked but were NOT ignored, so any `git add -A`
 # would have published them.
 AUDIT_FINDINGS.md
+AUDIT_2026_09.md
 SOURCES_PLAN.md
 UPNP_DEPRECATION.md
 V2_0_3_PLAN.md
