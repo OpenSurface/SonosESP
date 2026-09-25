@@ -246,9 +246,31 @@ static void ovFillQueue(void) {
         lv_label_set_text_fmt(ov_queue_sub, "%d track%s", d->queueSize,
                               d->queueSize == 1 ? "" : "s");
 
-    for (int i = 0; i < d->queueSize; i++) {
-        QueueItem* it = &d->queue[i];
-        const bool playing = (it->trackNumber == d->currentTrackNumber);
+    const int qsize = d->queueSize;   // latched once; the poller can zero it mid-build
+    for (int i = 0; i < qsize; i++) {
+        // Snapshot under deviceMutex, build from the copies. updateQueue() on the
+        // polling task rewrites these Strings under this lock, and a String
+        // assignment frees the buffer a c_str() just handed to LVGL. Same class
+        // as the v2.1.1 fix; this reader was missed. Taken per row and released
+        // before any LVGL call, because nothing here may hold the lock across one.
+        String s_title, s_artist, s_duration;
+        int trackNum = 0;
+        bool haveRow = false;
+        SemaphoreHandle_t dm = sonos.getDeviceMutex();
+        if (dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+            if (i < d->queueSize) {
+                QueueItem* it = &d->queue[i];
+                trackNum   = it->trackNumber;
+                s_title    = it->title;
+                s_artist   = it->artist;
+                s_duration = it->duration;
+                haveRow    = true;
+            }
+            xSemaphoreGive(dm);
+        }
+        if (!haveRow) break;
+
+        const bool playing = (trackNum == d->currentTrackNumber);
 
         lv_obj_t* row = lv_button_create(ov_queue_list);
         lv_obj_set_size(row, SX(OV_DRAWER_W), SY(56));
@@ -262,7 +284,7 @@ static void ovFillQueue(void) {
         lv_obj_set_style_border_width(row, playing ? 3 : 0, 0);
         lv_obj_set_style_border_side(row, LV_BORDER_SIDE_LEFT, 0);
         lv_obj_set_style_border_color(row, AMB_ACCENT, 0);
-        lv_obj_set_user_data(row, (void*)(intptr_t)it->trackNumber);
+        lv_obj_set_user_data(row, (void*)(intptr_t)trackNum);
         lv_obj_add_event_cb(row, [](lv_event_t* e) {
             int n = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t*)lv_event_get_target(e));
             sonos.playQueueItem(n);
@@ -276,15 +298,15 @@ static void ovFillQueue(void) {
             lv_obj_set_style_text_font(lead, &font_icon_16, 0);
             lv_obj_set_style_text_color(lead, AMB_ACCENT, 0);
         } else {
-            lv_label_set_text_fmt(lead, "%d", it->trackNumber);
+            lv_label_set_text_fmt(lead, "%d", trackNum);
             lv_obj_set_style_text_font(lead, &font_text_12, 0);
             lv_obj_set_style_text_color(lead, AMB_TEXT3, 0);
         }
         lv_obj_align(lead, LV_ALIGN_LEFT_MID, 0, 0);
 
         lv_obj_t* dur = nullptr;
-        if (it->duration.length()) {
-            dur = ambLabel(row, &font_text_12, AMB_TEXT3, it->duration.c_str());
+        if (s_duration.length()) {
+            dur = ambLabel(row, &font_text_12, AMB_TEXT3, s_duration.c_str());
             lv_obj_set_width(dur, SX(52));
             lv_label_set_long_mode(dur, LV_LABEL_LONG_CLIP);
             lv_obj_set_style_text_align(dur, LV_TEXT_ALIGN_RIGHT, 0);
@@ -293,10 +315,10 @@ static void ovFillQueue(void) {
         const int tw = OV_DRAWER_W - 36 - 26 - (dur ? 60 : 0);
 
         lv_obj_t* t = ambOneLine(row, &font_text_14, playing ? AMB_ACCENT : AMB_TEXT,
-                                 it->title.c_str(), tw);
+                                 s_title.c_str(), tw);
         lv_obj_align(t, LV_ALIGN_LEFT_MID, SX(26), SY(-9));
 
-        lv_obj_t* a = ambOneLine(row, &font_text_12, AMB_TEXT3, it->artist.c_str(), tw);
+        lv_obj_t* a = ambOneLine(row, &font_text_12, AMB_TEXT3, s_artist.c_str(), tw);
         lv_obj_align(a, LV_ALIGN_LEFT_MID, SX(26), SY(11));
     }
 }
@@ -365,6 +387,24 @@ static void ovFillRooms(void) {
         if (!d) continue;
         const bool sel = (cur && d->ip == cur->ip);
 
+        // Snapshot the device Strings before any LVGL call. roomName and
+        // currentArtist are rewritten by discovery and the polling task under
+        // deviceMutex, and a String assignment frees the buffer a c_str() just
+        // handed to a label. isPlaying is a bool and ip is POD, so neither needs
+        // the lock. Released immediately: nothing holds deviceMutex across LVGL.
+        String s_room, s_artist;
+        bool s_playing = false;
+        SemaphoreHandle_t dm = sonos.getDeviceMutex();
+        if (dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+            s_room    = d->roomName;
+            s_artist  = d->currentArtist;
+            s_playing = d->isPlaying;
+            xSemaphoreGive(dm);
+        } else {
+            s_room    = d->ip.toString();   // lock busy: show the address, never a torn String
+            s_playing = d->isPlaying;
+        }
+
         lv_obj_t* card = lv_obj_create(ov_rooms_list);
         lv_obj_set_size(card, lv_pct(100), SY(OV_ROW_H));
         lv_obj_set_style_bg_color(card, sel ? AMB_RAISED : AMB_MODAL, 0);
@@ -398,17 +438,17 @@ static void ovFillRooms(void) {
         lv_obj_align(ico, LV_ALIGN_LEFT_MID, 0, 0);
 
         lv_obj_t* name = ambOneLine(hit, &font_text_16, sel ? AMB_TEXT : AMB_TEXT2,
-                                    d->roomName.c_str(), 160);
+                                    s_room.c_str(), 160);
         lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(34), SY(-9));
 
         // Green is reserved for live playback, per the canvas.
         char sub[96];
-        if (d->isPlaying && d->currentArtist.length())
-            snprintf(sub, sizeof(sub), "Playing · %s", d->currentArtist.c_str());
+        if (s_playing && s_artist.length())
+            snprintf(sub, sizeof(sub), "Playing · %s", s_artist.c_str());
         else
-            snprintf(sub, sizeof(sub), "%s", d->isPlaying ? "Playing" : "Idle");
+            snprintf(sub, sizeof(sub), "%s", s_playing ? "Playing" : "Idle");
         lv_obj_t* st = ambOneLine(hit, &font_text_12,
-                                  d->isPlaying ? AMB_LIVE : AMB_TEXT3, sub, 160);
+                                  s_playing ? AMB_LIVE : AMB_TEXT3, sub, 160);
         lv_obj_align(st, LV_ALIGN_LEFT_MID, SX(34), SY(11));
 
         // Battery (issue #165), just left of where the selected row's slider sits,
