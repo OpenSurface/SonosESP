@@ -113,6 +113,17 @@ def main():
             loc_params["path_by_name"] = "true"
             loc_params["include_paths"] = boot_paths   # urlencode(doseq) repeats the key
         countries_raw = api("/stats/locations", loc_params)
+
+        # Raw responses to the job log, never to the published file.
+        #
+        # These numbers have been wrong twice in ways that only showed up after
+        # publishing -- boots counted as panels, then a country breakdown that
+        # included non-panel traffic. Both took a guess-and-redeploy cycle to
+        # spot. Printing what the API actually returned turns the next surprise
+        # into something readable in the log instead of another round trip.
+        print(f"  boot paths in window : {boot_paths}", file=sys.stderr)
+        print(f"  locations raw        : {json.dumps(countries_raw)[:600]}", file=sys.stderr)
+        print(f"  hits raw (truncated) : {json.dumps(hits.get('hits', []))[:600]}", file=sys.stderr)
     except urllib.error.HTTPError as e:
         print(f"GoatCounter API returned {e.code}: {e.reason}", file=sys.stderr)
         return 1
