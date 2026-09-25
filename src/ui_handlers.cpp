@@ -2089,20 +2089,39 @@ static void updateAlbumArtRequest(SonosDevice* d) {
     }
     had_track = has_track;
 
-    // Request album art if URL provided and (URL changed or track changed)
-    // Compare against last_requested_art_url (HTTPS, same type as d->albumArtURL) NOT pending_art_url.
-    // The art task converts pending_art_url to HTTP internally — comparing HTTPS vs HTTP always
-    // returns "changed", calling requestAlbumArt() every frame and keeping art_download_in_progress=true
-    // permanently (blocking the clock screensaver and spamming last_track_change_ms).
-    static String last_requested_art_url = "";
+    // Request album art if a URL is present and it, or the track, changed.
+    //
+    // Never compare against pending_art_url: the art task rewrites it to HTTP
+    // internally, so an HTTPS-vs-HTTP comparison always reads as "changed" and
+    // calls requestAlbumArt() every frame. That was the first version of this bug.
+    // Track what the DEVICE REPORTED, not what we chose to fetch.
+    //
+    // This used to keep one `last_requested_art_url` and assign the CHOSEN url to
+    // it, while testing `artChanged` against the REPORTED one. Any path that fetches
+    // something other than what was reported therefore left the two permanently
+    // unequal, so artChanged was true on every frame — forever. Two such paths:
+    //
+    //   * radio, where a generic getaa icon is swapped for the station logo below;
+    //   * Apple Music, where 1400x1400 is rewritten to 400x400.
+    //
+    // updateUI() runs every 200ms and the poll posts an event every 300ms, so this
+    // re-requested art ~5x/s for as long as that station or album played. The worst
+    // consequence is not the wasted fetch: requestAlbumArt() calls
+    // resetScreenTimeout(), which stamps last_touch_time — so **the clock
+    // screensaver and auto-dim could never fire**, including all night on a bedside
+    // panel. It also pinned last_track_change_ms and put ~10 log lines/s into the CDC.
+    //
+    // Comparing reported-against-reported also makes the original HTTPS-vs-HTTP
+    // note below unnecessary rather than merely satisfied: both sides now come from
+    // the same field, so they cannot differ by scheme.
+    static String last_seen_album_art = "";
+    static String last_seen_station   = "";
     bool hasArt = !d->isLineIn && !d->isTvAudio &&
                   ((s_albumArtURL.length() > 0) || (d->isRadioStation && s_stationURL.length() > 0));
-    bool artChanged = uri_changed || (s_albumArtURL.length() > 0 && s_albumArtURL != last_requested_art_url);
-
-    // For radio stations: also check if radioStationArtURL changed (even if albumArtURL is empty)
-    if (d->isRadioStation && s_stationURL.length() > 0 && s_stationURL != last_requested_art_url) {
-        artChanged = true;
-    }
+    bool artChanged = uri_changed ||
+                      (s_albumArtURL.length() > 0 && s_albumArtURL != last_seen_album_art) ||
+                      (d->isRadioStation && s_stationURL.length() > 0 &&
+                       s_stationURL != last_seen_station);
 
     if (!hasArt && uri_changed) {
         // Track changed but has NO art URL — clear old art and show placeholder immediately
@@ -2173,7 +2192,11 @@ static void updateAlbumArtRequest(SonosDevice* d) {
             }
 
             requestAlbumArt(artURL);
-            last_requested_art_url = artURL;  // track HTTPS URL; prevents HTTPS!=HTTP false-positive on next frame
+            // Record the REPORTED values, not artURL — artURL may be the station
+            // logo or a resized Apple Music link, and storing that is what made
+            // this fire every frame. See the note at the artChanged test above.
+            last_seen_album_art = s_albumArtURL;
+            last_seen_station   = s_stationURL;
         } else {
             // No art available - clear display
             Serial.println("[ART] No art URL - clearing display");
