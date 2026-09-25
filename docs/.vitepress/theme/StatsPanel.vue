@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 // Reads a static file, never the GoatCounter API.
 //
@@ -8,160 +8,86 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 // internet. A scheduled workflow does the authenticated half with the key held
 // as a repo secret and commits only the aggregate numbers, so this page reads a
 // plain JSON file that is safe for anyone to see. See PRIVACY.md.
+//
+// No external requests at all: the whole panel is this one same-origin fetch.
 const stats = ref(null)
-const geo = ref(null)          // world geometry, fetched separately and optional
-const shown = ref(0)
-const hover = ref(null)
+const rolled = ref(false)
+const settled = ref(false)
 
-let raf = 0
-
-const W = 1000, H = 500        // equirectangular is exactly 2:1
-
-// Count up once on load. Decoration only — the number is the content, so
-// reduced-motion gets it immediately.
-function animateTo(target) {
-  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  if (reduce || target <= 0) { shown.value = target; return }
-  const t0 = performance.now(), dur = 1100
-  const step = (now) => {
-    const p = Math.min(1, (now - t0) / dur)
-    shown.value = Math.round(target * (1 - Math.pow(1 - p, 3)))
-    if (p < 1) raf = requestAnimationFrame(step)
-  }
-  raf = requestAnimationFrame(step)
-}
+// Full rotations before landing. Without these each reel travelled only as far
+// as its own digit, so a 1 barely moved while a 9 spun — the giveaway that it
+// is text sliding rather than a wheel turning. Every digit now covers the same
+// distance and the stagger does the rest.
+const SPINS = 3
 
 onMounted(async () => {
   try {
     const r = await fetch('/SonosESP/stats.json', { cache: 'no-cache' })
     if (!r.ok) throw new Error(String(r.status))
     stats.value = await r.json()
-    animateTo(stats.value.panels ?? 0)
-  } catch { /* panel stays hidden; a missing counter is not worth an error box */ }
-
-  // World geometry is a progressive enhancement: the country list below renders
-  // with or without it, so a CDN hiccup costs the map and nothing else.
-  try {
-    const g = await fetch(
-      'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson',
-      { cache: 'force-cache' }
-    )
-    if (g.ok) geo.value = await g.json()
-  } catch { /* no map, no problem */ }
-})
-
-onUnmounted(() => cancelAnimationFrame(raf))
-
-// counts keyed by ISO-3166 alpha-2, for colouring the map
-const byCode = computed(() => {
-  const m = new Map()
-  for (const c of stats.value?.countries ?? []) m.set(c.code, c)
-  return m
-})
-
-const maxCount = computed(() =>
-  Math.max(1, ...(stats.value?.countries ?? []).map(c => c.count)))
-
-// Equirectangular: longitude maps straight to x, latitude to y. No projection
-// library needed, and at this scale nobody is measuring areas off it.
-function toPath(geometry) {
-  const rings = geometry.type === 'Polygon' ? [geometry.coordinates]
-              : geometry.type === 'MultiPolygon' ? geometry.coordinates
-              : []
-  let d = ''
-  for (const poly of rings) {
-    for (const ring of poly) {
-      // Ring resolution is already low at 110m; skipping alternate points on the
-      // long ones keeps the DOM light without a visible difference at this size.
-      const step = ring.length > 400 ? 2 : 1
-      for (let i = 0; i < ring.length; i += step) {
-        const [lon, lat] = ring[i]
-        const x = ((lon + 180) / 360) * W
-        const y = ((90 - lat) / 180) * H
-        d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1)
-      }
-      d += 'Z'
-    }
+  } catch {
+    return   // panel stays hidden; a missing counter is not worth an error box
   }
-  return d
+
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    rolled.value = true
+    settled.value = true
+    return
+  }
+  // Two frames: one to paint the reels at rest, one for the transition to pick
+  // up the change. Rolling from a standing start is the whole effect.
+  requestAnimationFrame(() => requestAnimationFrame(() => { rolled.value = true }))
+  // Blur lifts as the last reel arrives, so the number sharpens into place.
+  setTimeout(() => { settled.value = true }, 1500 + digits.value.length * 80)
+})
+
+const digits = computed(() =>
+  (stats.value?.panels ?? 0).toLocaleString('en-US').split(''))
+
+// SPINS full cycles of 0-9, then the target digit. Landing index is SPINS*10.
+function reelFor(ch) {
+  const out = []
+  for (let s = 0; s < SPINS; s++) for (let n = 0; n < 10; n++) out.push(n)
+  out.push(Number(ch))
+  return out
 }
 
-function codeOf(f) {
-  const p = f.properties || {}
-  const c = p.ISO_A2_EH || p.ISO_A2 || p.iso_a2 || ''
-  return c === '-99' ? '' : c.toUpperCase()
-}
-
-// Opacity by share, floored so a single panel is still clearly visible.
-function fillFor(code) {
-  const hit = byCode.value.get(code)
-  if (!hit) return null
-  return 0.3 + 0.7 * (hit.count / maxCount.value)
-}
-
-function onEnter(f, ev) {
-  const code = codeOf(f)
-  const hit = byCode.value.get(code)
-  if (!hit) return
-  hover.value = { name: hit.name, count: hit.count, x: ev.clientX, y: ev.clientY }
+function pct(n, total) {
+  return total ? Math.max(1.5, Math.round((n / total) * 100)) : 0
 }
 
 function flag(cc) {
   if (!cc || cc.length !== 2) return '🌐'
   return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1f1a5 + c.charCodeAt(0)))
 }
-
-function pct(n, total) {
-  return total ? Math.max(1.5, Math.round((n / total) * 100)) : 0
-}
 </script>
 
 <template>
   <section v-if="stats" class="sp">
     <div class="sp-head">
-      <span class="sp-num">{{ shown.toLocaleString() }}</span>
-      <span class="sp-label">panels running SonosESP</span>
-      <p class="sp-sub">
-        Counted anonymously — each panel reports its firmware version and screen
-        size once at startup, and nothing else. No identifier, no location.
-        <a href="https://github.com/OpenSurface/SonosESP/blob/main/PRIVACY.md">What is sent</a>.
-      </p>
-    </div>
-
-    <!-- Map. Absent until the geometry loads, and permanently absent if it fails. -->
-    <div v-if="geo && stats.countries?.length" class="sp-map" @mouseleave="hover = null">
-      <svg :viewBox="`0 0 ${W} ${H}`" role="img"
-           aria-label="World map showing where panels are running">
-        <defs>
-          <radialGradient id="sp-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"   stop-color="var(--se-gold)" stop-opacity=".35" />
-            <stop offset="100%" stop-color="var(--se-gold)" stop-opacity="0" />
-          </radialGradient>
-        </defs>
-        <g>
-          <path
-            v-for="(f, i) in geo.features"
-            :key="i"
-            :d="toPath(f.geometry)"
-            :class="['sp-c', fillFor(codeOf(f)) !== null && 'sp-on']"
-            :style="fillFor(codeOf(f)) !== null
-                    ? { fillOpacity: fillFor(codeOf(f)) } : null"
-            @mousemove="onEnter(f, $event)"
-          />
-        </g>
-      </svg>
-      <div v-if="hover" class="sp-tip"
-           :style="{ left: hover.x + 'px', top: hover.y + 'px' }">
-        <strong>{{ hover.name }}</strong>
-        <span>{{ hover.count }} {{ hover.count === 1 ? 'panel' : 'panels' }}</span>
+      <div class="sp-odo" :class="{ 'is-settled': settled }"
+           role="img" :aria-label="`${stats.panels} panels running SonosESP`">
+        <template v-for="(ch, i) in digits" :key="i">
+          <span v-if="ch === ','" class="sp-sep">,</span>
+          <span v-else class="sp-slot">
+            <span class="sp-reel"
+                  :style="{
+                    transform: `translateY(${rolled ? -(SPINS * 10) : 0}em)`,
+                    transitionDelay: `${(digits.length - i) * 80}ms`
+                  }">
+              <b v-for="(n, k) in reelFor(ch)" :key="k">{{ n }}</b>
+            </span>
+          </span>
+        </template>
       </div>
+      <span class="sp-label">panels running SonosESP</span>
     </div>
 
     <div class="sp-grid">
       <div v-if="stats.countries?.length" class="sp-card">
         <h3>Where they are</h3>
         <ul class="sp-list">
-          <li v-for="c in stats.countries.slice(0, 10)" :key="c.code">
+          <li v-for="c in stats.countries.slice(0, 8)" :key="c.code">
             <span class="sp-flag">{{ flag(c.code) }}</span>
             <span class="sp-name">{{ c.name }}</span>
             <span class="sp-bar"><i :style="{ width: pct(c.count, stats.panels) + '%' }" /></span>
@@ -172,7 +98,7 @@ function pct(n, total) {
 
       <div v-if="stats.versions?.length" class="sp-card">
         <h3>Firmware in the wild</h3>
-        <ul class="sp-list">
+        <ul class="sp-list vers">
           <li v-for="v in stats.versions.slice(0, 8)" :key="v.version">
             <span class="sp-name sp-mono">v{{ v.version }}</span>
             <span class="sp-bar"><i :style="{ width: pct(v.count, stats.panels) + '%' }" /></span>
@@ -191,75 +117,65 @@ function pct(n, total) {
 </template>
 
 <style scoped>
-.sp { margin: 3.5rem auto; max-width: 1000px; padding: 0 16px; }
+.sp { margin: 4rem auto; max-width: 880px; padding: 0 16px; }
+.sp-head { text-align: center; margin-bottom: 2.5rem; }
 
-.sp-head { text-align: center; margin-bottom: 2rem; }
-.sp-num {
-  display: block;
+/* ── Odometer ─────────────────────────────────────────────────────────── */
+.sp-odo {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: .02em;
   font-family: var(--se-mono);
-  font-size: clamp(3rem, 12vw, 5.5rem);
-  line-height: 1; font-weight: 700;
+  font-weight: 700;
+  font-size: clamp(3.5rem, 14vw, 6.5rem);
+  line-height: 1;
   color: var(--se-gold);
-  text-shadow: 0 0 40px var(--se-accent-glow);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
+.sp-slot {
+  position: relative;
+  display: block;
+  width: .60em;
+  height: 1em;
+  overflow: hidden;
+  /* Feathered ends: a hard edge reads as clipped text, a soft one as a drum. */
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 26%, #000 74%, transparent);
+          mask-image: linear-gradient(180deg, transparent, #000 26%, #000 74%, transparent);
+}
+.sp-reel {
+  display: block;
+  will-change: transform, filter;
+  /* Long, heavily-decelerated curve — the wheel arrives rather than stops. */
+  transition: transform 1.5s cubic-bezier(.12, .78, .18, 1), filter .45s ease-out;
+  filter: blur(4px);
+}
+.is-settled .sp-reel { filter: blur(0); }
+.sp-reel b {
+  display: block;
+  height: 1em;
+  line-height: 1;
+  font-weight: 700;
+  text-align: center;
+}
+/* Glow on the container, not each digit: on the reel it smears down the strip. */
+.sp-odo { text-shadow: 0 0 44px var(--se-accent-glow); }
+
+.sp-sep { display: block; align-self: flex-end; opacity: .4; margin: 0 -.08em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-reel { transition: none; filter: none; }
+  .sp-slot { -webkit-mask-image: none; mask-image: none; }
+}
+
 .sp-label {
-  display: block; margin-top: .4rem;
-  font-size: .95rem; letter-spacing: .14em; text-transform: uppercase;
+  display: block; margin-top: .8rem;
+  font-size: .95rem; letter-spacing: .16em; text-transform: uppercase;
   color: var(--vp-c-text-2);
 }
-.sp-sub {
-  margin: 1rem auto 0; max-width: 58ch;
-  font-size: .88rem; line-height: 1.6; color: var(--vp-c-text-3);
-}
-.sp-sub a { color: var(--se-accent-text); }
 
-/* ── Map ─────────────────────────────────────────────────────────────── */
-.sp-map {
-  position: relative;
-  margin: 0 0 1.5rem;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 16px;
-  background:
-    radial-gradient(120% 90% at 50% 0%, var(--se-accent-wash), transparent 70%),
-    var(--vp-c-bg-soft);
-  overflow: hidden;
-}
-.sp-map svg { display: block; width: 100%; height: auto; }
-
-.sp-c {
-  fill: rgba(242, 236, 228, .06);
-  stroke: rgba(242, 236, 228, .10);
-  stroke-width: .4;
-  vector-effect: non-scaling-stroke;
-  transition: fill-opacity .2s ease;
-}
-.sp-c.sp-on {
-  fill: var(--se-gold);
-  stroke: var(--se-accent-hover);
-  stroke-width: .6;
-  filter: drop-shadow(0 0 4px var(--se-accent-glow));
-  cursor: default;
-}
-.sp-c.sp-on:hover { fill-opacity: 1 !important; }
-
-.sp-tip {
-  position: fixed;
-  transform: translate(-50%, calc(-100% - 12px));
-  pointer-events: none;
-  z-index: 40;
-  display: grid; gap: 2px;
-  padding: .45rem .7rem;
-  border-radius: 9px;
-  background: var(--vp-c-bg-elv);
-  border: 1px solid var(--se-accent-dim);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, .55);
-  white-space: nowrap;
-}
-.sp-tip strong { font-size: .84rem; color: var(--vp-c-text-1); }
-.sp-tip span   { font-size: .76rem; color: var(--se-accent-text); font-family: var(--se-mono); }
-
-/* ── Cards ───────────────────────────────────────────────────────────── */
+/* ── Cards ────────────────────────────────────────────────────────────── */
 .sp-grid { display: grid; gap: 1rem; grid-template-columns: 1fr; }
 @media (min-width: 720px) { .sp-grid { grid-template-columns: 1fr 1fr; } }
 
@@ -278,10 +194,10 @@ function pct(n, total) {
 .sp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
 .sp-list li {
   display: grid;
-  grid-template-columns: auto minmax(0, 8rem) 1fr auto;
+  grid-template-columns: auto minmax(0, 7.5rem) 1fr auto;
   align-items: center; gap: .6rem; font-size: .9rem;
 }
-.sp-list li:has(.sp-mono) { grid-template-columns: minmax(0, 8rem) 1fr auto; }
+.sp-list.vers li { grid-template-columns: minmax(0, 7.5rem) 1fr auto; }
 
 .sp-flag { font-size: 1.05rem; line-height: 1; }
 .sp-name { color: var(--vp-c-text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -291,13 +207,11 @@ function pct(n, total) {
 .sp-bar i {
   display: block; height: 100%; border-radius: 3px;
   background: linear-gradient(90deg, var(--se-accent-dim), var(--se-gold));
-  animation: sp-grow .9s cubic-bezier(.22, .9, .3, 1) both;
+  transform-origin: left;
+  animation: sp-grow 1.1s cubic-bezier(.16, 1, .3, 1) both .5s;
 }
-@keyframes sp-grow { from { transform: scaleX(0); transform-origin: left; } }
-@media (prefers-reduced-motion: reduce) {
-  .sp-bar i { animation: none; }
-  .sp-c { transition: none; }
-}
+@keyframes sp-grow { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .sp-bar i { animation: none; } }
 
 .sp-n { font-family: var(--se-mono); font-size: .82rem; color: var(--vp-c-text-2); font-variant-numeric: tabular-nums; }
 
