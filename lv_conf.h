@@ -12,7 +12,12 @@
 /**********************
  * COLOR SETTINGS
  *********************/
-#define LV_COLOR_DEPTH 16                       // RGB565 (2 bytes/pixel)
+// RGB565 (2 bytes/pixel). Stated as the format rather than the depth: LVGL 9.6
+// deprecated LV_COLOR_DEPTH and warns on every translation unit that still uses
+// it. This is not a change of value — lv_conf_internal.h derives exactly
+// LV_COLOR_FORMAT_RGB565 from depth 16, so saying it directly is the same
+// setting with the warning removed. Verified byte-identical firmware.
+#define LV_COLOR_FORMAT_DEFAULT LV_COLOR_FORMAT_RGB565
 #define LV_COLOR_16_SWAP 0                      // No swap for RGB parallel
 #define LV_COLOR_CHROMA_KEY lv_color_hex(0x00FF00)
 
@@ -229,7 +234,15 @@
 #define LV_USE_ASSERT_MEM_INTEGRITY 0
 #define LV_USE_ASSERT_OBJ 0
 
-#define LV_ASSERT_HANDLER_INCLUDE <stdint.h>
+// No LV_ASSERT_HANDLER_INCLUDE: LVGL 9.6 deprecated it and warned on every
+// translation unit. It named <stdint.h>, which the handler below does not need
+// and which is already included everywhere, so dropping it changes nothing.
+//
+// NOTE, unchanged but worth knowing: while(1) means a failed LVGL assert is a
+// silent freeze — no panic, no coredump, nothing for the reboot log to record,
+// and the user sees a dead panel rather than a restart with a reason. abort()
+// would route it through the panic handler instead. Left alone deliberately;
+// that is a behaviour change and belongs in its own flash-tested release.
 #define LV_ASSERT_HANDLER while(1);
 
 /**********************
