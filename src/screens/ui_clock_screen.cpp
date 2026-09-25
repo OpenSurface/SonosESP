@@ -1233,7 +1233,17 @@ void exitClockScreen() {
     // Restart art + lyrics tasks — Sonos may have a pending art URL
     art_shutdown_requested    = false;
     lyrics_shutdown_requested = false;  // Was set on clock entry; must clear on exit
-    last_art_url      = "";  // Force art re-fetch — track may have changed during clock
+    // Under art_mutex. Normally the art task has already exited by the time we get
+    // here, but CLOCK_ENTERING gives up after CLOCK_ENTER_TIMEOUT_MS (3s) and
+    // enters anyway, while a download can hold the task for ART_DOWNLOAD_TIMEOUT_MS
+    // (8s) plus cooldowns. In that overlap the art task can be executing
+    // `last_art_url = url;` under the lock at the same moment as this assignment --
+    // two String writes to one buffer, so a double free. Every other writer of
+    // last_art_url takes this mutex; this one was the exception.
+    if (art_mutex && xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        last_art_url = "";  // Force art re-fetch — track may have changed during clock
+        xSemaphoreGive(art_mutex);
+    }
     lyrics_last_track = "";  // Force lyrics re-fetch — display cleared during clock (issue #62)
     if (!albumArtTaskHandle) {
         createArtTask();  // PSRAM stack — frees 20KB internal SRAM for SDIO/WiFi DMA
