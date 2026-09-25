@@ -22,6 +22,26 @@ int SonosController::discoverDevices() {
 
     if (!devices) { Serial.println("[SONOS] devices array not allocated"); return 0; }
     Serial.printf("[SONOS] Starting discovery...\n");
+
+    // Remember WHICH speaker is selected, not just its slot number.
+    //
+    // This function empties devices[] and refills it in SSDP-reply order, which it
+    // documents further down as non-deterministic — but currentDeviceIndex was
+    // never touched, and no caller re-selects afterwards (selection only happens
+    // on a row tap). So if the rooms came back in a different order, index 0 was
+    // still "selected" while now pointing at a different speaker: transport
+    // commands, the volume slider and the sleep timer all silently moved to
+    // another room, and the devices screen highlighted that room as the chosen
+    // one. A reboot restored the old choice from NVS, which is what made it look
+    // intermittent rather than reproducible.
+    //
+    // Captured by identity here and matched back after dedup below.
+    String prev_rincon;
+    IPAddress prev_ip;
+    if (SonosDevice* cur = getCurrentDevice()) {
+        prev_rincon = cur->rinconID;
+        prev_ip     = cur->ip;
+    }
     // Under the lock: the polling task holds pointers into devices[] and reads
     // them against deviceCount. Dropping it to 0 unlocked meant getCurrentDevice()
     // could hand back a slot this function was about to overwrite.
@@ -383,6 +403,38 @@ int SonosController::discoverDevices() {
     }
     deviceCount = uniqueCount;
     if (dedup_locked) xSemaphoreGive(deviceMutex);
+
+    // Re-point the selection at the same speaker, wherever it landed.
+    //
+    // RINCON first — it is the stable identity and survives a DHCP lease change;
+    // IP as a fallback for a speaker whose description fetch failed and left the
+    // id empty. Only runs when something was selected before: prev_rincon and
+    // prev_ip are both empty on a first scan, so a fresh boot is unaffected and
+    // nothing here auto-selects anything that was not already chosen.
+    //
+    // -1 when the old speaker is genuinely gone is the correct answer, not a
+    // regression: getCurrentDevice() returns nullptr for it and the UI already
+    // handles that with the "Device Not Connected" state. Silently driving
+    // whichever room happens to occupy the old slot is the worse outcome.
+    if (prev_rincon.length() > 0 || (uint32_t)prev_ip != 0) {
+        int restored = -1;
+        for (int i = 0; i < deviceCount; i++) {
+            if ((prev_rincon.length() > 0 && uuidEquals(devices[i].rinconID, prev_rincon)) ||
+                devices[i].ip == prev_ip) {
+                restored = i;
+                break;
+            }
+        }
+        if (restored != currentDeviceIndex) {
+            if (restored >= 0) {
+                Serial.printf("[SONOS] Selected speaker '%s' moved to slot %d - selection followed it\n",
+                              devices[restored].roomName.c_str(), restored);
+            } else {
+                Serial.println("[SONOS] Previously selected speaker is no longer present - selection cleared");
+            }
+            currentDeviceIndex = restored;
+        }
+    }
 
     // Fetch playing state for each unique zone so the devices screen shows which rooms are active
     Serial.printf("[SONOS] Fetching playing state for %d zone(s)...\n", deviceCount);
