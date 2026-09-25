@@ -21,20 +21,26 @@ void refreshQueueList() {
     lv_obj_clean(list_queue);
     SonosDevice* d = sonos.getCurrentDevice();
     if (!d) { lv_label_set_text(lbl_queue_status, "No device"); return; }
-    if (d->queueSize == 0) { lv_label_set_text(lbl_queue_status, "Queue is empty"); return; }
+    // Latch queueSize ONCE. It was re-read on the next line, and updateQueue()
+    // on the polling task sets it to 0 before counting back up — so a scan landing
+    // between the check and the read indexed queue[-1], reading an int out of the
+    // preceding object. Every subsequent use reads the latched copy too, so the
+    // loop below cannot run past the end if the queue shrinks mid-build.
+    const int qsize = d->queueSize;
+    if (qsize == 0) { lv_label_set_text(lbl_queue_status, "Queue is empty"); return; }
 
     // Show window range when we have a partial view, e.g. "Tracks 4–13 of 47"
     int firstTrack = d->queue[0].trackNumber;
-    int lastTrack  = d->queue[d->queueSize - 1].trackNumber;
-    if (d->totalTracks > 0 && d->queueSize < d->totalTracks) {
+    int lastTrack  = d->queue[qsize - 1].trackNumber;
+    if (d->totalTracks > 0 && qsize < d->totalTracks) {
         lv_label_set_text_fmt(lbl_queue_status, "Tracks %d-%d of %d",
                               firstTrack, lastTrack, d->totalTracks);
     } else {
         lv_label_set_text_fmt(lbl_queue_status, "%d %s",
-                              d->queueSize, d->queueSize == 1 ? "track" : "tracks");
+                              qsize, qsize == 1 ? "track" : "tracks");
     }
 
-    for (int i = 0; i < d->queueSize; i++) {
+    for (int i = 0; i < qsize; i++) {
         QueueItem* item = &d->queue[i];
         int trackNum = item->trackNumber;  // absolute 1-based position in the full queue
         bool isPlaying = (trackNum == d->currentTrackNumber);

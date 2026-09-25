@@ -2291,8 +2291,19 @@ void SonosController::pollingTaskFunction(void* param) {
                         ctrl->updateQueue(queue_fetch_start_index);
                         vTaskDelay(pdMS_TO_TICKS(SDIO_POST_QUEUE_DRAIN_MS));
                     } else {
-                        Serial.printf("[POLL] Queue fetch deferred: DMA too low (%uKB)\n",
-                                      (unsigned)(dma_now / 1024));
+                        // Throttled to once per 2s, like the [POLL] Skip: line above.
+                        // The flag re-arms unconditionally, so once it is set with DMA
+                        // below the gate this printed on EVERY 300ms cycle for the rest
+                        // of the session — and free DMA sits at 38-42KB from song two
+                        // onwards by design, i.e. below ART_MIN_DMA_PRE_BURST (56KB).
+                        // So the steady state was ~3.3 lines/s into the USB CDC forever.
+                        // The retry behaviour below is unchanged; only the log is gated.
+                        static uint32_t last_defer_log_ms = 0;
+                        if (millis() - last_defer_log_ms >= 2000) {
+                            last_defer_log_ms = millis();
+                            Serial.printf("[POLL] Queue fetch deferred: DMA too low (%uKB)\n",
+                                          (unsigned)(dma_now / 1024));
+                        }
                         queue_fetch_requested = true;  // retry next cycle
                     }
                 }

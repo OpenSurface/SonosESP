@@ -1063,7 +1063,12 @@ void albumArtTask(void* param) {
         art_temp_buffer = (uint16_t*)heap_caps_malloc(ART_PX * ART_PX * 2, MALLOC_CAP_SPIRAM);
     if (!blur_bg_buf)
         blur_bg_buf = (uint16_t*)heap_caps_malloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * 2, MALLOC_CAP_SPIRAM);
-    if (!art_buffer || !art_temp_buffer) { vTaskDelete(NULL); return; }
+    // Clear the handle BEFORE deleting, as every other exit from this task does.
+    // Leaving it set points at a deleted task: otaStopTasks() would wait 12s and
+    // then vTaskDelete() a dead handle, and the clock-enter state machine waits
+    // for a handle that can never clear. Only reachable if the 352KB PSRAM
+    // allocation fails at boot, but it costs one line.
+    if (!art_buffer || !art_temp_buffer) { albumArtTaskHandle = NULL; vTaskDelete(NULL); return; }
 
     if (!art_cache[0].pixels)
         art_cache[0].pixels = (uint16_t*)heap_caps_malloc(ART_PX * ART_PX * 2, MALLOC_CAP_SPIRAM);
@@ -1507,7 +1512,22 @@ void albumArtTask(void* param) {
                         WiFiClient* _sd = http.getStreamPtr();
                         bool _known = (full_drain_target > 0 &&
                                        full_drain_target < (int)max_art_size);
-                        size_t _target = _known ? (size_t)full_drain_target : max_art_size;
+                        // Declared-oversize bodies are NOT drained.
+                        //
+                        // When Content-Length >= max_art_size, _known is false, so
+                        // _target fell back to max_art_size and this pulled the full
+                        // 500KB before the size check further down did stream->stop()
+                        // under the comment "Force close - don't drain (overwhelms
+                        // SDIO buffer)". The drain that comment forbids had already
+                        // happened, for up to 15s, holding network_mutex with all
+                        // SOAP polling suppressed.
+                        //
+                        // Only affects bodies already destined for rejection, so no
+                        // cover that displays today stops displaying: an unknown
+                        // length (-1) still drains as before.
+                        bool _oversize = (full_drain_target >= (int)max_art_size);
+                        size_t _target = _oversize ? 0
+                                       : (_known ? (size_t)full_drain_target : max_art_size);
                         if (_sd) {
                             uint32_t _ds = millis();
                             while (pre_drained < _target && millis() - _ds < 15000) {
