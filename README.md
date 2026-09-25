@@ -199,7 +199,7 @@ The two that catch people out most often:
 
 ## Architecture
 
-- **UI framework** — LVGL 9.5, with resolution-relative scaling (`ui_scale.h`) so one layout serves both panels
+- **UI framework** — LVGL 9.6, with resolution-relative scaling (`ui_scale.h`) so one layout serves both panels
 - **FreeRTOS tasks** — separate tasks for UI, album art, lyrics, Sonos polling, touch sampling and the clock background
 - **Thread safety** — mutex-protected shared state; all LVGL work happens on the UI thread
 - **Memory** — PSRAM for artwork, lyrics and photo buffers; internal DMA SRAM reserved for Wi-Fi and TLS
@@ -207,11 +207,11 @@ The two that catch people out most often:
 - **Image pipeline** — hardware JPEG decode, software PNG and progressive-JPEG fallback, fixed-point bilinear scaling
 - **Reliability** — layered SDIO crash defences serialise network access
 
-Full reference: [ARCHITECTURE.md](ARCHITECTURE.md) · Release process: [RELEASE.md](RELEASE.md)
+Release process: [RELEASE.md](RELEASE.md)
 
 ## Contributing
 
-Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions are welcome — please read [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 Found a bug, or want a feature? [Open an issue](https://github.com/OpenSurface/SonosESP/issues).
 
