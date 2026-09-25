@@ -193,6 +193,12 @@
 // store-faulted hw_cdc_isr_handler. By this point the host has reconnected.
 #define BOOT_REPORT_DELAY_MS    6000
 
+// Extra settle before the boot banner, on a USB/JTAG reset only (issue #164).
+// Those are the resets a host causes by attaching, so the CDC link is still
+// being brought up when setup() starts writing. Costs nothing on a power-on,
+// and a console that has just attached is not waiting on 800ms.
+#define BOOT_CDC_SETTLE_MS      800
+
 // ── Battery (issue #165) ────────────────────────────────────────────────────
 // Portables only (Move, Roam). See include/battery.h for why a timeout means
 // "stale" and never "no battery".

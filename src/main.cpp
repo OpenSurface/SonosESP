@@ -217,6 +217,30 @@ static void logResetReason() {
 void setup() {
     Serial.begin(SERIAL_BAUD_RATE);
     delay(500);
+
+    // Issue #164. Attaching a serial console resets the chip through the
+    // USB-Serial-JTAG peripheral, and the firmware then answers by pushing its
+    // whole boot banner into a CDC link the host is still bringing up. That has
+    // store-faulted hw_cdc_isr_handler writing USB_SERIAL_JTAG.ep1.
+    //
+    // v2.0.6 moved the two LONG reports (coredump summary, reboot history) out to
+    // mainAppTask at BOOT_REPORT_DELAY_MS, which removed the largest burst. What
+    // is left is still nine back-to-back writes and ~600 bytes -- banner, reset
+    // reason, reboot line, heap, flash ID, the two NVS settings lines, backlight
+    // note -- and the first real pause in setup() is WIFI_INIT_DELAY_MS, which
+    // comes after all of it and exists for SDIO timing, not for the console.
+    //
+    // The race is in the Arduino core's ISR and cannot be closed from here (the
+    // upstream fix, arduino-esp32 #12606, is not in our pinned 3.3.8, and the
+    // platform pin is blocked on the P4 linker regression). What we control is
+    // how hard we hit it, so on a USB or JTAG reset -- the case where a host is
+    // demonstrably mid-handshake -- give it longer to settle first. Every other
+    // reset reason is unaffected, including the ordinary power-on path.
+    const esp_reset_reason_t boot_reason = esp_reset_reason();
+    if (boot_reason == ESP_RST_USB || boot_reason == ESP_RST_JTAG) {
+        delay(BOOT_CDC_SETTLE_MS);
+    }
+
     Serial.println("\n=== SONOS CONTROLLER ===");
     logResetReason();
     rebootLogBoot();   // why the last run ended - see reboot_log.h
