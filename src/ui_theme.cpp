@@ -244,6 +244,20 @@ void themeSet(uint8_t idx) {
     btn_lyrics = nullptr;
 
     themeCurrent()->build();      // reassigns scr_main + every player widget global
+
+    // Forget the source-mode latches BEFORE anything reads them again.
+    //
+    // setRadioMode()/setLineInMode()/setTvAudioMode() each early-out when asked for
+    // the state they already hold. That state describes widgets that no longer
+    // exist: the builder above made a fresh set, all visible. So switching theme
+    // while radio was playing left the new player showing a progress bar, a
+    // countdown, a "Next:" block and skip/shuffle/repeat on a live stream, because
+    // setRadioMode(true) returned immediately without hiding any of it. Line-in and
+    // TV were worse — updateUI() returns early for those, so their hero widgets
+    // were never unhidden at all, and it stayed wrong until the source changed.
+    radioModeForget();
+    lineInModeForget();
+    tvAudioModeForget();
     if (old) {
         // Never delete the screen currently on display. In practice we're on the
         // settings screen here, but swap first if that ever changes.

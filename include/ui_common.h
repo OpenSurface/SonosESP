@@ -1,4 +1,4 @@
-#ifndef UI_COMMON_H
+﻿#ifndef UI_COMMON_H
 #define UI_COMMON_H
 
 #include <Arduino.h>
@@ -39,7 +39,7 @@
 //     draw_dsc.clip_radius = lv_obj_get_style_radius(obj, LV_PART_MAIN);
 //
 // so the rounded mask covered only the top-left 420x420 of a 525x525 draw and
-// the real corners were never masked — square on the 7", correct on the 4"
+// the real corners were never masked â€” square on the 7", correct on the 4"
 // where the scale is exactly 1:1 and nothing transforms. Decoding at ART_PX
 // removes the transform entirely, which fixes the corners and also stops the
 // 7" showing an upscaled, soft image.
@@ -67,7 +67,7 @@
 // ============================================================================
 // Color Theme - extern declarations
 // ============================================================================
-// Surfaces — COL_SCREEN is the page itself; COL_BG is a panel/list sitting on
+// Surfaces â€” COL_SCREEN is the page itself; COL_BG is a panel/list sitting on
 // it. They are NOT interchangeable and were never meant to be the same value.
 extern lv_color_t COL_SCREEN;        // screen background
 extern lv_color_t COL_BG;            // panel / list background
@@ -87,13 +87,13 @@ extern lv_color_t COL_TEXT2;         // secondary
 extern lv_color_t COL_TEXT3;         // tertiary / hint
 extern lv_color_t COL_TEXT_FAINT;    // faint status text laid over artwork
 
-// Semantic — these carry meaning, so they are not interchangeable with the
+// Semantic â€” these carry meaning, so they are not interchangeable with the
 // accent even when they happen to look similar.
 extern lv_color_t COL_ACCENT;
 extern lv_color_t COL_ERROR;         // failure / offline
 extern lv_color_t COL_OK;            // success / online
 extern lv_color_t COL_WARN;          // caution
-extern lv_color_t COL_HEART;         // favourite — a role, not a generic red
+extern lv_color_t COL_HEART;         // favourite â€” a role, not a generic red
 // Semantic SURFACE colours. COL_ERROR/COL_OK are foreground tints (light salmon,
 // light green) and are unreadable as button backgrounds, so destructive and
 // affirmative buttons need their own dark surfaces. These carry the exact values
@@ -127,7 +127,7 @@ extern volatile uint32_t night_wake_ms;
 // True when night hours are on AND the clock has a real time AND now is inside
 // the window. Before NTP syncs there is no clock to judge by, so it is false.
 bool nightNow();
-extern int panel_variant;   // PANEL_VARIANT_* — which 7" LCD panel is fitted
+extern int panel_variant;   // PANEL_VARIANT_* â€” which 7" LCD panel is fitted
 extern bool lyrics_enabled;
 extern bool blur_bg_enabled;
 extern String pending_wifi_ssid;        // issue #85: creds awaiting persistence
@@ -169,7 +169,7 @@ extern lv_obj_t *pw_strip, *lbl_pw_ssid, *spinner_wifi_scan;
 extern lv_obj_t *btn_sonos_scan, *spinner_scan;
 extern lv_obj_t *btn_groups_scan, *spinner_groups_scan;
 
-// Album art — rendering state
+// Album art â€” rendering state
 extern lv_img_dsc_t art_dsc;
 extern uint16_t *art_buffer;
 extern uint16_t *art_temp_buffer;
@@ -178,11 +178,11 @@ extern String lyrics_last_track;
 extern volatile bool art_ready;
 extern volatile bool art_show_placeholder;
 extern SemaphoreHandle_t art_mutex;
-extern volatile uint32_t dominant_color;   // art task writes, UI reads — aligned 32-bit, atomic on RISC-V
+extern volatile uint32_t dominant_color;   // art task writes, UI reads â€” aligned 32-bit, atomic on RISC-V
 extern volatile bool color_ready;
 extern int art_offset_x, art_offset_y;
 
-// Blur background — blurred art scaled to full screen (replaces ambient color animation)
+// Blur background â€” blurred art scaled to full screen (replaces ambient color animation)
 extern lv_img_dsc_t blur_bg_dsc;
 extern uint16_t*    blur_bg_buf;
 extern volatile bool blur_bg_ready;
@@ -192,11 +192,11 @@ extern lv_obj_t*    lbl_linein_icon;
 extern lv_obj_t*    lbl_linein_subtitle;
 extern lv_obj_t*    lbl_tv_icon;
 extern lv_obj_t*    lbl_tv_subtitle;
-extern lv_color_t   g_ambient_bright;  // Current 3× brightened dominant color for playback buttons
+extern lv_color_t   g_ambient_bright;  // Current 3Ã— brightened dominant color for playback buttons
 extern bool is_sonos_radio_art;
 extern bool pending_is_station_logo;
 
-// SDIO crash defence — network timing globals
+// SDIO crash defence â€” network timing globals
 extern SemaphoreHandle_t network_mutex;
 extern volatile unsigned long last_network_end_ms;
 extern volatile unsigned long last_https_end_ms;
@@ -321,9 +321,9 @@ bool isAlbumArtPending();   // H-4: thread-safe `pending_art_url != last_art_url
 void clearAlbumArtCache();  // Invalidate LRU cache on track change
 void updateUI();
 void processUpdates();
-void triggerPendingOTA();  // Called from setup() if NVS_KEY_OTA_PENDING was saved before reboot — runs OTA at boot before background tasks start (full DMA headroom)
+void triggerPendingOTA();  // Called from setup() if NVS_KEY_OTA_PENDING was saved before reboot â€” runs OTA at boot before background tasks start (full DMA headroom)
 String urlEncode(const char *url);
-// (cleanupBrowseData removed — browse rows now free their ItemData via LV_EVENT_DELETE)
+// (cleanupBrowseData removed â€” browse rows now free their ItemData via LV_EVENT_DELETE)
 lv_obj_t *createSettingsSidebar(lv_obj_t *screen, int activeIdx);
 
 // HTML entity decoding helper (inline to avoid code duplication)
@@ -337,7 +337,7 @@ inline String decodeHTMLEntities(const String& str) {
     return result;
 }
 
-// Network tasks — FreeRTOS handles and shutdown signals
+// Network tasks â€” FreeRTOS handles and shutdown signals
 // Art and lyrics stacks live in PSRAM to free internal SRAM for SDIO/WiFi DMA buffers
 extern TaskHandle_t albumArtTaskHandle;
 extern StaticTask_t albumArtTaskTCB;
@@ -345,7 +345,7 @@ extern StackType_t* art_task_stack;
 extern volatile bool art_shutdown_requested;
 extern volatile bool art_abort_download;
 void albumArtTask(void *param);
-void createArtTask();   // PSRAM-stack wrapper — use instead of xTaskCreatePinnedToCore directly
+void createArtTask();   // PSRAM-stack wrapper â€” use instead of xTaskCreatePinnedToCore directly
 
 extern TaskHandle_t lyricsTaskHandle;
 extern StaticTask_t lyricsTaskTCB;
@@ -361,14 +361,20 @@ void clockBgTask(void* param);
 
 // Radio mode UI adaptation
 void setRadioMode(bool enable);
+// Clears the latched mode state after themeSet() rebuilds the player widgets.
+// See the comment at the definition; without these a theme change during radio,
+// line-in or TV playback leaves the new player in the wrong mode.
+void radioModeForget(void);
 void updateRadioModeUI();
 
 // Line-in mode UI adaptation
 void setLineInMode(bool enable);
+void lineInModeForget(void);
 void updateLineInUI();
 
 // TV audio mode UI adaptation
 void setTvAudioMode(bool enable);
+void tvAudioModeForget(void);
 void updateTvAudioUI();
 
 #endif // UI_COMMON_H

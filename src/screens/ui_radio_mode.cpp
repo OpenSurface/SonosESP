@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UI Radio Mode Handler
  * Adapts the UI when playing radio stations vs music tracks
  *
@@ -16,6 +16,17 @@
 static bool is_radio_mode = false;
 
 // Adapt UI for radio mode - hide/show appropriate controls
+
+// Forget the latched state without touching widgets.
+//
+// themeSet() rebuilds every player widget from scratch, but this flag survives
+// the rebuild — so a theme change while this source was active left the setter
+// early-returning and the NEW widgets never got hidden. Resetting to false is
+// correct both ways: a fresh builder leaves everything visible, so if the source
+// is still active the next tick re-applies the hiding, and if it is not, the
+// setter simply no-ops.
+void radioModeForget(void) { is_radio_mode = false; }
+
 void setRadioMode(bool enable) {
     if (is_radio_mode == enable) return; // Already in correct mode
 
@@ -46,7 +57,7 @@ void setRadioMode(bool enable) {
         // the room where the layout has it, which is Classic. The theme decides:
         // on Amber the same 44px box reached down over the title (issue #177).
         themeApplyRadioArtist(true);
-        // Hide album label — irrelevant for radio and would overlap with 2-line artist
+        // Hide album label â€” irrelevant for radio and would overlap with 2-line artist
         if (lbl_album) lv_obj_add_flag(lbl_album, LV_OBJ_FLAG_HIDDEN);
 
     } else {
@@ -98,7 +109,7 @@ void updateRadioModeUI() {
 
     // Snapshot the Strings under deviceMutex, then work only from the copies.
     //
-    // This runs at the END of every updateUI() — immediately after the block
+    // This runs at the END of every updateUI() â€” immediately after the block
     // that takes this same lock to snapshot title/artist/album for exactly this
     // reason. Reading radioStationName/currentTrack/currentArtist straight out
     // of the shared slot left that fix half-done: the polling task reassigns all
