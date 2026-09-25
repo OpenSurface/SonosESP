@@ -384,19 +384,44 @@ void setup() {
         Serial.printf("  Art TCP SO_RCVBUF=8KB:   ~9KB  (during art HTTP download only)\n");
         Serial.printf("  JPEG HW decode output:   ~??KB (log [ART/pre-decode vs post-decode] MEM)\n");
         Serial.printf("  mbedTLS HTTPS session:   ~5KB  (during lyrics/clock HTTPS only)\n");
-        Serial.printf("  Safe idle floor:         ~%uKB (ART_MIN_FREE_DMA threshold)\n",
-                      ART_MIN_FREE_DMA/1024);
+        // ART_MIN_DMA_PRE_BURST is the gate a download must actually clear.
+        // ART_MIN_FREE_DMA (8KB) was printed here for years and is not a gate at
+        // all -- config.h says so in as many words -- which understated the real
+        // floor sevenfold to anyone diagnosing DMA depletion from a pasted log.
+        Serial.printf("  Download gate:           ~%uKB (ART_MIN_DMA_PRE_BURST)\n",
+                      ART_MIN_DMA_PRE_BURST/1024);
+        Serial.printf("  Abort floor:             ~%uKB (ART_TCP_RCVBUF_DL_SAFETY)\n",
+                      ART_TCP_RCVBUF_DL_SAFETY/1024);
         Serial.println("  --- PSRAM consumer estimates ---");
-        Serial.printf("  LVGL frame bufs: ~%uKB (2 x %ux%ux2)\n",
-                      2*DISPLAY_WIDTH*DISPLAY_HEIGHT*2/1024, DISPLAY_WIDTH, DISPLAY_HEIGHT);
-        Serial.printf("  Art LRU cache:   ~230KB (2 slots x 240x240x2)\n");
+        // The 4" allocates THREE full framebuffers: buf1, buf2 and rotate_buf for
+        // the PPA path. The 7" is native landscape and allocates two.
+#if SCREEN_SIZE == 7
+        const unsigned fb_count = 2;
+#else
+        const unsigned fb_count = 3;
+#endif
+        Serial.printf("  LVGL frame bufs: ~%uKB (%u x %ux%ux2)\n",
+                      fb_count*DISPLAY_WIDTH*DISPLAY_HEIGHT*2/1024,
+                      fb_count, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+        // Derived, not remembered: this said "~230KB (2 slots x 240x240x2)" while
+        // art is decoded at ART_PX -- 420 on the 4", 525 on the 7" -- so the true
+        // figure was three to four times larger.
+        Serial.printf("  Art LRU cache:   ~%uKB (2 slots x %ux%ux2)\n",
+                      2*ART_PX*ART_PX*2/1024, ART_PX, ART_PX);
         Serial.printf("  Art task stack:    %uKB\n", ART_TASK_STACK_SIZE/1024);
         Serial.printf("  Art download buf:  %uKB max (alloc+free per download)\n",
                       ART_MAX_DOWNLOAD_SIZE/1024);
-        Serial.println("  --- Internal SRAM task stacks ---");
-        Serial.printf("  mainAppTask: %uKB  SonosPoll: %uKB  SonosNet: %uKB\n",
-                      MAIN_APP_TASK_STACK/1024, SONOS_POLL_TASK_STACK/1024, SONOS_NET_TASK_STACK/1024);
-        Serial.printf("  Lyrics: %uKB  ClockBG: %uKB\n",
+        // mainAppTask is the ONLY task on an internal stack, and deliberately so:
+        // NVS writes assert if the calling task's stack is in cache-mapped PSRAM.
+        // The other four are static PSRAM allocations, which is the whole reason
+        // there is DMA SRAM headroom for SDIO at all. Listing them under "Internal
+        // SRAM" implied five tasks competing for the crash-critical pool, which is
+        // the opposite of the truth.
+        Serial.println("  --- Task stacks ---");
+        Serial.printf("  mainAppTask: %uKB (internal SRAM — NVS-write safe)\n",
+                      MAIN_APP_TASK_STACK/1024);
+        Serial.printf("  PSRAM stacks: SonosPoll %uKB  SonosNet %uKB  Lyrics %uKB  ClockBG %uKB\n",
+                      SONOS_POLL_TASK_STACK/1024, SONOS_NET_TASK_STACK/1024,
                       LYRICS_TASK_STACK/1024, CLOCK_BG_TASK_STACK/1024);
         Serial.println("=========================================\n");
     }
@@ -722,10 +747,23 @@ void logHeapStatus() {
     if (free_heap < 50000) {
         Serial.println("[HEAP] WARNING: Low memory!");
     }
-    if (free_dma < ART_MIN_DMA_PRE_BURST) {
-        Serial.printf("[DMA] WARNING: DMA depleting (%dKB) — art/lyrics may abort. "
-                      "Session depletion ~3.7KB/song. WiFi reconnect fires at 3 consecutive aborts.\n",
-                      (int)(free_dma / 1024));
+    // Threshold is the genuinely abnormal floor, not the working one.
+    //
+    // This used to warn below ART_MIN_DMA_PRE_BURST (56KB), which is the gate a
+    // download must clear, not a danger line. Free DMA sits at 38-42KB from song
+    // two onwards by design -- config.h records those exact numbers -- so the
+    // "DMA depleting" banner was the steady state, printing ~190 characters into
+    // the USB CDC every 60 seconds for the life of the device and crying wolf at
+    // anyone reading a log. ART_TCP_RCVBUF_DL_SAFETY is where things actually
+    // start failing.
+    if (free_dma < ART_TCP_RCVBUF_DL_SAFETY) {
+        static uint32_t last_dma_warn_ms = 0;
+        if (last_dma_warn_ms == 0 || millis() - last_dma_warn_ms >= 600000) {
+            last_dma_warn_ms = millis();
+            Serial.printf("[DMA] WARNING: DMA critically low (%dKB) — art/lyrics will abort. "
+                          "WiFi reconnect fires at 3 consecutive aborts.\n",
+                          (int)(free_dma / 1024));
+        }
     }
 }
 
