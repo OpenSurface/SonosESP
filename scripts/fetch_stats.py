@@ -100,20 +100,53 @@ def main():
 
     # Version and panel size live in the path: /boot/<version>/<4|7>in
     versions = {}
-    total = 0
+    total_hits = 0
     for row in hits.get("hits", []):
         path = row.get("path", "")
         count = int(row.get("count", 0))
         m = re.match(r"^/boot/v?([0-9]+\.[0-9]+\.[0-9]+)/(4|7)in/?$", path)
         if not m:
             continue
-        total += count
+        total_hits += count
         versions[m.group(1)] = versions.get(m.group(1), 0) + count
 
-    if total == 0:
+    if total_hits == 0:
         print("No /boot/* hits in the window — refusing to publish a zero.",
               file=sys.stderr)
         return 1
+
+    # The headline figure comes from the public counter, NOT from summing hits.
+    #
+    # /api/v0/stats/hits returns raw hits per path and the response carries no
+    # per-path unique count (goatcounter.HitList has 'count' and nothing else),
+    # so summing it counts BOOTS, not panels: a device that reboots three times
+    # appears as three. For a number labelled "panels running SonosESP" that is
+    # simply wrong, and it is why this read 8 while the README badge read 5.
+    #
+    # /counter/TOTAL.json gives GoatCounter's own unique-visitor count, which is
+    # the closest thing to a device count available here — this site receives
+    # nothing but boot pings, so a visitor is a panel. It is also exactly what
+    # the README badge reads, so the badge and the page can no longer disagree.
+    #
+    # Still an approximation: sessions expire, so a panel seen across many weeks
+    # can count more than once. The hit totals remain useful as *proportions*,
+    # which is all the version and country breakdowns need them for.
+    panels = total_hits   # fallback if the public counter is disabled
+    try:
+        req = urllib.request.Request(
+            f"https://{SITE}.goatcounter.com/counter/TOTAL.json",
+            headers={"User-Agent": "SonosESP-stats/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=20) as r:
+            payload = json.loads(r.read().decode())
+        # The counter returns formatted strings, e.g. {"count_unique": "1,234"}
+        raw = str(payload.get("count_unique") or payload.get("count") or "")
+        cleaned = re.sub(r"[^0-9]", "", raw)
+        if cleaned:
+            panels = int(cleaned)
+    except Exception as e:  # noqa: BLE001 - falling back is correct, not fatal
+        print(f"Public counter unavailable ({e}); falling back to hit total.",
+              file=sys.stderr)
 
     countries = [
         {
@@ -127,7 +160,8 @@ def main():
     countries.sort(key=lambda c: -c["count"])
 
     out = {
-        "panels": total,
+        "panels": panels,
+        "boots": total_hits,
         "updated": end.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "windowDays": WINDOW_DAYS,
         "countries": countries,
@@ -139,7 +173,8 @@ def main():
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {OUT} — {total} panels across {len(countries)} countries")
+    print(f"Wrote {OUT} — {panels} panels ({total_hits} boots) "
+          f"across {len(countries)} countries")
     return 0
 
 
