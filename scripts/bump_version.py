@@ -88,7 +88,14 @@ def bump_version(current, bump_type):
     elif bump_type == 'patch':
         parts[2] += 1
     else:
-        # Assume it's a specific version string
+        # An explicit version. Validated rather than trusted: this used to return
+        # the argument verbatim, so a typo like "2.13" or a trailing space became
+        # the release tag, and every consumer downstream inherited it.
+        if not re.fullmatch(r'\d+\.\d+\.\d+(-nightly\.[0-9a-f]{7})?', bump_type):
+            print(f"[ERROR] '{bump_type}' is not a valid version.")
+            print("        Expected X.Y.Z, or X.Y.Z-nightly.<7 hex chars>,")
+            print("        or one of: patch, minor, major, nightly")
+            sys.exit(1)
         return bump_type
 
     return '.'.join(str(p) for p in parts)
@@ -107,11 +114,25 @@ def update_json_file(filepath, key, new_version):
     print(f"  [OK] {filepath}")
 
 def update_regex_file(filepath, pattern, replacement, new_version):
-    """Update version in a file using regex"""
+    """Update version in a file using regex.
+
+    Fails loudly on anything but exactly one substitution. This used re.sub()
+    and printed [OK] unconditionally, so if the FIRMWARE_VERSION line were ever
+    reformatted, wrapped or moved, nothing would match, the script would report
+    success, and version.json would advance while the firmware kept reporting
+    the old number. The OTA check then sees latest != current forever: it offers
+    an update, installs the same build, and still reports the old version.
+    """
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    new_content = re.sub(pattern, replacement.format(version=new_version), content)
+    new_content, count = re.subn(pattern, replacement.format(version=new_version), content)
+
+    if count != 1:
+        print(f"  [FAIL] {filepath}: pattern matched {count} times, expected exactly 1")
+        print(f"         pattern: {pattern}")
+        print("         Nothing written. Fix the file or the pattern and re-run.")
+        sys.exit(1)
 
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(new_content)
@@ -144,8 +165,12 @@ def main():
     for filepath, config in VERSION_FILES.items():
         path = Path(filepath)
         if not path.exists():
-            print(f"  [SKIP] {filepath} (not found)")
-            continue
+            # Fatal, not a skip. A renamed or moved manifest used to be stepped
+            # over with a friendly note, shipping a release whose installer still
+            # advertised the previous version.
+            print(f"  [FAIL] {filepath} not found — every file in VERSION_FILES must exist.")
+            print("         Some files may already be updated; check `git diff` before retrying.")
+            sys.exit(1)
 
         if config['type'] == 'json':
             update_json_file(filepath, config['key'], new_version)
