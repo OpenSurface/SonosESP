@@ -45,10 +45,17 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 ### Hardware Requirements
 
-- **Board**: GUITION JC4880P443C (ESP32-P4 + ESP32-C6 via SDIO)
-- **Display**: ST7701 MIPI DSI (480x800 portrait, rendered 800x480 landscape)
-- **PSRAM**: 32MB OPI at 200MHz
-- **Sonos System**: For testing
+Two panels are supported, and both build from the same source:
+
+- **4-inch**: GUITION JC4880P443C — ST7701 MIPI DSI, 480x800 portrait panel
+  rendered 800x480 landscape. Build env `esp32_4inch` (the default).
+- **7-inch**: GUITION JC1060P470C — JD9165 MIPI DSI, native 1024x600 landscape,
+  so the flush path does not rotate. Build env `esp32_7inch`. Note the panel
+  LCD changed mid-production under the same SKU; a boot wizard and a panel
+  registry handle the variants.
+
+Both share an ESP32-P4 paired with an ESP32-C6 over SDIO, and 32MB OPI PSRAM at
+200MHz. A Sonos system is needed for meaningful testing.
 
 ### Build System
 
@@ -162,7 +169,22 @@ When developing, be aware of these hardware constraints:
 - **Grayscale JPEG**: ESP32-P4 HW decoder can't output RGB565 for grayscale - must convert via GRAY8 format
 - **JPEG COM Markers**: ESP32-P4 decoder chokes on comment markers - strip them before decode
 
-See `memory/MEMORY.md` for detailed workarounds.
+Each of these is documented at the point it matters, in a comment above the code
+that works around it. `docs/TROUBLESHOOTING.md` covers the user-facing side.
+
+## Before you open a PR
+
+CI runs these, so run them first — a PR that skips them comes back red:
+
+```bash
+pio run -e esp32_4inch          # 4-inch build (the default env)
+pio run -e esp32_7inch          # 7-inch build — build BOTH, they share all code
+pio test -e native              # host unit tests, no hardware needed
+python tools/ui_lint.py --strict  # UI consistency: palette, geometry, fonts
+```
+
+Build the two panel environments **one after another, not in parallel** — they
+share a framework package directory and will collide.
 
 ## Project Structure
 
@@ -171,14 +193,19 @@ SonosESP/
 ├── src/
 │   ├── main.cpp                 # Entry point
 │   ├── sonos_controller.cpp     # Sonos SOAP API
-│   ├── ui_*.cpp                 # LVGL UI screens
 │   ├── ui_album_art.cpp         # Album art download & decode
 │   ├── lyrics.cpp               # Synced lyrics from lrclib.net
+│   ├── screens/                 # Every LVGL screen lives here
 │   └── ...
 ├── include/
 │   ├── config.h                 # Build configuration
 │   └── ui_common.h              # Shared UI declarations
-├── memory/                      # Project notes
+├── lib/                         # Panel drivers (st7701_lcd, jd9165_lcd)
+├── test/                        # Host unit tests (pio test -e native)
+├── tools/                       # ui_lint.py and friends
+├── scripts/                     # PlatformIO pre-build hooks
+├── docs/                        # VitePress site + guides
+├── web-installer/               # esp-web-tools manifests
 ├── platformio.ini               # Build configuration
 └── README.md
 ```
