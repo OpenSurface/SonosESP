@@ -53,8 +53,23 @@ def api(path, params=None):
             "User-Agent": "SonosESP-stats/1.0 (+https://github.com/OpenSurface/SonosESP)",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode())
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        # Print the URL and GoatCounter's own message. The first version reported
+        # only the status code, which for a 404 says nothing about whether the
+        # path, the parameters or the token's permissions were at fault.
+        body = ""
+        try:
+            body = e.read().decode()[:500]
+        except Exception:  # noqa: BLE001
+            pass
+        print(f"  request : GET {url}", file=sys.stderr)
+        print(f"  response: {e.code} {e.reason}", file=sys.stderr)
+        if body:
+            print(f"  body    : {body}", file=sys.stderr)
+        raise
 
 
 def main():
@@ -62,11 +77,15 @@ def main():
         print("GC_KEY not set", file=sys.stderr)
         return 1
 
-    end = datetime.now(timezone.utc)
+    # RFC3339 date-times rounded to the hour, per the API spec: start and end are
+    # declared format=date-time and documented as "should be rounded to the
+    # hour". The first version sent plain YYYY-MM-DD dates.
+    end = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     start = end - timedelta(days=WINDOW_DAYS)
+    fmt = "%Y-%m-%dT%H:%M:%SZ"
     window = {
-        "start": start.strftime("%Y-%m-%d"),
-        "end": end.strftime("%Y-%m-%d"),
+        "start": start.strftime(fmt),
+        "end": end.strftime(fmt),
     }
 
     try:
