@@ -128,14 +128,18 @@ function flag(cc) {
     </div>
 
     <div class="sp-grid">
+      <!-- Names, no counts.
+           GoatCounter reports locations per session while the rest of this panel
+           counts startups, and the API exposes no per-country startup figure. So
+           any number here would sit next to the others using a different
+           denominator and simply look wrong — which it did. Which countries is
+           the interesting part anyway; how many in each was never the question. -->
       <div v-if="stats.countries?.length" class="sp-card">
         <h3>Where they are</h3>
-        <ul class="sp-list">
-          <li v-for="c in stats.countries.slice(0, 8)" :key="c.code">
+        <ul class="sp-places">
+          <li v-for="c in stats.countries.slice(0, 12)" :key="c.code">
             <span class="sp-flag">{{ flag(c.code) }}</span>
             <span class="sp-name">{{ c.name }}</span>
-            <span class="sp-bar"><i :style="{ width: barPct(c.count, stats.countries) + '%' }" /></span>
-            <span class="sp-n">{{ c.count }}</span>
           </li>
         </ul>
       </div>
@@ -239,6 +243,20 @@ function flag(cc) {
   margin: 0 0 1rem; border: 0;
   font-size: .78rem; letter-spacing: .12em; text-transform: uppercase;
   color: var(--vp-c-text-3); font-weight: 600;
+}
+
+/* Countries: a wrapping set of chips, since there is no quantity to rank by. */
+.sp-places {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: .5rem;
+}
+.sp-places li {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .32rem .65rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 999px;
+  font-size: .85rem;
+  color: var(--vp-c-text-1);
 }
 
 .sp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
