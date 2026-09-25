@@ -129,6 +129,9 @@ extern volatile uint32_t night_wake_ms;
 bool nightNow();
 extern int panel_variant;   // PANEL_VARIANT_* â€” which 7" LCD panel is fitted
 extern bool lyrics_enabled;
+// Anonymous install counter (see analytics.h for the full payload). Persisted
+// to NVS; ANALYTICS_ENABLED is only the factory default.
+extern bool analytics_enabled;
 extern bool blur_bg_enabled;
 extern String pending_wifi_ssid;        // issue #85: creds awaiting persistence
 extern String pending_wifi_pass;

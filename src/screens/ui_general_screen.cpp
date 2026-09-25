@@ -99,8 +99,30 @@ void createGeneralScreen() {
         lv_obj_add_event_cb(sw_lyrics, [](lv_event_t* e) {
             lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
             lyrics_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
-            wifiPrefs.putBool("lyrics", lyrics_enabled);
+            wifiPrefs.putBool(NVS_KEY_LYRICS, lyrics_enabled);
             setLyricsVisible(lyrics_enabled && lyrics_ready);
+        }, LV_EVENT_VALUE_CHANGED, NULL);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // CARD — Anonymous stats
+    //
+    // Spelled out rather than hidden behind the word "analytics", because the
+    // whole payload genuinely is the two things named here. See analytics.h.
+    // ────────────────────────────────────────────────────────────────────────
+    {
+        lv_obj_t* card = addCard(content, "Anonymous stats");
+
+        lv_obj_t* slot = addSettingRow(card, "Count this panel",
+                                       "Sends the firmware version and screen size once at "
+                                       "startup, so the project knows how many panels are in "
+                                       "use. No ID, no location, nothing about your music.",
+                                       false);
+        lv_obj_t* sw_stats = addSwitch(slot, analytics_enabled);
+        lv_obj_add_event_cb(sw_stats, [](lv_event_t* e) {
+            lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
+            analytics_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
+            wifiPrefs.putBool(NVS_KEY_ANALYTICS, analytics_enabled);
         }, LV_EVENT_VALUE_CHANGED, NULL);
     }
 

@@ -1,14 +1,15 @@
-/**
+﻿/**
  * UI Global Variables
  * All shared state for the Sonos Controller UI
  */
 
 #include "ui_common.h"
+#include "analytics.h"   // ANALYTICS_ENABLED — the factory default for the toggle
 
 // ============================================================================
 // Color Theme
 // ============================================================================
-// Every value here already shipped — the ones below the original nine were in
+// Every value here already shipped â€” the ones below the original nine were in
 // the code as bare literals, repeated across screens with nothing naming them.
 // Naming them is what stops the next screen from inventing a tenth grey.
 lv_color_t COL_SCREEN = lv_color_hex(0x121212);
@@ -55,6 +56,7 @@ int  night_level      = BRIGHTNESS_DIM_MIN;
 int  night_touch_level = DEFAULT_NIGHT_TOUCH;
 volatile uint32_t night_wake_ms = 0;
 bool lyrics_enabled = true;
+bool analytics_enabled = ANALYTICS_ENABLED;
 // Defaults on: this shipped as always-on for the Classic theme, so an existing
 // device must look identical until its owner decides otherwise.
 bool blur_bg_enabled = true;
@@ -141,7 +143,7 @@ lv_obj_t *btn_groups_scan = nullptr;
 lv_obj_t *spinner_groups_scan = nullptr;
 
 // ============================================================================
-// Album Art — Rendering State
+// Album Art â€” Rendering State
 // ============================================================================
 lv_img_dsc_t art_dsc;
 uint16_t* art_buffer = nullptr;
@@ -165,7 +167,7 @@ uint16_t*    blur_bg_buf   = nullptr;
 volatile bool blur_bg_ready = false;
 // True only while blur_bg_buf holds the blur for the CURRENTLY loaded artwork.
 // blur_bg_buf is allocated once and lives for the session, so a non-null pointer
-// says nothing about whether the pixels are valid (or even initialised — it comes
+// says nothing about whether the pixels are valid (or even initialised â€” it comes
 // from heap_caps_malloc). themeSet() needs this to avoid republishing a previous
 // track's blur, or raw uninitialised PSRAM, when the theme changes.
 volatile bool blur_bg_valid = false;
@@ -179,33 +181,33 @@ lv_obj_t*    lbl_linein_subtitle = nullptr;  // "LIVE AUDIO" label below icon
 lv_obj_t*    lbl_tv_icon         = nullptr;  // 80px television icon, accent colour, pulsing
 lv_obj_t*    lbl_tv_subtitle     = nullptr;  // "TV AUDIO" label below icon
 
-// Current ambient bright color (3× brightened dominant color) — shared between
+// Current ambient bright color (3Ã— brightened dominant color) â€” shared between
 // color_anim_cb (writer) and updateUI (reader, for shuffle/repeat inactive state)
 lv_color_t g_ambient_bright = lv_color_hex(0xD4A84B);  // COL_ACCENT as default until first art
 
 // ============================================================================
-// Network Tasks — FreeRTOS Handles and Shutdown Signals
+// Network Tasks â€” FreeRTOS Handles and Shutdown Signals
 // ============================================================================
 TaskHandle_t albumArtTaskHandle = nullptr;
 StaticTask_t albumArtTaskTCB;               // TCB in internal SRAM (tiny, ~88 bytes)
-StackType_t* art_task_stack = nullptr;      // Stack in PSRAM — allocated once in createArtTask()
+StackType_t* art_task_stack = nullptr;      // Stack in PSRAM â€” allocated once in createArtTask()
 volatile bool art_shutdown_requested = false;  // Signal album art task to stop gracefully
 volatile bool art_abort_download = false;      // Signal to abort current download (source changed)
 TaskHandle_t lyricsTaskHandle = nullptr;
 StaticTask_t lyricsTaskTCB;                 // TCB in internal SRAM
-StackType_t* lyrics_task_stack = nullptr;   // Stack in PSRAM — allocated once in initLyrics()
+StackType_t* lyrics_task_stack = nullptr;   // Stack in PSRAM â€” allocated once in initLyrics()
 volatile bool lyrics_shutdown_requested = false;  // Signal lyrics task to stop for OTA
 volatile bool sonos_tasks_shutdown_requested = false;  // Signal Sonos tasks to stop for OTA
 
 // ============================================================================
-// SDIO Crash Defence — Network Timing Globals
+// SDIO Crash Defence â€” Network Timing Globals
 // (See MEMORY.md and ui_network_guard.h for full crash-defence architecture)
 // ============================================================================
 SemaphoreHandle_t network_mutex = NULL;  // Created in main.cpp; serialises all WiFi/HTTPS ops
 volatile unsigned long last_network_end_ms  = 0;  // Last network op end (200ms general cooldown)
 volatile unsigned long last_https_end_ms    = 0;  // Last HTTPS session end (3000ms TLS residue)
 volatile unsigned long last_queue_fetch_time = 0; // Last updateQueue() end (3000ms Browse residue)
-volatile bool          art_download_in_progress = false; // True during download — suppresses SOAP polling
+volatile bool          art_download_in_progress = false; // True during download â€” suppresses SOAP polling
 volatile bool          art_dma_recovery_requested = false; // Set by art task; mainAppTask handles WiFi stop+reconnect/restart (PSRAM-stack tasks cannot call esp_restart/NVS)
 volatile unsigned long last_art_download_end_ms = 0; // Set after large HTTP downloads; gates lyrics/queue/inter-download cooldowns
 volatile unsigned long last_track_change_ms  = 0; // Set by requestAlbumArt(); 2000ms NOTIFY settle
@@ -267,7 +269,7 @@ int  panel_variant        = PANEL_VARIANT_DEFAULT;
 bool clock_weather_enabled  = (bool)CLOCK_DEFAULT_WEATHER_EN;
 int  clock_weather_city_idx = CLOCK_DEFAULT_WEATHER_CITY;
 bool clock_wx_fahrenheit    = (bool)CLOCK_DEFAULT_WEATHER_FAHR;
-// Custom location override (issue #74) — atomic-safe globals (read by bg task, written by UI)
+// Custom location override (issue #74) â€” atomic-safe globals (read by bg task, written by UI)
 volatile float clock_custom_lat = 0.0f;
 volatile float clock_custom_lon = 0.0f;
 char clock_custom_name[64] = "";  // optional display-only label for the saver screen
@@ -292,7 +294,7 @@ uint32_t   last_clock_exit_ms      = 0;
 
 TaskHandle_t         clockBgTaskHandle          = nullptr;
 StaticTask_t         clkbgTaskTCB;                         // TCB in internal SRAM (tiny, ~88 bytes)
-StackType_t*         clkbg_task_stack           = nullptr; // Stack in PSRAM — allocated once, reused across sessions
+StackType_t*         clkbg_task_stack           = nullptr; // Stack in PSRAM â€” allocated once, reused across sessions
 volatile bool        clock_bg_shutdown_requested = false;
 volatile bool        clock_bg_ready             = false;
 uint16_t*            clock_bg_buffer            = nullptr;
