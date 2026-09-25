@@ -90,7 +90,9 @@ void createWiFiScreen() {
     lv_obj_clear_flag(cap_rule, LV_OBJ_FLAG_CLICKABLE);
 
     // ── Password strip (y=104, h=52) — ABOVE the list, hidden until tap ────────
-    // Layout: [×](30) [SSID](140) gap [password field](255) gap [Connect](120)
+    // Layout across a 516px inner box: [×](30) [SSID](140) gap [password](198) gap
+// [Connect](120). Re-derive these if SB_RAIL_W or SETTINGS_CONTENT_PAD changes —
+// the previous numbers were inherited from a 620px content area and overlapped.
     pw_strip = lv_obj_create(content);
     lv_obj_set_size(pw_strip, lv_pct(100), SY(52));
     lv_obj_set_pos(pw_strip, 0, SY(104));
@@ -130,8 +132,23 @@ void createWiFiScreen() {
     lv_obj_align(lbl_pw_ssid, LV_ALIGN_LEFT_MID, SX(42), 0);
 
     // Password textarea
+    //
+    // 198 wide, not 255. The strip's inner box is 516 design px: screen 800, less
+    // the 216 sidebar rail, less 2x24 content padding, less 2x10 strip padding.
+    // The field starts at 190 and Connect is 120 wide pinned right, so it owns
+    // 396..516 — a 255-wide field reached 445 and ran 49px UNDER the button.
+    //
+    // That was not just cosmetic. Connect is created after the textarea, so LVGL
+    // gives it the overlapping band: a tap on the right-hand end of the password
+    // field fired Connect instead of focusing the field, and the user got
+    // "Authentication failed" with a password they had not finished typing. On
+    // the first screen a new owner has to complete.
+    //
+    // The header comment above still described a 620-wide content area from
+    // before the rail widened to 216 and SETTINGS_CONTENT_PAD was introduced;
+    // its budget (30+140+255+120 = 545) never fitted 516.
     ta_password = lv_textarea_create(pw_strip);
-    lv_obj_set_size(ta_password, SX(255), SY(38));
+    lv_obj_set_size(ta_password, SX(198), SY(38));
     lv_obj_align(ta_password, LV_ALIGN_LEFT_MID, SX(190), 0);
     lv_textarea_set_password_mode(ta_password, true);
     lv_textarea_set_one_line(ta_password, true);
