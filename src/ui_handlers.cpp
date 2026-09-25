@@ -910,8 +910,23 @@ static void otaRecovery() {
         xSemaphoreGive(ota_progress_mutex);
     }
 
-    // Resume Sonos background tasks
-    sonos.resumeTasks();
+    // Resume Sonos background tasks.
+    //
+    // Guarded, because this function is reachable BEFORE sonos.begin() has run.
+    // performOTAUpdate() is only ever entered from triggerPendingOTA() in setup(),
+    // which sits ahead of both sonos.begin() and the art_mutex creation -- so on
+    // any failure exit of a boot OTA (retries exhausted, budget expired, HTTP 4xx,
+    // bad Content-Length, Update.begin() failure) the controller's queues and
+    // mutexes are all still NULL from the constructor.
+    //
+    // Unguarded, resumeTasks() would start SonosNet at priority 2, which reaches
+    // xQueueReceive(commandQueue, ...) within ~20ms. With assertions compiled in
+    // -- and they are, CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=y in the
+    // shipped sdkconfig -- configASSERT(pxQueue) aborts. The user loses the
+    // "Download failed" message they were meant to read, and the reboot log
+    // records a crash instead of CAUSE_OTA_FAILED, destroying the one diagnostic
+    // this path exists to leave behind.
+    if (sonos.getDeviceMutex()) sonos.resumeTasks();
 
     // ALWAYS clear ALL shutdown/abort flags before restarting tasks.
     // These must be cleared unconditionally — tasks can't start cleanly if any
@@ -923,8 +938,10 @@ static void otaRecovery() {
     clock_bg_shutdown_requested    = false;
     sonos_tasks_shutdown_requested = false;  // resumeTasks() also resets this, belt-and-suspenders
 
-    // Restart album art task if it isn't already running
-    if (albumArtTaskHandle == NULL) {
+    // Restart album art task if it isn't already running. Same guard, same reason:
+    // the task takes art_mutex on its first loop iteration, and on a failed boot
+    // OTA that mutex has not been created yet.
+    if (art_mutex && albumArtTaskHandle == NULL) {
         Serial.println("[OTA] Restarting album art task");
         createArtTask();  // PSRAM stack — frees 20KB internal SRAM for SDIO/WiFi DMA
     }
