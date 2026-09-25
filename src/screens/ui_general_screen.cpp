@@ -105,28 +105,6 @@ void createGeneralScreen() {
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // CARD — Anonymous stats
-    //
-    // Spelled out rather than hidden behind the word "analytics", because the
-    // whole payload genuinely is the two things named here. See analytics.h.
-    // ────────────────────────────────────────────────────────────────────────
-    {
-        lv_obj_t* card = addCard(content, "Anonymous stats");
-
-        lv_obj_t* slot = addSettingRow(card, "Count this panel",
-                                       "Sends the firmware version and screen size once at "
-                                       "startup, so the project knows how many panels are in "
-                                       "use. No ID, no location, nothing about your music.",
-                                       false);
-        lv_obj_t* sw_stats = addSwitch(slot, analytics_enabled);
-        lv_obj_add_event_cb(sw_stats, [](lv_event_t* e) {
-            lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
-            analytics_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
-            wifiPrefs.putBool(NVS_KEY_ANALYTICS, analytics_enabled);
-        }, LV_EVENT_VALUE_CHANGED, NULL);
-    }
-
-    // ────────────────────────────────────────────────────────────────────────
     // CARD — Theme  (issue #87)
     // Options and descriptions come straight from the THEMES[] registry, so
     // adding a theme in ui_theme.cpp appears here automatically.
@@ -305,6 +283,37 @@ void createGeneralScreen() {
             s_rb_when[i] = when;
         }
         s_rb_empty = addDescLabel(list, "Nothing recorded yet.");
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // CARD — Anonymous stats   (last on the screen, deliberately)
+    //
+    // On by default. It exists so the project can answer "how many panels are
+    // actually out there", which download counts cannot tell you.
+    //
+    // The switch is here for one practical reason: some people genuinely cannot
+    // let it out — isolated IoT VLANs, metered links, locked-down networks —
+    // and a switch turns a bug report into a tap. It also means the honest
+    // answer to anyone who notices the traffic is "it's listed in Settings",
+    // which costs fifteen lines and ends the conversation.
+    //
+    // The row spells the payload out rather than hiding behind the word
+    // "analytics", because the whole payload really is those two things.
+    // ────────────────────────────────────────────────────────────────────────
+    {
+        lv_obj_t* card = addCard(content, "Anonymous stats");
+
+        lv_obj_t* slot = addSettingRow(card, "Count this panel",
+                                       "Sends the firmware version and screen size once at "
+                                       "startup, so the project knows how many panels are in "
+                                       "use. No ID, no location, nothing about your music.",
+                                       false);
+        lv_obj_t* sw_stats = addSwitch(slot, analytics_enabled);
+        lv_obj_add_event_cb(sw_stats, [](lv_event_t* e) {
+            lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
+            analytics_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
+            wifiPrefs.putBool(NVS_KEY_ANALYTICS, analytics_enabled);
+        }, LV_EVENT_VALUE_CHANGED, NULL);
     }
 
     // Refilled on every visit - see refreshRebootList().

@@ -12,6 +12,8 @@ A wall-mount or desktop remote for Sonos speakers: album art, synced lyrics, ful
 [![GitHub Release](https://img.shields.io/github/v/release/OpenSurface/SonosESP?style=flat-square&logo=github&label=Latest%20Release)](https://github.com/OpenSurface/SonosESP/releases/latest)
 [![GitHub Stars](https://img.shields.io/github/stars/OpenSurface/SonosESP?style=flat-square&logo=github&label=Stars)](https://github.com/OpenSurface/SonosESP/stargazers)
 
+[![Panels running SonosESP](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fpizza.goatcounter.com%2Fcounter%2FTOTAL.json&query=%24.count&style=for-the-badge&color=ff8c00&label=Panels%20running%20SonosESP)](https://opensurface.github.io/SonosESP/)
+
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20the%20project-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/pizzapasta)
 
 ### [Install in your browser — no toolchain required](https://opensurface.github.io/SonosESP/)

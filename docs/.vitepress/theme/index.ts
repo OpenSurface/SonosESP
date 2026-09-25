@@ -8,6 +8,7 @@ import InstallPanel from './InstallPanel.vue'
 import HomeHero from './HomeHero.vue'
 import HomeBody from './HomeBody.vue'
 import PanelDemo from './PanelDemo.vue'
+import StatsPanel from './StatsPanel.vue'
 
 export default {
   extends: DefaultTheme,
@@ -16,5 +17,6 @@ export default {
     app.component('HomeHero', HomeHero)
     app.component('HomeBody', HomeBody)
     app.component('PanelDemo', PanelDemo)
+    app.component('StatsPanel', StatsPanel)
   }
 } satisfies Theme
