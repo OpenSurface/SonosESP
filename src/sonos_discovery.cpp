@@ -180,12 +180,44 @@ int SonosController::discoverDevices() {
         Serial.printf("[SONOS]   - Router allows multicast/UPnP traffic\n");
     }
 
-    // Fetch room names for all discovered devices
+    // Fetch room names for all discovered devices.
+    //
+    // The result is CHECKED, and a failure is retried (issue #182).
+    //
+    // v2.1.1 gave getRoomName() a network_mutex gate, and that gate gives up and
+    // returns false when the mutex is busy — without ever sending the request.
+    // The compaction below then drops any device still carrying its placeholder
+    // name and no RINCON. Before v2.1.1 there was no gate, so the GET was always
+    // attempted and a device was only dropped when the speaker itself failed to
+    // answer. Afterwards, a speaker could be dropped merely because the radio was
+    // busy at the moment we reached it — and the art task holds network_mutex for
+    // the length of a cover download, so "busy" is the normal state during a scan
+    // with music playing. A real speaker vanished from the list.
+    //
+    // A skipped probe is a local scheduling accident, not a property of the
+    // speaker, so it must not be terminal. Retry each failure a couple of times
+    // with a short gap; by then an art download will usually have finished.
+    // Genuine failures (speaker off, wrong VLAN, no HTTP) still fall through to
+    // the drop, exactly as they did before.
     Serial.printf("[SONOS] Fetching room names for %d device(s)...\n", deviceCount);
     for (int i = 0; i < deviceCount; i++) {
         Serial.printf("[SONOS] Fetching room name %d/%d from %s\n", i + 1, deviceCount, devices[i].ip.toString().c_str());
         esp_task_wdt_reset();  // Each getRoomName() takes ~1-2s; 17 devices × 2s = 34s > 30s WDT
-        getRoomName(&devices[i]);
+
+        bool ok = getRoomName(&devices[i]);
+        for (int attempt = 1; !ok && attempt <= DISCOVERY_ROOMNAME_RETRIES; attempt++) {
+            Serial.printf("[SONOS]   Retry %d/%d for %s\n",
+                          attempt, DISCOVERY_ROOMNAME_RETRIES, devices[i].ip.toString().c_str());
+            // Let whoever holds network_mutex finish. Short enough that the worst
+            // case stays inside the watchdog window, which is fed each iteration.
+            vTaskDelay(pdMS_TO_TICKS(DISCOVERY_ROOMNAME_RETRY_MS));
+            esp_task_wdt_reset();
+            ok = getRoomName(&devices[i]);
+        }
+        if (!ok) {
+            Serial.printf("[SONOS]   -> %s did not answer its description after %d attempts\n",
+                          devices[i].ip.toString().c_str(), DISCOVERY_ROOMNAME_RETRIES + 1);
+        }
         Serial.printf("[SONOS]   -> Room name: '%s'\n", devices[i].roomName.c_str());
 
         // Update UI while fetching room names

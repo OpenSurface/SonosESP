@@ -66,6 +66,20 @@
 #define WIFI_CONNECT_TIMEOUT_MS 500     // Per-attempt timeout
 #define WIFI_CONNECT_RETRIES    40      // Max connection attempts (40 x 500ms = 20s)
 #define WIFI_MAX_NETWORKS       20      // Max networks to scan/store
+
+// ── Discovery: room-name probe retries (issue #182) ──────────────────────────
+// getRoomName() returns false both when network_mutex was busy (so the request
+// was never sent) and when the speaker did not answer with HTTP 200. Either way
+// the device keeps its placeholder name and gets dropped by compaction, so a
+// single attempt made a real speaker disappear from the list for a transient
+// reason. Both causes are worth a retry: the mutex clears once an art download
+// finishes, and a battery speaker in WiFi power-save often misses the first
+// request and answers the second.
+//
+// Only paid on failure — a speaker that answers first time costs nothing. The
+// watchdog is fed on every attempt.
+#define DISCOVERY_ROOMNAME_RETRIES   2      // extra attempts after the first
+#define DISCOVERY_ROOMNAME_RETRY_MS  600    // pause between attempts
 #define WIFI_CHECK_INTERVAL_MS  10000   // Main loop: WiFi health check interval
 
 // =============================================================================
