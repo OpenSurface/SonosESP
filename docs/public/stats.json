@@ -1,0 +1,31 @@
+{
+  "panels": 8,
+  "updated": "2026-09-25T21:00:00Z",
+  "windowDays": 30,
+  "countries": [
+    {
+      "code": "CA",
+      "name": "Canada",
+      "count": 6
+    },
+    {
+      "code": "GB",
+      "name": "United Kingdom",
+      "count": 2
+    }
+  ],
+  "versions": [
+    {
+      "version": "2.1.2",
+      "count": 4
+    },
+    {
+      "version": "2.2.0",
+      "count": 3
+    },
+    {
+      "version": "2.1.1",
+      "count": 1
+    }
+  ]
+}
