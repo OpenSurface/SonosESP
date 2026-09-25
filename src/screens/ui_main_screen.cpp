@@ -209,9 +209,15 @@ void buildClassicPlayer() {
     lv_obj_set_pos(lbl_device_name, SX(55), SY(25));
     // "Now Playing - <room>" is unbounded — room names are user-chosen and can be
     // long ("Living Room Playbar & Sub"). Without a width this ran straight under
-    // the sources and settings buttons at x=255. Stops 8px short of them and
-    // ellipsises instead.
-    lv_obj_set_size(lbl_device_name, SX(192), SY(20));
+    // the sources and settings buttons at x=255.
+    //
+    // 142, not 192. The comment above was written when the nearest obstacle was
+    // those buttons at x=255, and 55+192=247 did stop 8px short of them. The LRC
+    // chip was added later at x=205 — 42px INSIDE the label's box — and is created
+    // afterwards, so it draws on top. Any room name over ~20 characters scrolled
+    // out from under an opaque disc. 55+142=197 restores the 8px clearance the
+    // comment claims, now measured against the chip.
+    lv_obj_set_size(lbl_device_name, SX(142), SY(20));
     // SCROLL, not SCROLL_CIRCULAR: this pauses, runs to the end, pauses again and
     // returns, rather than looping a room name past you forever. It only animates
     // when the text actually overflows, so a name that fits stays perfectly still.

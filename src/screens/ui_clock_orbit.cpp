@@ -185,7 +185,15 @@ void buildOrbitFace(lv_obj_t* parent) {
         // hour · icon · temp, centred under the curve point.
         lv_obj_t* col = lv_obj_create(orb_root);
         lv_obj_remove_style_all(col);
-        lv_obj_set_size(col, SX(120), SY(40));
+        // Height from the font, not a design constant: lv_font_weathericons_32
+        // has line_height 46 with glyphs filling the whole box (max_ascent 35 /
+        // max_descent 11), and it is a raw font so it is 46 on both panels.
+        // SY(40) is 40 on the 4" — LVGL clips children to the parent, so 3px was
+        // shaved off the top AND bottom of every forecast icon. The 7" was fine
+        // at SY(40)=50, which is why this only showed on the panel the fleet runs.
+        // Same "width scales, height comes from the font" rule ambOneLine() uses.
+        // ORB_LBL_Y 392 + 46 = 438 < 480, so nothing below it moves.
+        lv_obj_set_size(col, SX(120), lv_font_get_line_height(&lv_font_weathericons_32));
         lv_obj_set_pos(col, SX(cx - 60), SY(ORB_LBL_Y));
         lv_obj_set_flex_flow(col, LV_FLEX_FLOW_ROW);
         lv_obj_set_flex_align(col, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);

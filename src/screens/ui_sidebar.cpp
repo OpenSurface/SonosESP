@@ -237,6 +237,12 @@ static void buildDock(lv_obj_t* screen) {
     lv_obj_set_width(title, SX(text_w));
     lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(title, &font_text_14, 0);
+    // Bound the height, or LONG_DOT wraps instead of ellipsising (LVGL 9.6 — this
+    // is the UNBOUNDED_DOT rule ui_lint carries a baseline for). The dock is 56px
+    // with the title at y=10 and meta at y=30, so a title over ~81 characters took
+    // a second line and landed on top of the meta line — on all eight settings
+    // screens. One line high is what a single-line dock row wants anyway.
+    lv_obj_set_height(title, lv_font_get_line_height(&font_text_14));
     lv_obj_set_style_text_color(title, AMB_TEXT, 0);
 
     lv_obj_t* meta = lv_label_create(dock);
@@ -245,6 +251,7 @@ static void buildDock(lv_obj_t* screen) {
     lv_obj_set_width(meta, SX(text_w));
     lv_label_set_long_mode(meta, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(meta, &font_text_12, 0);
+    lv_obj_set_height(meta, lv_font_get_line_height(&font_text_12));
     lv_obj_set_style_text_color(meta, AMB_TEXT3, 0);
 
     sb_docks[sb_dock_count] = { screen, title, meta, lv_obj_get_child(b_play, 0),
