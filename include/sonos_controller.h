@@ -169,16 +169,28 @@ private:
     String sendSOAP(const char* service, const char* action, const char* args);
     // H-7: explicit-target overload — addresses a specific device without mutating the
     // shared currentDeviceIndex that the polling task reads concurrently.
-    String sendSOAP(SonosDevice* dev, const char* service, const char* action, const char* args);
+    // out_code, when given, receives this call's HTTP result. Use it instead of
+    // lastSoapHttpCode() whenever the value decides anything - see below.
+    String sendSOAP(SonosDevice* dev, const char* service, const char* action,
+                    const char* args, int* out_code = nullptr);
     // Why the last sendSOAP() failed. It returns an empty String for every
     // failure - a refusal by the speaker and a timeout we gave up on look
     // identical to the caller - and AddURIToQueue has to tell them apart: a 500
     // is worth retrying, a timeout must never be (issue #169).
     //
-    // One shared value across the three tasks that call sendSOAP(), which is
-    // safe only because network_mutex serialises them: the code is written
-    // while the mutex is still held, and read by the same task immediately on
-    // return. Anything reading it later may see another task's request.
+    // NOT SAFE TO READ AFTER sendSOAP() RETURNS. One shared value across the
+    // three tasks that call sendSOAP(). The old comment here claimed it was safe
+    // because "the code is written while the mutex is still held, and read by the
+    // same task immediately on return" - but the read happens AFTER
+    // xSemaphoreGive(), and that give unblocks the polling task, which runs at
+    // priority 3 against mainAppTask's 1 and preempts before the caller's next
+    // statement. A -11 read timeout on AddURIToQueue could therefore be replaced
+    // by the poller's HTTP 500 from GetPositionInfo, making enqueueShouldRetry()
+    // see 500 >= 400, retry a call that must never be retried, and enqueue the
+    // favourite two or three times - the exact regression #169 exists to prevent.
+    //
+    // Kept for logging, where a stale value is harmless. Anything that DECIDES on
+    // the code must pass out_code and read its own local.
     int last_soap_http_code = 0;
 
     // Waits for the queue to stop being empty, polling Browse Q:0 once a second

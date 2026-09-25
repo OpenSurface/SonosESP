@@ -21,7 +21,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "2.1.2"
+#define FIRMWARE_VERSION "2.2.0"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -129,6 +129,9 @@ extern volatile uint32_t night_wake_ms;
 bool nightNow();
 extern int panel_variant;   // PANEL_VARIANT_* — which 7" LCD panel is fitted
 extern bool lyrics_enabled;
+// Anonymous install counter (see analytics.h for the full payload). Persisted
+// to NVS; ANALYTICS_ENABLED is only the factory default.
+extern bool analytics_enabled;
 extern bool blur_bg_enabled;
 extern String pending_wifi_ssid;        // issue #85: creds awaiting persistence
 extern String pending_wifi_pass;
@@ -361,14 +364,20 @@ void clockBgTask(void* param);
 
 // Radio mode UI adaptation
 void setRadioMode(bool enable);
+// Clears the latched mode state after themeSet() rebuilds the player widgets.
+// See the comment at the definition; without these a theme change during radio,
+// line-in or TV playback leaves the new player in the wrong mode.
+void radioModeForget(void);
 void updateRadioModeUI();
 
 // Line-in mode UI adaptation
 void setLineInMode(bool enable);
+void lineInModeForget(void);
 void updateLineInUI();
 
 // TV audio mode UI adaptation
 void setTvAudioMode(bool enable);
+void tvAudioModeForget(void);
 void updateTvAudioUI();
 
 #endif // UI_COMMON_H

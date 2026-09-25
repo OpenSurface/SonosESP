@@ -2,13 +2,17 @@
 
 ## Supported Versions
 
-We release patches for security vulnerabilities for the following versions:
+Fixes ship in the newest release, and the panel updates itself over the air, so
+in practice the supported version is whatever is current on the Stable channel.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.2.x   | :white_check_mark: |
-| 1.1.x   | :x:                |
-| < 1.1   | :x:                |
+| 2.1.x   | :white_check_mark: |
+| 2.0.x   | :x:                |
+| < 2.0   | :x:                |
+
+If you are on something older, **Settings → General → Updates** will bring you up
+to date; there is no back-porting.
 
 ## Reporting a Vulnerability
 
@@ -109,4 +113,4 @@ If you have suggestions on how this process could be improved, please submit a p
 
 ---
 
-Last updated: 2025-01-XX
+Last updated: 2026-09-25

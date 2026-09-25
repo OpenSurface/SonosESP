@@ -17,6 +17,10 @@ static void _tv_anim_cb(void* obj, int32_t val) {
     lv_obj_set_style_text_opa((lv_obj_t*)obj, (lv_opa_t)val, 0);
 }
 
+// Forget the latched state after themeSet() rebuilds the player widgets.
+// See the fuller note at radioModeForget().
+void tvAudioModeForget(void) { is_tv_audio_mode = false; }
+
 void setTvAudioMode(bool enable) {
     if (is_tv_audio_mode == enable) return;
     is_tv_audio_mode = enable;

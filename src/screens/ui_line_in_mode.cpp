@@ -18,6 +18,12 @@ static void _linein_anim_cb(void* obj, int32_t val) {
     lv_obj_set_style_text_opa((lv_obj_t*)obj, (lv_opa_t)val, 0);
 }
 
+// Forget the latched state after themeSet() rebuilds the player widgets.
+// See the fuller note at radioModeForget(); line-in is the worse case, because
+// updateUI() returns early for this source, so the hero widgets would never be
+// unhidden on the new theme at all.
+void lineInModeForget(void) { is_line_in_mode = false; }
+
 void setLineInMode(bool enable) {
     if (is_line_in_mode == enable) return;
     is_line_in_mode = enable;

@@ -3,10 +3,10 @@ name: Code Quality
 on:
   push:
     branches: [ main, develop, 'feature/**', 'fix/**' ]
-    paths: [ 'src/**', 'include/**', 'test/**', 'tools/**', 'platformio.ini' ]
+    paths: [ 'src/**', 'include/**', 'lib/**', 'test/**', 'tools/**', 'platformio.ini', 'lv_conf.h' ]
   pull_request:
     branches: [ main ]
-    paths: [ 'src/**', 'include/**', 'test/**', 'tools/**', 'platformio.ini' ]
+    paths: [ 'src/**', 'include/**', 'lib/**', 'test/**', 'tools/**', 'platformio.ini', 'lv_conf.h' ]
 
 permissions:
   contents: read

@@ -910,8 +910,23 @@ static void otaRecovery() {
         xSemaphoreGive(ota_progress_mutex);
     }
 
-    // Resume Sonos background tasks
-    sonos.resumeTasks();
+    // Resume Sonos background tasks.
+    //
+    // Guarded, because this function is reachable BEFORE sonos.begin() has run.
+    // performOTAUpdate() is only ever entered from triggerPendingOTA() in setup(),
+    // which sits ahead of both sonos.begin() and the art_mutex creation -- so on
+    // any failure exit of a boot OTA (retries exhausted, budget expired, HTTP 4xx,
+    // bad Content-Length, Update.begin() failure) the controller's queues and
+    // mutexes are all still NULL from the constructor.
+    //
+    // Unguarded, resumeTasks() would start SonosNet at priority 2, which reaches
+    // xQueueReceive(commandQueue, ...) within ~20ms. With assertions compiled in
+    // -- and they are, CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=y in the
+    // shipped sdkconfig -- configASSERT(pxQueue) aborts. The user loses the
+    // "Download failed" message they were meant to read, and the reboot log
+    // records a crash instead of CAUSE_OTA_FAILED, destroying the one diagnostic
+    // this path exists to leave behind.
+    if (sonos.getDeviceMutex()) sonos.resumeTasks();
 
     // ALWAYS clear ALL shutdown/abort flags before restarting tasks.
     // These must be cleared unconditionally — tasks can't start cleanly if any
@@ -923,8 +938,10 @@ static void otaRecovery() {
     clock_bg_shutdown_requested    = false;
     sonos_tasks_shutdown_requested = false;  // resumeTasks() also resets this, belt-and-suspenders
 
-    // Restart album art task if it isn't already running
-    if (albumArtTaskHandle == NULL) {
+    // Restart album art task if it isn't already running. Same guard, same reason:
+    // the task takes art_mutex on its first loop iteration, and on a failed boot
+    // OTA that mutex has not been created yet.
+    if (art_mutex && albumArtTaskHandle == NULL) {
         Serial.println("[OTA] Restarting album art task");
         createArtTask();  // PSRAM stack — frees 20KB internal SRAM for SDIO/WiFi DMA
     }
@@ -1787,10 +1804,20 @@ static bool updateConnectionState(SonosDevice* d) {
 
             // PLAY, not pause. This is the "nothing is playing" path — it clears
             // the title to "Not Playing" and then drew a pause glyph, offering to
-            // pause silence. The font is the builder's business too; forcing
-            // lv_font_mdi_40 here overrode whichever face the active theme chose.
+            // pause silence.
+            //
+            // The font IS set, and the second half of the old comment here —
+            // "the font is the builder's business too" — was wrong. It reads as a
+            // deliberate decision, and it is why the same line was later deleted
+            // from updateUI(), which produced a visibly low play glyph. Writing an
+            // MDI codepoint into a label whose font is the theme's icon face means
+            // the glyph comes from the fallback while the baseline comes from the
+            // primary: font_icon_40 wraps lv_font_amber_40 at line_height 42 versus
+            // the MDI font's 36, so the glyph drops six pixels. See the fuller note
+            // at the updateUI() play/pause site.
             lv_obj_t* lbl = lv_obj_get_child(btn_play, 0);
             lv_label_set_text(lbl, MDI_PLAY);
+            lv_obj_set_style_text_font(lbl, &lv_font_mdi_40, 0);
             lv_obj_center(lbl);
 
             ui_title = "";
@@ -2072,20 +2099,39 @@ static void updateAlbumArtRequest(SonosDevice* d) {
     }
     had_track = has_track;
 
-    // Request album art if URL provided and (URL changed or track changed)
-    // Compare against last_requested_art_url (HTTPS, same type as d->albumArtURL) NOT pending_art_url.
-    // The art task converts pending_art_url to HTTP internally — comparing HTTPS vs HTTP always
-    // returns "changed", calling requestAlbumArt() every frame and keeping art_download_in_progress=true
-    // permanently (blocking the clock screensaver and spamming last_track_change_ms).
-    static String last_requested_art_url = "";
+    // Request album art if a URL is present and it, or the track, changed.
+    //
+    // Never compare against pending_art_url: the art task rewrites it to HTTP
+    // internally, so an HTTPS-vs-HTTP comparison always reads as "changed" and
+    // calls requestAlbumArt() every frame. That was the first version of this bug.
+    // Track what the DEVICE REPORTED, not what we chose to fetch.
+    //
+    // This used to keep one `last_requested_art_url` and assign the CHOSEN url to
+    // it, while testing `artChanged` against the REPORTED one. Any path that fetches
+    // something other than what was reported therefore left the two permanently
+    // unequal, so artChanged was true on every frame — forever. Two such paths:
+    //
+    //   * radio, where a generic getaa icon is swapped for the station logo below;
+    //   * Apple Music, where 1400x1400 is rewritten to 400x400.
+    //
+    // updateUI() runs every 200ms and the poll posts an event every 300ms, so this
+    // re-requested art ~5x/s for as long as that station or album played. The worst
+    // consequence is not the wasted fetch: requestAlbumArt() calls
+    // resetScreenTimeout(), which stamps last_touch_time — so **the clock
+    // screensaver and auto-dim could never fire**, including all night on a bedside
+    // panel. It also pinned last_track_change_ms and put ~10 log lines/s into the CDC.
+    //
+    // Comparing reported-against-reported also makes the original HTTPS-vs-HTTP
+    // note below unnecessary rather than merely satisfied: both sides now come from
+    // the same field, so they cannot differ by scheme.
+    static String last_seen_album_art = "";
+    static String last_seen_station   = "";
     bool hasArt = !d->isLineIn && !d->isTvAudio &&
                   ((s_albumArtURL.length() > 0) || (d->isRadioStation && s_stationURL.length() > 0));
-    bool artChanged = uri_changed || (s_albumArtURL.length() > 0 && s_albumArtURL != last_requested_art_url);
-
-    // For radio stations: also check if radioStationArtURL changed (even if albumArtURL is empty)
-    if (d->isRadioStation && s_stationURL.length() > 0 && s_stationURL != last_requested_art_url) {
-        artChanged = true;
-    }
+    bool artChanged = uri_changed ||
+                      (s_albumArtURL.length() > 0 && s_albumArtURL != last_seen_album_art) ||
+                      (d->isRadioStation && s_stationURL.length() > 0 &&
+                       s_stationURL != last_seen_station);
 
     if (!hasArt && uri_changed) {
         // Track changed but has NO art URL — clear old art and show placeholder immediately
@@ -2156,7 +2202,11 @@ static void updateAlbumArtRequest(SonosDevice* d) {
             }
 
             requestAlbumArt(artURL);
-            last_requested_art_url = artURL;  // track HTTPS URL; prevents HTTPS!=HTTP false-positive on next frame
+            // Record the REPORTED values, not artURL — artURL may be the station
+            // logo or a resized Apple Music link, and storing that is what made
+            // this fire every frame. See the note at the artChanged test above.
+            last_seen_album_art = s_albumArtURL;
+            last_seen_station   = s_stationURL;
         } else {
             // No art available - clear display
             Serial.println("[ART] No art URL - clearing display");
@@ -2361,6 +2411,24 @@ void updateUI() {
     if (d->isPlaying != ui_playing) {
         lv_obj_t* lbl = lv_obj_get_child(btn_play, 0);
         lv_label_set_text(lbl, d->isPlaying ? MDI_PAUSE : MDI_PLAY);
+        // The font MUST be set here, because the text above is an MDI codepoint.
+        //
+        // This line was removed once on the theory that "the font is the builder's
+        // business" — which is true for the repeat button, whose text stays in the
+        // theme's own icon set. It is NOT true here. Amber's builder puts
+        // AMB_IC_PAUSE (U+E00A) in font_icon_40, but this function overwrites the
+        // text with MDI_PAUSE (U+F03E4), a codepoint that font does not contain.
+        // It then resolves through the fallback chain to lv_font_mdi_40.
+        //
+        // LVGL positions a glyph using the LABEL's font metrics but the FALLBACK's
+        // glyph box. font_icon_40 wraps lv_font_amber_40: line_height 42, base_line
+        // 2, so the baseline lands 40px down. The MDI glyph was drawn for
+        // line_height 36, baseline 34. Six pixels of drop — the play icon visibly
+        // sits low in its circle. Setting the font makes the metrics match the
+        // glyph again.
+        //
+        // The real fix is for the theme to expose its own play/pause codepoints so
+        // this function never writes a foreign one. Until then, this line stays.
         lv_obj_set_style_text_font(lbl, &lv_font_mdi_40, 0);
         lv_obj_center(lbl);  // MDI icons are optically centered — no offset needed
 

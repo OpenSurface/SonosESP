@@ -21,22 +21,56 @@ void refreshQueueList() {
     lv_obj_clean(list_queue);
     SonosDevice* d = sonos.getCurrentDevice();
     if (!d) { lv_label_set_text(lbl_queue_status, "No device"); return; }
-    if (d->queueSize == 0) { lv_label_set_text(lbl_queue_status, "Queue is empty"); return; }
+    // Latch queueSize ONCE. It was re-read on the next line, and updateQueue()
+    // on the polling task sets it to 0 before counting back up — so a scan landing
+    // between the check and the read indexed queue[-1], reading an int out of the
+    // preceding object. Every subsequent use reads the latched copy too, so the
+    // loop below cannot run past the end if the queue shrinks mid-build.
+    const int qsize = d->queueSize;
+    if (qsize == 0) { lv_label_set_text(lbl_queue_status, "Queue is empty"); return; }
 
     // Show window range when we have a partial view, e.g. "Tracks 4–13 of 47"
     int firstTrack = d->queue[0].trackNumber;
-    int lastTrack  = d->queue[d->queueSize - 1].trackNumber;
-    if (d->totalTracks > 0 && d->queueSize < d->totalTracks) {
+    int lastTrack  = d->queue[qsize - 1].trackNumber;
+    if (d->totalTracks > 0 && qsize < d->totalTracks) {
         lv_label_set_text_fmt(lbl_queue_status, "Tracks %d-%d of %d",
                               firstTrack, lastTrack, d->totalTracks);
     } else {
         lv_label_set_text_fmt(lbl_queue_status, "%d %s",
-                              d->queueSize, d->queueSize == 1 ? "track" : "tracks");
+                              qsize, qsize == 1 ? "track" : "tracks");
     }
 
-    for (int i = 0; i < d->queueSize; i++) {
-        QueueItem* item = &d->queue[i];
-        int trackNum = item->trackNumber;  // absolute 1-based position in the full queue
+    for (int i = 0; i < qsize; i++) {
+        // Snapshot the row under deviceMutex, then build it from the copies.
+        //
+        // updateQueue() on the polling task rewrites queue[].title/artist/duration
+        // under this lock, and a String assignment frees the buffer a c_str()
+        // just handed to lv_label_set_text() — a dangling read, not a stale one.
+        // This is the class of bug the v2.1.1 audit fixed elsewhere and missed
+        // here; fifty rows of LVGL allocation is milliseconds of exposure per open.
+        //
+        // Per row, not per list: the house rule is never to call LVGL holding the
+        // lock, so this takes it three Strings at a time and releases it before
+        // creating a single object. queueSize is re-checked inside the lock so a
+        // queue that shrinks mid-build stops the loop instead of running past the
+        // end.
+        String s_title, s_artist, s_duration;
+        int trackNum = 0;
+        bool haveRow = false;
+        SemaphoreHandle_t dm = sonos.getDeviceMutex();
+        if (dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+            if (i < d->queueSize) {
+                QueueItem* item = &d->queue[i];
+                trackNum   = item->trackNumber;
+                s_title    = item->title;
+                s_artist   = item->artist;
+                s_duration = item->duration;
+                haveRow    = true;
+            }
+            xSemaphoreGive(dm);
+        }
+        if (!haveRow) break;   // lock busy, or the queue shrank under us
+
         bool isPlaying = (trackNum == d->currentTrackNumber);
 
         lv_obj_t* btn = lv_btn_create(list_queue);
@@ -75,9 +109,9 @@ void refreshQueueList() {
         // the row simply never showed it. Created before the title so the title
         // can be capped to what is left rather than running underneath it.
         lv_obj_t* dur = nullptr;
-        if (item->duration.length()) {
+        if (s_duration.length()) {
             dur = lv_label_create(btn);
-            lv_label_set_text(dur, item->duration.c_str());
+            lv_label_set_text(dur, s_duration.c_str());
             lv_obj_set_style_text_color(dur, AMB_TEXT3, 0);
             lv_obj_set_style_text_font(dur, &font_text_12, 0);
             // CLIP, not DOT: an ellipsised duration reads as a glitch.
@@ -90,7 +124,7 @@ void refreshQueueList() {
 
         // Title - highlight when playing
         lv_obj_t* title = lv_label_create(btn);
-        lv_label_set_text(title, item->title.c_str());
+        lv_label_set_text(title, s_title.c_str());
         lv_obj_set_style_text_color(title, isPlaying ? AMB_ACCENT : AMB_TEXT, 0);
         lv_obj_set_style_text_font(title, &font_text_16, 0);
         lv_obj_set_width(title, SX(text_w));
@@ -99,7 +133,7 @@ void refreshQueueList() {
 
         // Artist - subtle gray
         lv_obj_t* artist = lv_label_create(btn);
-        lv_label_set_text(artist, item->artist.c_str());
+        lv_label_set_text(artist, s_artist.c_str());
         lv_obj_set_style_text_color(artist, AMB_TEXT3, 0);
         lv_obj_set_style_text_font(artist, &font_text_12, 0);
         lv_obj_set_width(artist, SX(text_w));

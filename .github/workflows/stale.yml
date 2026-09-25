@@ -23,7 +23,11 @@ jobs:
 
           # ── Labels ─────────────────────────────────────────────────────────
           stale-issue-label: 'stale'
-          close-issue-label: 'wontfix'
+          # NOT 'wontfix'. That label is a maintainer's verdict on the merits, and
+          # the bot has no opinion on the merits — it only knows nothing has been
+          # said for three weeks. Four community build photos (#94-#97) were closed
+          # as 'wontfix' by this job, which is the opposite of what they deserved.
+          close-issue-label: 'auto-closed'
 
           # ── Messages ───────────────────────────────────────────────────────
           stale-issue-message: >
@@ -42,5 +46,10 @@ jobs:
             context or a steps-to-reproduce. Thank you for your contribution!
 
           # ── Exemptions ─────────────────────────────────────────────────────
-          exempt-issue-labels: 'bug,enhancement,help wanted,pinned'
+          # 'showcase' is someone sending in a photo of their build for the README
+          # mosaic — there is nothing for them to follow up ON, so inactivity is the
+          # expected state, not neglect. 'dependencies' is the weekly drift issue,
+          # which would otherwise be staled, closed, and recreated on a loop.
+          # 'question' and 'documentation' are answered, not resolved.
+          exempt-issue-labels: 'bug,enhancement,help wanted,pinned,showcase,dependencies,question,documentation'
           exempt-all-assignees: true   # never stale if someone is assigned

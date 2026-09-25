@@ -15,6 +15,16 @@
 // Track if we're currently in radio mode
 static bool is_radio_mode = false;
 
+// Forget the latched state without touching widgets.
+//
+// themeSet() rebuilds every player widget from scratch, but this flag survives
+// the rebuild — so a theme change while radio was playing left the setter
+// early-returning and the NEW widgets never got hidden. Resetting to false is
+// correct both ways: a fresh builder leaves everything visible, so if the source
+// is still radio the next tick re-applies the hiding, and if it is not, the
+// setter simply no-ops.
+void radioModeForget(void) { is_radio_mode = false; }
+
 // Adapt UI for radio mode - hide/show appropriate controls
 void setRadioMode(bool enable) {
     if (is_radio_mode == enable) return; // Already in correct mode

@@ -12,6 +12,8 @@ A wall-mount or desktop remote for Sonos speakers: album art, synced lyrics, ful
 [![GitHub Release](https://img.shields.io/github/v/release/OpenSurface/SonosESP?style=flat-square&logo=github&label=Latest%20Release)](https://github.com/OpenSurface/SonosESP/releases/latest)
 [![GitHub Stars](https://img.shields.io/github/stars/OpenSurface/SonosESP?style=flat-square&logo=github&label=Stars)](https://github.com/OpenSurface/SonosESP/stargazers)
 
+[![Panels running SonosESP](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fpizza.goatcounter.com%2Fcounter%2FTOTAL.json&query=%24.count&style=for-the-badge&color=ff8c00&label=Panels%20running%20SonosESP)](https://opensurface.github.io/SonosESP/)
+
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20the%20project-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/pizzapasta)
 
 ### [Install in your browser — no toolchain required](https://opensurface.github.io/SonosESP/)
@@ -120,7 +122,7 @@ SonosESP runs on **GUITION ESP32-P4 + ESP32-C6 touchscreen boards**. Both panel 
 build from the same codebase, and the installer and OTA select the right image
 automatically (`firmware-4inch.bin` / `firmware-7inch.bin`).
 
-![GUITION JC4880P443C ESP32-P4 touchscreen development board](assets/image.png)
+![GUITION JC4880P443C ESP32-P4 touchscreen development board](docs/public/panel.png)
 
 | | **4″ — stable** | **7″ — beta** |
 |---|---|---|
@@ -199,7 +201,7 @@ The two that catch people out most often:
 
 ## Architecture
 
-- **UI framework** — LVGL 9.5, with resolution-relative scaling (`ui_scale.h`) so one layout serves both panels
+- **UI framework** — LVGL 9.6, with resolution-relative scaling (`ui_scale.h`) so one layout serves both panels
 - **FreeRTOS tasks** — separate tasks for UI, album art, lyrics, Sonos polling, touch sampling and the clock background
 - **Thread safety** — mutex-protected shared state; all LVGL work happens on the UI thread
 - **Memory** — PSRAM for artwork, lyrics and photo buffers; internal DMA SRAM reserved for Wi-Fi and TLS
@@ -207,11 +209,11 @@ The two that catch people out most often:
 - **Image pipeline** — hardware JPEG decode, software PNG and progressive-JPEG fallback, fixed-point bilinear scaling
 - **Reliability** — layered SDIO crash defences serialise network access
 
-Full reference: [ARCHITECTURE.md](ARCHITECTURE.md) · Release process: [RELEASE.md](RELEASE.md)
+Release process: [RELEASE.md](RELEASE.md)
 
 ## Contributing
 
-Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions are welcome — please read [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 Found a bug, or want a feature? [Open an issue](https://github.com/OpenSurface/SonosESP/issues).
 

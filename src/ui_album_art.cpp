@@ -1063,7 +1063,12 @@ void albumArtTask(void* param) {
         art_temp_buffer = (uint16_t*)heap_caps_malloc(ART_PX * ART_PX * 2, MALLOC_CAP_SPIRAM);
     if (!blur_bg_buf)
         blur_bg_buf = (uint16_t*)heap_caps_malloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * 2, MALLOC_CAP_SPIRAM);
-    if (!art_buffer || !art_temp_buffer) { vTaskDelete(NULL); return; }
+    // Clear the handle BEFORE deleting, as every other exit from this task does.
+    // Leaving it set points at a deleted task: otaStopTasks() would wait 12s and
+    // then vTaskDelete() a dead handle, and the clock-enter state machine waits
+    // for a handle that can never clear. Only reachable if the 352KB PSRAM
+    // allocation fails at boot, but it costs one line.
+    if (!art_buffer || !art_temp_buffer) { albumArtTaskHandle = NULL; vTaskDelete(NULL); return; }
 
     if (!art_cache[0].pixels)
         art_cache[0].pixels = (uint16_t*)heap_caps_malloc(ART_PX * ART_PX * 2, MALLOC_CAP_SPIRAM);
@@ -1507,7 +1512,22 @@ void albumArtTask(void* param) {
                         WiFiClient* _sd = http.getStreamPtr();
                         bool _known = (full_drain_target > 0 &&
                                        full_drain_target < (int)max_art_size);
-                        size_t _target = _known ? (size_t)full_drain_target : max_art_size;
+                        // Declared-oversize bodies are NOT drained.
+                        //
+                        // When Content-Length >= max_art_size, _known is false, so
+                        // _target fell back to max_art_size and this pulled the full
+                        // 500KB before the size check further down did stream->stop()
+                        // under the comment "Force close - don't drain (overwhelms
+                        // SDIO buffer)". The drain that comment forbids had already
+                        // happened, for up to 15s, holding network_mutex with all
+                        // SOAP polling suppressed.
+                        //
+                        // Only affects bodies already destined for rejection, so no
+                        // cover that displays today stops displaying: an unknown
+                        // length (-1) still drains as before.
+                        bool _oversize = (full_drain_target >= (int)max_art_size);
+                        size_t _target = _oversize ? 0
+                                       : (_known ? (size_t)full_drain_target : max_art_size);
                         if (_sd) {
                             uint32_t _ds = millis();
                             while (pre_drained < _target && millis() - _ds < 15000) {
@@ -1603,6 +1623,14 @@ void albumArtTask(void* param) {
                         const size_t chunkSize = ART_CHUNK_SIZE;
                         size_t bytesRead = pre_drained;  // continue from pre-drain position
                         bool readSuccess = true;
+                        // Separates "we chose to stop" from "it failed".
+                        //
+                        // readSuccess is cleared by three things: a mid-read DMA abort, a
+                        // readBytes() timeout, and an abort we requested because the track
+                        // changed or OTA started. Only the last is legitimate, and only the
+                        // last must not count against the URL. Without this distinction the
+                        // failure path below could not safely increment anything.
+                        bool abortedByRequest = false;
                         uint32_t t_dl_start = millis();
 
                         // Read loop: keep going while connected OR data still buffered.
@@ -1631,6 +1659,7 @@ void albumArtTask(void* param) {
                                     art_shutdown_requested ? "OTA shutdown" : "Source changed");
                                 if (art_abort_download) art_abort_download = false;
                                 readSuccess = false;
+                                abortedByRequest = true;   // ours, not the server's fault
                                 break;
                             }
 
@@ -1738,6 +1767,45 @@ void albumArtTask(void* param) {
                             // Clear abort flag if set during download
                             if (art_abort_download) {
                                 art_abort_download = false;
+                            }
+
+                            // Count it, unless stopping was our own decision.
+                            //
+                            // This path used to `continue` without recording the URL or
+                            // touching consecutive_failures -- that logic lives BELOW, past
+                            // the continue, so it was unreachable from here. A cover whose
+                            // download reliably stalls part-way (a slow CDN, a getaa
+                            // proxying a stalled source, or any download once DMA is near
+                            // the floor) was therefore retried forever: prepare, sdioPreWait,
+                            // DMA gate, mutex, fresh TCP connect, server burst, partial read,
+                            // abort, repeat -- roughly every 1.5-2s for as long as the track
+                            // played. Sustained SDIO and TCP load with no cap, and
+                            // self-reinforcing, because low DMA causes the abort and the
+                            // retry burns more DMA.
+                            //
+                            // Mirrors the incomplete-download handling further down: after
+                            // five consecutive failures on the SAME url, accept the
+                            // placeholder and stop asking. A different url resets the count,
+                            // so this never blocks the next track.
+                            if (!abortedByRequest) {
+                                if (strcmp(url, last_failed_url) == 0) {
+                                    consecutive_failures++;
+                                } else {
+                                    strncpy(last_failed_url, url, sizeof(last_failed_url) - 1);
+                                    last_failed_url[sizeof(last_failed_url) - 1] = '\0';
+                                    consecutive_failures = 1;
+                                }
+                                if (consecutive_failures >= 5) {
+                                    Serial.printf("[ART] Download failed %d times, giving up on this URL\n",
+                                                  consecutive_failures);
+                                    if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(100))) {
+                                        last_art_url = url;          // stop re-requesting it
+                                        art_show_placeholder = true;
+                                        xSemaphoreGive(art_mutex);
+                                    }
+                                    consecutive_failures = 0;
+                                    last_failed_url[0] = '\0';
+                                }
                             }
                             continue;
                         }

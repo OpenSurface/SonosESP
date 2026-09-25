@@ -438,15 +438,29 @@ python scripts/create_nightly.py
 
 **Cause:** Trying to create duplicate release
 
-**Fix:**
-```bash
-# Delete existing release
-gh release delete v1.2.0 --yes
+**Fix:** bump to the next patch version and let the normal flow run.
 
-# Push again to re-trigger
-git commit --amend --no-edit
-git push -f origin main
+```bash
+python scripts/bump_version.py patch
+git add -A && git commit -m "v1.2.1: ..."
+git push origin main
 ```
+
+> **Do not amend and force-push `main` to re-trigger a release.** The advice that
+> used to be here (`git commit --amend --no-edit && git push -f origin main`) is
+> wrong twice over. It would fail — branch protection sets
+> `allow_force_pushes: false` — and if it succeeded it would rewrite published
+> history on a repository with more than ten thousand devices tracking it,
+> breaking every clone and every checked-out branch.
+>
+> If the release genuinely has to go, delete that release and its tag
+> deliberately, then re-run — never by rewriting the branch:
+>
+> ```bash
+> gh release delete v1.2.0 --yes --cleanup-tag
+> ```
+>
+> A version number is cheap. Published history is not.
 
 ### Problem: OTA shows "No stable releases found"
 

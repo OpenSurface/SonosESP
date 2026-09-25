@@ -170,6 +170,18 @@ bool batteryPollStep() {
     IPAddress target;
     char name[48] = "";
     Slot* pick = nullptr;
+
+    // Under deviceMutex. roomName is an Arduino String and discovery reassigns it
+    // from the UI task, which frees the buffer this loop reads -- a dangling
+    // pointer, not merely a stale one. The isDiscovering() test above is a
+    // check-then-use: a scan can begin between it and here. This is the same
+    // class of bug as the v2.1.1 UI-reader fix, and this reader was missed.
+    //
+    // Released before fetch(): nothing in this codebase holds deviceMutex across a
+    // network call, and the loop body only touches local slot bookkeeping.
+    // ip/pairIP need no protection of their own -- IPAddress is POD.
+    SemaphoreHandle_t dm = sonos.getDeviceMutex();
+    if (!dm || xSemaphoreTake(dm, pdMS_TO_TICKS(50)) != pdTRUE) return false;
     const int cnt = sonos.getDeviceCount();
     for (int i = 0; i < cnt && !pick; i++) {
         const SonosDevice* d = sonos.getDevice(i);
@@ -186,6 +198,8 @@ bool batteryPollStep() {
             }
         }
     }
+    xSemaphoreGive(dm);
+
     if (!pick) return false;
     s_last_request_ms = now;
 

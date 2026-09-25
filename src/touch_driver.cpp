@@ -2,8 +2,10 @@
 #include <Wire.h>
 #include <TAMC_GT911.h>
 
-// External callback for screen wake
-extern void resetScreenTimeout();
+// Auto-dim bookkeeping. A 32-bit store is atomic on this core, and the sampler is
+// the only writer here, so the timestamp is updated directly; the screen wake that
+// goes with it is deferred to mainAppTask (see touch_take_wake_request below).
+extern volatile uint32_t last_touch_time;
 
 // ============================================================================
 // Why this driver samples on its own task
@@ -126,6 +128,22 @@ static bool touch_sample(int32_t* x, int32_t* y) {
 static volatile int32_t t_x = 0, t_y = 0;
 static volatile bool    t_down    = false;   // finger is down right now
 static volatile bool    t_pending = false;   // a press happened since LVGL last looked
+static volatile bool    t_wake    = false;   // a press needs the screen woken (see below)
+
+// ── Why the wake is latched instead of called ──────────────────────────────
+// This task samples on core 0; mainAppTask renders on core 1. resetScreenTimeout()
+// calls lv_anim_delete() and, on the night path, lv_anim_start() — both of which
+// mutate LVGL's global animation list. lv_conf.h sets LV_USE_OS LV_OS_NONE, so
+// LVGL takes no internal lock, and lv_timer_handler() on core 1 is walking that
+// same list and dereferencing its nodes. Freeing one from here is a use-after-free.
+//
+// Harmless until v2.0.8: before night hours, resetScreenTimeout() contained no
+// lv_* call at all, which is why sampling from another core was safe to begin with.
+//
+// So the press is latched and mainAppTask performs the wake. Cost is at most one
+// 3ms iteration of latency — still sooner than the LV_EVENT_PRESSED path, which
+// waits for the LVGL indev poll. It also keeps LVGL and PSRAM untouched while an
+// OTA flash write has the cache disabled, which the direct call did not.
 
 static lv_indev_t* indev = NULL;
 
@@ -137,7 +155,10 @@ static void touchSamplerTask(void*) {
             t_y = y;
             if (!t_down) {
                 t_down = true;
-                resetScreenTimeout();   // wake the screen on the leading edge only
+                // Leading edge only. The timestamp is safe to set here; the LVGL
+                // half of the wake is handed to mainAppTask.
+                last_touch_time = millis();
+                t_wake = true;
             }
             t_pending = true;
         } else {
@@ -145,6 +166,12 @@ static void touchSamplerTask(void*) {
         }
         vTaskDelay(pdMS_TO_TICKS(TOUCH_SAMPLE_MS));
     }
+}
+
+bool touch_take_wake_request(void) {
+    if (!t_wake) return false;
+    t_wake = false;
+    return true;
 }
 
 void touch_read(lv_indev_t *indev_drv, lv_indev_data_t *data) {

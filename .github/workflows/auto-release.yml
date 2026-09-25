@@ -33,6 +33,41 @@ jobs:
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "Building version: $VERSION"
 
+    # Version consistency, BEFORE anything is published.
+    #
+    # deploy-pages.yml has had this check for a long time ("Guard 2"), but that
+    # workflow fires off the same version.json push, in parallel with this one.
+    # So the guard failed the SITE deploy after the mismatched GitHub release had
+    # already gone out - to the artefact the fleet actually installs. Backwards.
+    #
+    # The failure it prevents: bump_version.py writes version.json, the manifests
+    # and FIRMWARE_VERSION together, but a commit that stages only some of those
+    # paths ships firmware reporting the PREVIOUS version. The OTA check then sees
+    # latest != current forever: it offers an update, installs the same build, and
+    # still reports the old number. Cheap to run twice; ruinous to skip here.
+    - name: Guard — version.json, manifests and FIRMWARE_VERSION must agree
+      run: |
+        python - <<'PY'
+        import glob, json, re, sys
+        failed = False
+        ver_json = json.load(open('version.json'))['version']
+        m = re.search(r'FIRMWARE_VERSION\s+"([^"]+)"', open('include/ui_common.h').read())
+        ver_fw = m.group(1) if m else None
+        print(f"version.json={ver_json}  FIRMWARE_VERSION={ver_fw}")
+        if ver_fw != ver_json:
+            print(f"MISMATCH  include/ui_common.h says {ver_fw}, version.json says {ver_json}")
+            failed = True
+        for mf in sorted(glob.glob('web-installer/manifest*.json')):
+            mv = json.load(open(mf)).get('version')
+            if mv != ver_json:
+                print(f"MISMATCH  {mf} says {mv}, version.json says {ver_json}")
+                failed = True
+        if failed:
+            print("\nRefusing to publish a release whose firmware reports a different version.")
+            sys.exit(1)
+        print("Versions agree.")
+        PY
+
     - name: Check if nightly version
       id: check_nightly
       run: |

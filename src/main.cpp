@@ -20,6 +20,7 @@
 #include <esp_task_wdt.h>
 #include "ui_fonts.h"
 #include "screenshot.h"
+#include "analytics.h"
 #if SCREEN_SIZE == 7
 #include "../lib/jd9165_lcd/jd9165_panels.h"
 #endif
@@ -217,6 +218,30 @@ static void logResetReason() {
 void setup() {
     Serial.begin(SERIAL_BAUD_RATE);
     delay(500);
+
+    // Issue #164. Attaching a serial console resets the chip through the
+    // USB-Serial-JTAG peripheral, and the firmware then answers by pushing its
+    // whole boot banner into a CDC link the host is still bringing up. That has
+    // store-faulted hw_cdc_isr_handler writing USB_SERIAL_JTAG.ep1.
+    //
+    // v2.0.6 moved the two LONG reports (coredump summary, reboot history) out to
+    // mainAppTask at BOOT_REPORT_DELAY_MS, which removed the largest burst. What
+    // is left is still nine back-to-back writes and ~600 bytes -- banner, reset
+    // reason, reboot line, heap, flash ID, the two NVS settings lines, backlight
+    // note -- and the first real pause in setup() is WIFI_INIT_DELAY_MS, which
+    // comes after all of it and exists for SDIO timing, not for the console.
+    //
+    // The race is in the Arduino core's ISR and cannot be closed from here (the
+    // upstream fix, arduino-esp32 #12606, is not in our pinned 3.3.8, and the
+    // platform pin is blocked on the P4 linker regression). What we control is
+    // how hard we hit it, so on a USB or JTAG reset -- the case where a host is
+    // demonstrably mid-handshake -- give it longer to settle first. Every other
+    // reset reason is unaffected, including the ordinary power-on path.
+    const esp_reset_reason_t boot_reason = esp_reset_reason();
+    if (boot_reason == ESP_RST_USB || boot_reason == ESP_RST_JTAG) {
+        delay(BOOT_CDC_SETTLE_MS);
+    }
+
     Serial.println("\n=== SONOS CONTROLLER ===");
     logResetReason();
     rebootLogBoot();   // why the last run ended - see reboot_log.h
@@ -277,6 +302,7 @@ void setup() {
     night_level        = wifiPrefs.getInt(NVS_KEY_NIGHT_LEVEL,  BRIGHTNESS_DIM_MIN);
     night_touch_level  = wifiPrefs.getInt(NVS_KEY_NIGHT_TOUCH,  DEFAULT_NIGHT_TOUCH);
     lyrics_enabled = wifiPrefs.getBool(NVS_KEY_LYRICS, true);
+    analytics_enabled = wifiPrefs.getBool(NVS_KEY_ANALYTICS, ANALYTICS_ENABLED);
     blur_bg_enabled = wifiPrefs.getBool(NVS_KEY_BLUR_BG, true);   // #49, defaults on
     // 7" panel variant. MUST be loaded before display_init() — it selects the
     // panel init sequence and DSI timings.
@@ -384,19 +410,44 @@ void setup() {
         Serial.printf("  Art TCP SO_RCVBUF=8KB:   ~9KB  (during art HTTP download only)\n");
         Serial.printf("  JPEG HW decode output:   ~??KB (log [ART/pre-decode vs post-decode] MEM)\n");
         Serial.printf("  mbedTLS HTTPS session:   ~5KB  (during lyrics/clock HTTPS only)\n");
-        Serial.printf("  Safe idle floor:         ~%uKB (ART_MIN_FREE_DMA threshold)\n",
-                      ART_MIN_FREE_DMA/1024);
+        // ART_MIN_DMA_PRE_BURST is the gate a download must actually clear.
+        // ART_MIN_FREE_DMA (8KB) was printed here for years and is not a gate at
+        // all -- config.h says so in as many words -- which understated the real
+        // floor sevenfold to anyone diagnosing DMA depletion from a pasted log.
+        Serial.printf("  Download gate:           ~%uKB (ART_MIN_DMA_PRE_BURST)\n",
+                      ART_MIN_DMA_PRE_BURST/1024);
+        Serial.printf("  Abort floor:             ~%uKB (ART_TCP_RCVBUF_DL_SAFETY)\n",
+                      ART_TCP_RCVBUF_DL_SAFETY/1024);
         Serial.println("  --- PSRAM consumer estimates ---");
-        Serial.printf("  LVGL frame bufs: ~%uKB (2 x %ux%ux2)\n",
-                      2*DISPLAY_WIDTH*DISPLAY_HEIGHT*2/1024, DISPLAY_WIDTH, DISPLAY_HEIGHT);
-        Serial.printf("  Art LRU cache:   ~230KB (2 slots x 240x240x2)\n");
+        // The 4" allocates THREE full framebuffers: buf1, buf2 and rotate_buf for
+        // the PPA path. The 7" is native landscape and allocates two.
+#if SCREEN_SIZE == 7
+        const unsigned fb_count = 2;
+#else
+        const unsigned fb_count = 3;
+#endif
+        Serial.printf("  LVGL frame bufs: ~%uKB (%u x %ux%ux2)\n",
+                      fb_count*DISPLAY_WIDTH*DISPLAY_HEIGHT*2/1024,
+                      fb_count, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+        // Derived, not remembered: this said "~230KB (2 slots x 240x240x2)" while
+        // art is decoded at ART_PX -- 420 on the 4", 525 on the 7" -- so the true
+        // figure was three to four times larger.
+        Serial.printf("  Art LRU cache:   ~%uKB (2 slots x %ux%ux2)\n",
+                      2*ART_PX*ART_PX*2/1024, ART_PX, ART_PX);
         Serial.printf("  Art task stack:    %uKB\n", ART_TASK_STACK_SIZE/1024);
         Serial.printf("  Art download buf:  %uKB max (alloc+free per download)\n",
                       ART_MAX_DOWNLOAD_SIZE/1024);
-        Serial.println("  --- Internal SRAM task stacks ---");
-        Serial.printf("  mainAppTask: %uKB  SonosPoll: %uKB  SonosNet: %uKB\n",
-                      MAIN_APP_TASK_STACK/1024, SONOS_POLL_TASK_STACK/1024, SONOS_NET_TASK_STACK/1024);
-        Serial.printf("  Lyrics: %uKB  ClockBG: %uKB\n",
+        // mainAppTask is the ONLY task on an internal stack, and deliberately so:
+        // NVS writes assert if the calling task's stack is in cache-mapped PSRAM.
+        // The other four are static PSRAM allocations, which is the whole reason
+        // there is DMA SRAM headroom for SDIO at all. Listing them under "Internal
+        // SRAM" implied five tasks competing for the crash-critical pool, which is
+        // the opposite of the truth.
+        Serial.println("  --- Task stacks ---");
+        Serial.printf("  mainAppTask: %uKB (internal SRAM — NVS-write safe)\n",
+                      MAIN_APP_TASK_STACK/1024);
+        Serial.printf("  PSRAM stacks: SonosPoll %uKB  SonosNet %uKB  Lyrics %uKB  ClockBG %uKB\n",
+                      SONOS_POLL_TASK_STACK/1024, SONOS_NET_TASK_STACK/1024,
                       LYRICS_TASK_STACK/1024, CLOCK_BG_TASK_STACK/1024);
         Serial.println("=========================================\n");
     }
@@ -722,10 +773,23 @@ void logHeapStatus() {
     if (free_heap < 50000) {
         Serial.println("[HEAP] WARNING: Low memory!");
     }
-    if (free_dma < ART_MIN_DMA_PRE_BURST) {
-        Serial.printf("[DMA] WARNING: DMA depleting (%dKB) — art/lyrics may abort. "
-                      "Session depletion ~3.7KB/song. WiFi reconnect fires at 3 consecutive aborts.\n",
-                      (int)(free_dma / 1024));
+    // Threshold is the genuinely abnormal floor, not the working one.
+    //
+    // This used to warn below ART_MIN_DMA_PRE_BURST (56KB), which is the gate a
+    // download must clear, not a danger line. Free DMA sits at 38-42KB from song
+    // two onwards by design -- config.h records those exact numbers -- so the
+    // "DMA depleting" banner was the steady state, printing ~190 characters into
+    // the USB CDC every 60 seconds for the life of the device and crying wolf at
+    // anyone reading a log. ART_TCP_RCVBUF_DL_SAFETY is where things actually
+    // start failing.
+    if (free_dma < ART_TCP_RCVBUF_DL_SAFETY) {
+        static uint32_t last_dma_warn_ms = 0;
+        if (last_dma_warn_ms == 0 || millis() - last_dma_warn_ms >= 600000) {
+            last_dma_warn_ms = millis();
+            Serial.printf("[DMA] WARNING: DMA critically low (%dKB) — art/lyrics will abort. "
+                          "WiFi reconnect fires at 3 consecutive aborts.\n",
+                          (int)(free_dma / 1024));
+        }
     }
 }
 
@@ -747,6 +811,11 @@ static void mainAppTask(void* param) {
             reportStoredCoreDump();
             rebootLogReport();
         }
+
+        // Anonymous install counter — one HTTPS GET, once, 90s in. No-op until
+        // then, and a no-op forever after it has fired. See include/analytics.h
+        // for exactly what is sent (firmware version and panel size, nothing else).
+        analyticsTick();
         lv_tick_inc(3);
 
         // Skip LVGL timer during OTA to prevent PSRAM access during flash writes
@@ -757,6 +826,10 @@ static void mainAppTask(void* param) {
         }
 
         if (!skip_updates) {
+            // Screen wake on behalf of the touch sampler, which runs on core 0 and
+            // must not touch LVGL's animation list while we walk it here.
+            if (touch_take_wake_request()) resetScreenTimeout();
+
             lv_timer_handler();
             processUpdates();
             checkAutoDim();

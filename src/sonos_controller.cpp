@@ -169,7 +169,8 @@ String SonosController::sendSOAP(const char* service, const char* action, const 
 // the polling task reads that index concurrently, so a transient swap made it fire SOAPs
 // at the wrong speaker. dev->ip and the dev->errorCount/connected bookkeeping below all
 // correctly apply to whichever device is targeted.
-String SonosController::sendSOAP(SonosDevice* dev, const char* service, const char* action, const char* args) {
+String SonosController::sendSOAP(SonosDevice* dev, const char* service, const char* action,
+                                 const char* args, int* out_code) {
     if (!dev) return "";
 
     // Validate args size to prevent buffer overflow. The envelope wrapper below is
@@ -208,6 +209,7 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
         Serial.println("[SOAP] Failed to acquire network mutex - request failed");
         // Nothing was sent, so say that rather than leaving the last call's code.
         last_soap_http_code = SOAP_NOT_SENT;
+        if (out_code) *out_code = SOAP_NOT_SENT;
         return "";
     }
 
@@ -294,6 +296,10 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
     // from a timeout we stopped waiting for (issue #169). Written under
     // network_mutex, read by the same task the moment sendSOAP() returns.
     last_soap_http_code = code;
+    // The caller's own copy, written under the mutex. The shared member above is
+    // fine for logging but is racy the moment we give the mutex back — see the
+    // note on last_soap_http_code in the header.
+    if (out_code) *out_code = code;
     String response = "";  // Keep String for return value (used by callers)
 
     if (code == 200) {
@@ -1062,19 +1068,22 @@ bool SonosController::playPlaylist(const char* playlistID, const char* title) {
     // applies (issue #169).
     String resp;
     bool wait_on_queue = false;
+    // Per-call code, not the shared member — see the note in playContainer() and
+    // on last_soap_http_code in the header.
     for (int attempt = 0; attempt < 3; attempt++) {
-        resp = sendSOAP(transportTarget(), "AVTransport", "AddURIToQueue", addArgs);
+        int soap_code = 0;
+        resp = sendSOAP(transportTarget(), "AVTransport", "AddURIToQueue", addArgs, &soap_code);
         if (resp.length() > 0 && resp.indexOf("Fault") < 0) {
             break;
         }
-        if (!enqueueShouldRetry(lastSoapHttpCode(), resp)) {
+        if (!enqueueShouldRetry(soap_code, resp)) {
             Serial.printf("[PLAYLIST] AddURIToQueue did not answer (%d) - not retrying, "
-                          "waiting for the queue instead\n", lastSoapHttpCode());
+                          "waiting for the queue instead\n", soap_code);
             wait_on_queue = true;
             break;
         }
         Serial.printf("[PLAYLIST] AddURIToQueue attempt %d failed (%d), retrying\n",
-                      attempt + 1, lastSoapHttpCode());
+                      attempt + 1, soap_code);
         vTaskDelay(pdMS_TO_TICKS(400));
     }
 
@@ -1219,17 +1228,23 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
     // asking and let waitForQueueToFill() tell us whether it landed.
     String resp;
     bool wait_on_queue = false;
+    // soap_code, not lastSoapHttpCode(): the shared member is overwritten by the
+    // polling task the instant sendSOAP() releases network_mutex, and a -11 read
+    // timeout replaced by the poller's 500 would retry a call that must never be
+    // retried. See the header note. This local is written under the mutex.
     for (int attempt = 0; attempt < 3; attempt++) {
-        resp = sendSOAP(transportTarget(), "AVTransport", "AddURIToQueue", addArgs.c_str());
+        int soap_code = 0;
+        resp = sendSOAP(transportTarget(), "AVTransport", "AddURIToQueue",
+                        addArgs.c_str(), &soap_code);
         if (resp.length() > 0 && resp.indexOf("Fault") < 0) break;
-        if (!enqueueShouldRetry(lastSoapHttpCode(), resp)) {
+        if (!enqueueShouldRetry(soap_code, resp)) {
             Serial.printf("[CONTAINER] AddURIToQueue did not answer (%d) - not retrying, "
-                          "waiting for the queue instead\n", lastSoapHttpCode());
+                          "waiting for the queue instead\n", soap_code);
             wait_on_queue = true;
             break;
         }
         Serial.printf("[CONTAINER] AddURIToQueue attempt %d failed (%d), retrying\n",
-                      attempt + 1, lastSoapHttpCode());
+                      attempt + 1, soap_code);
         vTaskDelay(pdMS_TO_TICKS(400));
     }
 
@@ -2276,8 +2291,19 @@ void SonosController::pollingTaskFunction(void* param) {
                         ctrl->updateQueue(queue_fetch_start_index);
                         vTaskDelay(pdMS_TO_TICKS(SDIO_POST_QUEUE_DRAIN_MS));
                     } else {
-                        Serial.printf("[POLL] Queue fetch deferred: DMA too low (%uKB)\n",
-                                      (unsigned)(dma_now / 1024));
+                        // Throttled to once per 2s, like the [POLL] Skip: line above.
+                        // The flag re-arms unconditionally, so once it is set with DMA
+                        // below the gate this printed on EVERY 300ms cycle for the rest
+                        // of the session — and free DMA sits at 38-42KB from song two
+                        // onwards by design, i.e. below ART_MIN_DMA_PRE_BURST (56KB).
+                        // So the steady state was ~3.3 lines/s into the USB CDC forever.
+                        // The retry behaviour below is unchanged; only the log is gated.
+                        static uint32_t last_defer_log_ms = 0;
+                        if (millis() - last_defer_log_ms >= 2000) {
+                            last_defer_log_ms = millis();
+                            Serial.printf("[POLL] Queue fetch deferred: DMA too low (%uKB)\n",
+                                          (unsigned)(dma_now / 1024));
+                        }
                         queue_fetch_requested = true;  // retry next cycle
                     }
                 }

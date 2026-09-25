@@ -1233,7 +1233,17 @@ void exitClockScreen() {
     // Restart art + lyrics tasks — Sonos may have a pending art URL
     art_shutdown_requested    = false;
     lyrics_shutdown_requested = false;  // Was set on clock entry; must clear on exit
-    last_art_url      = "";  // Force art re-fetch — track may have changed during clock
+    // Under art_mutex. Normally the art task has already exited by the time we get
+    // here, but CLOCK_ENTERING gives up after CLOCK_ENTER_TIMEOUT_MS (3s) and
+    // enters anyway, while a download can hold the task for ART_DOWNLOAD_TIMEOUT_MS
+    // (8s) plus cooldowns. In that overlap the art task can be executing
+    // `last_art_url = url;` under the lock at the same moment as this assignment --
+    // two String writes to one buffer, so a double free. Every other writer of
+    // last_art_url takes this mutex; this one was the exception.
+    if (art_mutex && xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        last_art_url = "";  // Force art re-fetch — track may have changed during clock
+        xSemaphoreGive(art_mutex);
+    }
     lyrics_last_track = "";  // Force lyrics re-fetch — display cleared during clock (issue #62)
     if (!albumArtTaskHandle) {
         createArtTask();  // PSRAM stack — frees 20KB internal SRAM for SDIO/WiFi DMA
@@ -1252,7 +1262,22 @@ void checkClockTrigger() {
 
         // ------------------------------------------------------------------
         case CLOCK_IDLE: {
-            // Periodic debug: log which condition is blocking (once per 30s)
+            // Not re-triggering soon after a manual dismiss
+            if (millis() - last_clock_exit_ms < CLOCK_EXIT_COOLDOWN_MS) return;
+            if (clock_mode == CLOCK_MODE_DISABLED) return;
+
+            // Periodic debug: which condition is blocking the screensaver.
+            //
+            // This used to sit ABOVE the two returns and print unconditionally, so
+            // a default device -- CLOCK_DEFAULT_MODE is disabled -- pushed ~150
+            // characters into the USB CDC twice a minute for its entire life, to
+            // say that a feature nobody enabled had not triggered. That is the
+            // exact traffic DEBUG_DMA_TELEMETRY was introduced to gate, and the
+            // exact ISR that issue #164 is about. It also read ui_title, an
+            // Arduino String owned by another task, without a lock.
+            //
+            // Now it is behind the telemetry flag and below the early returns, so
+            // it only speaks when the screensaver is genuinely armed and waiting.
             {
                 static uint32_t last_dbg_ms = 0;
                 if (millis() - last_dbg_ms >= 30000) {
@@ -1264,19 +1289,15 @@ void checkClockTrigger() {
                               : (clock_mode == CLOCK_MODE_PAUSED)     ? !ui_playing
                               : (clock_mode == CLOCK_MODE_NOTHING)    ? (!ui_playing && ui_title.isEmpty())
                               : false;
-                    Serial.printf("[CLOCK DBG] mode=%d timeout=%dmin | exit_ok=%d(+%lus) disabled=%d inact_ok=%d(%lu/%lus) trig=%d playing=%d art_dl=%d title='%s'\n",
+                    DMA_LOG("[CLOCK DBG] mode=%d timeout=%dmin | exit_ok=%d(+%lus) disabled=%d inact_ok=%d(%lu/%lus) trig=%d playing=%d art_dl=%d\n",
                         clock_mode, clock_timeout_min,
                         (since_exit >= CLOCK_EXIT_COOLDOWN_MS),  since_exit/1000,
                         (clock_mode == CLOCK_MODE_DISABLED),
                         (since_touch >= inact_ms),               since_touch/1000, inact_ms/1000,
                         trig,
-                        ui_playing, (int)art_download_in_progress, ui_title.c_str());
+                        ui_playing, (int)art_download_in_progress);
                 }
             }
-
-            // Not re-triggering soon after a manual dismiss
-            if (millis() - last_clock_exit_ms < CLOCK_EXIT_COOLDOWN_MS) return;
-            if (clock_mode == CLOCK_MODE_DISABLED) return;
 
             uint32_t inactivity_ms = (uint32_t)clock_timeout_min * 60000UL;
             if (millis() - last_touch_time < inactivity_ms) return;

@@ -4,6 +4,7 @@
  */
 
 #include "ui_common.h"
+#include "analytics.h"   // ANALYTICS_ENABLED — the factory default for the toggle
 
 // ============================================================================
 // Color Theme
@@ -55,6 +56,7 @@ int  night_level      = BRIGHTNESS_DIM_MIN;
 int  night_touch_level = DEFAULT_NIGHT_TOUCH;
 volatile uint32_t night_wake_ms = 0;
 bool lyrics_enabled = true;
+bool analytics_enabled = ANALYTICS_ENABLED;
 // Defaults on: this shipped as always-on for the Classic theme, so an existing
 // device must look identical until its owner decides otherwise.
 bool blur_bg_enabled = true;
