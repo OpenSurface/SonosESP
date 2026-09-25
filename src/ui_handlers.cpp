@@ -2378,7 +2378,15 @@ void updateUI() {
     if (d->isPlaying != ui_playing) {
         lv_obj_t* lbl = lv_obj_get_child(btn_play, 0);
         lv_label_set_text(lbl, d->isPlaying ? MDI_PAUSE : MDI_PLAY);
-        lv_obj_set_style_text_font(lbl, &lv_font_mdi_40, 0);
+        // No font here. The FONT is the builder's business, same as the repeat
+        // button below and the disconnect path above — both already fixed, this
+        // one was missed. Amber gives the play icon font_icon_40, which chains
+        // lv_font_amber_40 -> mdi_fb_40 -> font_text_32; stamping the raw
+        // lv_font_mdi_40 swapped in a different face with no fallback chain and a
+        // line height of 36 against 42, so the glyph changed shape and shrank
+        // ~14% inside the button. themeSet() inverts ui_playing, so this fired on
+        // the very first play/pause after every theme change. Immersive got the
+        // opposite: its builder uses mdi_32 and this bumped it to 40.
         lv_obj_center(lbl);  // MDI icons are optically centered — no offset needed
 
         ui_playing = d->isPlaying;
