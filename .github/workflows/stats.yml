@@ -1,0 +1,63 @@
+name: Refresh install stats
+
+# Pulls the anonymous panel count from GoatCounter once a day and commits the
+# result to docs/public/stats.json, which StatsPanel.vue renders.
+#
+# Why a workflow instead of the page calling GoatCounter directly: the country
+# and version breakdowns need an authenticated API call, and a GitHub Pages site
+# is public — a key in the page source is a key on the internet. The key lives
+# here as a repo secret, and only the aggregate numbers become public.
+#
+# Setup, once:
+#   1. GoatCounter → User → API tokens → create a token with "Read statistics"
+#   2. Repo → Settings → Secrets and variables → Actions → new secret
+#      GOATCOUNTER_API_KEY = that token
+#   3. Optionally set the GOATCOUNTER_SITE variable if the site code ever changes
+#
+# Until the secret exists the job exits cleanly without committing, so a fork
+# does not see a permanently red workflow.
+
+on:
+  schedule:
+    - cron: '17 4 * * *'      # daily, off the hour to avoid the rush
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stats
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch stats from GoatCounter
+        id: fetch
+        env:
+          GC_KEY: ${{ secrets.GOATCOUNTER_API_KEY }}
+          GC_SITE: ${{ vars.GOATCOUNTER_SITE || 'pizza' }}
+        run: |
+          if [ -z "$GC_KEY" ]; then
+            echo "No GOATCOUNTER_API_KEY secret set — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 scripts/fetch_stats.py
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Commit if changed
+        if: steps.fetch.outputs.skip == 'false'
+        run: |
+          if git diff --quiet -- docs/public/stats.json; then
+            echo "No change."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/public/stats.json
+          git commit -m "chore: refresh install stats"
+          git push
