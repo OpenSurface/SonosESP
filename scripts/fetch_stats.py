@@ -44,7 +44,9 @@ WINDOW_DAYS = 30
 def api(path, params=None):
     url = f"{BASE}{path}"
     if params:
-        url += "?" + urllib.parse.urlencode(params)
+        # doseq so a list value repeats the key, which is how include_paths is
+        # passed rather than as one comma-joined string.
+        url += "?" + urllib.parse.urlencode(params, doseq=True)
     req = urllib.request.Request(
         url,
         headers={
@@ -90,7 +92,27 @@ def main():
 
     try:
         hits = api("/stats/hits", window)
-        countries_raw = api("/stats/locations", window)
+
+        # Collect the boot paths this window actually saw, so the country
+        # breakdown can be restricted to them.
+        #
+        # /stats/locations is site-wide by default: it reports the location of
+        # EVERY request the site received, not just panel boots. Anything else
+        # that touches the endpoint — a probe, a monitor, a stray fetch — lands
+        # in the country list as though it were a device. include_paths exists
+        # on this endpoint precisely for this, and the first version did not use
+        # it, which is why a country appeared that no panel is in.
+        boot_paths = [
+            row.get("path", "")
+            for row in hits.get("hits", [])
+            if re.match(r"^/boot/v?[0-9]+\.[0-9]+\.[0-9]+/(4|7)in/?$", row.get("path", ""))
+        ]
+
+        loc_params = dict(window)
+        if boot_paths:
+            loc_params["path_by_name"] = "true"
+            loc_params["include_paths"] = boot_paths   # urlencode(doseq) repeats the key
+        countries_raw = api("/stats/locations", loc_params)
     except urllib.error.HTTPError as e:
         print(f"GoatCounter API returned {e.code}: {e.reason}", file=sys.stderr)
         return 1
