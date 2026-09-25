@@ -169,7 +169,9 @@ Credentials are saved in NVS and survive reboots and firmware updates.
 
 While firmware is written to flash, the processor's cache must be switched off. The display's image lives in external memory reached through that cache, so for those moments the panel is fed invalid data and flickers.
 
-The feature that avoids this is flash ["auto-suspend"](https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/api-reference/peripherals/spi_flash/spi_flash_optional_feature.html), which lets the cache keep running through a write. The ESP32-P4 itself supports it. The flash chip fitted to these panels does not — they ship a Boya BY25Q, and ESP-IDF's own driver for that part records suspend as unavailable. Parts from GigaDevice and a few others do support it, so this comes down to the chip soldered to your board rather than to the firmware or the processor.
+The feature that would avoid this is flash ["auto-suspend"](https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/api-reference/peripherals/spi_flash/spi_flash_optional_feature.html), which lets the cache keep running through a write. The ESP32-P4 itself supports it. The flash chip fitted to these panels does not — they ship a Boya BY25Q, and [ESP-IDF's own driver for that part](https://github.com/espressif/esp-idf/blob/master/components/spi_flash/spi_flash_chip_boya.c) records suspend as unavailable in so many words. Espressif lists only three supported families: XM25xxD, GD25QxxE and FM25Q32.
+
+**A board with one of those chips would not necessarily fix it either.** Espressif documents auto-suspend as unsuitable for workloads with a "high requirement of real-time system or triggering interrupt very frequently (e.g. LCD flush, bluetooth, Wi-Fi, etc.)" — and an update is a Wi-Fi download, a screen refresh and a flash write happening at once, which is precisely that case. So this is less "the wrong chip was fitted" and more "no current option makes writing firmware invisible to the display."
 
 Your board reports its own chip in the serial log at boot:
 
