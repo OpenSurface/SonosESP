@@ -52,12 +52,19 @@ jobs:
       - name: Commit if changed
         if: steps.fetch.outputs.skip == 'false'
         run: |
-          if git diff --quiet -- docs/public/stats.json; then
+          # Stage FIRST, then compare the index.
+          #
+          # This used `git diff --quiet` before staging, which only looks at
+          # tracked files. stats.json starts life untracked, so the very first
+          # run — the one that creates it — reported "No change" and skipped the
+          # commit, leaving the site 404ing on a file the script had just
+          # written. Staging first makes the untracked case visible to the diff.
+          git add docs/public/stats.json
+          if git diff --cached --quiet -- docs/public/stats.json; then
             echo "No change."
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/public/stats.json
           git commit -m "chore: refresh install stats"
           git push
