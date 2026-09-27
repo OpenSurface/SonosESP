@@ -316,6 +316,9 @@ lv_obj_t* btn_install_update = nullptr;
 lv_obj_t* bar_ota_progress = nullptr;
 lv_obj_t* dd_ota_channel = nullptr;
 String latest_version = "";
+// True once a background check has found a release newer than this build.
+// Written by checkForUpdates(), read by the toast scheduler in mainAppTask.
+volatile bool ota_update_available = false;
 String download_url = "";
 int ota_channel = 0;  // 0=Stable, 1=Nightly
 volatile bool ota_in_progress = false;  // Flag to skip non-essential tasks during OTA

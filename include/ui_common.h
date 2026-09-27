@@ -318,6 +318,21 @@ void setBackgroundColor(uint32_t hex_color);
 void runPanelWizard();   // 7": confirm-or-advance panel selection (no-op on 4")
 void setBrightness(int level);
 void resetScreenTimeout();
+
+// ── Update notice (src/screens/ui_update_toast.cpp) ──────────────────────────
+// Shows a tappable pill at the top of whatever is on screen. No-ops if this
+// version was already announced, so a daily check that keeps finding the same
+// release does not nag. Lives on lv_layer_top(), so it survives screen changes
+// and theme rebuilds.
+void updateToastShow(const char* version);
+void updateToastHide(void);
+
+// Set by the background update check; read by the toast scheduler.
+extern volatile bool ota_update_available;
+
+// Periodic "is there a newer release" check. Call once per mainAppTask
+// iteration; a cheap no-op until its interval is due.
+void otaBackgroundCheckTick();
 void checkAutoDim();
 void requestAlbumArt(const String &url);
 bool isAlbumArtPending();   // H-4: thread-safe `pending_art_url != last_art_url` (takes art_mutex)

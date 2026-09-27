@@ -207,6 +207,22 @@
 // store-faulted hw_cdc_isr_handler. By this point the host has reconnected.
 #define BOOT_REPORT_DELAY_MS    6000
 
+// ── Update notice ────────────────────────────────────────────────────────────
+// A toast at the top of the screen when a newer release exists, tapped to open
+// Settings > Updates. Until now nothing checked in the background at all:
+// checkForUpdates() ran only from that screen's own button, so the only way to
+// learn about a release was to go looking for it.
+//
+// First check is late on purpose. Boot is the worst moment for an HTTPS session
+// on this board — the CDC burst (#164), SDIO still settling, WiFi and the first
+// artwork download all competing — and an update notice is never urgent.
+#define OTA_BGCHECK_FIRST_MS    (10UL * 60UL * 1000UL)        // 10 min after boot
+#define OTA_BGCHECK_INTERVAL_MS (24UL * 60UL * 60UL * 1000UL) // then daily
+#define OTA_BGCHECK_RETRY_MS    (5UL * 60UL * 1000UL)         // busy radio: look again in 5 min
+#define UPDATE_TOAST_HOLD_MS    8000    // visible before it fades itself out
+#define UPDATE_TOAST_FADE_MS    320     // slide + fade, in and out
+#define UPDATE_TOAST_Y          SY(14)  // resting distance from the top edge
+
 // Extra settle before the boot banner, on a USB/JTAG reset only (issue #164).
 // Those are the resets a host causes by attaching, so the CDC link is still
 // being brought up when setup() starts writing. Costs nothing on a power-on,

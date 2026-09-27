@@ -842,6 +842,12 @@ static void checkForUpdates() {
                 ? (latest_version != FIRMWARE_VERSION)
                 : isSemverNewer(latest_version, FIRMWARE_VERSION);
 
+            // Published for the toast. Only true when there is something the
+            // user can actually install: a release with no asset for this panel
+            // is not worth interrupting them about, so the no-download-url case
+            // below deliberately leaves this false.
+            ota_update_available = update_available && download_url.length() > 0;
+
             if (update_available && download_url.length() == 0) {
                 // Newer release exists but carries no asset this build can install —
                 // don't offer an Install button that would download nothing.
@@ -1666,6 +1672,56 @@ static void performOTAUpdate() {
 
 void ev_check_update(lv_event_t* e) {
     checkForUpdates();
+}
+
+// Background update check, called once per mainAppTask iteration.
+//
+// Nothing checked in the background before this: checkForUpdates() ran only
+// from the Updates screen's own button, so the only way to hear about a release
+// was to go looking for it. That is why the toast needed this to exist at all.
+//
+// Runs on mainAppTask, the same thread as lv_timer_handler(), so the LVGL work
+// inside checkForUpdates() and the toast are both on the right thread.
+void otaBackgroundCheckTick() {
+    static uint32_t next_check_ms = OTA_BGCHECK_FIRST_MS;
+    static bool     toast_pending = false;
+
+    // Show a result found on a previous tick. Separated from the check itself so
+    // the toast never appears in the same iteration as an HTTPS session — the
+    // animation would be competing with TLS teardown for the same few
+    // milliseconds, on the thread that draws.
+    if (toast_pending) {
+        toast_pending = false;
+        if (ota_update_available && latest_version.length() > 0) {
+            updateToastShow(latest_version.c_str());
+        }
+    }
+
+    if (millis() < next_check_ms) return;
+
+    // Re-arm first, so every early return below still backs off a full interval
+    // rather than retrying this condition on the very next iteration.
+    next_check_ms = millis() + OTA_BGCHECK_INTERVAL_MS;
+
+    if (WiFi.status() != WL_CONNECTED) return;
+
+    // Never during an OTA, and never while artwork is mid-download: both hold
+    // the radio, and an update notice is the least urgent thing on this device.
+    if (ota_in_progress || art_download_in_progress) {
+        next_check_ms = millis() + OTA_BGCHECK_RETRY_MS;   // look again shortly
+        return;
+    }
+
+    // Same DMA floor the artwork path uses. A TLS session is never worth an
+    // allocation the next album cover needs.
+    if (heap_caps_get_free_size(MALLOC_CAP_DMA) < ART_MIN_DMA_PRE_BURST) {
+        next_check_ms = millis() + OTA_BGCHECK_RETRY_MS;
+        return;
+    }
+
+    Serial.println("[UPDATE] Background check");
+    checkForUpdates();          // sets ota_update_available + latest_version
+    toast_pending = true;       // announced on the next iteration
 }
 
 void ev_install_update(lv_event_t* e) {

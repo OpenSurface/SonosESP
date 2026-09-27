@@ -819,6 +819,10 @@ static void mainAppTask(void* param) {
         // then, and a no-op forever after it has fired. See include/analytics.h
         // for exactly what is sent (firmware version and panel size, nothing else).
         analyticsTick();
+
+        // "A newer version is available" toast. No-op until its interval is due,
+        // and the check itself is gated on WiFi, DMA and the radio being idle.
+        otaBackgroundCheckTick();
         lv_tick_inc(3);
 
         // Skip LVGL timer during OTA to prevent PSRAM access during flash writes
