@@ -99,6 +99,11 @@ void createOTAScreen() {
     lv_obj_set_style_text_color(lbl_latest_version, AMB_ACCENT, 0);
     lv_obj_set_width(lbl_latest_version, SX(240));
     lv_label_set_long_mode(lbl_latest_version, LV_LABEL_LONG_DOT);
+    // Bounded height for the same reason as lbl_ota_status below. This one hits
+    // every Nightly user: the tag format is X.Y.Z-nightly.<7 hex>, so
+    // "v2.2.1-nightly.abc1234 (pre)" is 321px against a 240px box and wrapped
+    // into lbl_warn underneath it.
+    lv_obj_set_height(lbl_latest_version, lv_font_get_line_height(&font_text_24));
     lv_obj_set_style_text_align(lbl_latest_version, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_align(lbl_latest_version, LV_ALIGN_TOP_RIGHT, 0, SY(22));
 
@@ -190,6 +195,16 @@ void createOTAScreen() {
     // DOT, not WRAP: this label sits in a fixed slot above the progress bar, and
     // a two-line status used to push into it.
     lv_label_set_long_mode(lbl_ota_status, LV_LABEL_LONG_DOT);
+    // ...and DOT needs a bounded HEIGHT to do that. lv_label.c only ellipsises
+    // when the rendered text is taller than the object's box; at content height
+    // the box IS the text, so the condition never fires and it wrapped instead.
+    // On the 7" eight of the real status strings overflow the 467px box -
+    // "Update failed: Could Not Activate The Firmware" is 606px - and the
+    // second line lands on the progress bar at SY(OTA_PROG_Y), which is visible
+    // for every download/flash/verify failure. This height is exactly the
+    // label's current auto height for one line, so anything that already fits
+    // is pixel-identical.
+    lv_obj_set_height(lbl_ota_status, lv_font_get_line_height(&font_icon_16));
 
     // Progress percentage — same baseline as the status, right-hand column.
     lbl_ota_progress = lv_label_create(content);
