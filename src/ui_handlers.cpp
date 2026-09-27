@@ -1690,14 +1690,30 @@ void otaBackgroundCheckTick() {
     // the toast never appears in the same iteration as an HTTPS session — the
     // animation would be competing with TLS teardown for the same few
     // milliseconds, on the thread that draws.
-    if (toast_pending) {
+    // Never over the screensaver. The toast lives on lv_layer_top(), so it draws
+    // above scr_clock and takes the tap that would otherwise reach the clock's
+    // own LV_EVENT_CLICKED handler — the only thing that calls exitClockScreen()
+    // in CLOCK_MODE_INACTIVITY. Loading scr_ota from under it leaves clock_state
+    // at CLOCK_ACTIVE with art_shutdown_requested still set, so album art and
+    // lyrics never come back and clockBgTask keeps fetching photos. Hold the
+    // notice instead: toast_pending stays set and it appears once the user is
+    // back on a real screen.
+    if (toast_pending && clock_state == CLOCK_IDLE) {
         toast_pending = false;
         if (ota_update_available && latest_version.length() > 0) {
             updateToastShow(latest_version.c_str());
         }
     }
 
-    if (millis() < next_check_ms) return;
+    // Wrap-safe. A plain `millis() < next_check_ms` breaks at 49.7 days: the
+    // re-arm below computes millis() + 86,400,000, which overflows uint32_t on
+    // the 49th daily check and lands in the past. The comparison is then false
+    // forever, so this runs on every mainAppTask iteration (~3ms) for the ~17
+    // hours until millis() itself wraps — OTA_CHECK_DEBOUNCE_MS caps that at one
+    // GitHub TLS session every 5s, which is still thousands of handshakes each
+    // holding network_mutex. Subtract-then-compare-signed is wrap-immune and is
+    // what lastWifiCheck/lastHeapLog in main.cpp already use.
+    if ((int32_t)(millis() - next_check_ms) < 0) return;
 
     // Re-arm first, so every early return below still backs off a full interval
     // rather than retrying this condition on the very next iteration.
@@ -1720,7 +1736,31 @@ void otaBackgroundCheckTick() {
     }
 
     Serial.println("[UPDATE] Background check");
+
+    // Unsubscribe from the task watchdog across the check, then re-subscribe.
+    //
+    // mainAppTask is the only WDT-subscribed task in steady state and feeds the
+    // dog once per loop iteration (main.cpp). checkForUpdates() contains no
+    // esp_task_wdt_reset() of its own and can block far longer than the 30s
+    // WATCHDOG_TIMEOUT_SEC: mutex 5s + cooldowns 2.2s + TLS connect 5s + a
+    // header stall at OTA_CHECK_TIMEOUT_MS + a body stall at the same, plus one
+    // retry. A connection that opens and then goes quiet — the documented
+    // signature of esp-hosted #184, and equally a captive portal that accepts
+    // :443 and never answers — reaches ~40s and panics with trigger_panic=true.
+    //
+    // Because next_check_ms is a function static, the reboot rearms it at
+    // OTA_BGCHECK_FIRST_MS: a persistently stalling path would reboot the panel
+    // every ten minutes indefinitely, unattended. Before this function existed
+    // the same code only ran from the Updates screen button, where loopTask is
+    // the subscriber and a user is present, so the exposure is new.
+    //
+    // Unsubscribing is safe because the operation is bounded by its own
+    // timeouts — it always returns — so the worst case becomes a slow tick
+    // rather than a reboot loop. The user-initiated path is left alone.
+    esp_task_wdt_delete(NULL);
     checkForUpdates();          // sets ota_update_available + latest_version
+    esp_task_wdt_add(NULL);
+
     toast_pending = true;       // announced on the next iteration
 }
 

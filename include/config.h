@@ -436,7 +436,13 @@
                                               // SDIO safety gate. Watch "[OTA] Post-TLS DMA" log to tune.
 #define OTA_HTTPS_COOLDOWN_MS   2000    // Wait for previous HTTPS cleanup
 #define OTA_CHECK_DEBOUNCE_MS   5000    // Min delay between update checks
-#define OTA_CHECK_TIMEOUT_MS    15000   // HTTP timeout for version check
+// HTTP timeout for the version check. 8s, not 15s: this runs on mainAppTask,
+// the thread that drives lv_timer_handler(), so every second it blocks is a
+// second of dead touchscreen. Two 15s stalls (headers, then body) plus the
+// connect and the retry also put the worst case well past the 30s watchdog —
+// the background check brackets itself out of the WDT for that reason, but
+// capping the stall keeps the UI freeze short as well.
+#define OTA_CHECK_TIMEOUT_MS     8000
 #define OTA_CHECK_CLEANUP_MS    500     // Delay after version check TLS cleanup
 #define OTA_DMA_POLL_MS         15000   // Max wait for TIME_WAIT sockets to expire
                                         // lwIP TIME_WAIT = 2×MSL ≈ 12s; 15s gives 3s margin
