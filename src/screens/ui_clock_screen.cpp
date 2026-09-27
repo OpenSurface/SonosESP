@@ -871,10 +871,12 @@ void clockBgTask(void* /*param*/) {
                 // pixel-exact baseline JPEG, against loremflickr's 100-250KB.
                 if (!sdioPreWait("CLKBG", SDIO_WAIT_HTTPS_COOLDOWN, &clock_bg_shutdown_requested)) break;
 
+                bool mutex_held = false;
                 if (xSemaphoreTake(network_mutex, pdMS_TO_TICKS(8000)) != pdTRUE) {
                     Serial.printf("[CLKBG] No mutex (attempt %d)\n", attempt);
                     break;
                 }
+                mutex_held = true;
                 if (clock_bg_shutdown_requested) { xSemaphoreGive(network_mutex); break; }
 
                 if (attempt > 1) Serial.printf("[CLKBG] Retry %d/%d\n", attempt, MAX_ATTEMPTS);
@@ -940,9 +942,35 @@ void clockBgTask(void* /*param*/) {
                 last_network_end_ms = millis();
                 last_https_end_ms   = millis();   // TLS teardown residue, as lyrics does
 
+                // Release between the two requests.
+                //
+                // Holding across both starved the polling task: a flashed build
+                // logged four consecutive "[SOAP] Failed to acquire network
+                // mutex" plus a skipped stats ping during one photo cycle,
+                // because two TLS handshakes and a 93KB download together
+                // exceed the 5s NETWORK_MUTEX_TIMEOUT_MS the SOAP callers use.
+                //
+                // One request per hold is the shape every other path here uses
+                // (art, lyrics, weather). The photo re-acquires below, behind
+                // its own cooldown, so a SOAP that was waiting gets its turn.
+                xSemaphoreGive(network_mutex);
+                mutex_held = false;
+
                 // Step 2: fetch the photo. HTTPS now — bing.com 301s plain HTTP,
                 // as every other candidate host does.
                 if (photoUrl.length() > 0) {
+                    // Re-acquire for the download, behind the same cooldown the
+                    // JSON call used. Skipping the photo when the radio is busy
+                    // is the right trade: it is decoration, and the next cycle
+                    // tries again.
+                    if (!sdioPreWait("CLKBG", SDIO_WAIT_HTTPS_COOLDOWN, &clock_bg_shutdown_requested)) break;
+                    if (xSemaphoreTake(network_mutex, pdMS_TO_TICKS(8000)) != pdTRUE) {
+                        Serial.println("[CLKBG] No mutex for photo — skipping this cycle");
+                        break;
+                    }
+                    mutex_held = true;
+                    if (clock_bg_shutdown_requested) { xSemaphoreGive(network_mutex); break; }
+
                     Serial.printf("[CLKBG] Fetching: %s\n", photoUrl.c_str());
                     WiFiClientSecure photo_client;
                     photo_client.setInsecure();
@@ -978,7 +1006,13 @@ void clockBgTask(void* /*param*/) {
                     last_art_download_end_ms = millis();  // gate art/lyrics inter-download cooldowns
                 }
 
-                xSemaphoreGive(network_mutex);
+                // Conditional: the JSON step already released it, and the photo
+                // step only re-takes it when there was a URL to fetch. Giving a
+                // mutex we do not hold would corrupt its count.
+                if (mutex_held) {
+                    xSemaphoreGive(network_mutex);
+                    mutex_held = false;
+                }
             }
         }
 
