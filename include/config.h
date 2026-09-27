@@ -11,8 +11,6 @@
 // =============================================================================
 #define SERIAL_BAUD_RATE        115200
 
-// Debug levels: 0=OFF, 1=ERRORS, 2=WARNINGS, 3=INFO, 4=VERBOSE
-#define DEBUG_LEVEL             3
 
 // Periodic DMA/heap telemetry: [HEAP], [STACK], [SOAP/DMA], [POLL/DMA],
 // [QUEUE/DMA]. Every few seconds, forever, on every device.
@@ -34,30 +32,6 @@
     #define DMA_LOG(fmt, ...) ((void)0)
 #endif
 
-// Debug macros - compile out verbose logs when not needed
-#if DEBUG_LEVEL >= 4
-    #define DEBUG_VERBOSE(fmt, ...) Serial.printf(fmt, ##__VA_ARGS__)
-#else
-    #define DEBUG_VERBOSE(fmt, ...) ((void)0)
-#endif
-
-#if DEBUG_LEVEL >= 3
-    #define DEBUG_INFO(fmt, ...) Serial.printf(fmt, ##__VA_ARGS__)
-#else
-    #define DEBUG_INFO(fmt, ...) ((void)0)
-#endif
-
-#if DEBUG_LEVEL >= 2
-    #define DEBUG_WARN(fmt, ...) Serial.printf("[WARN] " fmt, ##__VA_ARGS__)
-#else
-    #define DEBUG_WARN(fmt, ...) ((void)0)
-#endif
-
-#if DEBUG_LEVEL >= 1
-    #define DEBUG_ERROR(fmt, ...) Serial.printf("[ERROR] " fmt, ##__VA_ARGS__)
-#else
-    #define DEBUG_ERROR(fmt, ...) ((void)0)
-#endif
 
 // =============================================================================
 // WIFI CONFIGURATION
@@ -65,7 +39,6 @@
 #define WIFI_INIT_DELAY_MS      2000    // Delay for ESP32-C6 SDIO initialization
 #define WIFI_CONNECT_TIMEOUT_MS 500     // Per-attempt timeout
 #define WIFI_CONNECT_RETRIES    40      // Max connection attempts (40 x 500ms = 20s)
-#define WIFI_MAX_NETWORKS       20      // Max networks to scan/store
 
 // ── Discovery: room-name probe retries (issue #182) ──────────────────────────
 // getRoomName() returns false both when network_mutex was busy (so the request
@@ -248,7 +221,6 @@
 #define SLEEP_SET_SETTLE_MS        3000UL                 // after a set, the network task reads back
 #define ART_CHECK_INTERVAL_MS   100     // How often to check for new art requests
 #define ART_DECODE_MAX_FAILURES 3       // Give up on URL after N decode failures
-#define ART_SW_JPEG_FALLBACK    1       // Enable JPEGDEC SW fallback (progressive, non-div-8)
 
 // Widest PNG accepted by decodeToRGB565(). SAFETY-CRITICAL: pngDraw()'s static row
 // buffer is sized from this, and PNGdec's getLineAsRGB565() takes no length argument —
@@ -260,8 +232,10 @@
 // =============================================================================
 // SONOS CONTROLLER
 // =============================================================================
-#define SONOS_MAX_DEVICES       32      // Maximum discoverable devices (keep in sync with MAX_SONOS_DEVICES)
-#define SONOS_QUEUE_SIZE_MAX    500     // Maximum queue items to fetch
+// The device limit is MAX_SONOS_DEVICES in sonos_controller.h - the single
+// source of truth, used by ~18 call sites. A SONOS_MAX_DEVICES twin used to
+// sit here saying "keep in sync", which was a trap: nothing read it, so
+// changing it did nothing while promising otherwise.
 #define SONOS_QUEUE_BATCH_SIZE  10      // Items per queue fetch request (was 50).
                                         // 50-item response (~20KB, 14 TCP segs) forced WiFi driver to allocate
                                         // all 32 dynamic RX buffers (~51KB) in one event → permanent 71KB DMA
@@ -448,12 +422,6 @@
 #define OTA_DMA_PLATEAU_COUNT   3       // Consecutive seconds with no DMA growth → reboot early
 
 // =============================================================================
-// MBEDTLS / SSL
-// =============================================================================
-#define MBEDTLS_SSL_IN_LEN      4096    // SSL input buffer size
-#define MBEDTLS_SSL_OUT_LEN     4096    // SSL output buffer size
-
-// =============================================================================
 // NVS PREFERENCES
 // =============================================================================
 // 7" PANEL VARIANT
@@ -597,11 +565,6 @@
 #define NVS_KEY_CLOCK_WX_CUSTOM_NAME "clk_wx_cnam"  // optional display name for the clock saver screen
 
 // =============================================================================
-// QUEUE / PLAYLIST
-// =============================================================================
-#define QUEUE_ADD_AT_END        4294967295  // Add to end of queue constant
-
-// =============================================================================
 // SDIO CRASH DEFENCE (ESP32-P4 + ESP32-C6 SDIO architecture)
 // =============================================================================
 // The C6 WiFi chip connects to the P4 host via SDIO. C6 has a fixed-size
@@ -612,12 +575,12 @@
 #define SDIO_GENERAL_COOLDOWN_MS      200   // Min gap between any two network operations
 #define SDIO_HTTPS_COOLDOWN_MS       3000   // TLS teardown residue — 2000ms insufficient (DMA AES alloc failure)
 #define SDIO_STORM_COOLDOWN_MS       3000   // HTTP-500 storm settle (HLS source transition)
-#define SDIO_STORM_SAFETY_CAP_MS     5000   // Max wait inside 500-storm loop (safety cap)
 #define SDIO_TRACK_CHANGE_SETTLE_MS     0   // Disabled: Sonos lib is pure SOAP-polling (no UPnP subscriptions,
                                             // no WiFiServer, no NOTIFY events). Long idle → C6 power-save → crash.
 #define SDIO_POST_STORM_SETTLE_MS       0   // Disabled: storm gate (3000ms) + any settle = too much idle → C6 SDIO
                                             // DMA clock-gates → pkt_rxbuff fills on wake burst. Even 1000ms settle
-                                            // (total 4000ms idle) crashes. Keepalive: see SDIO_STORM_KEEPALIVE_MS.
+                                            // (total 4000ms idle) crashes. Kept at 0 for the record: this comment
+                                            // is the only place that finding is written down. Nothing reads it.
 #define SDIO_TCP_CLOSE_MS             200   // TCP FIN-ACK drain after http.end() (non-TLS)
 #define SDIO_HTTPS_TCP_CLOSE_MS       500   // TCP FIN-ACK drain after http.end() (TLS)
 #define SDIO_INTER_DOWNLOAD_MS       1000   // Min gap between consecutive art/BG downloads
@@ -636,7 +599,6 @@
                                             // Song 2+ DMA floor 38-42KB: burst 16KB → dl-start 22-26KB >> 16KB ✓
                                             // Crash scenario: dl-start 22KB > 16KB passes → mid-read check at 8KB
                                             // catches the WiFi-alloc drop → aborts before :928.
-#define ART_MIN_FREE_DMA             8000   // Referenced in boot memory map log only (not a download gate).
 #define ART_MIN_DMA_PRE_BURST       56000   // Min DMA before http.GET() (BEFORE burst arrives).
                                             // Observed burst: 13-22KB (server TCP cwnd limited; SO_RCVBUF does NOT
                                             // limit initial burst on ESP32-P4/lwIP). Post-burst floor = 56-22 = 34KB >>
@@ -670,6 +632,10 @@
 #define LYRICS_RETRY_DELAY_MS        2000   // Between lyrics HTTPS fetch retry attempts
 #define LYRICS_TCB_REAP_MS            100   // Grace before reusing the static TCB (idle0 reap)
 #define CLOCK_BG_MIN_DMA            64000   // Skip clockBgTask photo download if DMA below this.
+                                            // TX crash confirmed at 57KB (log16) — 64KB = 7KB margin above crash floor.
+                                            // Photo is non-critical (clock still shows, weather still fetches).
+                                            // Unlike ART_MIN_DMA_PRE_BURST, NOT lowered: clockBgTask photo HTTP has
+                                            // larger burst (no SO_RCVBUF pre-connect path) so higher floor warranted.
 
 // Bing wallpaper API reply. Eight entries is ~3KB; the cap refuses anything
 // larger rather than letting getString() grow an unbounded Arduino String in
@@ -677,10 +643,6 @@
 // filter keeps only images[].urlbase — see bingFilter() in ui_clock_screen.cpp.
 #define CLOCK_BG_API_MAX_BYTES      16384
 #define CLOCK_BG_API_JSON_DOC        2048
-                                            // TX crash confirmed at 57KB (log16) — 64KB = 7KB margin above crash floor.
-                                            // Photo is non-critical (clock still shows, weather still fetches).
-                                            // Unlike ART_MIN_DMA_PRE_BURST, NOT lowered: clockBgTask photo HTTP has
-                                            // larger burst (no SO_RCVBUF pre-connect path) so higher floor warranted.
 
 // =============================================================================
 // WATCHDOG & RELIABILITY

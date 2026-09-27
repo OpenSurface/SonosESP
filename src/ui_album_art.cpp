@@ -165,8 +165,10 @@ static WiFiClient artPreConnectHTTP(const char* url, int timeout_ms) {
     // yet, so lwIP cannot apply the window constraint to the SYN. The server sees the
     // default TCP_WND (65534) and can blast up to 65KB immediately. By setting SO_RCVBUF
     // here — after the 3-way handshake completes but BEFORE the GET request is sent —
-    // lwIP updates pcb->rcv_wnd to 8192. The GET's ACK will carry this small window.
-    // Server sees window=8192 and limits its initial response burst to ~6KB → safe.
+    // lwIP updates pcb->rcv_wnd to ART_TCP_RCVBUF (4096). The GET's ACK carries that
+    // small window, so the server limits its initial response burst instead of
+    // blasting. This comment said 8192 for years; the define has been 4096 since it
+    // was introduced, so any burst figure derived from 8192 is wrong.
     lwip_setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
 
     return WiFiClient(sockfd);  // NetworkClient(int fd) — marks as _connected=true

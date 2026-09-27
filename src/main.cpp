@@ -410,7 +410,8 @@ void setup() {
         Serial.printf("  WiFi/SDIO permanent:     ~%uKB (pkt_rxbuff, DMA descs, HMAC, LMAC)\n",
                       wifi_used/1024);
         Serial.printf("  lwIP TIME_WAIT PCBs:     0-??KB (variable; use [SOAP/DMA] logs)\n");
-        Serial.printf("  Art TCP SO_RCVBUF=8KB:   ~9KB  (during art HTTP download only)\n");
+        Serial.printf("  Art TCP SO_RCVBUF=%uKB:   ~9KB  (during art HTTP download only)\n",
+                      ART_TCP_RCVBUF/1024);
         Serial.printf("  JPEG HW decode output:   ~??KB (log [ART/pre-decode vs post-decode] MEM)\n");
         Serial.printf("  mbedTLS HTTPS session:   ~5KB  (during lyrics/clock HTTPS only)\n");
         // ART_MIN_DMA_PRE_BURST is the gate a download must actually clear.
