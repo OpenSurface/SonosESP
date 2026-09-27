@@ -1018,7 +1018,19 @@ void clockBgTask(void* /*param*/) {
                         photo_http.end();
                     }
                     photo_client.stop();
-                    art_download_in_progress = false;     // polling may resume
+                    // Only clear what we own. exitClockScreen() sets
+                    // clock_bg_shutdown_requested and then calls createArtTask()
+                    // in the same function without waiting for this task, which
+                    // can still be up to 20s into a photo read. If the art task
+                    // is back, it has its own flag protocol: it raises the flag
+                    // before its mutex acquire and can be blocked on the mutex
+                    // WE hold right now, so clearing here would un-suppress a
+                    // 100-250KB album-art download and let polling run straight
+                    // through it. Leaving it set is safe — the art task clears
+                    // it in its own loop, and ART_FLAG_MAX_HOLD_MS backstops.
+                    if (!albumArtTaskHandle) {
+                        art_download_in_progress = false;   // polling may resume
+                    }
                     last_network_end_ms      = millis();
                     last_https_end_ms        = millis();  // TLS teardown residue
                     last_art_download_end_ms = millis();  // gate art/lyrics inter-download cooldowns
