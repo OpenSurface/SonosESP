@@ -971,6 +971,23 @@ void clockBgTask(void* /*param*/) {
                     mutex_held = true;
                     if (clock_bg_shutdown_requested) { xSemaphoreGive(network_mutex); break; }
 
+                    // Tell the polling task to stand down for the download.
+                    //
+                    // Splitting the two requests shortened the hold but did not
+                    // fix the symptom: a flashed build still logged
+                    // "[SOAP] Failed to acquire network mutex" three times during
+                    // one photo, because a TLS handshake plus 60KB still outlasts
+                    // the 5s NETWORK_MUTEX_TIMEOUT_MS the SOAP callers wait on.
+                    //
+                    // Failing is not how this codebase handles a busy radio. The
+                    // artwork path raises this same flag and polling logs
+                    // "[POLL] Skip: art_dl=1" and defers cleanly instead. The
+                    // clock photo simply never raised it. Same mechanism, same
+                    // 45s watchdog (ART_FLAG_MAX_HOLD_MS) if this task dies
+                    // holding it, and the art task is already shut down here so
+                    // nothing else owns the flag.
+                    art_download_in_progress = true;
+
                     Serial.printf("[CLKBG] Fetching: %s\n", photoUrl.c_str());
                     WiFiClientSecure photo_client;
                     photo_client.setInsecure();
@@ -1001,6 +1018,7 @@ void clockBgTask(void* /*param*/) {
                         photo_http.end();
                     }
                     photo_client.stop();
+                    art_download_in_progress = false;     // polling may resume
                     last_network_end_ms      = millis();
                     last_https_end_ms        = millis();  // TLS teardown residue
                     last_art_download_end_ms = millis();  // gate art/lyrics inter-download cooldowns

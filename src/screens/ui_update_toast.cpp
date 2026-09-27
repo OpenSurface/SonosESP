@@ -113,14 +113,14 @@ void updateToastShow(const char* version) {
     lv_obj_set_style_bg_opa(layer, LV_OPA_TRANSP, 0);
 
     toast = lv_button_create(layer);
-    lv_obj_set_height(toast, SY(44));
+    lv_obj_set_height(toast, SY(56));
     lv_obj_set_width(toast, LV_SIZE_CONTENT);
     lv_obj_set_style_radius(toast, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(toast, AMB_CARD, 0);
     lv_obj_set_style_bg_color(toast, AMB_RAISED, LV_STATE_PRESSED);
     lv_obj_set_style_border_width(toast, 1, 0);
     lv_obj_set_style_border_color(toast, AMB_ACCENT_DIM, 0);
-    lv_obj_set_style_pad_hor(toast, SX(18), 0);
+    lv_obj_set_style_pad_hor(toast, SX(24), 0);
     lv_obj_set_style_pad_ver(toast, 0, 0);
     // A real shadow, because this floats over arbitrary artwork and needs to
     // separate from it. Everything else in the UI is flat by design.
@@ -135,23 +135,23 @@ void updateToastShow(const char* version) {
     lv_obj_set_size(row, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_column(row, SX(10), 0);
+    lv_obj_set_style_pad_column(row, SX(12), 0);
     lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);   // let taps reach the button
     lv_obj_center(row);
 
     lv_obj_t* ico = lv_label_create(row);
     lv_label_set_text(ico, AMB_IC_DOWNLOAD);
-    lv_obj_set_style_text_font(ico, &font_icon_16, 0);
+    lv_obj_set_style_text_font(ico, &font_icon_24, 0);
     lv_obj_set_style_text_color(ico, AMB_ACCENT, 0);
 
     lv_obj_t* txt = lv_label_create(row);
     lv_label_set_text_fmt(txt, "Version %s is available", version);
-    lv_obj_set_style_text_font(txt, &font_text_14, 0);
+    lv_obj_set_style_text_font(txt, &font_text_16, 0);
     lv_obj_set_style_text_color(txt, AMB_TEXT, 0);
 
     lv_obj_t* cta = lv_label_create(row);
     lv_label_set_text(cta, "Update");
-    lv_obj_set_style_text_font(cta, &font_text_14, 0);
+    lv_obj_set_style_text_font(cta, &font_text_16, 0);
     lv_obj_set_style_text_color(cta, AMB_ACCENT, 0);
 
     // Position before the entrance animation so the first painted frame is

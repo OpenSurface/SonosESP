@@ -100,9 +100,15 @@ function barPct(n, rows) {
   return Math.max(2, Math.round((n / max) * 100))
 }
 
-function flag(cc) {
-  if (!cc || cc.length !== 2) return '🌐'
-  return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1f1a5 + c.charCodeAt(0)))
+// The ISO code, not a flag emoji.
+//
+// Flag emoji are regional-indicator pairs, and Windows ships no glyphs for them
+// — every desktop Chrome and Edge on Windows renders them as bare letters or
+// nothing at all, which is why they appeared on a phone and were missing on the
+// desktop. There is no font fallback to reach for; the glyphs simply are not
+// there. A styled two-letter badge renders identically everywhere.
+function code(cc) {
+  return (cc && cc.length === 2) ? cc.toUpperCase() : '??'
 }
 </script>
 
@@ -138,7 +144,7 @@ function flag(cc) {
         <h3>Where they are</h3>
         <ul class="sp-places">
           <li v-for="c in stats.countries.slice(0, 12)" :key="c.code">
-            <span class="sp-flag">{{ flag(c.code) }}</span>
+            <span class="sp-cc">{{ code(c.code) }}</span>
             <span class="sp-name">{{ c.name }}</span>
           </li>
         </ul>
@@ -267,7 +273,20 @@ function flag(cc) {
 }
 .sp-list.vers li { grid-template-columns: minmax(0, 7.5rem) 1fr auto; }
 
-.sp-flag { font-size: 1.05rem; line-height: 1; }
+/* Two-letter country code, set as a small monospace chip. Replaces flag emoji,
+   which Windows has no glyphs for — they rendered on phones and vanished on
+   desktop. */
+.sp-cc {
+  font-family: var(--se-mono);
+  font-size: .68rem;
+  letter-spacing: .06em;
+  line-height: 1;
+  padding: .22rem .38rem;
+  border-radius: 5px;
+  color: var(--se-accent-text);
+  background: var(--se-accent-wash);
+  border: 1px solid var(--se-accent-dim);
+}
 .sp-name { color: var(--vp-c-text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-mono { font-family: var(--se-mono); font-size: .84rem; }
 

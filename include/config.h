@@ -219,7 +219,7 @@
 #define OTA_BGCHECK_FIRST_MS    (10UL * 60UL * 1000UL)        // 10 min after boot
 #define OTA_BGCHECK_INTERVAL_MS (24UL * 60UL * 60UL * 1000UL) // then daily
 #define OTA_BGCHECK_RETRY_MS    (5UL * 60UL * 1000UL)         // busy radio: look again in 5 min
-#define UPDATE_TOAST_HOLD_MS    8000    // visible before it fades itself out
+#define UPDATE_TOAST_HOLD_MS    14000   // visible before it fades itself out
 #define UPDATE_TOAST_FADE_MS    320     // slide + fade, in and out
 #define UPDATE_TOAST_Y          SY(14)  // resting distance from the top edge
 
