@@ -1536,6 +1536,24 @@ void checkClockTrigger() {
             clock_tick_timer = lv_timer_create(clock_tick_cb, 1000, NULL);
             clock_tick_cb(nullptr);  // Immediate first update
 
+            // Never leave the update toast on lv_layer_top() above scr_clock.
+            //
+            // otaBackgroundCheckTick() refuses to SHOW a toast over an active
+            // screensaver, but the reverse order is just as reachable: the
+            // toast holds for UPDATE_TOAST_HOLD_MS (14s), and the clock can
+            // trigger inside that window. The top layer is per-display and
+            // draws above every screen, so the pill would sit over the clock
+            // and take the user's first tap — the tap that would otherwise
+            // reach scr_clock's CLICKED handler, the only caller of
+            // exitClockScreen() in CLOCK_MODE_INACTIVITY. Loading scr_ota from
+            // under it strands clock_state at CLOCK_ACTIVE with
+            // art_shutdown_requested set: no album art, no lyrics, clockBgTask
+            // still fetching photos, and no recovery short of a reboot.
+            //
+            // Runs on mainAppTask, so the lv_obj_del() inside is on the right
+            // thread. Harmless when no toast is up.
+            updateToastHide();
+
             clock_state = CLOCK_ACTIVE;
             lv_screen_load_anim(scr_clock, LV_SCR_LOAD_ANIM_FADE_IN, 500, 0, false);
             Serial.println("[CLOCK] Clock screen active");

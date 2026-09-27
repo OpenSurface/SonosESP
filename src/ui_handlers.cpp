@@ -1671,7 +1671,18 @@ static void performOTAUpdate() {
 }
 
 void ev_check_update(lv_event_t* e) {
+    // Same watchdog bracket as otaBackgroundCheckTick(), and for the same
+    // reason. This is an LVGL event callback, so it runs inside
+    // lv_timer_handler() — which is only ever called from mainAppTask, the
+    // watchdog-subscribed task. loopTask is idle and is not subscribed in
+    // steady state. checkForUpdates() can block for 5s mutex + 2.2s cooldowns
+    // + two (connect 5s + read OTA_CHECK_TIMEOUT_MS) attempts + a 3s retry gap
+    // = ~37s against a 30s WATCHDOG_TIMEOUT_SEC with trigger_panic=true, so a
+    // user tapping "Check for Updates" behind a captive portal that accepts
+    // :443 and goes quiet panics the panel.
+    esp_task_wdt_delete(NULL);
     checkForUpdates();
+    esp_task_wdt_add(NULL);
 }
 
 // Background update check, called once per mainAppTask iteration.
@@ -1750,9 +1761,20 @@ void otaBackgroundCheckTick() {
     //
     // Because next_check_ms is a function static, the reboot rearms it at
     // OTA_BGCHECK_FIRST_MS: a persistently stalling path would reboot the panel
-    // every ten minutes indefinitely, unattended. Before this function existed
-    // the same code only ran from the Updates screen button, where loopTask is
-    // the subscriber and a user is present, so the exposure is new.
+    // every ten minutes indefinitely, unattended.
+    //
+    // The Updates-screen button reaches the same code and needs the same
+    // bracket — see ev_check_update(). An earlier version of this comment
+    // claimed that path was safe because "loopTask is the subscriber"; that is
+    // wrong. lv_timer_handler() is only called from mainAppTask, so an LVGL
+    // event callback runs on the watchdog-subscribed task too. What is new here
+    // is that it happens unattended and repeats.
+    //
+    // Known trade: while unsubscribed the task is genuinely unwatched, so a
+    // slow-drip response body (HTTPClient restarts its timeout on every byte —
+    // config.h records one download sitting inside HTTPS for 209 SECONDS)
+    // freezes the panel instead of rebooting it. For a once-a-day check against
+    // api.github.com that is the better failure, but it is a trade, not a bound.
     //
     // Unsubscribing is safe because the operation is bounded by its own
     // timeouts — it always returns — so the worst case becomes a slow tick

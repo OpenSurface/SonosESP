@@ -98,8 +98,18 @@ static void toastClicked(lv_event_t* e) {
     // The Updates screen clears its last result on load, so that it never shows
     // a stale version as current. We are carrying a fresh one — the whole point
     // of the tap — so suppress that reset exactly once.
-    ota_skip_load_reset = true;
-    if (scr_ota) lv_screen_load(scr_ota);
+    //
+    // Only when the load will actually happen. lv_display.c returns early if
+    // the requested screen is already active, so LV_EVENT_SCREEN_LOADED never
+    // fires and nothing consumes the flag — it would survive to the NEXT visit
+    // and suppress a reset that was genuinely wanted, showing a stale version
+    // as current with Install armed. The toast can be up on any screen,
+    // including Settings -> Updates itself, so this is reachable by tapping it
+    // where it already points.
+    if (scr_ota && lv_screen_active() != scr_ota) {
+        ota_skip_load_reset = true;
+        lv_screen_load(scr_ota);
+    }
 }
 
 void updateToastShow(const char* version) {
