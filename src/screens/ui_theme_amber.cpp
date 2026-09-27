@@ -606,7 +606,23 @@ void buildAmberPlayer() {
     lv_obj_center(ico_play);
 
     // ── Volume ──────────────────────────────────────────────────────────────
-    btn_mute = roundBtn(panel_right, AMB_IC_VOL, &font_icon_24,
+    // Built with mdi_fb_24, not font_icon_24, and with the MDI codepoint.
+    //
+    // updateUI() writes MDI_VOLUME_OFF/MDI_VOLUME_HIGH into this label on every
+    // mute change, and themeSet() inverts ui_muted so switching to Amber fires
+    // that write on the very next poll. MDI_VOLUME_HIGH is not in the Amber
+    // face, so it resolved down the fallback chain — and LVGL places a glyph
+    // using the LABEL's line metrics with the FALLBACK's box, which moved the
+    // icon down 3px on the 4" and 4px on the 7" the first time anyone muted.
+    // Building with the face the write will resolve to means there is only one
+    // rendering and the icon cannot jump.
+    //
+    // Pinning a font in updateUI() instead does NOT work here: the chain's MDI
+    // link is mdi_fb_24 on the 4" and mdi_fb_32 on the 7", so no single face is
+    // right for both, unlike the play/pause site where every theme uses the 40
+    // tier. A theme-owned mute pair is still the real fix, but amber_icons.h
+    // has AMB_IC_VOL and no muted variant.
+    btn_mute = roundBtn(panel_right, MDI_VOLUME_HIGH, &mdi_fb_24,
                         AP_R - 4, AP_VOL_Y - 10, 28, ev_mute, false, AMB_TEXT3);
 
     // Neutral fill, not gold: the canvas keeps one action colour, and volume is

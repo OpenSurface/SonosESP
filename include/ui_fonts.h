@@ -70,6 +70,17 @@ extern lv_font_t font_batt_16;
 extern lv_font_t font_icon_wx_32;
 extern lv_font_t font_icon_wx_64;
 
+// The MDI link of the icon chain, per design tier: lv_font_mdi_16/24/32/40 on
+// the 4", one step up on the 7". Exposed because a builder whose label will
+// later be handed an MDI codepoint by updateUI() has to build with the same
+// face — LVGL positions the glyph by the LABEL's metrics and the FALLBACK's
+// glyph box, so building with the theme face and writing MDI into it shifts the
+// icon. Prefer font_icon_* everywhere else.
+extern lv_font_t mdi_fb_16;
+extern lv_font_t mdi_fb_24;
+extern lv_font_t mdi_fb_32;
+extern lv_font_t mdi_fb_40;
+
 #ifdef __cplusplus
 }
 #endif
