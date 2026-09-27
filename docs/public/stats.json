@@ -1,12 +1,22 @@
 {
-  "panels": 9,
-  "boots": 9,
-  "updated": "2026-09-26T09:00:00Z",
+  "panels": 20,
+  "boots": 20,
+  "updated": "2026-09-27T13:00:00Z",
   "windowDays": 30,
   "countries": [
     {
+      "code": "CA",
+      "name": "Canada",
+      "count": 10
+    },
+    {
       "code": "GB",
       "name": "United Kingdom",
+      "count": 8
+    },
+    {
+      "code": "FR",
+      "name": "France",
       "count": 1
     },
     {
@@ -18,11 +28,19 @@
   "versions": [
     {
       "version": "2.2.0",
-      "count": 4
+      "count": 9
+    },
+    {
+      "version": "2.2.1",
+      "count": 5
     },
     {
       "version": "2.1.2",
       "count": 4
+    },
+    {
+      "version": "2.1.9",
+      "count": 1
     },
     {
       "version": "2.1.1",
