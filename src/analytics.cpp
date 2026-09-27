@@ -26,9 +26,6 @@ static bool     s_analytics_done = false;
 static uint8_t  s_tries          = 0;
 static uint32_t s_next_try_ms    = 0;
 
-#define ANALYTICS_MAX_TRIES   5
-#define ANALYTICS_RETRY_MS    60000UL
-
 // Back off and come back, unless the budget is gone.
 static void analyticsRetryLater(const char* why) {
     if (++s_tries >= ANALYTICS_MAX_TRIES) {
@@ -37,7 +34,8 @@ static void analyticsRetryLater(const char* why) {
         return;
     }
     s_next_try_ms = millis() + ANALYTICS_RETRY_MS;
-    Serial.printf("[STATS] %s - retry %d/%d in 60s\n", why, s_tries, ANALYTICS_MAX_TRIES - 1);
+    Serial.printf("[STATS] %s - retry %d/%d in %lus\n", why, s_tries,
+                  ANALYTICS_MAX_TRIES - 1, ANALYTICS_RETRY_MS / 1000UL);
 }
 
 void analyticsTick() {
@@ -64,13 +62,17 @@ void analyticsTick() {
     // Same envelope as every other network path in this firmware: the general
     // cooldown plus the HTTPS/TLS-teardown gate, then network_mutex. Discovery
     // skipping this is what caused #182, so nothing new gets to skip it either.
+    // Unreachable today: sdioPreWait() only returns false from its abort
+    // checks, and this caller passes no abort flags. Kept so the contract holds
+    // if one is ever added - the earlier claim that this was costing counts was
+    // wrong, and the cooldown wait itself is why the call is here.
     if (!sdioPreWait("STATS", SDIO_WAIT_HTTPS_COOLDOWN)) {
         analyticsRetryLater("SDIO busy");
         return;
     }
 
     if (!network_mutex ||
-        xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS)) != pdTRUE) {
+        xSemaphoreTake(network_mutex, pdMS_TO_TICKS(ANALYTICS_MUTEX_WAIT_MS)) != pdTRUE) {
         analyticsRetryLater("network busy");
         return;
     }
