@@ -62,10 +62,32 @@ void analyticsTick() {
     // Same envelope as every other network path in this firmware: the general
     // cooldown plus the HTTPS/TLS-teardown gate, then network_mutex. Discovery
     // skipping this is what caused #182, so nothing new gets to skip it either.
-    // Unreachable today: sdioPreWait() only returns false from its abort
-    // checks, and this caller passes no abort flags. Kept so the contract holds
-    // if one is ever added - the earlier claim that this was costing counts was
-    // wrong, and the cooldown wait itself is why the call is here.
+    // Would sdioPreWait() actually wait? Check without blocking, and defer if
+    // so.
+    //
+    // This matters more than it looks. sdioPreWait() enforces its cooldowns
+    // with vTaskDelay - up to 200ms general + 3000ms HTTPS + 3000ms
+    // inter-download = 6.2s - and we are on mainAppTask, so every one of those
+    // milliseconds is a millisecond lv_timer_handler() does not run and the
+    // touchscreen is dead. A retry budget that pays 6.2s per attempt would turn
+    // one stall into twelve. Mirroring the guard's own conditions here makes a
+    // deferral cost microseconds, which is what makes the budget affordable.
+    const unsigned long now = millis();
+    const bool radio_busy =
+        art_download_in_progress ||
+        (last_network_end_ms      && now - last_network_end_ms      < SDIO_GENERAL_COOLDOWN_MS) ||
+        (last_https_end_ms        && now - last_https_end_ms        < SDIO_HTTPS_COOLDOWN_MS)   ||
+        (last_art_download_end_ms && now - last_art_download_end_ms < SDIO_HTTPS_COOLDOWN_MS);
+    if (radio_busy) {
+        analyticsRetryLater("radio busy");
+        return;
+    }
+
+    // Now a near-no-op, but still called: it is the documented envelope every
+    // network path goes through, and skipping it is what caused #182. The
+    // false branch is unreachable (sdioPreWait only returns false from its
+    // abort checks and this caller passes no abort flags) - kept so the
+    // contract still holds if one is ever added.
     if (!sdioPreWait("STATS", SDIO_WAIT_HTTPS_COOLDOWN)) {
         analyticsRetryLater("SDIO busy");
         return;

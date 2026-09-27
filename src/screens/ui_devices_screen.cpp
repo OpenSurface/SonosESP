@@ -16,6 +16,16 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // ============================================================================
 // Devices (Speakers) Screen
 // ============================================================================
+// Lock wait for these two screens. Longer than the 30ms ui_sidebar.cpp uses,
+// deliberately: that is a 500ms timer where the next tick is imminent, so
+// giving up costs nothing. These are tap-driven one-shot builds - the user has
+// just asked for the screen, nothing will rebuild it until they tap again, and
+// a degraded row shows an IP where a name should be. updateQueue() holds
+// deviceMutex across a ~20KB DIDL parse for tens-to-hundreds of ms, so 30ms
+// loses that race often; 150ms rides out most of it and is imperceptible.
+// Bounded overall by the degraded flag: only the FIRST row can pay this.
+#define UI_DEVICE_SNAPSHOT_WAIT_MS 150
+
 void refreshDeviceList() {
     lv_obj_clean(list_devices);
     int cnt = sonos.getDeviceCount();
@@ -46,7 +56,7 @@ void refreshDeviceList() {
         int  memberCount = 1;
         bool isPlaying   = false;
         int  s_volume    = 0;
-        if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+        if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
             s_room    = dev->roomName;
             s_rincon  = dev->rinconID;
             isPlaying = dev->isPlaying;
@@ -206,7 +216,7 @@ void refreshDeviceList() {
                 // Membership test + name under one hold, released before LVGL.
                 String s_mem_room;
                 bool   in_group = false;
-                if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+                if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
                     in_group = SonosController::uuidEquals(member->groupCoordinatorUUID, s_rincon);
                     if (in_group) s_mem_room = member->roomName;
                     xSemaphoreGive(dm);
@@ -272,7 +282,7 @@ void refreshDeviceList() {
         // runs inside the same hold as this row's name copy.
         bool coordinatorFound = false;
         String s_sa_room;
-        if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+        if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
             for (int j = 0; j < cnt; j++) {
                 SonosDevice* coord = sonos.getDevice(j);
                 if (coord && SonosController::uuidEquals(coord->rinconID,

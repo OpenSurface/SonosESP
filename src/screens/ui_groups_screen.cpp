@@ -16,6 +16,16 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // ============================================================================
 // Groups Screen
 // ============================================================================
+// Lock wait for these two screens. Longer than the 30ms ui_sidebar.cpp uses,
+// deliberately: that is a 500ms timer where the next tick is imminent, so
+// giving up costs nothing. These are tap-driven one-shot builds - the user has
+// just asked for the screen, nothing will rebuild it until they tap again, and
+// a degraded row shows an IP where a name should be. updateQueue() holds
+// deviceMutex across a ~20KB DIDL parse for tens-to-hundreds of ms, so 30ms
+// loses that race often; 150ms rides out most of it and is imperceptible.
+// Bounded overall by the degraded flag: only the FIRST row can pay this.
+#define UI_DEVICE_SNAPSHOT_WAIT_MS 150
+
 void refreshGroupsList() {
     if (!list_groups) return;
     lv_obj_clean(list_groups);
@@ -65,7 +75,7 @@ void refreshGroupsList() {
         String s_room, s_track, s_artist;
         int  memberCount = 0;
         bool isPlaying   = false;
-        if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+        if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
             s_room    = dev->roomName;
             s_track   = dev->currentTrack;
             s_artist  = dev->currentArtist;
@@ -186,7 +196,7 @@ void refreshGroupsList() {
                 // before any LVGL call below.
                 String s_mem_room;
                 bool   in_group = false;
-                if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+                if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
                     in_group = SonosController::uuidEquals(member->groupCoordinatorUUID,
                                                            dev->rinconID);
                     if (in_group) s_mem_room = member->roomName;
@@ -258,7 +268,7 @@ void refreshGroupsList() {
         if (coordinator) {
             // Snapshot the selected coordinator once for this whole section.
             String s_coord_room, s_coord_rincon;
-            if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+            if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
                 s_coord_room   = coordinator->roomName;
                 s_coord_rincon = coordinator->rinconID;
                 xSemaphoreGive(dm);
@@ -299,7 +309,7 @@ void refreshGroupsList() {
                 String s_dev_room;
                 bool   already_in = false, isCoord = false;
                 int    otherMembers = 0;
-                if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+                if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
                     already_in = SonosController::uuidEquals(dev->groupCoordinatorUUID,
                                                              s_coord_rincon);
                     if (!already_in) {
@@ -326,7 +336,7 @@ void refreshGroupsList() {
                 SonosDevice* otherCoord = followsOther ? sonos.groupCoordinatorFor(dev) : nullptr;
                 String s_other_room;
                 if (otherCoord && otherCoord != dev) {
-                    if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+                    if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
                         s_other_room = otherCoord->roomName;
                         xSemaphoreGive(dm);
                     } else {
