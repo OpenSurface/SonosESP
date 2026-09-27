@@ -45,7 +45,7 @@ typedef lv_obj_t* (*ClockFaceRootFn)(void);
 typedef struct {
     const char*      name;        // label in the settings dropdown
     const char*      desc;        // one-line description under the dropdown
-    bool             photo_bg;    // true = wants the Unsplash/loremflickr backdrop.
+    bool             photo_bg;    // true = wants the Bing daily-wallpaper backdrop.
                                   // The Nocturne faces paint their own gradient and
                                   // must suppress the photo fetch entirely.
     ClockFaceBuildFn build;

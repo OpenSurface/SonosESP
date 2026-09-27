@@ -1,6 +1,6 @@
 /**
  * Clock / Screensaver Feature
- * NTP clock with optional loremflickr.com photo background
+ * NTP clock with optional Bing daily-wallpaper photo background
  * Declarations, timezone list, and state management
  */
 
@@ -118,41 +118,58 @@ static const ClockZone CLOCK_ZONES[] = {
 static const int CLOCK_ZONES_COUNT = (int)(sizeof(CLOCK_ZONES) / sizeof(CLOCK_ZONES[0]));
 
 // ============================================================================
-// Photo background keyword list (used by settings dropdown + clockBgTask URL)
+// Photo background regions (settings dropdown + the Bing market to request)
+// ----------------------------------------------------------------------------
+// Regions, not keywords, because the photos now come from Bing's daily
+// wallpapers rather than loremflickr, and Bing has no keyword search.
+//
+// Why the source changed: loremflickr returns 401 to everyone. Flickr blocked
+// its API in late 2024, lifted the block in late 2025, and blocked it again;
+// upstream's own answer is to self-host, which a panel cannot do. It is dead
+// for every user who had photo backgrounds enabled.
+//
+// Bing was picked after testing the alternatives against what this code needs:
+//   * picsum.photos serves PROGRESSIVE JPEG, and JPEGDEC decodes baseline only.
+//     Re-tested including ?grayscale; still progressive. Ruled out, again.
+//   * Wikimedia Commons needs a JSON query plus a second fetch, is HTTPS-only,
+//     and returns thumb URLs of ~300 percent-encoded characters.
+//   * Bing serves a pixel-exact 800x480 BASELINE JPEG at ~61KB. Verified by
+//     walking the JPEG segments, not by trusting the extension.
+//
+// Every market carries eight images and none of them overlap, so the pool is
+// 8 per region, refreshed daily, and "Shuffle all" draws from roughly 96.
 // ============================================================================
-struct ClockBgKeyword {
+struct ClockBgRegion {
     const char* label;  // Shown in settings dropdown
-    const char* kw;     // Appended to loremflickr URL ("" = no keyword = truly random)
+    const char* mkt;    // Bing market code ("" = pick a random market each fetch)
 };
 
-static const ClockBgKeyword CLOCK_BG_KEYWORDS[] = {
-    {"Random",        ""},
-    {"Landscape",     "landscape"},
-    {"Nature",        "nature"},
-    {"City",          "city"},
-    {"Architecture",  "architecture"},
-    {"Ocean",         "ocean"},
-    {"Mountain",      "mountain"},
-    {"Forest",        "forest"},
-    {"Sunset",        "sunset"},
-    {"Abstract",      "abstract"},
-    {"Travel",        "travel"},
-    {"Space",         "space"},
-    {"Winter",        "winter"},
-    {"Autumn",        "autumn"},
-    {"Beach",         "beach"},
-    {"Desert",        "desert"},
-    {"Waterfall",     "waterfall"},
-    {"Aurora",        "aurora"},
-    {"Night",         "night"},
-    {"Minimalism",    "minimalism"},
-    {"Fog",           "fog"},
-    {"Flowers",       "flowers"},
-    {"Aerial",        "aerial"},
-    {"Rain",          "rain"},
-    {"Village",       "village"},
+static const ClockBgRegion CLOCK_BG_REGIONS[] = {
+    {"Shuffle all",     ""},
+    {"United States",   "en-US"},
+    {"United Kingdom",  "en-GB"},
+    {"Canada",          "en-CA"},
+    {"Australia",       "en-AU"},
+    {"India",           "en-IN"},
+    {"Germany",         "de-DE"},
+    {"France",          "fr-FR"},
+    {"Spain",           "es-ES"},
+    {"Italy",           "it-IT"},
+    {"Brazil",          "pt-BR"},
+    {"Japan",           "ja-JP"},
+    {"China",           "zh-CN"},
 };
-static const int CLOCK_BG_KW_COUNT = (int)(sizeof(CLOCK_BG_KEYWORDS) / sizeof(CLOCK_BG_KEYWORDS[0]));
+static const int CLOCK_BG_REGION_COUNT =
+    (int)(sizeof(CLOCK_BG_REGIONS) / sizeof(CLOCK_BG_REGIONS[0]));
+
+// Bing offers fixed sizes only. 800x480 is exact for the 4"; 1024x600 is not
+// offered, so the 7" takes 1024x768 — the width matches and the decoder's
+// callback already clips vertical overflow, so it crops rather than resamples.
+#if SCREEN_SIZE == 7
+  #define CLOCK_BG_BING_SIZE "1024x768"
+#else
+  #define CLOCK_BG_BING_SIZE "800x480"
+#endif
 
 // ── Weather widget city list ─────────────────────────────────────────────────
 // lat/lon = coordinates for Open-Meteo API. lat=0/lon=0 = auto-detect via ip-api.com.

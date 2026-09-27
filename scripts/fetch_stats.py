@@ -93,26 +93,29 @@ def main():
     try:
         hits = api("/stats/hits", window)
 
-        # Collect the boot paths this window actually saw, so the country
-        # breakdown can be restricted to them.
-        #
-        # /stats/locations is site-wide by default: it reports the location of
-        # EVERY request the site received, not just panel boots. Anything else
-        # that touches the endpoint — a probe, a monitor, a stray fetch — lands
-        # in the country list as though it were a device. include_paths exists
-        # on this endpoint precisely for this, and the first version did not use
-        # it, which is why a country appeared that no panel is in.
         boot_paths = [
             row.get("path", "")
             for row in hits.get("hits", [])
             if re.match(r"^/boot/v?[0-9]+\.[0-9]+\.[0-9]+/(4|7)in/?$", row.get("path", ""))
         ]
 
-        loc_params = dict(window)
-        if boot_paths:
-            loc_params["path_by_name"] = "true"
-            loc_params["include_paths"] = boot_paths   # urlencode(doseq) repeats the key
-        countries_raw = api("/stats/locations", loc_params)
+        # Locations are fetched UNFILTERED, on purpose.
+        #
+        # This previously passed include_paths + path_by_name to restrict the
+        # breakdown to boot pings, which sounded strictly more correct. Measured
+        # against reality it was worse: the filtered call dropped Canada entirely
+        # from a window in which a Canadian panel had demonstrably pinged, and
+        # returned 1 per country where the unfiltered call returned real counts.
+        # GoatCounter appears to report locations per session rather than per
+        # hit, and combining that with a path filter produces something that does
+        # not answer "where are the panels".
+        #
+        # Unfiltered is not perfectly clean either — it counts any request to the
+        # site, not only boots — but this site receives essentially nothing else,
+        # and a list that includes every country with a panel beats a tidier one
+        # that silently omits them. The counts are not published (see the docs
+        # component), only the names, so the residual noise costs nothing.
+        countries_raw = api("/stats/locations", window)
 
         # Raw responses to the job log, never to the published file.
         #
