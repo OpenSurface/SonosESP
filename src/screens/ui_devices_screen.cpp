@@ -21,6 +21,16 @@ void refreshDeviceList() {
     int cnt = sonos.getDeviceCount();
     SonosDevice* current = sonos.getCurrentDevice();
 
+    // This screen read device Strings with no deviceMutex at all. roomName and
+    // groupCoordinatorUUID are reassigned by refreshGroupTopology() on the
+    // NETWORK task (sonos_controller.cpp:2741) — reachable from an ordinary
+    // volume change, not just a Scan — and a String assignment frees the buffer
+    // a c_str() just handed to a label. Snapshot per row, release before LVGL.
+    // Degrade rather than return on a busy lock: lv_obj_clean() has already run,
+    // so returning would leave the user on a permanently empty list.
+    bool degraded = false;
+    SemaphoreHandle_t dm = sonos.getDeviceMutex();
+
     // First pass: Show group coordinators (standalone or group leaders)
     for (int i = 0; i < cnt; i++) {
         SonosDevice* dev = sonos.getDevice(i);
@@ -29,19 +39,35 @@ void refreshDeviceList() {
         // Skip non-coordinators (they'll be shown under their coordinator)
         if (!dev->isGroupCoordinator) continue;
 
-        // Count members in this group
-        int memberCount = 1;
-        for (int j = 0; j < cnt; j++) {
-            if (j == i) continue;
-            SonosDevice* member = sonos.getDevice(j);
-            if (member && SonosController::uuidEquals(member->groupCoordinatorUUID,
-                                                      dev->rinconID)) {
-                memberCount++;
+        // Snapshot + membership count under one hold. uuidEquals() is
+        // allocation-free and must not take the lock itself, so running it in
+        // here is both safe and what keeps the count consistent with the row.
+        String s_room, s_rincon;
+        int  memberCount = 1;
+        bool isPlaying   = false;
+        int  s_volume    = 0;
+        if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+            s_room    = dev->roomName;
+            s_rincon  = dev->rinconID;
+            isPlaying = dev->isPlaying;
+            s_volume  = dev->volume;
+            for (int j = 0; j < cnt; j++) {
+                if (j == i) continue;
+                SonosDevice* member = sonos.getDevice(j);
+                if (member && SonosController::uuidEquals(member->groupCoordinatorUUID,
+                                                          dev->rinconID)) {
+                    memberCount++;
+                }
             }
+            xSemaphoreGive(dm);
+        } else {
+            degraded  = true;
+            s_room    = dev->ip.toString();   // POD
+            isPlaying = dev->isPlaying;       // bool
+            s_volume  = dev->volume;          // int
         }
 
         bool isSelected = (current && dev->ip == current->ip);
-        bool isPlaying = dev->isPlaying;
         bool hasGroup = (memberCount > 1);
 
         // Create main button - taller if it has subtitle
@@ -77,7 +103,7 @@ void refreshDeviceList() {
 
         // Room name
         lv_obj_t* lbl = lv_label_create(btn);
-        lv_label_set_text(lbl, dev->roomName.c_str());
+        lv_label_set_text(lbl, s_room.c_str());
         lv_obj_set_style_text_color(lbl, AMB_TEXT, 0);
         lv_obj_set_style_text_font(lbl, &font_text_20, 0);
         // Cap + ellipsize: these labels had no width limit at all, so a long
@@ -109,7 +135,7 @@ void refreshDeviceList() {
         // the selected row only. Tapping any other row selects it, at which point
         // its volume is real and both appear.
         lv_obj_t* vol = lv_label_create(btn);
-        lv_label_set_text_fmt(vol, "%d", dev->volume);
+        lv_label_set_text_fmt(vol, "%d", s_volume);
         if (!isSelected) lv_obj_add_flag(vol, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_style_text_color(vol, AMB_TEXT3, 0);
         lv_obj_set_style_text_font(vol, &font_text_14, 0);
@@ -143,7 +169,7 @@ void refreshDeviceList() {
         lv_obj_set_size(vol_sl, lv_pct(88), SY(6));
         lv_obj_align(vol_sl, LV_ALIGN_BOTTOM_LEFT, SX(5), SY(-10));
         lv_slider_set_range(vol_sl, 0, 100);
-        lv_slider_set_value(vol_sl, dev->volume, LV_ANIM_OFF);
+        lv_slider_set_value(vol_sl, s_volume, LV_ANIM_OFF);
         lv_obj_set_style_bg_color(vol_sl, AMB_GROOVE, LV_PART_MAIN);
         lv_obj_set_style_radius(vol_sl, SMIN(3), LV_PART_MAIN);
         lv_obj_set_style_bg_color(vol_sl, isSelected ? AMB_ACCENT : AMB_TEXT3, LV_PART_INDICATOR);
@@ -175,8 +201,21 @@ void refreshDeviceList() {
             for (int j = 0; j < cnt; j++) {
                 if (j == i) continue;
                 SonosDevice* member = sonos.getDevice(j);
-                if (!member ||
-                    !SonosController::uuidEquals(member->groupCoordinatorUUID, dev->rinconID)) continue;
+                if (!member) continue;
+
+                // Membership test + name under one hold, released before LVGL.
+                String s_mem_room;
+                bool   in_group = false;
+                if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+                    in_group = SonosController::uuidEquals(member->groupCoordinatorUUID, s_rincon);
+                    if (in_group) s_mem_room = member->roomName;
+                    xSemaphoreGive(dm);
+                } else {
+                    degraded   = true;
+                    in_group   = true;                  // already counted above
+                    s_mem_room = member->ip.toString();
+                }
+                if (!in_group) continue;
 
                 lv_obj_t* memBtn = lv_btn_create(list_devices);
                 lv_obj_set_size(memBtn, lv_pct(95), SY(50));
@@ -196,7 +235,7 @@ void refreshDeviceList() {
                 lv_obj_align(memIcon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
                 lv_obj_t* memLbl = lv_label_create(memBtn);
-                lv_label_set_text(memLbl, member->roomName.c_str());
+                lv_label_set_text(memLbl, s_mem_room.c_str());
                 lv_obj_set_style_text_color(memLbl, AMB_TEXT, 0);
                 lv_obj_set_style_text_font(memLbl, &font_text_16, 0);
                 lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, SX(55), 0);
@@ -229,15 +268,24 @@ void refreshDeviceList() {
         SonosDevice* dev = sonos.getDevice(i);
         if (!dev || dev->isGroupCoordinator) continue;
 
-        // Check if this device's coordinator is in our list
+        // The coordinator search reads coord->rinconID for every j, so it
+        // runs inside the same hold as this row's name copy.
         bool coordinatorFound = false;
-        for (int j = 0; j < cnt; j++) {
-            SonosDevice* coord = sonos.getDevice(j);
-            if (coord && SonosController::uuidEquals(coord->rinconID,
-                                                     dev->groupCoordinatorUUID)) {
-                coordinatorFound = true;
-                break;
+        String s_sa_room;
+        if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+            for (int j = 0; j < cnt; j++) {
+                SonosDevice* coord = sonos.getDevice(j);
+                if (coord && SonosController::uuidEquals(coord->rinconID,
+                                                         dev->groupCoordinatorUUID)) {
+                    coordinatorFound = true;
+                    break;
+                }
             }
+            if (!coordinatorFound) s_sa_room = dev->roomName;
+            xSemaphoreGive(dm);
+        } else {
+            degraded  = true;
+            s_sa_room = dev->ip.toString();
         }
 
         // If coordinator not found, show as standalone
@@ -259,7 +307,7 @@ void refreshDeviceList() {
             lv_obj_align(icon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
             lv_obj_t* lbl = lv_label_create(btn);
-            lv_label_set_text(lbl, dev->roomName.c_str());
+            lv_label_set_text(lbl, s_sa_room.c_str());
             lv_obj_set_style_text_color(lbl, AMB_TEXT, 0);
             lv_obj_set_style_text_font(lbl, &font_text_20, 0);
             lv_obj_set_width(lbl, SX(430));

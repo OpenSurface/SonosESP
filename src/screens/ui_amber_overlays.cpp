@@ -764,9 +764,28 @@ bool amberShowSleep(void) {
     // room stops its partners too, and that should not be a surprise.
     char sub[64] = "";
     if (SonosDevice* d = sonos.getCurrentDevice()) {
-        const int others = d->groupMemberCount > 1 ? d->groupMemberCount - 1 : 0;
-        if (others > 0) snprintf(sub, sizeof(sub), "Stops %s + %d", d->roomName.c_str(), others);
-        else            snprintf(sub, sizeof(sub), "Stops %s", d->roomName.c_str());
+        // Snapshot roomName, for uniformity with ovFillQueue/ovFillRooms above.
+        //
+        // Not a live race, unlike those two: roomName's only writers are in
+        // sonos_discovery.cpp, and discoverDevices() runs on this same task
+        // (both call sites are LVGL callbacks), so it cannot interleave. The
+        // one off-task writer is tryLoadCachedDevice() on deferredDiscoveryTask,
+        // but currentDeviceIndex is still -1 then, so getCurrentDevice() returns
+        // nullptr and this block never runs. Snapshotting anyway costs nothing
+        // and means every reader in this file follows one rule.
+        String s_room;
+        int    others = 0;
+        SemaphoreHandle_t dm = sonos.getDeviceMutex();
+        if (dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+            s_room = d->roomName;
+            others = d->groupMemberCount > 1 ? d->groupMemberCount - 1 : 0;
+            xSemaphoreGive(dm);
+        } else {
+            s_room = d->ip.toString();   // never return: the sheet is already up
+            others = d->groupMemberCount > 1 ? d->groupMemberCount - 1 : 0;
+        }
+        if (others > 0) snprintf(sub, sizeof(sub), "Stops %s + %d", s_room.c_str(), others);
+        else            snprintf(sub, sizeof(sub), "Stops %s", s_room.c_str());
         for (char* c = sub; *c; c++) *c = (char)toupper((unsigned char)*c);
     }
     ovSetText(ov_sleep_sub, sub);
