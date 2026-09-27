@@ -330,6 +330,11 @@ void updateToastHide(void);
 // Set by the background update check; read by the toast scheduler.
 extern volatile bool ota_update_available;
 
+// One-shot: suppresses the Updates screen's on-load reset for the next load.
+// Set only by the toast, which arrives at that screen carrying a result the
+// reset would immediately throw away. See ui_ota_screen.cpp.
+extern bool ota_skip_load_reset;
+
 // Periodic "is there a newer release" check. Call once per mainAppTask
 // iteration; a cheap no-op until its interval is due.
 void otaBackgroundCheckTick();

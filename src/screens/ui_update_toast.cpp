@@ -95,6 +95,10 @@ static void toastClicked(lv_event_t* e) {
     // Dismiss without animating: the screen is about to change underneath it,
     // and a pill fading out over a screen it was never placed on looks wrong.
     toastDismiss(false);
+    // The Updates screen clears its last result on load, so that it never shows
+    // a stale version as current. We are carrying a fresh one — the whole point
+    // of the tap — so suppress that reset exactly once.
+    ota_skip_load_reset = true;
     if (scr_ota) lv_screen_load(scr_ota);
 }
 

@@ -29,6 +29,9 @@
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 
+// Consumed by the SCREEN_LOADED reset at the bottom of this file.
+bool ota_skip_load_reset = false;
+
 // ── Grid ────────────────────────────────────────────────────────────────────
 #define OTA_CARD_Y     52
 #define OTA_CARD_H     100
@@ -269,6 +272,14 @@ void createOTAScreen() {
     lv_obj_add_event_cb(scr_ota, [](lv_event_t* e) {
         if (lv_event_get_code(e) != LV_EVENT_SCREEN_LOADED) return;
         if (ota_in_progress) return;             // an install is mid-flight
+        // Arriving from the update toast. The background check has just filled
+        // latest_version, download_url and the Install button, and the toast
+        // advertised precisely that — so resetting here would show the user a
+        // blank AVAILABLE and "Tap 'Check for Updates' to begin", and a manual
+        // re-check inside OTA_CHECK_DEBOUNCE_MS would answer "please wait 5
+        // seconds". One-shot, so the normal stale-result reset still applies to
+        // every other way of reaching this screen.
+        if (ota_skip_load_reset) { ota_skip_load_reset = false; return; }
         latest_version = "";
         download_url   = "";
         if (lbl_latest_version) lv_label_set_text(lbl_latest_version, "--");
