@@ -336,8 +336,15 @@ void createClockSettingsScreen() {
             clock_timeout_min = lv_slider_get_value(s);
             lv_label_set_text_fmt((lv_obj_t*)lv_event_get_user_data(e),
                                   "%d min", clock_timeout_min);
-            wifiPrefs.putInt(NVS_KEY_CLOCK_TIMEOUT, clock_timeout_min);
         }, LV_EVENT_VALUE_CHANGED, lbl_timeout_val);
+        // Persist on release, not on every drag step — see ui_display_screen.cpp
+        // for the full reasoning. putInt() is nvs_set + nvs_commit with no
+        // coalescing, and a page compaction erases a 4KB sector with the caches
+        // off and the other core parked. Dragging 1→60 committed 59 times.
+        lv_obj_add_event_cb(sl_timeout, [](lv_event_t* e) {
+            LV_UNUSED(e);
+            wifiPrefs.putInt(NVS_KEY_CLOCK_TIMEOUT, clock_timeout_min);
+        }, LV_EVENT_RELEASED, NULL);
 
         lv_obj_t* slot_12h = addSettingRow(card, "12-hour format",
                                            "Off = 24-hour clock", true);
@@ -420,8 +427,11 @@ void createClockSettingsScreen() {
             clock_refresh_min = lv_slider_get_value(s);
             lv_label_set_text_fmt((lv_obj_t*)lv_event_get_user_data(e),
                                   "%d min", clock_refresh_min);
-            wifiPrefs.putInt(NVS_KEY_CLOCK_REFRESH, clock_refresh_min);
         }, LV_EVENT_VALUE_CHANGED, lbl_refresh_val);
+        lv_obj_add_event_cb(sl_refresh, [](lv_event_t* e) {   // see above
+            LV_UNUSED(e);
+            wifiPrefs.putInt(NVS_KEY_CLOCK_REFRESH, clock_refresh_min);
+        }, LV_EVENT_RELEASED, NULL);
     }
 
     // ────────────────────────────────────────────────────────────────────────
