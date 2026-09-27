@@ -25,6 +25,12 @@
 #include "amber.h"
 #include "amber_icons.h"
 
+// Lives here, not in config.h: SY() comes from ui_scale.h, which includes
+// config.h and not the other way round, so this was the one macro in
+// config.h that only compiled because every user happened to pull in
+// ui_scale.h first. It is layout, not configuration.
+#define UPDATE_TOAST_Y  SY(14)   // resting distance from the top edge
+
 static lv_obj_t*  toast     = nullptr;
 static lv_timer_t* hide_tmr = nullptr;
 
@@ -42,6 +48,12 @@ static void toastYCb(void* obj, int32_t v) {
     lv_obj_set_y((lv_obj_t*)obj, v);
 }
 static void toastOpaCb(void* obj, int32_t v) {
+    lv_obj_set_style_opa((lv_obj_t*)obj, (lv_opa_t)v, 0);
+}
+// Deliberately a second, identical function rather than reusing toastOpaCb:
+// lv_anim_get() matches on (var, exec_cb), so sharing one callback makes the
+// dismiss guard below unable to tell an entrance fade from an exit fade.
+static void toastOpaOutCb(void* obj, int32_t v) {
     lv_obj_set_style_opa((lv_obj_t*)obj, (lv_opa_t)v, 0);
 }
 static void toastDeleteCb(lv_anim_t* a) {
@@ -66,16 +78,25 @@ static void toastDismiss(bool animate) {
         return;
     }
 
-    // Guard against a second dismiss landing mid-flight: an in-progress fade
-    // already owns the object and will delete it.
-    if (lv_anim_get(toast, toastOpaCb)) return;
+    // Guard against a second dismiss landing mid-flight: an in-progress EXIT
+    // fade already owns the object and will delete it. Matching on the exit
+    // callback specifically - the previous version matched toastOpaCb, which
+    // the entrance fade also uses, so if UPDATE_TOAST_HOLD_MS were ever dropped
+    // below UPDATE_TOAST_FADE_MS the dismiss would no-op against its own
+    // entrance animation, with hide_tmr already deleted, and the toast would
+    // stay on screen forever.
+    if (lv_anim_get(toast, toastOpaOutCb)) return;
+    // Splitting the callbacks also means lv_anim_start() no longer implicitly
+    // replaces an in-flight entrance fade, so kill it explicitly or the two
+    // opacity animations fight.
+    lv_anim_delete(toast, toastOpaCb);
 
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, toast);
     lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
     lv_anim_set_duration(&a, UPDATE_TOAST_FADE_MS);
-    lv_anim_set_exec_cb(&a, toastOpaCb);
+    lv_anim_set_exec_cb(&a, toastOpaOutCb);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
     lv_anim_set_completed_cb(&a, toastDeleteCb);   // frees the object, clears `toast`
     lv_anim_start(&a);

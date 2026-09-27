@@ -305,5 +305,5 @@ void createOTAScreen() {
             lv_label_set_text(lbl_ota_status, "Tap 'Check for Updates' to begin");
             lv_obj_set_style_text_color(lbl_ota_status, AMB_TEXT3, 0);
         }
-    }, LV_EVENT_ALL, NULL);
+    }, LV_EVENT_SCREEN_LOADED, NULL);
 }

@@ -221,7 +221,6 @@
 #define OTA_BGCHECK_RETRY_MS    (5UL * 60UL * 1000UL)         // busy radio: look again in 5 min
 #define UPDATE_TOAST_HOLD_MS    14000   // visible before it fades itself out
 #define UPDATE_TOAST_FADE_MS    320     // slide + fade, in and out
-#define UPDATE_TOAST_Y          SY(14)  // resting distance from the top edge
 
 // Extra settle before the boot banner, on a USB/JTAG reset only (issue #164).
 // Those are the resets a host causes by attaching, so the CDC link is still
