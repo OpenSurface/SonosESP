@@ -57,44 +57,84 @@ static const char* nightLevelText(int level) {
     return buf;
 }
 
-// The two ends of the window, as chips that step half an hour a tap and wrap at
-// midnight. A roller each would be more precise than "about bedtime" needs, and
-// this stays readable at arm's length in a dark room.
-struct NightChip { int* minutes; const char* key; lv_obj_t* lbl; };
-static NightChip s_night_from;
-static NightChip s_night_to;
+// The two ends of the window, each a dropdown of every half hour in the day.
+//
+// These used to be chips that advanced 30 minutes per tap and wrapped at
+// midnight. Setting a 22:00-07:00 window that way is eighteen taps, and going
+// one step too far means going all the way round again. A dropdown is one tap
+// and a scroll, and it also shows the whole range so there is no guessing about
+// what the step is.
+#define NIGHT_SLOTS (24 * 60 / NIGHT_STEP_MIN)   // 48 half hours
 
-static void nightChipClicked(lv_event_t* e) {
-    NightChip* c = (NightChip*)lv_event_get_user_data(e);
-    *c->minutes = (*c->minutes + NIGHT_STEP_MIN) % (24 * 60);
-    wifiPrefs.putInt(c->key, *c->minutes);
-    char txt[12];
-    nightTimeText(txt, sizeof(txt), *c->minutes);
-    lv_label_set_text(c->lbl, txt);
+// "00:00\n00:30\n...\n23:30", or 12-hour when the clock is set that way.
+// Static because lv_dropdown_set_options() copies, but building it once per
+// screen creation is cheap and this keeps the buffer off the stack.
+static const char* nightSlotOptions() {
+    static char opts[NIGHT_SLOTS * 12];
+    size_t n = 0;
+    for (int i = 0; i < NIGHT_SLOTS; i++) {
+        char t[12];
+        nightTimeText(t, sizeof(t), i * NIGHT_STEP_MIN);
+        n += snprintf(opts + n, sizeof(opts) - n, "%s%s", i ? "\n" : "", t);
+        if (n >= sizeof(opts)) break;
+    }
+    return opts;
 }
 
-static lv_obj_t* nightChip(lv_obj_t* parent, NightChip* state) {
-    lv_obj_t* b = lv_button_create(parent);
-    lv_obj_set_size(b, LV_SIZE_CONTENT, SY(34));
-    lv_obj_set_style_radius(b, SMIN(17), 0);
-    lv_obj_set_style_bg_color(b, AMB_RAISED, 0);
-    lv_obj_set_style_border_width(b, 1, 0);
-    lv_obj_set_style_border_color(b, AMB_BORDER, 0);
-    lv_obj_set_style_border_color(b, AMB_ACCENT, LV_STATE_PRESSED);
-    lv_obj_set_style_shadow_width(b, 0, 0);
-    lv_obj_set_style_pad_hor(b, SX(14), 0);
-    lv_obj_set_style_pad_ver(b, 0, 0);
-    lv_obj_set_flex_flow(b, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(b, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_add_event_cb(b, nightChipClicked, LV_EVENT_CLICKED, state);
+struct NightSlot { int* minutes; const char* key; };
+static NightSlot s_night_from;
+static NightSlot s_night_to;
 
-    char txt[12];
-    nightTimeText(txt, sizeof(txt), *state->minutes);
-    state->lbl = lv_label_create(b);
-    lv_obj_set_style_text_font(state->lbl, &font_text_16, 0);
-    lv_obj_set_style_text_color(state->lbl, AMB_TEXT, 0);
-    lv_label_set_text(state->lbl, txt);
-    return b;
+static void nightSlotChanged(lv_event_t* e) {
+    NightSlot* s = (NightSlot*)lv_event_get_user_data(e);
+    lv_obj_t* dd = (lv_obj_t*)lv_event_get_target(e);
+    *s->minutes = (int)lv_dropdown_get_selected(dd) * NIGHT_STEP_MIN;
+    // One write per selection, not per drag — unlike a slider, so this is safe
+    // on VALUE_CHANGED. Same as the Clock screen's dropdowns.
+    wifiPrefs.putInt(s->key, *s->minutes);
+}
+
+static lv_obj_t* nightSlotDropdown(lv_obj_t* parent, NightSlot* state) {
+    lv_obj_t* dd = lv_dropdown_create(parent);
+    lv_dropdown_set_options(dd, nightSlotOptions());
+    // Round down rather than trusting the stored value to be on a boundary: an
+    // older build, or a half-written NVS value, must not select out of range.
+    int slot = (*state->minutes / NIGHT_STEP_MIN);
+    if (slot < 0 || slot >= NIGHT_SLOTS) slot = 0;
+    lv_dropdown_set_selected(dd, (uint16_t)slot);
+
+    // Tight on purpose. The row's control slot is LV_SIZE_CONTENT sitting
+    // beside the title block, so every pixel here is taken off the title and
+    // its description. "23:30" plus the dropdown chevron and padding needs
+    // ~90; "11:30 PM" needs ~110.
+    lv_obj_set_width(dd, SX(clock_12h ? 130 : 100));
+    lv_obj_set_style_bg_color(dd, AMB_RAISED, 0);
+    lv_obj_set_style_text_color(dd, AMB_TEXT, 0);
+    lv_obj_set_style_text_font(dd, &font_text_16, 0);
+    lv_obj_set_style_border_width(dd, 1, 0);
+    lv_obj_set_style_border_color(dd, AMB_BORDER, 0);
+    lv_obj_set_style_radius(dd, 8, 0);
+    lv_obj_set_style_pad_all(dd, SMIN(8), 0);
+    lv_obj_set_style_shadow_width(dd, 0, 0);
+
+    // The highlighted row in the OPEN list is LV_PART_SELECTED. Styling only the
+    // list leaves this part to LVGL's default theme, which is light — a dark
+    // list with a white selection bar. Same trap as ui_clock_settings.cpp.
+    lv_obj_set_style_bg_color(dd, AMB_RAISED, LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(dd, AMB_ACCENT,
+        (lv_style_selector_t)((uint32_t)LV_PART_SELECTED | (uint32_t)LV_STATE_CHECKED));
+    lv_obj_set_style_text_color(dd, AMB_TEXT, LV_PART_SELECTED);
+
+    lv_obj_t* list = lv_dropdown_get_list(dd);
+    if (list) {
+        lv_obj_set_height(list, SY(220));   // 48 entries — scrolls
+        lv_obj_set_style_bg_color(list, AMB_RAISED, 0);
+        lv_obj_set_style_text_color(list, AMB_TEXT, 0);
+        lv_obj_set_style_text_font(list, &font_text_16, 0);
+        lv_obj_set_style_border_color(list, AMB_BORDER, 0);
+    }
+    lv_obj_add_event_cb(dd, nightSlotChanged, LV_EVENT_VALUE_CHANGED, state);
+    return dd;
 }
 
 // ============================================================================
@@ -185,17 +225,18 @@ void createDisplaySettingsScreen() {
             wifiPrefs.putBool(NVS_KEY_NIGHT_ON, night_enabled);
         }, LV_EVENT_VALUE_CHANGED, NULL);
 
-        // From / to, as two chips that step half an hour a tap. A roller for
-        // each would be more precise than anyone needs for "about bedtime", and
-        // this stays readable at arm's length in the dark.
+        // From / to, as two dropdowns of every half hour.
         lv_obj_t* times = addSettingRow(card, "From / to",
-                                        "Tap a time to move it half an hour", false);
+                                        "When the screen dims at night", false);
         lv_obj_set_style_pad_column(times, SX(8), 0);
-        s_night_from = { &night_from_min, NVS_KEY_NIGHT_FROM, nullptr };
-        s_night_to   = { &night_to_min,   NVS_KEY_NIGHT_TO,   nullptr };
-        nightChip(times, &s_night_from);
-        addValueLabel(times, "→");
-        nightChip(times, &s_night_to);
+        s_night_from = { &night_from_min, NVS_KEY_NIGHT_FROM };
+        s_night_to   = { &night_to_min,   NVS_KEY_NIGHT_TO   };
+        nightSlotDropdown(times, &s_night_from);
+        // "to", not an arrow. U+2192 is in none of the fonts on this chain -
+        // lv_font_amber_16 carries only the U+E0xx icon range and the fallback
+        // is Montserrat - so it rendered as a missing-glyph box on the panel.
+        addValueLabel(times, "to");
+        nightSlotDropdown(times, &s_night_to);
 
         static lv_obj_t* lbl_night_val;
         lv_obj_t* row_night = addSliderRow(card, "Night brightness",
