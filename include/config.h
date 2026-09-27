@@ -543,9 +543,12 @@
 #define CLOCK_WX_REFRESH_MIN      15  // Re-fetch weather every 15 min (independent of photo rate)
 #define CLOCK_DEFAULT_WEATHER_FAHR 0  // 0 = Celsius, 1 = Fahrenheit
 
-#define CLOCK_BG_MAX_DL_SIZE  (512 * 1024)  // Max background JPEG download buffer (512KB; Flickr baseline ~100-250KB)
-// Clock background photo size. MUST track the panel: these drive the loremflickr
-// request URL, the PSRAM decode buffer, its stride, and the size of the image +
+// Max background JPEG download buffer. Generous now: Bing's fixed-size variants
+// are ~61KB at 800x480 and ~74KB at 1024x768, against loremflickr's 100-250KB.
+#define CLOCK_BG_MAX_DL_SIZE  (512 * 1024)
+// Clock background photo size. MUST track the panel: these drive the decode
+// target (CLOCK_BG_BING_SIZE picks the matching Bing variant),
+// the PSRAM decode buffer, its stride, and the size of the image +
 // dark overlay widgets. Hardcoded 800x480 meant the 7" (1024x600) asked for a
 // 4"-sized photo AND left a 224x120 L-shaped strip of the screen uncovered by the
 // image and its readability veil. Identity on the 4" â€” no change there.
@@ -646,6 +649,13 @@
 #define LYRICS_RETRY_DELAY_MS        2000   // Between lyrics HTTPS fetch retry attempts
 #define LYRICS_TCB_REAP_MS            100   // Grace before reusing the static TCB (idle0 reap)
 #define CLOCK_BG_MIN_DMA            64000   // Skip clockBgTask photo download if DMA below this.
+
+// Bing wallpaper API reply. Eight entries is ~3KB; the cap refuses anything
+// larger rather than letting getString() grow an unbounded Arduino String in
+// internal DRAM from a third-party response. The document is small because a
+// filter keeps only images[].urlbase — see bingFilter() in ui_clock_screen.cpp.
+#define CLOCK_BG_API_MAX_BYTES      16384
+#define CLOCK_BG_API_JSON_DOC        2048
                                             // TX crash confirmed at 57KB (log16) â€” 64KB = 7KB margin above crash floor.
                                             // Photo is non-critical (clock still shows, weather still fetches).
                                             // Unlike ART_MIN_DMA_PRE_BURST, NOT lowered: clockBgTask photo HTTP has

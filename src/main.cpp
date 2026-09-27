@@ -328,7 +328,10 @@ void setup() {
     clockFaceClampStyle();   // registry-driven: survives a face being removed by a downgrade
     // Clamp indices in case lists changed between firmware versions
     if (clock_tz_idx    < 0 || clock_tz_idx    >= CLOCK_ZONES_COUNT)   clock_tz_idx    = 0;
-    if (clock_bg_kw_idx < 0 || clock_bg_kw_idx >= CLOCK_BG_KW_COUNT)   clock_bg_kw_idx = 0;
+    // The photo list changed from 25 keywords to 13 regions when the source moved
+    // from loremflickr to Bing, so an existing device very likely holds an index
+    // past the end of the new list. This clamp is what catches that.
+    if (clock_bg_kw_idx < 0 || clock_bg_kw_idx >= CLOCK_BG_REGION_COUNT) clock_bg_kw_idx = 0;
     clock_weather_enabled  = wifiPrefs.getBool(NVS_KEY_CLOCK_WEATHER_EN,   (bool)CLOCK_DEFAULT_WEATHER_EN);
     clock_weather_city_idx = wifiPrefs.getInt(NVS_KEY_CLOCK_WEATHER_CITY,  CLOCK_DEFAULT_WEATHER_CITY);
     // Index range: 0..CLOCK_CITY_COUNT-1 = predefined cities (0 = Auto); CLOCK_CITY_COUNT = Custom (issue #74).
@@ -344,11 +347,11 @@ void setup() {
         clock_custom_lon = (lon_s.length() > 0) ? lon_s.toFloat() : 0.0f;
         strlcpy(clock_custom_name, name_s.c_str(), sizeof(clock_custom_name));
     }
-    Serial.printf("[CLOCK] mode=%d timeout=%dmin tz=%s picsum=%s refresh=%dmin kw=%s 12h=%s weather=%s city=%s\n",
+    Serial.printf("[CLOCK] mode=%d timeout=%dmin tz=%s photo=%s refresh=%dmin region=%s 12h=%s weather=%s city=%s\n",
                   clock_mode, clock_timeout_min,
                   CLOCK_ZONES[clock_tz_idx].name,
                   clock_picsum_enabled ? "on" : "off", clock_refresh_min,
-                  CLOCK_BG_KEYWORDS[clock_bg_kw_idx].label,
+                  CLOCK_BG_REGIONS[clock_bg_kw_idx].label,
                   clock_12h ? "yes" : "no",
                   clock_weather_enabled ? "on" : "off",
                   // Custom is a sentinel index one PAST the array, so it must not

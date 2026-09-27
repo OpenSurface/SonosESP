@@ -373,8 +373,8 @@ void createClockSettingsScreen() {
     {
         lv_obj_t* card = addCard(content, "Photo Background");
 
-        lv_obj_t* slot_picsum = addSettingRow(card, "Enable random photos",
-            "Random photos from Flickr via loremflickr.com (requires WiFi)", true);
+        lv_obj_t* slot_picsum = addSettingRow(card, "Enable photo background",
+            "Bing's daily photography behind the clock (requires WiFi)", true);
         lv_obj_t* sw_picsum = addSwitch(slot_picsum, clock_picsum_enabled);
         lv_obj_add_event_cb(sw_picsum, [](lv_event_t* e) {
             lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
@@ -382,15 +382,26 @@ void createClockSettingsScreen() {
             wifiPrefs.putBool(NVS_KEY_CLOCK_PICSUM, clock_picsum_enabled);
         }, LV_EVENT_VALUE_CHANGED, NULL);
 
-        lv_obj_t* slot_kw = addSettingRow(card, "Photo theme", nullptr, true);
+        // Region, not theme. The photos are Bing's daily wallpapers and Bing has
+        // no keyword search, so the old "Photo theme" list could not be kept.
+        // Region is a real choice rather than a cosmetic rename: each market
+        // carries eight images and no two markets share any, so this genuinely
+        // changes what you see. "Shuffle all" draws from every region.
+        lv_obj_t* slot_kw = addSettingRow(card, "Photo region",
+                                          "Daily photography from Bing. Each region has its own set.",
+                                          true);
         static char kw_opts[256];
         kw_opts[0] = '\0';
-        for (int i = 0; i < CLOCK_BG_KW_COUNT; i++) {
-            strncat(kw_opts, CLOCK_BG_KEYWORDS[i].label, sizeof(kw_opts) - strlen(kw_opts) - 2);
-            if (i < CLOCK_BG_KW_COUNT - 1)
+        for (int i = 0; i < CLOCK_BG_REGION_COUNT; i++) {
+            strncat(kw_opts, CLOCK_BG_REGIONS[i].label, sizeof(kw_opts) - strlen(kw_opts) - 2);
+            if (i < CLOCK_BG_REGION_COUNT - 1)
                 strncat(kw_opts, "\n", sizeof(kw_opts) - strlen(kw_opts) - 1);
         }
-        lv_obj_t* dd_kw = makeDropdown(slot_kw, kw_opts, (uint16_t)clock_bg_kw_idx, false);
+        // Clamp the stored index: it used to select from a 25-entry keyword list,
+        // so an existing device can hold a value past the end of this one.
+        uint16_t sel = (clock_bg_kw_idx >= 0 && clock_bg_kw_idx < CLOCK_BG_REGION_COUNT)
+                       ? (uint16_t)clock_bg_kw_idx : 0;
+        lv_obj_t* dd_kw = makeDropdown(slot_kw, kw_opts, sel, false);
         lv_obj_set_width(dd_kw, SX(206));
         lv_obj_add_event_cb(dd_kw, [](lv_event_t* e) {
             lv_obj_t* dd = (lv_obj_t*)lv_event_get_target(e);

@@ -1,7 +1,7 @@
 /**
  * Clock / Screensaver Screen
  *
- * Full-screen clock with NTP time, optional loremflickr.com photo background.
+ * Full-screen clock with NTP time, optional Bing daily-wallpaper background.
  * Activates based on user-configured inactivity or playback-state triggers.
  * All Sonos art/lyrics tasks are stopped while the clock is shown.
  *
@@ -33,6 +33,20 @@ LV_FONT_DECLARE(lv_font_weathericons_32);
 #include "ui_fonts.h"
 
 // ============================================================================
+// Keeps only images[].urlbase from Bing's reply.
+//
+// The response carries titles, copyright strings, descriptions and several URL
+// variants per image, in whatever language the market speaks. Filtering at
+// parse time means the JSON document only ever holds the handful of short
+// strings actually used, instead of a few KB of prose this code discards.
+static const JsonDocument& bingFilter() {
+    static StaticJsonDocument<64> filter;
+    if (filter.isNull() || filter.size() == 0) {
+        filter["images"][0]["urlbase"] = true;
+    }
+    return filter;
+}
+
 // JPEGDEC callback globals for clock background (file-scoped, not shared)
 // ============================================================================
 static uint16_t* clk_jpeg_dest   = nullptr;  // Points to clock_bg_buffer during decode
@@ -793,13 +807,14 @@ void clockBgTask(void* /*param*/) {
     clock_weather_needs_refetch = true;  // ensure weather fetches on first cycle
 
     while (!clock_bg_shutdown_requested) {
-        // --- Download loremflickr.com JPEG (plain HTTP, no TLS, up to 3 attempts) ---
+        // --- Download the Bing daily wallpaper (HTTPS, one attempt) ---
         // Skipped entirely when clock_picsum_enabled is false (weather-only mode).
-        // Two-step: GET loremflickr.com → parse Location redirect → fetch actual photo.
-        // loremflickr serves from its own cache (/cache/resized/...) via HTTP.
-        // "Random" (no keyword) hits Flickr API directly = 500 since Flickr blocked them.
-        // Fix: for Random mode pick a random keyword from the list so cache is always hit.
-        // picsum.photos NOT used: serves progressive JPEG, JPEGDEC only decodes baseline.
+        // Two-step: GET the wallpaper index as JSON → pick one → GET the image.
+        //
+        // picsum.photos is still NOT usable: it serves progressive JPEG and
+        // JPEGDEC decodes baseline only. Re-tested including ?grayscale.
+        // Bing's fixed-size variants are baseline, and 800x480 is pixel-exact
+        // for the 4", so nothing is rescaled on the way in.
         uint8_t* dl_buf = nullptr;
         int dl_total = 0;
 
@@ -818,27 +833,43 @@ void clockBgTask(void* /*param*/) {
         }
 
         if (dl_buf) {
-            const char* kw = CLOCK_BG_KEYWORDS[clock_bg_kw_idx].kw;
+            // Clamp: the stored index survives across firmware versions, and this
+            // list replaced a longer keyword list, so an old value can overrun it.
+            int region_idx = clock_bg_kw_idx;
+            if (region_idx < 0 || region_idx >= CLOCK_BG_REGION_COUNT) region_idx = 0;
 
-            // "Random" = empty keyword → pick a random keyword from the list (skip index 0)
-            // so loremflickr always serves from its keyword cache, never hits Flickr API
-            if (kw[0] == '\0' && CLOCK_BG_KW_COUNT > 1) {
-                kw = CLOCK_BG_KEYWORDS[1 + (esp_random() % (CLOCK_BG_KW_COUNT - 1))].kw;
+            const char* mkt = CLOCK_BG_REGIONS[region_idx].mkt;
+            // "Shuffle all" = empty market → draw a real one each fetch. Markets do
+            // not share images, so this widens the pool from 8 to roughly 96.
+            if (mkt[0] == '\0' && CLOCK_BG_REGION_COUNT > 1) {
+                mkt = CLOCK_BG_REGIONS[1 + (esp_random() % (CLOCK_BG_REGION_COUNT - 1))].mkt;
             }
 
-            const int MAX_ATTEMPTS = 3;
+            // One attempt, not three.
+            //
+            // loremflickr's 401 is not transient, and the old three-attempt loop
+            // meant three TLS handshakes, three mutex holds and three SDIO
+            // cooldowns per cycle to fail three times. A photo is decoration: if
+            // it does not arrive, the clock and weather are unaffected and the
+            // next cycle tries again anyway.
+            const int MAX_ATTEMPTS = 1;
 
             for (int attempt = 1; attempt <= MAX_ATTEMPTS && dl_total == 0 && !clock_bg_shutdown_requested; attempt++) {
 
-                // SDIO crash-defence: general cooldown only, and that is deliberate.
-                // Both steps below are plain HTTP (Step 1 explicitly rewrites an
-                // https:// redirect down to http://), so there is no mbedTLS DMA
-                // residue to drain and SDIO_WAIT_HTTPS_COOLDOWN would not apply.
-                // Do NOT "fix" this to add the HTTPS flag: its 3000ms silence before
-                // a large download is the P4 SDIO DMA clock-gate pattern that caused
-                // the :928 overflow, which is why art and lyrics had their storm
-                // gates removed too. The comment here used to claim HTTPS cooldowns.
-                if (!sdioPreWait("CLKBG", 0, &clock_bg_shutdown_requested)) break;
+                // HTTPS cooldown, which this path previously did NOT take.
+                //
+                // The old comment here said to keep the plain flag because both
+                // steps were plain HTTP. That premise is gone: every candidate
+                // host now 301s http to https — GitHub Pages, jsDelivr, Wikimedia,
+                // picsum and Bing all do — so there is no plain-HTTP option left
+                // anywhere, and mbedTLS residue is now real on this path.
+                //
+                // Its warning about the 3s silence is still worth respecting, but
+                // fetchClockWeather() in this same task already takes exactly this
+                // cooldown before its own WiFiClientSecure and has always worked.
+                // The download that follows is also SMALLER than before: ~61KB of
+                // pixel-exact baseline JPEG, against loremflickr's 100-250KB.
+                if (!sdioPreWait("CLKBG", SDIO_WAIT_HTTPS_COOLDOWN, &clock_bg_shutdown_requested)) break;
 
                 if (xSemaphoreTake(network_mutex, pdMS_TO_TICKS(8000)) != pdTRUE) {
                     Serial.printf("[CLKBG] No mutex (attempt %d)\n", attempt);
@@ -848,46 +879,76 @@ void clockBgTask(void* /*param*/) {
 
                 if (attempt > 1) Serial.printf("[CLKBG] Retry %d/%d\n", attempt, MAX_ATTEMPTS);
 
-                // Step 1: HTTP GET loremflickr → parse Location redirect (relative or absolute)
-                char lf_url[128];
-                snprintf(lf_url, sizeof(lf_url),
-                         "http://loremflickr.com/%d/%d/%s?lock=%u",
-                         CLOCK_BG_WIDTH, CLOCK_BG_HEIGHT, kw, esp_random() % 10000);
+                // Step 1: ask Bing which wallpapers are current, pick one at random.
+                //
+                // Returns ~3KB of JSON listing eight images, each with a "urlbase"
+                // like "/th?id=OHR.BearsEars_EN-US9429791451". Appending
+                // "_<size>.jpg" to that base yields the image at a fixed size —
+                // 800x480 on the 4" is pixel-exact, so nothing is rescaled here.
+                char api_url[160];
+                snprintf(api_url, sizeof(api_url),
+                         "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=%s",
+                         mkt);
 
                 String photoUrl = "";
                 {
-                    WiFiClient lf_client;
-                    HTTPClient lf_http;
-                    lf_http.setTimeout(10000);
-                    lf_http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
-                    const char* hdrs[] = {"Location"};
-                    lf_http.collectHeaders(hdrs, 1);
+                    WiFiClientSecure api_client;
+                    api_client.setInsecure();   // same posture as lyrics, weather, art and OTA
+                    HTTPClient api_http;
+                    api_http.setTimeout(10000);
+                    api_http.setConnectTimeout(10000);
 
-                    if (lf_http.begin(lf_client, lf_url)) {
-                        int code = lf_http.GET();
-                        if (code == 301 || code == 302 || code == 303) {
-                            photoUrl = lf_http.header("Location");
-                            // Relative path → make absolute (loremflickr serves /cache/resized/...)
-                            if (photoUrl.startsWith("/"))
-                                photoUrl = String("http://loremflickr.com") + photoUrl;
-                            // Downgrade any HTTPS → HTTP (no TLS)
-                            else if (photoUrl.startsWith("https://"))
-                                photoUrl.replace("https://", "http://");
+                    if (api_http.begin(api_client, api_url)) {
+                        int code = api_http.GET();
+                        if (code == HTTP_CODE_OK) {
+                            // Cap the read: this is a third party, and getString()
+                            // on a chunked reply would grow an Arduino String in
+                            // internal DRAM with no bound. Eight entries is ~3KB.
+                            const int len = api_http.getSize();
+                            if (len > 0 && len <= CLOCK_BG_API_MAX_BYTES) {
+                                String body = api_http.getString();
+                                DynamicJsonDocument doc(CLOCK_BG_API_JSON_DOC);
+                                // Only urlbase is needed; everything else is dropped
+                                // before the document is allocated.
+                                DeserializationError err = deserializeJson(
+                                    doc, body, DeserializationOption::Filter(bingFilter()));
+                                body = String();   // free immediately after parse
+                                if (err == DeserializationError::Ok) {
+                                    JsonArray imgs = doc["images"].as<JsonArray>();
+                                    const int n = (int)imgs.size();
+                                    if (n > 0) {
+                                        const char* base =
+                                            imgs[esp_random() % n]["urlbase"].as<const char*>();
+                                        if (base && base[0]) {
+                                            photoUrl = String("https://www.bing.com") + base +
+                                                       "_" CLOCK_BG_BING_SIZE ".jpg";
+                                        }
+                                    }
+                                } else {
+                                    Serial.printf("[CLKBG] Bing JSON parse failed: %s\n", err.c_str());
+                                }
+                            } else {
+                                Serial.printf("[CLKBG] Bing reply size %d rejected\n", len);
+                            }
                         } else {
-                            Serial.printf("[CLKBG] loremflickr %d (attempt %d/%d)\n", code, attempt, MAX_ATTEMPTS);
+                            Serial.printf("[CLKBG] Bing API %d (%s)\n", code, mkt);
                         }
-                        lf_http.end();
-                        lf_client.stop();
+                        api_http.end();
                     }
+                    api_client.stop();
                 }
                 last_network_end_ms = millis();
+                last_https_end_ms   = millis();   // TLS teardown residue, as lyrics does
 
-                // Step 2: Fetch the actual photo over plain HTTP
+                // Step 2: fetch the photo. HTTPS now — bing.com 301s plain HTTP,
+                // as every other candidate host does.
                 if (photoUrl.length() > 0) {
                     Serial.printf("[CLKBG] Fetching: %s\n", photoUrl.c_str());
-                    WiFiClient photo_client;
+                    WiFiClientSecure photo_client;
+                    photo_client.setInsecure();
                     HTTPClient photo_http;
                     photo_http.setTimeout(15000);
+                    photo_http.setConnectTimeout(15000);
                     photo_http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
 
                     if (photo_http.begin(photo_client, photoUrl)) {
@@ -910,9 +971,10 @@ void clockBgTask(void* /*param*/) {
                             Serial.printf("[CLKBG] Photo %d (attempt %d/%d)\n", code, attempt, MAX_ATTEMPTS);
                         }
                         photo_http.end();
-                        photo_client.stop();
                     }
+                    photo_client.stop();
                     last_network_end_ms      = millis();
+                    last_https_end_ms        = millis();  // TLS teardown residue
                     last_art_download_end_ms = millis();  // gate art/lyrics inter-download cooldowns
                 }
 
