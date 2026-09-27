@@ -33,14 +33,10 @@ LV_FONT_DECLARE(lv_font_mdi_32);
 LV_FONT_DECLARE(lv_font_mdi_40);
 LV_FONT_DECLARE(lv_font_amber_batt_16);
 LV_FONT_DECLARE(lv_font_amber_batt_24);
-// Not static: a theme builder whose label will later be handed an MDI
-// codepoint by updateUI() must build with the SAME face, because LVGL
-// positions a glyph using the LABEL's line metrics and the FALLBACK's glyph
-// box. See ui_theme_amber.cpp's mute button.
-lv_font_t mdi_fb_16;
-lv_font_t mdi_fb_24;
-lv_font_t mdi_fb_32;
-lv_font_t mdi_fb_40;
+static lv_font_t mdi_fb_16;
+static lv_font_t mdi_fb_24;
+static lv_font_t mdi_fb_32;
+static lv_font_t mdi_fb_40;
 
 // The built-ins live in flash as `const`, so their .fallback cannot be set in
 // place — writing to rodata would fault. Copy the struct into RAM (one
