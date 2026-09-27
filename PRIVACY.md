@@ -21,9 +21,12 @@ people fetched a file, not how many panels are switched on.
 
 - **No MAC address, serial number, or device ID.** Nothing that identifies your
   particular panel, now or across reboots.
-- **No location.** No coordinates, no postcode, no Wi-Fi survey. The analytics
-  service records the country your request arrived from, derived from the IP
-  address at its end and then discarded — the panel never knows or sends it.
+- **No location in the panel count.** The request above carries no coordinates,
+  no postcode and no Wi-Fi survey. The analytics service records the country it
+  arrived from, derived from the IP address at its end and then discarded.
+  (The weather widget is separate and does look up an approximate location —
+  see [The weather widget and your location](#the-weather-widget-and-your-location)
+  below.)
 - **No IP address is stored.** GoatCounter uses it to work out the country and
   does not keep it.
 - **Nothing about your music.** No room names, no speaker names, no track,
@@ -48,6 +51,35 @@ The aggregate numbers are published on the
 breakdown and a firmware-version split. That is the same data you would see; it
 is not shared with anyone else, sold, or used for advertising.
 
+## The weather widget and your location
+
+This is the one other thing worth spelling out, because it is on by default
+when you enable the weather widget and it is not part of the panel count.
+
+The widget needs coordinates. Its location setting defaults to **Auto-detect**,
+and in that mode the panel asks a third-party service to guess where it is from
+its public IP address:
+
+```
+GET http://ip-api.com/json?fields=lat,lon,city
+```
+
+Three things to know about it:
+
+- **It is plain HTTP, not HTTPS.** The reply — your approximate latitude,
+  longitude and city — comes back unencrypted and is readable by anything on
+  the path. The request itself contains nothing but the query above; your IP is
+  simply where it came from.
+- **It is a city-level guess, not your address.** IP geolocation typically
+  resolves to a town or an ISP's regional hub. It is often wrong by miles.
+- **It runs once per screensaver session**, and the result is cached for that
+  session. The coordinates are then sent to Open-Meteo (over HTTPS) to get the
+  forecast, and are never sent to us.
+
+**To avoid it entirely:** pick your city, or enter your own coordinates, in
+**Settings → Clock → Weather location**. Any setting other than Auto-detect
+skips the lookup completely. Turning the weather widget off also skips it.
+
 ## Everything else the panel talks to
 
 All of these are direct requests from the panel, on your own initiative, and
@@ -58,8 +90,10 @@ none of them involve us:
 | Your Sonos speakers | The entire point of the device | Continuously, on your LAN |
 | LRCLIB | Synced lyrics | When a track changes, if lyrics are enabled |
 | Open-Meteo | Weather on the clock screensaver | Periodically, if the widget is on |
+| ip-api.com | Approximate location for that weather lookup, from your IP — **plain HTTP** | Once per screensaver session, only on Auto-detect |
+| Bing | Daily wallpaper photos for the clock screensaver background | On entry and every few minutes, if photo backgrounds are on |
 | Album art hosts | Cover images, at whatever URL Sonos supplies | Per track |
-| GitHub | Checking for and downloading firmware updates | On an update check |
+| GitHub | Checking for and downloading firmware updates | On an update check, and once a day in the background |
 
 Your Wi-Fi credentials are stored on the device and are never transmitted
 anywhere. See [SECURITY.md](.github/SECURITY.md) for how they are stored and
