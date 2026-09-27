@@ -122,22 +122,24 @@ void refreshQueueList() {
         }
         const int text_w = dur ? 540 : 610;
 
-        // Title - highlight when playing
-        lv_obj_t* title = lv_label_create(btn);
-        lv_label_set_text(title, s_title.c_str());
-        lv_obj_set_style_text_color(title, isPlaying ? AMB_ACCENT : AMB_TEXT, 0);
-        lv_obj_set_style_text_font(title, &font_text_16, 0);
-        lv_obj_set_width(title, SX(text_w));
-        lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
+        // Title - highlight when playing.
+        //
+        // ambOneLine(), not a bare set_width + LONG_DOT: DOT truncates against
+        // the object's box, so without a bounded HEIGHT there is nothing to
+        // clip to and the string wraps instead. Both labels are LEFT_MID, so a
+        // second line grows in both directions and lands on the other one -
+        // 9 rows of overlap on the 4" when both wrap. A 66-character title
+        // ("Bohemian Rhapsody (Remastered 2011) - Live at Wembley Stadium
+        // 1986") is 585px against a 540px box, and podcast episode names clear
+        // it routinely. Same defect as #151/#177.
+        lv_obj_t* title = ambOneLine(btn, &font_text_16,
+                                     isPlaying ? AMB_ACCENT : AMB_TEXT,
+                                     s_title.c_str(), text_w);
         lv_obj_align(title, LV_ALIGN_LEFT_MID, SX(45), SY(-11));
 
         // Artist - subtle gray
-        lv_obj_t* artist = lv_label_create(btn);
-        lv_label_set_text(artist, s_artist.c_str());
-        lv_obj_set_style_text_color(artist, AMB_TEXT3, 0);
-        lv_obj_set_style_text_font(artist, &font_text_12, 0);
-        lv_obj_set_width(artist, SX(text_w));
-        lv_label_set_long_mode(artist, LV_LABEL_LONG_DOT);
+        lv_obj_t* artist = ambOneLine(btn, &font_text_12, AMB_TEXT3,
+                                      s_artist.c_str(), text_w);
         lv_obj_align(artist, LV_ALIGN_LEFT_MID, SX(45), SY(11));
     }
 }
