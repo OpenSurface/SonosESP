@@ -205,6 +205,11 @@ extern volatile unsigned long last_network_end_ms;
 extern volatile unsigned long last_https_end_ms;
 extern volatile unsigned long last_queue_fetch_time;
 extern volatile bool          art_download_in_progress;
+// The clock photo's own suppression flag. Separate from art_download_in_progress
+// because the two tasks overlap at screensaver exit and were clobbering each
+// other's flag; the art task's protocol is deliberately unbalanced (abort paths
+// leave it set) so a shared flag or a refcount cannot express both.
+extern volatile bool          clock_photo_in_progress;
 extern volatile bool          art_dma_recovery_requested;  // Set by art task; mainAppTask handles WiFi stop+reconnect/restart
 extern volatile unsigned long last_art_download_end_ms;
 extern volatile unsigned long last_track_change_ms;

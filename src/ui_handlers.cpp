@@ -1734,7 +1734,12 @@ void otaBackgroundCheckTick() {
 
     // Never during an OTA, and never while artwork is mid-download: both hold
     // the radio, and an update notice is the least urgent thing on this device.
-    if (ota_in_progress || art_download_in_progress) {
+    // clock_photo_in_progress is not optional here. Until the photo had its own
+    // flag, its use of art_download_in_progress is what kept a GitHub TLS
+    // session out of the photo window; splitting the flags without adding it
+    // here would let a handshake start during an in-flight Bing download — a
+    // new overlap, on an SDIO path, introduced by the fix itself.
+    if (ota_in_progress || art_download_in_progress || clock_photo_in_progress) {
         next_check_ms = millis() + OTA_BGCHECK_RETRY_MS;   // look again shortly
         return;
     }

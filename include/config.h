@@ -170,6 +170,15 @@
 // plug".
 #define ART_FLAG_MAX_HOLD_MS    45000   // Max hold before polling forces it false
 
+// The clock photo's equivalent ceiling. NOT ART_FLAG_MAX_HOLD_MS: that 45s is
+// sized for the art path above ("a download capped at 10s"), and the photo's
+// own worst case is larger - up to 15s connect + 15s header wait
+// (setConnectTimeout/setTimeout in ui_clock_screen.cpp) + a 20s read-loop cap
+// + TLS teardown, so ~50s. Reusing 45s would have polling force-clear the flag
+// MID-PHOTO on a slow connection, reintroducing the very overlap the flag
+// exists to prevent, 45 seconds in.
+#define CLOCK_PHOTO_FLAG_MAX_HOLD_MS 60000
+
 // How long the Settings > General > Restart button stays armed after the first
 // tap (issue #159). Matches the queue Clear button's OV_CLEAR_ARM_MS.
 #define RESTART_ARM_MS          4000

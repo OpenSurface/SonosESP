@@ -208,6 +208,7 @@ volatile unsigned long last_network_end_ms  = 0;  // Last network op end (200ms 
 volatile unsigned long last_https_end_ms    = 0;  // Last HTTPS session end (3000ms TLS residue)
 volatile unsigned long last_queue_fetch_time = 0; // Last updateQueue() end (3000ms Browse residue)
 volatile bool          art_download_in_progress = false; // True during download — suppresses SOAP polling
+volatile bool          clock_photo_in_progress  = false; // Same, for the clock screensaver's Bing photo
 volatile bool          art_dma_recovery_requested = false; // Set by art task; mainAppTask handles WiFi stop+reconnect/restart (PSRAM-stack tasks cannot call esp_restart/NVS)
 volatile unsigned long last_art_download_end_ms = 0; // Set after large HTTP downloads; gates lyrics/queue/inter-download cooldowns
 volatile unsigned long last_track_change_ms  = 0; // Set by requestAlbumArt(); 2000ms NOTIFY settle

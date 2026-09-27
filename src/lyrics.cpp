@@ -196,7 +196,11 @@ static void lyricsTaskFunc(void* param) {
         }
         {
             unsigned long wait_start = millis();
-            while (art_download_in_progress) {
+            // clock_photo_in_progress too: lyrics_shutdown_requested is cleared
+            // in exitClockScreen(), the same function that starts the art task
+            // without waiting for clockBgTask, so a lyrics fetch can spawn while
+            // a photo is still in flight. Bounded by LYRICS_ART_WAIT_TIMEOUT_MS.
+            while (art_download_in_progress || clock_photo_in_progress) {
                 if (lyrics_abort_requested || lyrics_shutdown_requested) break;
                 if (millis() - wait_start > LYRICS_ART_WAIT_TIMEOUT_MS) break;  // safety timeout
                 vTaskDelay(pdMS_TO_TICKS(100));
@@ -225,8 +229,8 @@ static void lyricsTaskFunc(void* param) {
         //     updateUI() call — lyrics task may start and pass the while loop above before
         //     the flag is set. (2) Track may change and set the flag mid-sdioPreWait.
         // Either way: loop back and wait for art to finish before attempting HTTPS.
-        if (art_download_in_progress) {
-            Serial.println("[LYRICS] Art download in progress after pre-wait — retrying after art");
+        if (art_download_in_progress || clock_photo_in_progress) {
+            Serial.println("[LYRICS] Art or clock photo in progress after pre-wait — retrying");
             continue;
         }
 
@@ -246,8 +250,10 @@ static void lyricsTaskFunc(void* param) {
             heap_caps_get_free_size(MALLOC_CAP_DMA));
         // Inside-mutex check: final race guard. Track change may have set art_download_in_progress
         // between the recheck above and mutex acquisition (tiny window). Release and loop back.
-        if (art_download_in_progress) {
-            Serial.println("[LYRICS] Art download started while acquiring mutex — retrying after art");
+        // Cannot livelock on the photo: clock_photo_in_progress is only set while
+        // clockBgTask holds network_mutex, which we hold here.
+        if (art_download_in_progress || clock_photo_in_progress) {
+            Serial.println("[LYRICS] Art or clock photo started while acquiring mutex — retrying");
             xSemaphoreGive(network_mutex);
             continue;
         }

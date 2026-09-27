@@ -980,13 +980,17 @@ void clockBgTask(void* /*param*/) {
                     // the 5s NETWORK_MUTEX_TIMEOUT_MS the SOAP callers wait on.
                     //
                     // Failing is not how this codebase handles a busy radio. The
-                    // artwork path raises this same flag and polling logs
-                    // "[POLL] Skip: art_dl=1" and defers cleanly instead. The
-                    // clock photo simply never raised it. Same mechanism, same
-                    // 45s watchdog (ART_FLAG_MAX_HOLD_MS) if this task dies
-                    // holding it, and the art task is already shut down here so
-                    // nothing else owns the flag.
-                    art_download_in_progress = true;
+                    // artwork path raises a flag and polling logs
+                    // "[POLL] Skip: ..." and defers cleanly instead. The clock
+                    // photo simply never raised one.
+                    //
+                    // Its OWN flag, not art_download_in_progress. Sharing that
+                    // one meant the two clobbered each other at screensaver
+                    // exit, where exitClockScreen() calls createArtTask()
+                    // without waiting for this task: the returning art task
+                    // cleared the photo's flag, and the photo cleared the art
+                    // task's. Backstopped by CLOCK_PHOTO_FLAG_MAX_HOLD_MS.
+                    clock_photo_in_progress = true;
 
                     Serial.printf("[CLKBG] Fetching: %s\n", photoUrl.c_str());
                     WiFiClientSecure photo_client;
@@ -1018,19 +1022,13 @@ void clockBgTask(void* /*param*/) {
                         photo_http.end();
                     }
                     photo_client.stop();
-                    // Only clear what we own. exitClockScreen() sets
-                    // clock_bg_shutdown_requested and then calls createArtTask()
-                    // in the same function without waiting for this task, which
-                    // can still be up to 20s into a photo read. If the art task
-                    // is back, it has its own flag protocol: it raises the flag
-                    // before its mutex acquire and can be blocked on the mutex
-                    // WE hold right now, so clearing here would un-suppress a
-                    // 100-250KB album-art download and let polling run straight
-                    // through it. Leaving it set is safe — the art task clears
-                    // it in its own loop, and ART_FLAG_MAX_HOLD_MS backstops.
-                    if (!albumArtTaskHandle) {
-                        art_download_in_progress = false;   // polling may resume
-                    }
+                    // Unconditional now that the flag is ours alone. Set and
+                    // clear are both inside `if (photoUrl.length() > 0)` and
+                    // every earlier break is above the set, so no path can set
+                    // without clearing. The previous conditional
+                    // (`if (!albumArtTaskHandle)`) only existed to avoid
+                    // clobbering the art task's shared flag.
+                    clock_photo_in_progress = false;        // polling may resume
                     last_network_end_ms      = millis();
                     last_https_end_ms        = millis();  // TLS teardown residue
                     last_art_download_end_ms = millis();  // gate art/lyrics inter-download cooldowns
@@ -1449,7 +1447,8 @@ void checkClockTrigger() {
             // requestAlbumArt() on track change, cleared only after the art cycle completes).
             // This prevents the screensaver firing mid-transition when ui_playing is
             // briefly false but music is about to resume on the new track.
-            bool paused_and_stable = (not_playing_ms >= 2000) && !art_download_in_progress;
+            bool paused_and_stable = (not_playing_ms >= 2000) &&
+                                    !art_download_in_progress && !clock_photo_in_progress;
 
             bool trigger = false;
             switch (clock_mode) {
