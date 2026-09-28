@@ -249,8 +249,8 @@ static void kb_close_event_cb(lv_event_t* e) {
     lv_obj_set_hidden(custom_kb, true);
     lv_obj_t* ta = lv_keyboard_get_textarea(custom_kb);
     if (ta) {
-        lv_obj_clear_state(ta, LV_STATE_FOCUSED);
-        lv_obj_clear_state(ta, LV_STATE_FOCUS_KEY);
+        lv_obj_remove_state(ta, LV_STATE_FOCUSED);
+        lv_obj_remove_state(ta, LV_STATE_FOCUS_KEY);
     }
     lv_keyboard_set_textarea(custom_kb, NULL);
 }

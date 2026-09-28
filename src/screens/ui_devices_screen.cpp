@@ -81,7 +81,7 @@ void refreshDeviceList() {
         bool hasGroup = (memberCount > 1);
 
         // Create main button - taller if it has subtitle
-        lv_obj_t* btn = lv_btn_create(list_devices);
+        lv_obj_t* btn = lv_button_create(list_devices);
         // Taller than before: the row now carries an inline volume slider under
         // its label block, which the canvas puts on every speaker row.
         lv_obj_set_size(btn, lv_pct(100), hasGroup || isPlaying ? SY(96) : SY(86));
@@ -227,7 +227,7 @@ void refreshDeviceList() {
                 }
                 if (!in_group) continue;
 
-                lv_obj_t* memBtn = lv_btn_create(list_devices);
+                lv_obj_t* memBtn = lv_button_create(list_devices);
                 lv_obj_set_size(memBtn, lv_pct(95), SY(50));
                 lv_obj_set_user_data(memBtn, (void*)(intptr_t)j);
                 lv_obj_set_style_radius(memBtn, 8, 0);
@@ -302,7 +302,7 @@ void refreshDeviceList() {
         if (!coordinatorFound) {
             bool isSelected = (current && dev->ip == current->ip);
 
-            lv_obj_t* btn = lv_btn_create(list_devices);
+            lv_obj_t* btn = lv_button_create(list_devices);
             lv_obj_set_size(btn, lv_pct(100), SY(60));
             lv_obj_set_user_data(btn, (void*)(intptr_t)i);
             lv_obj_set_style_radius(btn, 12, 0);

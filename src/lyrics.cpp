@@ -657,7 +657,7 @@ static void lyricsShow() {
     if (!lv_obj_is_hidden(lyrics_container) &&
         lv_obj_get_style_opa(lyrics_container, LV_PART_MAIN) == LV_OPA_COVER &&
         !lv_anim_get(lyrics_container, lyrics_fade_cb)) return;
-    lv_anim_del(lyrics_container, lyrics_fade_cb);
+    lv_anim_delete(lyrics_container, lyrics_fade_cb);
     lv_obj_set_hidden(lyrics_container, false);
     lv_obj_set_style_opa(lyrics_container, LV_OPA_COVER, 0);
 }

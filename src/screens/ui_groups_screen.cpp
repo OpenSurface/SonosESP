@@ -105,7 +105,7 @@ void refreshGroupsList() {
         bool hasTrack = (s_track.length() > 0);
 
         // Create group header button - taller to show now playing info
-        lv_obj_t* btn = lv_btn_create(list_groups);
+        lv_obj_t* btn = lv_button_create(list_groups);
         lv_obj_set_size(btn, lv_pct(100), (isPlaying && hasTrack) ? SY(85) : SY(70));
         lv_obj_set_user_data(btn, (void*)(intptr_t)i);
         lv_obj_set_style_radius(btn, 12, 0);
@@ -209,7 +209,7 @@ void refreshGroupsList() {
                 if (!in_group) continue;
 
                 // Member item (indented)
-                lv_obj_t* memBtn = lv_btn_create(list_groups);
+                lv_obj_t* memBtn = lv_button_create(list_groups);
                 lv_obj_set_size(memBtn, lv_pct(95), SY(50));
                 lv_obj_set_user_data(memBtn, (void*)(intptr_t)j);
                 lv_obj_set_style_radius(memBtn, 8, 0);
@@ -235,7 +235,7 @@ void refreshGroupsList() {
                 lv_obj_align(bat, LV_ALIGN_RIGHT_MID, SX(-5 - 90 - 10), 0);
 
                 // Remove from group button
-                lv_obj_t* removeBtn = lv_btn_create(memBtn);
+                lv_obj_t* removeBtn = lv_button_create(memBtn);
                 lv_obj_set_size(removeBtn, SX(90), SY(35));
                 lv_obj_align(removeBtn, LV_ALIGN_RIGHT_MID, SX(-5), 0);
                 lv_obj_set_style_bg_color(removeBtn, COL_ERROR_SURFACE, 0);
@@ -345,7 +345,7 @@ void refreshGroupsList() {
                     }
                 }
 
-                lv_obj_t* addBtn = lv_btn_create(list_groups);
+                lv_obj_t* addBtn = lv_button_create(list_groups);
                 // Taller only when a second line is rendered below the room name.
                 lv_obj_set_size(addBtn, lv_pct(100), (leadsGroup || followsOther) ? SY(68) : SY(55));
                 lv_obj_set_user_data(addBtn, (void*)(intptr_t)i);
@@ -465,7 +465,7 @@ void createGroupsScreen() {
         if (spinner_groups_scan) {
             lv_obj_set_hidden(spinner_groups_scan, true);
         }
-        lv_obj_clear_state(btn_groups_scan, LV_STATE_DISABLED);
+        lv_obj_remove_state(btn_groups_scan, LV_STATE_DISABLED);
         lv_obj_set_style_bg_color(btn_groups_scan, AMB_ACCENT, 0);
     }, LV_EVENT_CLICKED, NULL);
 

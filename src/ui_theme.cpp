@@ -239,7 +239,7 @@ void themeSet(uint8_t idx) {
     // btn_lyrics is OPTIONAL — unlike the widget globals in the builder contract,
     // a theme is allowed not to have an LRC chip. Clearing it first means a theme
     // that has none leaves it null rather than inheriting the outgoing screen's
-    // button, which lv_obj_del(old) below is about to free. updateLyricsStatus()
+    // button, which lv_obj_delete(old) below is about to free. updateLyricsStatus()
     // dereferences this every tick, so a stale pointer here is a crash.
     btn_lyrics = nullptr;
 
@@ -262,7 +262,7 @@ void themeSet(uint8_t idx) {
         // Never delete the screen currently on display. In practice we're on the
         // settings screen here, but swap first if that ever changes.
         if (lv_screen_active() == old) lv_screen_load(scr_main);
-        lv_obj_del(old);          // delete AFTER rebuild so nothing sees a dangling scr_main
+        lv_obj_delete(old);          // delete AFTER rebuild so nothing sees a dangling scr_main
     }
 
     // Invalidate the UI caches. updateUI() only writes a label when the value

@@ -85,7 +85,7 @@ void buildClassicPlayer() {
     // Blurred art background — fullscreen, must be first child (lowest z-order).
     // Ambient keeps this hidden (themeUsesBlurBg() gates the upload) so the tinted
     // screen colour shows through the transparent panels instead.
-    img_blur_bg = lv_img_create(scr_main);
+    img_blur_bg = lv_image_create(scr_main);
     lv_obj_set_size(img_blur_bg, SX(800), SY(480));
     lv_obj_set_pos(img_blur_bg, 0, 0);
     lv_obj_set_scrollable(img_blur_bg, false);
@@ -104,7 +104,7 @@ void buildClassicPlayer() {
     lv_obj_set_scrollable(panel_art, false);
 
     // Album art image — 30px from left edge, vertically centered → equal margins all sides
-    img_album = lv_img_create(panel_art);
+    img_album = lv_image_create(panel_art);
     lv_obj_set_size(img_album, SMIN(ART_SIZE), SMIN(ART_SIZE));
     lv_obj_align(img_album, LV_ALIGN_LEFT_MID, SX(30), 0);
     lv_obj_set_style_radius(img_album, SMIN(24), 0);
@@ -184,7 +184,7 @@ void buildClassicPlayer() {
     lv_style_transition_dsc_init(&trans_btn, trans_props, lv_anim_path_ease_out, 150, 0, NULL);
 
     // Back button - scale effect
-    lv_obj_t* btn_back = lv_btn_create(panel_right);
+    lv_obj_t* btn_back = lv_button_create(panel_right);
     lv_obj_set_size(btn_back, SMIN(40), SMIN(40));
     lv_obj_set_pos(btn_back, SX(10), SY(15));
     headerCircle(btn_back);
@@ -224,7 +224,7 @@ void buildClassicPlayer() {
     lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_SCROLL);
 
     // Music Sources button - scale effect
-    lv_obj_t* btn_sources = lv_btn_create(panel_right);
+    lv_obj_t* btn_sources = lv_button_create(panel_right);
     lv_obj_set_size(btn_sources, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_sources, SX(255), SY(18));
     headerCircle(btn_sources);
@@ -244,7 +244,7 @@ void buildClassicPlayer() {
     lv_obj_center(ico_src);
 
     // Settings button
-    lv_obj_t* btn_settings = lv_btn_create(panel_right);
+    lv_obj_t* btn_settings = lv_button_create(panel_right);
     lv_obj_set_size(btn_settings, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_settings, SX(305), SY(18));
     headerCircle(btn_settings);
@@ -277,7 +277,7 @@ void buildClassicPlayer() {
     // it would only create a way for the two to disagree. Not clickable, so it
     // does not offer press feedback for something it will not do.
     // updateLyricsStatus() drives it; see btn_lyrics in ui_common.h.
-    lv_obj_t* btn_lrc = lv_btn_create(panel_right);
+    lv_obj_t* btn_lrc = lv_button_create(panel_right);
     lv_obj_set_size(btn_lrc, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_lrc, SX(205), SY(18));
     headerCircle(btn_lrc);
@@ -290,7 +290,7 @@ void buildClassicPlayer() {
     lv_obj_center(ico_lrc);
 
     // Queue/Playlist button — aligned with artist row
-    btn_queue = lv_btn_create(panel_right);
+    btn_queue = lv_button_create(panel_right);
     lv_obj_set_size(btn_queue, SMIN(48), SMIN(48));
     lv_obj_set_pos(btn_queue, SX(295), SY(122));
     headerCircle(btn_queue);
@@ -348,7 +348,7 @@ void buildClassicPlayer() {
     int center_x = 175;
 
     // PLAY button (center) - ambient-coloured circle with scale effect
-    btn_play = lv_btn_create(panel_right);
+    btn_play = lv_button_create(panel_right);
     lv_obj_set_size(btn_play, SMIN(80), SMIN(80));
     lv_obj_set_pos(btn_play, SX(center_x - 40), SY(ctrl_y - 40));
     lv_obj_set_style_bg_color(btn_play, COL_TEXT, 0);
@@ -367,7 +367,7 @@ void buildClassicPlayer() {
     lv_obj_center(ico_play);
 
     // PREV button (left of play) - scale effect
-    btn_prev = lv_btn_create(panel_right);
+    btn_prev = lv_button_create(panel_right);
     lv_obj_set_size(btn_prev, SMIN(50), SMIN(50));
     lv_obj_set_pos(btn_prev, SX(center_x - 108), SY(ctrl_y - 25));
     lv_obj_set_style_bg_opa(btn_prev, LV_OPA_TRANSP, 0);
@@ -385,7 +385,7 @@ void buildClassicPlayer() {
     lv_obj_center(ico_prev);
 
     // NEXT button (right of play) - scale effect
-    btn_next = lv_btn_create(panel_right);
+    btn_next = lv_button_create(panel_right);
     lv_obj_set_size(btn_next, SMIN(50), SMIN(50));
     lv_obj_set_pos(btn_next, SX(center_x + 58), SY(ctrl_y - 25));
     lv_obj_set_style_bg_opa(btn_next, LV_OPA_TRANSP, 0);
@@ -403,7 +403,7 @@ void buildClassicPlayer() {
     lv_obj_center(ico_next);
 
     // SHUFFLE button (far left) - scale effect
-    btn_shuffle = lv_btn_create(panel_right);
+    btn_shuffle = lv_button_create(panel_right);
     lv_obj_set_size(btn_shuffle, SMIN(45), SMIN(45));
     lv_obj_set_pos(btn_shuffle, SX(center_x - 168), SY(ctrl_y - 22));
     lv_obj_set_style_bg_opa(btn_shuffle, LV_OPA_TRANSP, 0);
@@ -421,7 +421,7 @@ void buildClassicPlayer() {
     lv_obj_center(ico_shuf);
 
     // REPEAT button (far right) - scale effect
-    btn_repeat = lv_btn_create(panel_right);
+    btn_repeat = lv_button_create(panel_right);
     lv_obj_set_size(btn_repeat, SMIN(45), SMIN(45));
     lv_obj_set_pos(btn_repeat, SX(center_x + 123), SY(ctrl_y - 22));
     lv_obj_set_style_bg_opa(btn_repeat, LV_OPA_TRANSP, 0);
@@ -442,7 +442,7 @@ void buildClassicPlayer() {
     int vol_y = 360;
 
     // Mute button (left) - scale effect
-    btn_mute = lv_btn_create(panel_right);
+    btn_mute = lv_button_create(panel_right);
     lv_obj_set_size(btn_mute, SMIN(40), SMIN(40));
     lv_obj_set_pos(btn_mute, SX(20), SY(vol_y));
     lv_obj_set_style_bg_opa(btn_mute, LV_OPA_TRANSP, 0);
@@ -476,7 +476,7 @@ void buildClassicPlayer() {
     int next_y = 440;
 
     // Small album art for next track (hidden for now)
-    img_next_album = lv_img_create(panel_right);
+    img_next_album = lv_image_create(panel_right);
     lv_obj_set_pos(img_next_album, SX(15), SY(next_y));
     lv_obj_set_size(img_next_album, SMIN(40), SMIN(40));
     lv_obj_set_style_radius(img_next_album, SMIN(4), 0);

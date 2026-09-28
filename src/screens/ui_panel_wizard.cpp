@@ -76,7 +76,7 @@ static bool wizardAsk(uint8_t variant) {
 
     // Big target: this must be hittable, but not so easy to hit by accident
     // that a garbled screen gets confirmed by a stray touch.
-    lv_obj_t* btn = lv_btn_create(wiz_screen);
+    lv_obj_t* btn = lv_button_create(wiz_screen);
     lv_obj_set_size(btn, SX(300), SY(90));
     lv_obj_align(btn, LV_ALIGN_CENTER, 0, SY(20));
     lv_obj_set_style_bg_color(btn, COL_OK_STRONG, 0);

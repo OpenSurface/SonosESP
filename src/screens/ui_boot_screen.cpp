@@ -314,7 +314,7 @@ void bootScreenFinish(lv_obj_t* next) {
     bootFade(bt_header, LV_OPA_COVER, LV_OPA_TRANSP, 10);
 
     if (next) lv_screen_load(next);
-    lv_obj_del(bt_scr);
+    lv_obj_delete(bt_scr);
 
     bt_scr = bt_wordmark = bt_header = bt_fill = bt_status = nullptr;
     for (int i = 0; i < BOOT_CHECK_COUNT; i++) {

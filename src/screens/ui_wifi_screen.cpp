@@ -105,7 +105,7 @@ void createWiFiScreen() {
     lv_obj_set_hidden(pw_strip, true);
 
     // Cancel (×) button — far left
-    lv_obj_t* btn_cancel = lv_btn_create(pw_strip);
+    lv_obj_t* btn_cancel = lv_button_create(pw_strip);
     lv_obj_set_size(btn_cancel, SMIN(32), SMIN(32));
     lv_obj_align(btn_cancel, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_set_style_bg_color(btn_cancel, AMB_RAISED, 0);
@@ -162,7 +162,7 @@ void createWiFiScreen() {
     }, LV_EVENT_ALL, NULL);
 
     // Connect button — far right
-    btn_wifi_connect = lv_btn_create(pw_strip);
+    btn_wifi_connect = lv_button_create(pw_strip);
     lv_obj_set_size(btn_wifi_connect, SX(120), SY(38));
     lv_obj_align(btn_wifi_connect, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_set_style_bg_color(btn_wifi_connect, AMB_ACCENT, 0);

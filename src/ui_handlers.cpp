@@ -286,7 +286,7 @@ void ev_discover(lv_event_t* e) {
 
     // Re-enable scan button
     if (btn_sonos_scan) {
-        lv_obj_clear_state(btn_sonos_scan, LV_STATE_DISABLED);
+        lv_obj_remove_state(btn_sonos_scan, LV_STATE_DISABLED);
     }
 
     if (cnt == 0) {
@@ -344,7 +344,7 @@ void ev_wifi_scan(lv_event_t* e) {
 
     // Hide spinner, re-enable button
     if (spinner_wifi_scan) lv_obj_set_hidden(spinner_wifi_scan, true);
-    if (btn_wifi_scan)     lv_obj_clear_state(btn_wifi_scan, LV_STATE_DISABLED);
+    if (btn_wifi_scan)     lv_obj_remove_state(btn_wifi_scan, LV_STATE_DISABLED);
     if (lbl_scan_text)     lv_label_set_text(lbl_scan_text, MDI_REFRESH " Scan");
 
     if (n == 0) {
@@ -390,7 +390,7 @@ void ev_wifi_scan(lv_event_t* e) {
         else if (rssi > -75) icon_color = COL_ACCENT;
         else                 icon_color = COL_ERROR;
 
-        lv_obj_t* btn = lv_btn_create(list_wifi);
+        lv_obj_t* btn = lv_button_create(list_wifi);
         lv_obj_set_size(btn, lv_pct(100), SY(50));
         lv_obj_set_user_data(btn, (void*)(intptr_t)ui);
         lv_obj_set_style_bg_color(btn, COL_CARD, 0);
@@ -476,7 +476,7 @@ void ev_wifi_connect(lv_event_t* e) {
 
     // Re-enable button
     if (btn_wifi_connect) {
-        lv_obj_clear_state(btn_wifi_connect, LV_STATE_DISABLED);
+        lv_obj_remove_state(btn_wifi_connect, LV_STATE_DISABLED);
     }
 
     if (WiFi.status() == WL_CONNECTED) {
@@ -610,7 +610,7 @@ static void checkForUpdates() {
             lv_label_set_text(lbl_ota_status, MDI_ALERT " Network busy, try again");
             lv_obj_set_style_text_color(lbl_ota_status, COL_ERROR, 0);
         }
-        if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
+        if (btn_check_update) lv_obj_remove_state(btn_check_update, LV_STATE_DISABLED);
         return;
     }
 
@@ -676,7 +676,7 @@ static void checkForUpdates() {
     // Release mutex after ALL network activity including TLS cleanup
     xSemaphoreGive(network_mutex);
 
-    if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
+    if (btn_check_update) lv_obj_remove_state(btn_check_update, LV_STATE_DISABLED);
 
     if (httpCode == 200) {
         JsonDocument doc;
@@ -904,8 +904,8 @@ static void otaRecovery() {
     if (bar_ota_progress) {
         lv_obj_set_hidden(bar_ota_progress, true);
     }
-    if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
-    if (btn_install_update) lv_obj_clear_state(btn_install_update, LV_STATE_DISABLED);
+    if (btn_check_update) lv_obj_remove_state(btn_check_update, LV_STATE_DISABLED);
+    if (btn_install_update) lv_obj_remove_state(btn_install_update, LV_STATE_DISABLED);
 
     // Re-enable WiFi features
     WiFi.setAutoReconnect(true);
@@ -2011,7 +2011,7 @@ static void displayCompletedArt() {
         art_dsc.header.cf   = LV_COLOR_FORMAT_RGB565;
         art_dsc.data_size   = ART_PX * ART_PX * 2;
         art_dsc.data        = (const uint8_t*)art_buffer;
-        lv_img_set_src(img_album, &art_dsc);
+        lv_image_set_src(img_album, &art_dsc);
         themeApplyArtGeometry(img_album);   // HERO (Classic) vs THUMB (Immersive)
         artFadeIn(img_album);               // fade up; see the note on artFadeIn
         lv_obj_set_hidden(img_album, false);
@@ -2032,7 +2032,7 @@ static void displayCompletedArt() {
         blur_bg_dsc.header.cf = LV_COLOR_FORMAT_RGB565;
         blur_bg_dsc.data_size = DISPLAY_WIDTH * DISPLAY_HEIGHT * 2;
         blur_bg_dsc.data      = (const uint8_t*)blur_bg_buf;
-        lv_img_set_src(img_blur_bg, &blur_bg_dsc);
+        lv_image_set_src(img_blur_bg, &blur_bg_dsc);
         lv_obj_set_hidden(img_blur_bg, false);
         blur_bg_ready = false;
     }

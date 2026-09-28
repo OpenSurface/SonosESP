@@ -296,7 +296,7 @@ static void pressScale(lv_obj_t* b) {
 
 static lv_obj_t* roundBtn(lv_obj_t* parent, const char* icon, const lv_font_t* font,
                           int x, int y, int size, lv_event_cb_t cb, bool outlined) {
-    lv_obj_t* b = lv_btn_create(parent);
+    lv_obj_t* b = lv_button_create(parent);
     lv_obj_set_size(b, SMIN(size), SMIN(size));
     lv_obj_set_pos(b, SX(x), SY(y));
     lv_obj_set_style_radius(b, SMIN(size / 2), 0);
@@ -370,7 +370,7 @@ void buildImmersivePlayer() {
 
     // Created for API compatibility only — this theme paints a solid backdrop, so
     // themeUsesBlurBg() keeps the blurred-art upload off and this stays hidden.
-    img_blur_bg = lv_img_create(scr_main);
+    img_blur_bg = lv_image_create(scr_main);
     lv_obj_set_size(img_blur_bg, SX(800), SY(480));
     lv_obj_set_pos(img_blur_bg, 0, 0);
     lv_obj_set_hidden(img_blur_bg, true);
@@ -394,7 +394,7 @@ void buildImmersivePlayer() {
     panel_right = mkLayer();
 
     // ── Header: artwork ─────────────────────────────────────────────────────
-    img_album = lv_img_create(panel_art);
+    img_album = lv_image_create(panel_art);
     lv_obj_set_size(img_album, SMIN(IM_ART), SMIN(IM_ART));
     lv_obj_set_pos(img_album, SX(IM_MARGIN), SY(IM_HEAD_Y));
     // Square artwork, no blur shadow. shadow_width in LVGL is a BLUR RADIUS, not
@@ -585,7 +585,7 @@ void buildImmersivePlayer() {
     btn_prev = roundBtn(bar, MDI_SKIP_PREV, &lv_font_mdi_32, 454, IM_BAR_MID(52), 52, ev_prev, false);
     lv_obj_set_ext_click_area(btn_prev, 6);
 
-    btn_play = lv_btn_create(bar);
+    btn_play = lv_button_create(bar);
     lv_obj_set_size(btn_play, SMIN(64), SMIN(64));
     lv_obj_set_pos(btn_play, SX(520), SY(IM_BAR_MID(64)));
     lv_obj_set_ext_click_area(btn_play, 6);
@@ -666,7 +666,7 @@ void buildImmersivePlayer() {
     // definition above.
     immersiveRestoreTrackLabels();
 
-    img_next_album = lv_img_create(panel_right);
+    img_next_album = lv_image_create(panel_right);
     lv_obj_set_size(img_next_album, SMIN(40), SMIN(40));
     park(img_next_album);
 

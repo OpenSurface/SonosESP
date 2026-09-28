@@ -73,7 +73,7 @@ void refreshQueueList() {
 
         bool isPlaying = (trackNum == d->currentTrackNumber);
 
-        lv_obj_t* btn = lv_btn_create(list_queue);
+        lv_obj_t* btn = lv_button_create(list_queue);
         lv_obj_set_size(btn, SX(727), SY(60));  // Full width, uniform height
         lv_obj_set_style_bg_color(btn, isPlaying ? AMB_RAISED : AMB_PANEL, 0);
         lv_obj_set_style_bg_color(btn, AMB_CARD, LV_STATE_PRESSED);
@@ -396,7 +396,7 @@ static void refreshSourcesList(lv_event_t* e) {
 
         // SOURCE_TILE_W is half the inner content width less the column gap, so
         // two tiles fill the row exactly on both panels.
-        lv_obj_t* btn = lv_btn_create(sources_list);
+        lv_obj_t* btn = lv_button_create(sources_list);
         lv_obj_set_size(btn, SX(SOURCE_TILE_W), SY(74));
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
@@ -447,7 +447,7 @@ static void refreshSourcesList(lv_event_t* e) {
         // Same tile geometry as the browse sources above. It was left full-width
         // when that list became a two-column grid, so this one row spanned both
         // columns and pushed the grid out of alignment.
-        lv_obj_t* btn = lv_btn_create(sources_list);
+        lv_obj_t* btn = lv_button_create(sources_list);
         lv_obj_set_size(btn, SX(SOURCE_TILE_W), SY(74));
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
@@ -531,7 +531,7 @@ void createSourcesScreen() {
 // Browse Screen
 // ============================================================================
 // Frees a browse row's heap-allocated ItemData when LVGL destroys the button — for ANY
-// reason (screen rebuild, lv_obj_del of an ancestor, list refresh). Attached per-button
+// reason (screen rebuild, lv_obj_delete of an ancestor, list refresh). Attached per-button
 // where the ItemData is created.
 //
 // Replaces the old cleanupBrowseData(list) sweep, which was handed
@@ -596,7 +596,7 @@ static void browseLoadMore(lv_event_t* e) {
     if (!browse_list) return;
     // Drop the button first so the new rows land at the end of the list, then
     // browsePopulate() re-adds it if the page came back full.
-    if (browse_more_btn) { lv_obj_del(browse_more_btn); browse_more_btn = nullptr; }
+    if (browse_more_btn) { lv_obj_delete(browse_more_btn); browse_more_btn = nullptr; }
     browse_offset += browsePopulate(browse_list, browse_offset);
 }
 
@@ -617,7 +617,7 @@ void createBrowseScreen() {
     // Back arrow — up one container, or out to Sources at the top level. Without
     // this the only way out of a nested container was the sidebar, which jumps
     // all the way back to the Sources root and loses your place entirely.
-    lv_obj_t* btn_back = lv_btn_create(content);
+    lv_obj_t* btn_back = lv_button_create(content);
     lv_obj_set_size(btn_back, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_back, 0, 0);
     lv_obj_set_style_radius(btn_back, LV_RADIUS_CIRCLE, 0);
@@ -678,7 +678,7 @@ void createBrowseScreen() {
     // Now the replacement is populated, retire the old screen. Per-row ItemData
     // is released by browseItemDeleteCb as LVGL tears down the subtree — no
     // manual sweep needed (and the old one walked the wrong node).
-    if (old_browse) lv_obj_del(old_browse);
+    if (old_browse) lv_obj_delete(old_browse);
 }
 
 // Appends one page of rows to `list`, starting at `startIndex`. Returns how many
@@ -736,7 +736,7 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
         Serial.printf("[BROWSE] Item #%d: %s (container=%d, id=%s)\n",
                       itemCount, title.c_str(), isContainer, id.c_str());
 
-        lv_obj_t* btn = lv_btn_create(list);
+        lv_obj_t* btn = lv_button_create(list);
         lv_obj_set_size(btn, lv_pct(100), SY(60));
         lv_obj_set_style_radius(btn, 10, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
@@ -910,7 +910,7 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
     // is one "Load more" that turns out to fetch nothing, which then removes
     // itself because the next page comes back empty.
     if (itemCount == BROWSE_PAGE_SIZE) {
-        browse_more_btn = lv_btn_create(list);
+        browse_more_btn = lv_button_create(list);
         lv_obj_set_size(browse_more_btn, lv_pct(100), SY(50));
         lv_obj_set_style_radius(browse_more_btn, 10, 0);
         lv_obj_set_style_shadow_width(browse_more_btn, 0, 0);

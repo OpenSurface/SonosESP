@@ -148,7 +148,7 @@ static void spFitLyric(lv_obj_t* lbl, const char* text) {
 // The timer outlives no screen: themeSet() deletes the old scr_main wholesale,
 // so it has to be torn down with it or it fires on freed widgets.
 static void ap_screen_deleted(lv_event_t*) {
-    if (ap_shelf_timer) { lv_timer_del(ap_shelf_timer); ap_shelf_timer = nullptr; }
+    if (ap_shelf_timer) { lv_timer_delete(ap_shelf_timer); ap_shelf_timer = nullptr; }
     ap_shelf_next = nullptr;
     ap_lyric_slot = nullptr;
     ap_lyric_cur  = nullptr;

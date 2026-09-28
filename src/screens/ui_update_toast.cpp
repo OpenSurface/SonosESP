@@ -59,7 +59,7 @@ static void toastOpaOutCb(void* obj, int32_t v) {
 static void toastDeleteCb(lv_anim_t* a) {
     lv_obj_t* o = (lv_obj_t*)a->var;
     if (o == toast) toast = nullptr;
-    if (o) lv_obj_del(o);
+    if (o) lv_obj_delete(o);
 }
 
 static void hideTimerCb(lv_timer_t* t) {
@@ -69,11 +69,11 @@ static void hideTimerCb(lv_timer_t* t) {
 }
 
 static void toastDismiss(bool animate) {
-    if (hide_tmr) { lv_timer_del(hide_tmr); hide_tmr = nullptr; }
+    if (hide_tmr) { lv_timer_delete(hide_tmr); hide_tmr = nullptr; }
     if (!toast) return;
 
     if (!animate) {
-        lv_obj_del(toast);
+        lv_obj_delete(toast);
         toast = nullptr;
         return;
     }
@@ -162,7 +162,7 @@ void updateToastShow(const char* version) {
     lv_obj_set_style_shadow_width(toast, SMIN(24), 0);
     lv_obj_set_style_shadow_opa(toast, LV_OPA_50, 0);
     lv_obj_set_style_shadow_color(toast, lv_color_black(), 0);
-    lv_obj_set_style_shadow_ofs_y(toast, SY(6), 0);
+    lv_obj_set_style_shadow_offset_y(toast, SY(6), 0);
     lv_obj_add_event_cb(toast, toastClicked, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t* row = lv_obj_create(toast);

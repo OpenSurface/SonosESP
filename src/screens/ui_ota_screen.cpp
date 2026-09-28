@@ -237,7 +237,7 @@ void createOTAScreen() {
     // a black rectangle next to a gold one — it read as broken rather than as the
     // quieter of two actions. AMB_CARD gives it the same footing as every other
     // secondary control on these pages.
-    btn_check_update = lv_btn_create(content);
+    btn_check_update = lv_button_create(content);
     lv_obj_set_size(btn_check_update, SX(250), SY(OTA_BTN_H));
     lv_obj_set_pos(btn_check_update, 0, SY(OTA_BTN_Y));
     lv_obj_set_style_bg_color(btn_check_update, AMB_CARD, 0);
@@ -255,7 +255,7 @@ void createOTAScreen() {
     lv_obj_center(lbl_check);
 
     // Install Update button (hidden by default)
-    btn_install_update = lv_btn_create(content);
+    btn_install_update = lv_button_create(content);
     lv_obj_set_size(btn_install_update, SX(260), SY(OTA_BTN_H));
     lv_obj_set_pos(btn_install_update, SX(276), SY(OTA_BTN_Y));
     lv_obj_set_style_bg_color(btn_install_update, AMB_ACCENT, 0);

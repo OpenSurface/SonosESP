@@ -1153,10 +1153,10 @@ void createClockScreen() {
     lv_obj_set_scrollable(scr_clock, false);
 
     // Background image (hidden until clockBgTask fetches a photo)
-    clock_bg_img = lv_img_create(scr_clock);
+    clock_bg_img = lv_image_create(scr_clock);
     lv_obj_set_size(clock_bg_img, CLOCK_BG_WIDTH, CLOCK_BG_HEIGHT);
     lv_obj_set_pos(clock_bg_img, 0, 0);
-    lv_obj_set_style_img_opa(clock_bg_img, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_image_opa(clock_bg_img, LV_OPA_TRANSP, 0);
     lv_obj_set_clickable(clock_bg_img, false);
     // Stretch image to fill widget — handles any decoded size (especially when
     // the JPEG dimensions differ from CLOCK_BG_WIDTH×CLOCK_BG_HEIGHT)
@@ -1570,7 +1570,7 @@ void checkClockTrigger() {
             // art_shutdown_requested set: no album art, no lyrics, clockBgTask
             // still fetching photos, and no recovery short of a reboot.
             //
-            // Runs on mainAppTask, so the lv_obj_del() inside is on the right
+            // Runs on mainAppTask, so the lv_obj_delete() inside is on the right
             // thread. Harmless when no toast is up.
             updateToastHide();
 
@@ -1607,8 +1607,8 @@ void checkClockTrigger() {
                 clock_bg_dsc.data_size     = CLOCK_BG_WIDTH * CLOCK_BG_HEIGHT * 2;
                 clock_bg_dsc.data          = (const uint8_t*)clock_bg_buffer;
 
-                lv_img_set_src(clock_bg_img, &clock_bg_dsc);
-                lv_obj_set_style_img_opa(clock_bg_img, LV_OPA_TRANSP, 0);  // Start hidden
+                lv_image_set_src(clock_bg_img, &clock_bg_dsc);
+                lv_obj_set_style_image_opa(clock_bg_img, LV_OPA_TRANSP, 0);  // Start hidden
                 lv_obj_invalidate(clock_bg_img);
 
                 // Fade in the new photo over 1.5 seconds
@@ -1618,7 +1618,7 @@ void checkClockTrigger() {
                 lv_anim_set_values(&a, LV_OPA_TRANSP, LV_OPA_COVER);
                 lv_anim_set_duration(&a, 300);
                 lv_anim_set_exec_cb(&a, [](void* obj, int32_t v) {
-                    lv_obj_set_style_img_opa((lv_obj_t*)obj, (lv_opa_t)v, 0);
+                    lv_obj_set_style_image_opa((lv_obj_t*)obj, (lv_opa_t)v, 0);
                 });
                 lv_anim_start(&a);
             }
@@ -1637,8 +1637,8 @@ void checkClockTrigger() {
             // Hide the background image BEFORE freeing the buffer to prevent
             // LVGL from rendering a dangling pointer during the transition.
             if (clock_bg_img) {
-                lv_obj_set_style_img_opa(clock_bg_img, LV_OPA_TRANSP, 0);
-                lv_img_set_src(clock_bg_img, nullptr);
+                lv_obj_set_style_image_opa(clock_bg_img, LV_OPA_TRANSP, 0);
+                lv_image_set_src(clock_bg_img, nullptr);
             }
 
             // Free the pixel buffer ONLY if the background task has actually exited.
