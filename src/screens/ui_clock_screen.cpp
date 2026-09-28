@@ -47,6 +47,47 @@ static const JsonDocument& bingFilter() {
     return filter;
 }
 
+// ── Don't show the same wallpaper twice in a row ────────────────────────────
+//
+// Bing does NOT give each market its own photos. Checked against the live
+// endpoint: en-US and ja-JP share five of their eight images, differing only
+// in the locale tag inside the urlbase -
+//   /th?id=OHR.FallAspens_EN-US7211031109
+//   /th?id=OHR.FallAspens_JA-JP7201900997
+// - so "Shuffle all" across 12 markets does NOT give 12x8 photos. It gives a
+// mostly-global set plus two or three local extras each, and the shared ones
+// come up again and again. That is why the background felt like the same
+// handful repeating.
+//
+// So the key is the photo NAME between "OHR." and "_", which is
+// locale-independent and identifies the actual image across every market.
+static uint32_t bingPhotoKey(const char* urlbase) {
+    const char* p = strstr(urlbase, "OHR.");
+    if (!p) return 0;
+    p += 4;
+    uint32_t h = 2166136261u;                 // FNV-1a
+    for (; *p && *p != '_'; p++) { h ^= (uint8_t)*p; h *= 16777619u; }
+    return h ? h : 1;                         // 0 means "no key"
+}
+
+// Small ring of recently shown photos. Eight covers more than a clock session
+// at the default 10-minute refresh, and the pool is ~15 days deep per market
+// once idx is randomised, so this rarely has to reject more than one.
+#define CLOCK_BG_RECENT 8
+static uint32_t s_bg_recent[CLOCK_BG_RECENT] = {0};
+static uint8_t  s_bg_recent_at = 0;
+
+static bool bingRecentlyShown(uint32_t key) {
+    if (!key) return false;
+    for (int i = 0; i < CLOCK_BG_RECENT; i++) if (s_bg_recent[i] == key) return true;
+    return false;
+}
+static void bingRememberShown(uint32_t key) {
+    if (!key) return;
+    s_bg_recent[s_bg_recent_at] = key;
+    s_bg_recent_at = (uint8_t)((s_bg_recent_at + 1) % CLOCK_BG_RECENT);
+}
+
 // JPEGDEC callback globals for clock background (file-scoped, not shared)
 // ============================================================================
 static uint16_t* clk_jpeg_dest   = nullptr;  // Points to clock_bg_buffer during decode
@@ -887,10 +928,16 @@ void clockBgTask(void* /*param*/) {
                 // like "/th?id=OHR.BearsEars_EN-US9429791451". Appending
                 // "_<size>.jpg" to that base yields the image at a fixed size —
                 // 800x480 on the 4" is pixel-exact, so nothing is rescaled here.
+                //
+                // idx is randomised, not fixed at 0. idx is a day offset: idx=0
+                // returns days 0-7, idx=7 returns days 7-14, and Bing CLAMPS it
+                // there (idx=14 returns exactly the same set as idx=7). So the
+                // archive is ~15 days deep and asking only for idx=0 was seeing
+                // half of it. Verified against the live endpoint.
                 char api_url[160];
                 snprintf(api_url, sizeof(api_url),
-                         "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=%s",
-                         mkt);
+                         "https://www.bing.com/HPImageArchive.aspx?format=js&idx=%u&n=8&mkt=%s",
+                         (unsigned)(esp_random() % 8), mkt);
 
                 String photoUrl = "";
                 {
@@ -919,9 +966,23 @@ void clockBgTask(void* /*param*/) {
                                     JsonArray imgs = doc["images"].as<JsonArray>();
                                     const int n = (int)imgs.size();
                                     if (n > 0) {
-                                        const char* base =
-                                            imgs[esp_random() % n]["urlbase"].as<const char*>();
+                                        // Start at a random entry, then walk forward
+                                        // until one is not in the recent list. Walking
+                                        // rather than re-rolling guarantees we try each
+                                        // candidate exactly once and terminate.
+                                        const int start = (int)(esp_random() % (uint32_t)n);
+                                        const char* base = nullptr;
+                                        uint32_t    key  = 0;
+                                        for (int k = 0; k < n; k++) {
+                                            const char* cand =
+                                                imgs[(start + k) % n]["urlbase"].as<const char*>();
+                                            if (!cand || !cand[0]) continue;
+                                            const uint32_t ck = bingPhotoKey(cand);
+                                            if (!base) { base = cand; key = ck; }  // fallback
+                                            if (!bingRecentlyShown(ck)) { base = cand; key = ck; break; }
+                                        }
                                         if (base && base[0]) {
+                                            bingRememberShown(key);
                                             photoUrl = String("https://www.bing.com") + base +
                                                        "_" CLOCK_BG_BING_SIZE ".jpg";
                                         }
