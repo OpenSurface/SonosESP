@@ -179,7 +179,12 @@ void createWiFiScreen() {
     // SETTINGS_LIST_H() reaches the bottom of the inner box exactly, so the last
     // network is never clipped. It follows the content area's height, which
     // shrank when the now-playing dock was added, without being edited here.
-    list_wifi = lv_list_create(content);
+    // Plain object + flex column, not lv_list_create(): lv_list is deprecated
+    // in LVGL 9.6. It was never more than this - lv_list_class is lv_obj_class
+    // with no constructor and only a different default size, which the
+    // set_size() below overrides anyway, plus the flex flow set here.
+    list_wifi = lv_obj_create(content);
+    lv_obj_set_flex_flow(list_wifi, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_size(list_wifi, lv_pct(100), SETTINGS_LIST_H(164));
     lv_obj_set_pos(list_wifi, 0, SY(164));
     lv_obj_set_style_bg_color(list_wifi, AMB_BG, 0);

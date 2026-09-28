@@ -357,7 +357,12 @@ void createDevicesScreen() {
     lv_obj_set_style_text_font(lbl_status, &font_icon_16, 0);
 
     // Devices list
-    list_devices = lv_list_create(content);
+    // Plain object + flex column, not lv_list_create(): lv_list is deprecated
+    // in LVGL 9.6. It was never more than this - lv_list_class is lv_obj_class
+    // with no constructor and only a different default size, which the
+    // set_size() below overrides anyway, plus the flex flow set here.
+    list_devices = lv_obj_create(content);
+    lv_obj_set_flex_flow(list_devices, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_size(list_devices, lv_pct(100), SETTINGS_LIST_H(75));
     lv_obj_set_pos(list_devices, 0, SY(75));
     lv_obj_set_style_bg_color(list_devices, AMB_PANEL, 0);

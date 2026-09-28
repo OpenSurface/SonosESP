@@ -216,7 +216,12 @@ void createQueueScreen() {
     lv_obj_align(lbl_queue_status, LV_ALIGN_LEFT_MID, SX(30), SY(11));
 
     // Queue list - modern clean design
-    list_queue = lv_list_create(scr_queue);
+    // Plain object + flex column, not lv_list_create(): lv_list is deprecated
+    // in LVGL 9.6. It was never more than this - lv_list_class is lv_obj_class
+    // with no constructor and only a different default size, which the
+    // set_size() below overrides anyway, plus the flex flow set here.
+    list_queue = lv_obj_create(scr_queue);
+    lv_obj_set_flex_flow(list_queue, LV_FLEX_FLOW_COLUMN);
     // Starts right under the header now that the count lives inside it, which
     // buys the list 30 design pixels — half a row.
     lv_obj_set_size(list_queue, SX(730), SY(390));
