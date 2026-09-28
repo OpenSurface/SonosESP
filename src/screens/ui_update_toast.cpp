@@ -25,6 +25,12 @@
 #include "amber.h"
 #include "amber_icons.h"
 
+// Lives here, not in config.h: SY() comes from ui_scale.h, which includes
+// config.h and not the other way round, so this was the one macro in
+// config.h that only compiled because every user happened to pull in
+// ui_scale.h first. It is layout, not configuration.
+#define UPDATE_TOAST_Y  SY(14)   // resting distance from the top edge
+
 static lv_obj_t*  toast     = nullptr;
 static lv_timer_t* hide_tmr = nullptr;
 
@@ -44,10 +50,16 @@ static void toastYCb(void* obj, int32_t v) {
 static void toastOpaCb(void* obj, int32_t v) {
     lv_obj_set_style_opa((lv_obj_t*)obj, (lv_opa_t)v, 0);
 }
+// Deliberately a second, identical function rather than reusing toastOpaCb:
+// lv_anim_get() matches on (var, exec_cb), so sharing one callback makes the
+// dismiss guard below unable to tell an entrance fade from an exit fade.
+static void toastOpaOutCb(void* obj, int32_t v) {
+    lv_obj_set_style_opa((lv_obj_t*)obj, (lv_opa_t)v, 0);
+}
 static void toastDeleteCb(lv_anim_t* a) {
     lv_obj_t* o = (lv_obj_t*)a->var;
     if (o == toast) toast = nullptr;
-    if (o) lv_obj_del(o);
+    if (o) lv_obj_delete(o);
 }
 
 static void hideTimerCb(lv_timer_t* t) {
@@ -57,25 +69,34 @@ static void hideTimerCb(lv_timer_t* t) {
 }
 
 static void toastDismiss(bool animate) {
-    if (hide_tmr) { lv_timer_del(hide_tmr); hide_tmr = nullptr; }
+    if (hide_tmr) { lv_timer_delete(hide_tmr); hide_tmr = nullptr; }
     if (!toast) return;
 
     if (!animate) {
-        lv_obj_del(toast);
+        lv_obj_delete(toast);
         toast = nullptr;
         return;
     }
 
-    // Guard against a second dismiss landing mid-flight: an in-progress fade
-    // already owns the object and will delete it.
-    if (lv_anim_get(toast, toastOpaCb)) return;
+    // Guard against a second dismiss landing mid-flight: an in-progress EXIT
+    // fade already owns the object and will delete it. Matching on the exit
+    // callback specifically - the previous version matched toastOpaCb, which
+    // the entrance fade also uses, so if UPDATE_TOAST_HOLD_MS were ever dropped
+    // below UPDATE_TOAST_FADE_MS the dismiss would no-op against its own
+    // entrance animation, with hide_tmr already deleted, and the toast would
+    // stay on screen forever.
+    if (lv_anim_get(toast, toastOpaOutCb)) return;
+    // Splitting the callbacks also means lv_anim_start() no longer implicitly
+    // replaces an in-flight entrance fade, so kill it explicitly or the two
+    // opacity animations fight.
+    lv_anim_delete(toast, toastOpaCb);
 
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, toast);
     lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
     lv_anim_set_duration(&a, UPDATE_TOAST_FADE_MS);
-    lv_anim_set_exec_cb(&a, toastOpaCb);
+    lv_anim_set_exec_cb(&a, toastOpaOutCb);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
     lv_anim_set_completed_cb(&a, toastDeleteCb);   // frees the object, clears `toast`
     lv_anim_start(&a);
@@ -95,7 +116,21 @@ static void toastClicked(lv_event_t* e) {
     // Dismiss without animating: the screen is about to change underneath it,
     // and a pill fading out over a screen it was never placed on looks wrong.
     toastDismiss(false);
-    if (scr_ota) lv_screen_load(scr_ota);
+    // The Updates screen clears its last result on load, so that it never shows
+    // a stale version as current. We are carrying a fresh one — the whole point
+    // of the tap — so suppress that reset exactly once.
+    //
+    // Only when the load will actually happen. lv_display.c returns early if
+    // the requested screen is already active, so LV_EVENT_SCREEN_LOADED never
+    // fires and nothing consumes the flag — it would survive to the NEXT visit
+    // and suppress a reset that was genuinely wanted, showing a stale version
+    // as current with Install armed. The toast can be up on any screen,
+    // including Settings -> Updates itself, so this is reachable by tapping it
+    // where it already points.
+    if (scr_ota && lv_screen_active() != scr_ota) {
+        ota_skip_load_reset = true;
+        lv_screen_load(scr_ota);
+    }
 }
 
 void updateToastShow(const char* version) {
@@ -109,7 +144,7 @@ void updateToastShow(const char* version) {
     lv_obj_t* layer = lv_layer_top();
     // The layer spans the display. Without this it eats every touch meant for
     // the player sitting underneath it.
-    lv_obj_remove_flag(layer, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_clickable(layer, false);
     lv_obj_set_style_bg_opa(layer, LV_OPA_TRANSP, 0);
 
     toast = lv_button_create(layer);
@@ -127,7 +162,7 @@ void updateToastShow(const char* version) {
     lv_obj_set_style_shadow_width(toast, SMIN(24), 0);
     lv_obj_set_style_shadow_opa(toast, LV_OPA_50, 0);
     lv_obj_set_style_shadow_color(toast, lv_color_black(), 0);
-    lv_obj_set_style_shadow_ofs_y(toast, SY(6), 0);
+    lv_obj_set_style_shadow_offset_y(toast, SY(6), 0);
     lv_obj_add_event_cb(toast, toastClicked, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t* row = lv_obj_create(toast);
@@ -136,7 +171,7 @@ void updateToastShow(const char* version) {
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(row, SX(12), 0);
-    lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);   // let taps reach the button
+    lv_obj_set_clickable(row, false);   // let taps reach the button
     lv_obj_center(row);
 
     lv_obj_t* ico = lv_label_create(row);

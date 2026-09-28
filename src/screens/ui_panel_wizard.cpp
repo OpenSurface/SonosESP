@@ -40,7 +40,7 @@ static bool wizardAsk(uint8_t variant) {
     wiz_confirmed = false;
     wiz_screen = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(wiz_screen, COL_SCREEN, 0);
-    lv_obj_clear_flag(wiz_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(wiz_screen, false);
 
     // Full-width reference bars. A wrong panel corrupts part of every scanline,
     // and the reported failures rendered the LEFT portion correctly - so a
@@ -57,7 +57,7 @@ static bool wizardAsk(uint8_t variant) {
         lv_obj_set_style_bg_color(bar, lv_color_hex(bar_col[i]), 0);
         lv_obj_set_style_border_width(bar, 0, 0);
         lv_obj_set_style_radius(bar, 0, 0);
-        lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_scrollable(bar, false);
     }
 
     lv_obj_t* title = lv_label_create(wiz_screen);
@@ -76,7 +76,7 @@ static bool wizardAsk(uint8_t variant) {
 
     // Big target: this must be hittable, but not so easy to hit by accident
     // that a garbled screen gets confirmed by a stray touch.
-    lv_obj_t* btn = lv_btn_create(wiz_screen);
+    lv_obj_t* btn = lv_button_create(wiz_screen);
     lv_obj_set_size(btn, SX(300), SY(90));
     lv_obj_align(btn, LV_ALIGN_CENTER, 0, SY(20));
     lv_obj_set_style_bg_color(btn, COL_OK_STRONG, 0);

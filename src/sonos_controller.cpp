@@ -206,7 +206,26 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
 
     // Acquire network_mutex to serialize WiFi access
     if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
-        Serial.println("[SOAP] Failed to acquire network mutex - request failed");
+        // Say which of the two this is. A clock photo holding the radio is
+        // expected and self-corrects on the next cycle; anything else is not.
+        //
+        // The polling task checks the suppression flags ONCE per cycle and then
+        // issues two SOAPs (GetPositionInfo, then GetTransportInfo). clockBgTask
+        // raises clock_photo_in_progress after its cooldown, which can land
+        // between those two - so the second one waits out
+        // NETWORK_MUTEX_TIMEOUT_MS and lands here. That is why a photo cycle
+        // logs one or two of these and never more. Nothing is broken by it:
+        // errorCount and connected are deliberately left alone below, so the
+        // device is not marked down; one poll cycle is skipped and the next
+        // runs 300ms later, while the clock is on screen anyway.
+        //
+        // Closing it properly means re-checking between the two SOAPs, which is
+        // the polling hot path - its own change, not a drive-by here.
+        if (clock_photo_in_progress) {
+            Serial.println("[SOAP] Deferred - clock photo has the radio (expected)");
+        } else {
+            Serial.println("[SOAP] Failed to acquire network mutex - request failed");
+        }
         // Nothing was sent, so say that rather than leaving the last call's code.
         last_soap_http_code = SOAP_NOT_SENT;
         if (out_code) *out_code = SOAP_NOT_SENT;
@@ -2213,6 +2232,41 @@ void SonosController::pollingTaskFunction(void* param) {
                 }
             }
 
+            // The same watchdog for the clock photo's flag, kept SEPARATE on
+            // purpose. Merging them into one timer would break both: if art
+            // clears while the photo is still set, a shared art_flag_since
+            // never resets and the timer then measures the wrong interval.
+            // Two timers tick on the same poll cycles, so the combined ceiling
+            // is max(45s, 60s), not the sum.
+            {
+                static unsigned long photo_flag_since = 0;
+                static unsigned long photo_flag_last_seen = 0;
+                const unsigned long now_ms = millis();
+
+                // Same re-arm as above: these are function statics, so they
+                // survive the polling task being destroyed and recreated across
+                // OTA. A timestamp from the previous session would look ancient
+                // and clear the flag on the first check, letting polling run
+                // during a genuine photo download.
+                if (photo_flag_last_seen != 0 &&
+                    now_ms - photo_flag_last_seen > CLOCK_PHOTO_FLAG_MAX_HOLD_MS) {
+                    photo_flag_since = 0;
+                }
+                photo_flag_last_seen = now_ms;
+
+                if (!clock_photo_in_progress) {
+                    photo_flag_since = 0;
+                } else if (photo_flag_since == 0) {
+                    photo_flag_since = now_ms;
+                } else if (now_ms - photo_flag_since > CLOCK_PHOTO_FLAG_MAX_HOLD_MS) {
+                    Serial.printf("[POLL] clock photo flag held %lums (> %dms) - "
+                                  "clockBgTask is stuck; resuming polling\n",
+                                  now_ms - photo_flag_since, CLOCK_PHOTO_FLAG_MAX_HOLD_MS);
+                    clock_photo_in_progress = false;
+                    photo_flag_since = 0;
+                }
+            }
+
             {
                 bool post_download  = last_art_download_end_ms > 0 &&
                                       millis() - last_art_download_end_ms < SDIO_INTER_DOWNLOAD_MS;
@@ -2220,11 +2274,17 @@ void SonosController::pollingTaskFunction(void* param) {
                                       millis() - last_track_change_ms < SDIO_TRACK_CHANGE_SETTLE_MS;
 
                 // Art downloading (or post-download residue): skip ALL SOAPs, short sleep.
-                if (art_download_in_progress || post_download || track_settling) {
+                if (art_download_in_progress || clock_photo_in_progress ||
+                    post_download || track_settling) {
                     static unsigned long last_poll_skip_log = 0;
                     if (millis() - last_poll_skip_log > 2000) {
-                        Serial.printf("[POLL] Skip: art_dl=%d post_dl=%d settling=%d\n",
-                            (int)art_download_in_progress, (int)post_download, (int)track_settling);
+                        // photo= is in this log deliberately: the last two
+                        // suppression bugs were diagnosed from this line, and
+                        // without it a bench log cannot say which flag is
+                        // holding polling down.
+                        Serial.printf("[POLL] Skip: art_dl=%d photo=%d post_dl=%d settling=%d\n",
+                            (int)art_download_in_progress, (int)clock_photo_in_progress,
+                            (int)post_download, (int)track_settling);
                         last_poll_skip_log = millis();
                     }
                     vTaskDelay(pdMS_TO_TICKS(track_settling ? 1000 : POLL_BASE_INTERVAL_MS));
@@ -2323,7 +2383,7 @@ void SonosController::pollingTaskFunction(void* param) {
             // art_download_in_progress set deliberately, and isAlbumArtPending() also
             // returns true on art_mutex timeout — without a bound, either one stalls
             // volume/transport/queue polling forever.
-            if ((art_download_in_progress || isAlbumArtPending()) &&
+            if ((art_download_in_progress || clock_photo_in_progress || isAlbumArtPending()) &&
                 last_track_change_ms > 0 && millis() - last_track_change_ms < 10000) {
                 tick++;
                 vTaskDelay(pdMS_TO_TICKS(POLL_BASE_INTERVAL_MS));

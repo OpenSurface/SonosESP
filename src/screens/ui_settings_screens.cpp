@@ -73,7 +73,7 @@ void refreshQueueList() {
 
         bool isPlaying = (trackNum == d->currentTrackNumber);
 
-        lv_obj_t* btn = lv_btn_create(list_queue);
+        lv_obj_t* btn = lv_button_create(list_queue);
         lv_obj_set_size(btn, SX(727), SY(60));  // Full width, uniform height
         lv_obj_set_style_bg_color(btn, isPlaying ? AMB_RAISED : AMB_PANEL, 0);
         lv_obj_set_style_bg_color(btn, AMB_CARD, LV_STATE_PRESSED);
@@ -122,22 +122,24 @@ void refreshQueueList() {
         }
         const int text_w = dur ? 540 : 610;
 
-        // Title - highlight when playing
-        lv_obj_t* title = lv_label_create(btn);
-        lv_label_set_text(title, s_title.c_str());
-        lv_obj_set_style_text_color(title, isPlaying ? AMB_ACCENT : AMB_TEXT, 0);
-        lv_obj_set_style_text_font(title, &font_text_16, 0);
-        lv_obj_set_width(title, SX(text_w));
-        lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
+        // Title - highlight when playing.
+        //
+        // ambOneLine(), not a bare set_width + LONG_DOT: DOT truncates against
+        // the object's box, so without a bounded HEIGHT there is nothing to
+        // clip to and the string wraps instead. Both labels are LEFT_MID, so a
+        // second line grows in both directions and lands on the other one -
+        // 9 rows of overlap on the 4" when both wrap. A 66-character title
+        // ("Bohemian Rhapsody (Remastered 2011) - Live at Wembley Stadium
+        // 1986") is 585px against a 540px box, and podcast episode names clear
+        // it routinely. Same defect as #151/#177.
+        lv_obj_t* title = ambOneLine(btn, &font_text_16,
+                                     isPlaying ? AMB_ACCENT : AMB_TEXT,
+                                     s_title.c_str(), text_w);
         lv_obj_align(title, LV_ALIGN_LEFT_MID, SX(45), SY(-11));
 
         // Artist - subtle gray
-        lv_obj_t* artist = lv_label_create(btn);
-        lv_label_set_text(artist, s_artist.c_str());
-        lv_obj_set_style_text_color(artist, AMB_TEXT3, 0);
-        lv_obj_set_style_text_font(artist, &font_text_12, 0);
-        lv_obj_set_width(artist, SX(text_w));
-        lv_label_set_long_mode(artist, LV_LABEL_LONG_DOT);
+        lv_obj_t* artist = ambOneLine(btn, &font_text_12, AMB_TEXT3,
+                                      s_artist.c_str(), text_w);
         lv_obj_align(artist, LV_ALIGN_LEFT_MID, SX(45), SY(11));
     }
 }
@@ -155,7 +157,7 @@ void createQueueScreen() {
     lv_obj_set_style_border_width(header, 0, 0);
     lv_obj_set_style_radius(header, 0, 0);
     lv_obj_set_style_pad_all(header, 0, 0);
-    lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(header, false);
 
     // Title, with the track count as its subtitle. The count used to be a
     // separate label floating below the header, which read as an unrelated
@@ -214,7 +216,12 @@ void createQueueScreen() {
     lv_obj_align(lbl_queue_status, LV_ALIGN_LEFT_MID, SX(30), SY(11));
 
     // Queue list - modern clean design
-    list_queue = lv_list_create(scr_queue);
+    // Plain object + flex column, not lv_list_create(): lv_list is deprecated
+    // in LVGL 9.6. It was never more than this - lv_list_class is lv_obj_class
+    // with no constructor and only a different default size, which the
+    // set_size() below overrides anyway, plus the flex flow set here.
+    list_queue = lv_obj_create(scr_queue);
+    lv_obj_set_flex_flow(list_queue, LV_FLEX_FLOW_COLUMN);
     // Starts right under the header now that the count lives inside it, which
     // buys the list 30 design pixels — half a row.
     lv_obj_set_size(list_queue, SX(730), SY(390));
@@ -394,7 +401,7 @@ static void refreshSourcesList(lv_event_t* e) {
 
         // SOURCE_TILE_W is half the inner content width less the column gap, so
         // two tiles fill the row exactly on both panels.
-        lv_obj_t* btn = lv_btn_create(sources_list);
+        lv_obj_t* btn = lv_button_create(sources_list);
         lv_obj_set_size(btn, SX(SOURCE_TILE_W), SY(74));
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
@@ -445,7 +452,7 @@ static void refreshSourcesList(lv_event_t* e) {
         // Same tile geometry as the browse sources above. It was left full-width
         // when that list became a two-column grid, so this one row spanned both
         // columns and pushed the grid out of alignment.
-        lv_obj_t* btn = lv_btn_create(sources_list);
+        lv_obj_t* btn = lv_button_create(sources_list);
         lv_obj_set_size(btn, SX(SOURCE_TILE_W), SY(74));
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
@@ -499,7 +506,7 @@ void createSourcesScreen() {
 
     // Create sidebar and get content area (Sources is index 3)
     lv_obj_t* content = createSettingsSidebar(scr_sources, 3);
-    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(content, false);
 
     // Title
     addScreenHeader(content, "Sources", nullptr);
@@ -529,7 +536,7 @@ void createSourcesScreen() {
 // Browse Screen
 // ============================================================================
 // Frees a browse row's heap-allocated ItemData when LVGL destroys the button — for ANY
-// reason (screen rebuild, lv_obj_del of an ancestor, list refresh). Attached per-button
+// reason (screen rebuild, lv_obj_delete of an ancestor, list refresh). Attached per-button
 // where the ItemData is created.
 //
 // Replaces the old cleanupBrowseData(list) sweep, which was handed
@@ -594,7 +601,7 @@ static void browseLoadMore(lv_event_t* e) {
     if (!browse_list) return;
     // Drop the button first so the new rows land at the end of the list, then
     // browsePopulate() re-adds it if the page came back full.
-    if (browse_more_btn) { lv_obj_del(browse_more_btn); browse_more_btn = nullptr; }
+    if (browse_more_btn) { lv_obj_delete(browse_more_btn); browse_more_btn = nullptr; }
     browse_offset += browsePopulate(browse_list, browse_offset);
 }
 
@@ -610,12 +617,12 @@ void createBrowseScreen() {
 
     // Create sidebar and get content area (Sources is index 3)
     lv_obj_t* content = createSettingsSidebar(scr_browse, 3);
-    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(content, false);
 
     // Back arrow — up one container, or out to Sources at the top level. Without
     // this the only way out of a nested container was the sidebar, which jumps
     // all the way back to the Sources root and loses your place entirely.
-    lv_obj_t* btn_back = lv_btn_create(content);
+    lv_obj_t* btn_back = lv_button_create(content);
     lv_obj_set_size(btn_back, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_back, 0, 0);
     lv_obj_set_style_radius(btn_back, LV_RADIUS_CIRCLE, 0);
@@ -676,7 +683,7 @@ void createBrowseScreen() {
     // Now the replacement is populated, retire the old screen. Per-row ItemData
     // is released by browseItemDeleteCb as LVGL tears down the subtree — no
     // manual sweep needed (and the old one walked the wrong node).
-    if (old_browse) lv_obj_del(old_browse);
+    if (old_browse) lv_obj_delete(old_browse);
 }
 
 // Appends one page of rows to `list`, starting at `startIndex`. Returns how many
@@ -734,7 +741,7 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
         Serial.printf("[BROWSE] Item #%d: %s (container=%d, id=%s)\n",
                       itemCount, title.c_str(), isContainer, id.c_str());
 
-        lv_obj_t* btn = lv_btn_create(list);
+        lv_obj_t* btn = lv_button_create(list);
         lv_obj_set_size(btn, lv_pct(100), SY(60));
         lv_obj_set_style_radius(btn, 10, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
@@ -908,7 +915,7 @@ static int browsePopulate(lv_obj_t* list, int startIndex) {
     // is one "Load more" that turns out to fetch nothing, which then removes
     // itself because the next page comes back empty.
     if (itemCount == BROWSE_PAGE_SIZE) {
-        browse_more_btn = lv_btn_create(list);
+        browse_more_btn = lv_button_create(list);
         lv_obj_set_size(browse_more_btn, lv_pct(100), SY(50));
         lv_obj_set_style_radius(browse_more_btn, 10, 0);
         lv_obj_set_style_shadow_width(browse_more_btn, 0, 0);

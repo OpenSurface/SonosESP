@@ -196,7 +196,11 @@ static void lyricsTaskFunc(void* param) {
         }
         {
             unsigned long wait_start = millis();
-            while (art_download_in_progress) {
+            // clock_photo_in_progress too: lyrics_shutdown_requested is cleared
+            // in exitClockScreen(), the same function that starts the art task
+            // without waiting for clockBgTask, so a lyrics fetch can spawn while
+            // a photo is still in flight. Bounded by LYRICS_ART_WAIT_TIMEOUT_MS.
+            while (art_download_in_progress || clock_photo_in_progress) {
                 if (lyrics_abort_requested || lyrics_shutdown_requested) break;
                 if (millis() - wait_start > LYRICS_ART_WAIT_TIMEOUT_MS) break;  // safety timeout
                 vTaskDelay(pdMS_TO_TICKS(100));
@@ -225,8 +229,8 @@ static void lyricsTaskFunc(void* param) {
         //     updateUI() call — lyrics task may start and pass the while loop above before
         //     the flag is set. (2) Track may change and set the flag mid-sdioPreWait.
         // Either way: loop back and wait for art to finish before attempting HTTPS.
-        if (art_download_in_progress) {
-            Serial.println("[LYRICS] Art download in progress after pre-wait — retrying after art");
+        if (art_download_in_progress || clock_photo_in_progress) {
+            Serial.println("[LYRICS] Art or clock photo in progress after pre-wait — retrying");
             continue;
         }
 
@@ -246,8 +250,10 @@ static void lyricsTaskFunc(void* param) {
             heap_caps_get_free_size(MALLOC_CAP_DMA));
         // Inside-mutex check: final race guard. Track change may have set art_download_in_progress
         // between the recheck above and mutex acquisition (tiny window). Release and loop back.
-        if (art_download_in_progress) {
-            Serial.println("[LYRICS] Art download started while acquiring mutex — retrying after art");
+        // Cannot livelock on the photo: clock_photo_in_progress is only set while
+        // clockBgTask holds network_mutex, which we hold here.
+        if (art_download_in_progress || clock_photo_in_progress) {
+            Serial.println("[LYRICS] Art or clock photo started while acquiring mutex — retrying");
             xSemaphoreGive(network_mutex);
             continue;
         }
@@ -566,7 +572,7 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lv_obj_set_style_pad_bottom(lyrics_container, SY(12), 0);
     lv_obj_set_style_pad_left(lyrics_container, SX(12), 0);
     lv_obj_set_style_pad_right(lyrics_container, SX(12), 0);
-    lv_obj_clear_flag(lyrics_container, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(lyrics_container, false);
     lv_obj_set_scrollbar_mode(lyrics_container, LV_SCROLLBAR_MODE_OFF);
 
     // Flex column layout, centered
@@ -601,7 +607,7 @@ void createLyricsOverlay(lv_obj_t* parent) {
     lv_label_set_long_mode(lbl_lyric_next, LV_LABEL_LONG_SCROLL_CIRCULAR);
 
     // Start hidden
-    lv_obj_add_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(lyrics_container, true);
 }
 
 static void lyrics_fade_cb(void* var, int32_t v) {
@@ -612,12 +618,12 @@ static void lyrics_fade_cb(void* var, int32_t v) {
 // Fade-out complete: hide the container
 static void lyrics_fadeout_done_cb(lv_anim_t* a) {
     lv_obj_t* obj = (lv_obj_t*)a->var;
-    if (obj) lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    if (obj) lv_obj_set_hidden(obj, true);
 }
 
 // Smooth 300ms fade-out then hide
 static void lyricsHide() {
-    if (!lyrics_container || lv_obj_has_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN)) return;
+    if (!lyrics_container || lv_obj_is_hidden(lyrics_container)) return;
     // A fade-out is already running: let it finish.
     //
     // The HIDDEN flag is set by the COMPLETION callback, so during the fade the
@@ -648,11 +654,11 @@ static void lyricsShow() {
     // and lv_obj_set_style_opa() invalidates the container whether or not the
     // value changed — ten full redraws a second of the largest overlay on the
     // screen, for nothing.
-    if (!lv_obj_has_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN) &&
+    if (!lv_obj_is_hidden(lyrics_container) &&
         lv_obj_get_style_opa(lyrics_container, LV_PART_MAIN) == LV_OPA_COVER &&
         !lv_anim_get(lyrics_container, lyrics_fade_cb)) return;
-    lv_anim_del(lyrics_container, lyrics_fade_cb);
-    lv_obj_remove_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN);
+    lv_anim_delete(lyrics_container, lyrics_fade_cb);
+    lv_obj_set_hidden(lyrics_container, false);
     lv_obj_set_style_opa(lyrics_container, LV_OPA_COVER, 0);
 }
 
@@ -744,9 +750,9 @@ const char* lyricsCurrentText() {
 void setLyricsVisible(bool show) {
     if (!lyrics_container) return;
     if (show && lyrics_ready && lyric_count > 0) {
-        lv_obj_remove_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(lyrics_container, false);
     } else {
-        lv_obj_add_flag(lyrics_container, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(lyrics_container, true);
     }
 }
 

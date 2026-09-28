@@ -139,8 +139,8 @@ void buildAmberFace(lv_obj_t* parent) {
     lv_obj_set_style_border_width(af_root, 0, 0);
     lv_obj_set_style_pad_all(af_root, 0, 0);
     lv_obj_set_style_radius(af_root, 0, 0);
-    lv_obj_remove_flag(af_root, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(af_root, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_scrollable(af_root, false);
+    lv_obj_set_hidden(af_root, true);
     lv_obj_add_event_cb(af_root, af_root_deleted, LV_EVENT_DELETE, nullptr);
 
     // ── Left column: date, stacked clock, seconds ───────────────────────────
@@ -172,7 +172,7 @@ void buildAmberFace(lv_obj_t* parent) {
     lv_obj_remove_style_all(now);
     lv_obj_set_size(now, SX(AF_NOW_W), SY(38));
     lv_obj_set_pos(now, SX(AF_PAD_L), SY(AF_NOW_Y));
-    lv_obj_remove_flag(now, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(now, false);
 
     // The canvas puts its pause glyph ahead of the state caption.
     af_now_icon = ambLabel(now, &font_icon_16, AMB_TEXT3, "");
@@ -215,7 +215,7 @@ void buildAmberFace(lv_obj_t* parent) {
     lv_obj_set_flex_flow(wx, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(wx, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
     lv_obj_set_style_pad_column(wx, SX(16), 0);
-    lv_obj_remove_flag(wx, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(wx, false);
 
     af_icon = ambLabel(wx, &font_icon_wx_64, AMB_TEXT2, "");
     af_temp = ambLabel(wx, &font_text_48, AMB_TEXT, "--°");
@@ -244,7 +244,7 @@ void buildAmberFace(lv_obj_t* parent) {
     lv_obj_set_flex_flow(rail, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(rail, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_CENTER);
-    lv_obj_remove_flag(rail, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(rail, false);
 
     for (int i = 0; i < 6; i++) {
         lv_obj_t* cell = lv_obj_create(rail);
@@ -254,7 +254,7 @@ void buildAmberFace(lv_obj_t* parent) {
         lv_obj_set_flex_align(cell, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                               LV_FLEX_ALIGN_CENTER);
         lv_obj_set_style_pad_row(cell, SY(5), 0);
-        lv_obj_remove_flag(cell, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_scrollable(cell, false);
 
         af_rail_hr[i]   = ambCaption(cell, AMB_TEXT3, "--", 2);
         af_rail_icon[i] = ambLabel(cell, &font_icon_wx_32, AMB_TEXT2, "");

@@ -44,10 +44,10 @@ static void refreshRebootList() {
         lv_obj_t* row = lv_obj_get_parent(s_rb_what[i]);
         const reboot_log::Entry* e = reboot_log::at(log, i);
         if (!e) {
-            lv_obj_add_flag(row, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(row, true);
             continue;
         }
-        lv_obj_remove_flag(row, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(row, false);
 
         lv_label_set_text(s_rb_what[i], reboot_log::label(*e));
         // Gold for the ones worth reporting: crashes, freezes, power dips and the
@@ -67,8 +67,8 @@ static void refreshRebootList() {
         lv_label_set_text(s_rb_when[i], line);
     }
     if (s_rb_empty) {
-        if (log.count) lv_obj_add_flag(s_rb_empty, LV_OBJ_FLAG_HIDDEN);
-        else           lv_obj_remove_flag(s_rb_empty, LV_OBJ_FLAG_HIDDEN);
+        if (log.count) lv_obj_set_hidden(s_rb_empty, true);
+        else           lv_obj_set_hidden(s_rb_empty, false);
     }
 }
 
@@ -247,8 +247,8 @@ void createGeneralScreen() {
         lv_obj_set_height(list, LV_SIZE_CONTENT);
         lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
         lv_obj_set_style_pad_row(list, SY(6), 0);
-        lv_obj_remove_flag(list, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(list, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_scrollable(list, false);
+        lv_obj_set_clickable(list, false);
 
         const int32_t line_h = lv_font_get_line_height(&font_text_14);
         for (int i = 0; i < reboot_log::CAPACITY; i++) {
@@ -260,9 +260,9 @@ void createGeneralScreen() {
             lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                                   LV_FLEX_ALIGN_CENTER);
             lv_obj_set_style_pad_column(row, SX(12), 0);
-            lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-            lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_add_flag(row, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_scrollable(row, false);
+            lv_obj_set_clickable(row, false);
+            lv_obj_set_hidden(row, true);
 
             // DOT needs a bounded height as well as a width: given only a width,
             // an LVGL 9.5 label wraps and grows instead of truncating.

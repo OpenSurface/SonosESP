@@ -16,6 +16,16 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // ============================================================================
 // Groups Screen
 // ============================================================================
+// Lock wait for these two screens. Longer than the 30ms ui_sidebar.cpp uses,
+// deliberately: that is a 500ms timer where the next tick is imminent, so
+// giving up costs nothing. These are tap-driven one-shot builds - the user has
+// just asked for the screen, nothing will rebuild it until they tap again, and
+// a degraded row shows an IP where a name should be. updateQueue() holds
+// deviceMutex across a ~20KB DIDL parse for tens-to-hundreds of ms, so 30ms
+// loses that race often; 150ms rides out most of it and is imperceptible.
+// Bounded overall by the degraded flag: only the FIRST row can pay this.
+#define UI_DEVICE_SNAPSHOT_WAIT_MS 150
+
 void refreshGroupsList() {
     if (!list_groups) return;
     lv_obj_clean(list_groups);
@@ -37,27 +47,65 @@ void refreshGroupsList() {
         cnt, cnt == 1 ? "" : "s",
         groupCount, groupCount == 1 ? "" : "s");
 
+    // Set once a deviceMutex take times out: the remaining rows skip the lock
+    // and render degraded rather than each paying another 30ms.
+    bool degraded = false;
+    SemaphoreHandle_t dm = sonos.getDeviceMutex();
+
     // First pass: Show group coordinators with their members
     for (int i = 0; i < cnt; i++) {
         SonosDevice* dev = sonos.getDevice(i);
         if (!dev || !dev->isGroupCoordinator) continue;
 
-        // Count members in this group
-        int memberCount = 0;
-        for (int j = 0; j < cnt; j++) {
-            SonosDevice* member = sonos.getDevice(j);
-            if (member && (j == i ||
-                SonosController::uuidEquals(member->groupCoordinatorUUID, dev->rinconID))) {
-                memberCount++;
+        // Snapshot this row's Strings, and count its members, under one hold.
+        //
+        // roomName/currentTrack/currentArtist/groupCoordinatorUUID are Arduino
+        // Strings reassigned by the polling task (sonos_controller.cpp:1528) and
+        // by refreshGroupTopology() on the NETWORK task (:2741) — a String
+        // assignment frees the buffer, so an unlocked read here is a
+        // use-after-free, not a stale value. This screen took deviceMutex zero
+        // times. Same class as the v2.1.1 fix; that one covered timer-driven
+        // readers and missed this, which is tap-driven.
+        //
+        // The membership loop runs INSIDE the hold on purpose: uuidEquals() is
+        // allocation-free and non-blocking, and it must not take the lock itself
+        // (canonicalUuid() calls it from inside refreshGroupTopology's own hold,
+        // and deviceMutex is non-recursive). One take per row, never per
+        // comparison — per-comparison is O(N^2) takes and buys no consistency.
+        String s_room, s_track, s_artist;
+        int  memberCount = 0;
+        bool isPlaying   = false;
+        if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
+            s_room    = dev->roomName;
+            s_track   = dev->currentTrack;
+            s_artist  = dev->currentArtist;
+            isPlaying = dev->isPlaying;
+            for (int j = 0; j < cnt; j++) {
+                SonosDevice* member = sonos.getDevice(j);
+                if (member && (j == i ||
+                    SonosController::uuidEquals(member->groupCoordinatorUUID, dev->rinconID))) {
+                    memberCount++;
+                }
             }
+            xSemaphoreGive(dm);
+        } else {
+            // Lock busy — updateQueue() holds it across a ~20KB DIDL parse, so
+            // this fires whenever a queue refresh is in flight, which is exactly
+            // when someone is tapping around. Degrade, never return:
+            // lv_obj_clean() already ran, so returning strands the user on a
+            // permanently empty list. Once one row degrades the rest follow, or
+            // 32 rows x 30ms is a second of frozen LVGL.
+            degraded    = true;
+            s_room      = dev->ip.toString();   // POD, safe unlocked
+            isPlaying   = dev->isPlaying;       // bool
+            memberCount = 1;
         }
 
         bool isSelected = (selected_group_coordinator == i);
-        bool isPlaying = dev->isPlaying;
-        bool hasTrack = (dev->currentTrack.length() > 0);
+        bool hasTrack = (s_track.length() > 0);
 
         // Create group header button - taller to show now playing info
-        lv_obj_t* btn = lv_btn_create(list_groups);
+        lv_obj_t* btn = lv_button_create(list_groups);
         lv_obj_set_size(btn, lv_pct(100), (isPlaying && hasTrack) ? SY(85) : SY(70));
         lv_obj_set_user_data(btn, (void*)(intptr_t)i);
         lv_obj_set_style_radius(btn, 12, 0);
@@ -90,7 +138,7 @@ void refreshGroupsList() {
 
         // Room name (coordinator)
         lv_obj_t* lbl = lv_label_create(btn);
-        lv_label_set_text(lbl, dev->roomName.c_str());
+        lv_label_set_text(lbl, s_room.c_str());
         lv_obj_set_style_text_color(lbl, AMB_TEXT, 0);
         lv_obj_set_style_text_font(lbl, &font_text_20, 0);
         // Cap + ellipsize — the Remove button sits at this row's right edge.
@@ -116,9 +164,9 @@ void refreshGroupsList() {
         // Now playing info (if playing)
         if (isPlaying && hasTrack) {
             lv_obj_t* nowPlaying = lv_label_create(btn);
-            String trackInfo = dev->currentTrack;
-            if (dev->currentArtist.length() > 0) {
-                trackInfo += " - " + dev->currentArtist;
+            String trackInfo = s_track;
+            if (s_artist.length() > 0) {
+                trackInfo += " - " + s_artist;
             }
             // Truncate if too long
             if (trackInfo.length() > 45) {
@@ -142,11 +190,26 @@ void refreshGroupsList() {
             for (int j = 0; j < cnt; j++) {
                 if (j == i) continue;  // Skip coordinator
                 SonosDevice* member = sonos.getDevice(j);
-                if (!member ||
-                    !SonosController::uuidEquals(member->groupCoordinatorUUID, dev->rinconID)) continue;
+                if (!member) continue;
+
+                // Membership test and the name copy under one hold, released
+                // before any LVGL call below.
+                String s_mem_room;
+                bool   in_group = false;
+                if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
+                    in_group = SonosController::uuidEquals(member->groupCoordinatorUUID,
+                                                           dev->rinconID);
+                    if (in_group) s_mem_room = member->roomName;
+                    xSemaphoreGive(dm);
+                } else {
+                    degraded    = true;
+                    in_group    = true;                  // already counted above
+                    s_mem_room  = member->ip.toString();
+                }
+                if (!in_group) continue;
 
                 // Member item (indented)
-                lv_obj_t* memBtn = lv_btn_create(list_groups);
+                lv_obj_t* memBtn = lv_button_create(list_groups);
                 lv_obj_set_size(memBtn, lv_pct(95), SY(50));
                 lv_obj_set_user_data(memBtn, (void*)(intptr_t)j);
                 lv_obj_set_style_radius(memBtn, 8, 0);
@@ -163,7 +226,7 @@ void refreshGroupsList() {
                 lv_obj_align(memIcon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
                 lv_obj_t* memLbl = lv_label_create(memBtn);
-                lv_label_set_text(memLbl, member->roomName.c_str());
+                lv_label_set_text(memLbl, s_mem_room.c_str());
                 lv_obj_set_style_text_color(memLbl, AMB_TEXT, 0);
                 lv_obj_set_style_text_font(memLbl, &font_text_16, 0);
                 lv_obj_align(memLbl, LV_ALIGN_LEFT_MID, SX(60), 0);
@@ -172,7 +235,7 @@ void refreshGroupsList() {
                 lv_obj_align(bat, LV_ALIGN_RIGHT_MID, SX(-5 - 90 - 10), 0);
 
                 // Remove from group button
-                lv_obj_t* removeBtn = lv_btn_create(memBtn);
+                lv_obj_t* removeBtn = lv_button_create(memBtn);
                 lv_obj_set_size(removeBtn, SX(90), SY(35));
                 lv_obj_align(removeBtn, LV_ALIGN_RIGHT_MID, SX(-5), 0);
                 lv_obj_set_style_bg_color(removeBtn, COL_ERROR_SURFACE, 0);
@@ -203,16 +266,27 @@ void refreshGroupsList() {
     if (selected_group_coordinator >= 0) {
         SonosDevice* coordinator = sonos.getDevice(selected_group_coordinator);
         if (coordinator) {
+            // Snapshot the selected coordinator once for this whole section.
+            String s_coord_room, s_coord_rincon;
+            if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
+                s_coord_room   = coordinator->roomName;
+                s_coord_rincon = coordinator->rinconID;
+                xSemaphoreGive(dm);
+            } else {
+                degraded       = true;
+                s_coord_room   = coordinator->ip.toString();
+                s_coord_rincon = "";   // matches nothing; every row stays listed
+            }
             // Header for available speakers
             lv_obj_t* hdr = lv_obj_create(list_groups);
             lv_obj_set_size(hdr, lv_pct(100), SY(40));
             lv_obj_set_style_bg_color(hdr, AMB_PANEL, 0);
             lv_obj_set_style_border_width(hdr, 0, 0);
             lv_obj_set_style_pad_all(hdr, SMIN(10), 0);
-            lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_set_scrollable(hdr, false);
 
             lv_obj_t* hdrLbl = lv_label_create(hdr);
-            lv_label_set_text_fmt(hdrLbl, "Add speakers to \"%s\":", coordinator->roomName.c_str());
+            lv_label_set_text_fmt(hdrLbl, "Add speakers to \"%s\":", s_coord_room.c_str());
             lv_obj_set_style_text_color(hdrLbl, AMB_ACCENT, 0);
             lv_obj_set_style_text_font(hdrLbl, &font_text_16, 0);
             lv_obj_align(hdrLbl, LV_ALIGN_LEFT_MID, 0, 0);
@@ -228,18 +302,50 @@ void refreshGroupsList() {
                 SonosDevice* dev = sonos.getDevice(i);
                 if (!dev) continue;
 
-                // Skip if already in the selected group
-                if (SonosController::uuidEquals(dev->groupCoordinatorUUID,
-                                                coordinator->rinconID)) continue;
+                // Membership test, the name, and the member count under one
+                // hold. getGroupMemberCount() takes no lock of its own and this
+                // is its only caller, so running it here is what makes ITS
+                // reads correct too.
+                String s_dev_room;
+                bool   already_in = false, isCoord = false;
+                int    otherMembers = 0;
+                if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
+                    already_in = SonosController::uuidEquals(dev->groupCoordinatorUUID,
+                                                             s_coord_rincon);
+                    if (!already_in) {
+                        s_dev_room   = dev->roomName;
+                        isCoord      = dev->isGroupCoordinator;
+                        otherMembers = isCoord ? sonos.getGroupMemberCount(i) : 0;
+                    }
+                    xSemaphoreGive(dm);
+                } else {
+                    degraded   = true;
+                    s_dev_room = dev->ip.toString();
+                    isCoord    = dev->isGroupCoordinator;   // bool
+                }
+                if (already_in) continue;   // Skip if already in the selected group
 
                 // Where is it now? Drives the label, so the tap is never a surprise.
-                int otherMembers = dev->isGroupCoordinator
-                                 ? sonos.getGroupMemberCount(i) : 0;
-                bool leadsGroup  = (otherMembers > 1);
-                bool followsOther = !dev->isGroupCoordinator;
-                SonosDevice* otherCoord = followsOther ? sonos.groupCoordinatorFor(dev) : nullptr;
+                bool leadsGroup   = (otherMembers > 1);
+                bool followsOther = !isCoord;
 
-                lv_obj_t* addBtn = lv_btn_create(list_groups);
+                // groupCoordinatorFor() takes deviceMutex itself (50ms), and
+                // deviceMutex is NOT recursive — calling it inside the hold
+                // above would block the full 50ms, fail, and silently drop the
+                // "currently in <Room>" subtitle. It must stay out here.
+                SonosDevice* otherCoord = followsOther ? sonos.groupCoordinatorFor(dev) : nullptr;
+                String s_other_room;
+                if (otherCoord && otherCoord != dev) {
+                    if (!degraded && dm && xSemaphoreTake(dm, pdMS_TO_TICKS(UI_DEVICE_SNAPSHOT_WAIT_MS)) == pdTRUE) {
+                        s_other_room = otherCoord->roomName;
+                        xSemaphoreGive(dm);
+                    } else {
+                        degraded     = true;
+                        s_other_room = otherCoord->ip.toString();
+                    }
+                }
+
+                lv_obj_t* addBtn = lv_button_create(list_groups);
                 // Taller only when a second line is rendered below the room name.
                 lv_obj_set_size(addBtn, lv_pct(100), (leadsGroup || followsOther) ? SY(68) : SY(55));
                 lv_obj_set_user_data(addBtn, (void*)(intptr_t)i);
@@ -256,7 +362,7 @@ void refreshGroupsList() {
                 lv_obj_align(addIcon, LV_ALIGN_LEFT_MID, SX(5), 0);
 
                 lv_obj_t* addLbl = lv_label_create(addBtn);
-                lv_label_set_text_fmt(addLbl, "Add %s", dev->roomName.c_str());
+                lv_label_set_text_fmt(addLbl, "Add %s", s_dev_room.c_str());
                 lv_obj_set_style_text_color(addLbl, AMB_TEXT, 0);
                 lv_obj_set_style_text_font(addLbl, &font_text_16, 0);
                 lv_obj_set_width(addLbl, lv_pct(78));
@@ -278,7 +384,7 @@ void refreshGroupsList() {
                     lv_obj_align(sub2, LV_ALIGN_LEFT_MID, SX(60), SY(9));
                 } else if (followsOther && otherCoord && otherCoord != dev) {
                     lv_obj_t* sub2 = lv_label_create(addBtn);
-                    lv_label_set_text_fmt(sub2, "currently in %s", otherCoord->roomName.c_str());
+                    lv_label_set_text_fmt(sub2, "currently in %s", s_other_room.c_str());
                     lv_obj_set_style_text_color(sub2, AMB_TEXT3, 0);
                     lv_obj_set_style_text_font(sub2, &font_text_12, 0);
                     lv_obj_set_width(sub2, lv_pct(78));
@@ -310,7 +416,7 @@ void createGroupsScreen() {
 
     // Create sidebar and get content area (Groups is index 2)
     lv_obj_t* content = createSettingsSidebar(scr_groups, 2);
-    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(content, false);
 
     // Title + Refresh button row
     btn_groups_scan = addScreenHeader(content, "Groups", AMB_IC_REFRESH " Scan");
@@ -321,7 +427,7 @@ void createGroupsScreen() {
 
         // Show spinner
         if (spinner_groups_scan) {
-            lv_obj_remove_flag(spinner_groups_scan, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(spinner_groups_scan, false);
             lv_obj_move_foreground(spinner_groups_scan);
         }
 
@@ -357,9 +463,9 @@ void createGroupsScreen() {
 
         // Hide spinner and re-enable button
         if (spinner_groups_scan) {
-            lv_obj_add_flag(spinner_groups_scan, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(spinner_groups_scan, true);
         }
-        lv_obj_clear_state(btn_groups_scan, LV_STATE_DISABLED);
+        lv_obj_remove_state(btn_groups_scan, LV_STATE_DISABLED);
         lv_obj_set_style_bg_color(btn_groups_scan, AMB_ACCENT, 0);
     }, LV_EVENT_CLICKED, NULL);
 
@@ -398,5 +504,5 @@ void createGroupsScreen() {
     lv_obj_set_style_arc_width(spinner_groups_scan, 10, LV_PART_MAIN);
     lv_obj_set_style_arc_rounded(spinner_groups_scan, true, LV_PART_INDICATOR);
     lv_obj_move_foreground(spinner_groups_scan);
-    lv_obj_add_flag(spinner_groups_scan, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(spinner_groups_scan, true);
 }

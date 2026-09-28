@@ -23,7 +23,7 @@ lv_obj_t* addCard(lv_obj_t* parent, const char* title) {
     lv_obj_set_style_margin_bottom(card, 14, 0);
     lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(card, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-    lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(card, false);
 
     if (title) {
         lv_obj_t* lbl = lv_label_create(card);
@@ -38,8 +38,8 @@ lv_obj_t* addCard(lv_obj_t* parent, const char* title) {
         lv_obj_set_style_radius(underline, 1, 0);
         lv_obj_set_style_border_width(underline, 0, 0);
         lv_obj_set_style_margin_bottom(underline, 4, 0);
-        lv_obj_clear_flag(underline, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_clear_flag(underline, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_scrollable(underline, false);
+        lv_obj_set_clickable(underline, false);
     }
 
     return card;
@@ -91,7 +91,7 @@ lv_obj_t* addScreenHeader(lv_obj_t* parent, const char* title, const char* actio
     lv_obj_set_style_border_width(row, 0, 0);
     lv_obj_set_style_pad_all(row, 0, 0);
     lv_obj_set_style_margin_bottom(row, SY(12), 0);
-    lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(row, false);
 
     lv_obj_t* lbl = lv_label_create(row);
     lv_label_set_text(lbl, title);
@@ -214,8 +214,8 @@ static lv_obj_t* settingRowShell(lv_obj_t* parent, bool separator, lv_obj_t** ou
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
-    lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(row, false);
+    lv_obj_set_clickable(row, false);
 
     lv_obj_t* block = lv_obj_create(row);
     lv_obj_remove_style_all(block);
@@ -225,8 +225,8 @@ static lv_obj_t* settingRowShell(lv_obj_t* parent, bool separator, lv_obj_t** ou
     lv_obj_set_flex_align(block, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_START);
     lv_obj_set_style_pad_row(block, SY(3), 0);
-    lv_obj_remove_flag(block, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(block, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(block, false);
+    lv_obj_set_clickable(block, false);
 
     *out_block = block;
     return row;
@@ -264,8 +264,8 @@ lv_obj_t* addSettingRow(lv_obj_t* parent, const char* title, const char* desc,
     lv_obj_set_flex_flow(slot, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(slot, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
-    lv_obj_remove_flag(slot, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(slot, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(slot, false);
+    lv_obj_set_clickable(slot, false);
     return slot;
 }
 
@@ -298,8 +298,8 @@ lv_obj_t* addSliderRow(lv_obj_t* parent, const char* title, const char* desc,
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_START);
-    lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(row, false);
+    lv_obj_set_clickable(row, false);
 
     lv_obj_t* head = lv_obj_create(row);
     lv_obj_remove_style_all(head);
@@ -308,8 +308,8 @@ lv_obj_t* addSliderRow(lv_obj_t* parent, const char* title, const char* desc,
     lv_obj_set_flex_flow(head, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(head, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END,
                           LV_FLEX_ALIGN_CENTER);
-    lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(head, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(head, false);
+    lv_obj_set_clickable(head, false);
 
     lv_obj_t* lbl = lv_label_create(head);
     lv_label_set_text(lbl, title);

@@ -119,9 +119,17 @@ static void dumpScreenshot(void) {
         // Deliberately NO vTaskDelay here. Yielding hands the CPU to tasks that
         // then print into the middle of a line, and every such line costs a
         // retransmit. The watchdog needs the reset, not a yield.
+        //
+        // Reset every line, not every 32. setTxTimeoutMs(1000) above means one
+        // emitLine() can block for a full second when the host stops draining,
+        // so a 32-line cadence is up to 32s between feeds against a 30s
+        // WATCHDOG_TIMEOUT_SEC - closing the terminal mid-dump was enough to
+        // panic the device, and a 4" frame is 13,474 lines. The reset is a
+        // couple of instructions and does not yield, so this does not weaken
+        // the reasoning above. The flush stays on the 32-line cadence.
+        esp_task_wdt_reset();
         if ((i & 0x1F) == 0) {
             Serial.flush();
-            esp_task_wdt_reset();
         }
     }
 

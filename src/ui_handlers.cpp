@@ -266,7 +266,7 @@ void ev_discover(lv_event_t* e) {
     // Show spinner
     if (spinner_scan) {
         Serial.println("[SCAN] Showing spinner");
-        lv_obj_remove_flag(spinner_scan, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(spinner_scan, false);
         lv_obj_move_foreground(spinner_scan);  // Bring to front
     } else {
         Serial.println("[SCAN] ERROR: spinner_scan is NULL!");
@@ -281,12 +281,12 @@ void ev_discover(lv_event_t* e) {
 
     // Hide spinner
     if (spinner_scan) {
-        lv_obj_add_flag(spinner_scan, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(spinner_scan, true);
     }
 
     // Re-enable scan button
     if (btn_sonos_scan) {
-        lv_obj_clear_state(btn_sonos_scan, LV_STATE_DISABLED);
+        lv_obj_remove_state(btn_sonos_scan, LV_STATE_DISABLED);
     }
 
     if (cnt == 0) {
@@ -323,11 +323,11 @@ void ev_wifi_scan(lv_event_t* e) {
     lv_obj_set_style_text_color(lbl_wifi_status, COL_ACCENT, 0);
     lv_obj_clean(list_wifi);
     // Hide password strip if visible from a previous selection
-    lv_obj_add_flag(pw_strip, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(pw_strip, true);
+    lv_obj_set_hidden(kb, true);
     // Show spinner
     if (spinner_wifi_scan) {
-        lv_obj_remove_flag(spinner_wifi_scan, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(spinner_wifi_scan, false);
         lv_obj_move_foreground(spinner_wifi_scan);
     }
     // lv_refr_now, NOT lv_timer_handler: we are inside an event callback, which
@@ -343,8 +343,8 @@ void ev_wifi_scan(lv_event_t* e) {
     wifiNetworkCount = min(n, 20);
 
     // Hide spinner, re-enable button
-    if (spinner_wifi_scan) lv_obj_add_flag(spinner_wifi_scan, LV_OBJ_FLAG_HIDDEN);
-    if (btn_wifi_scan)     lv_obj_clear_state(btn_wifi_scan, LV_STATE_DISABLED);
+    if (spinner_wifi_scan) lv_obj_set_hidden(spinner_wifi_scan, true);
+    if (btn_wifi_scan)     lv_obj_remove_state(btn_wifi_scan, LV_STATE_DISABLED);
     if (lbl_scan_text)     lv_label_set_text(lbl_scan_text, MDI_REFRESH " Scan");
 
     if (n == 0) {
@@ -390,7 +390,7 @@ void ev_wifi_scan(lv_event_t* e) {
         else if (rssi > -75) icon_color = COL_ACCENT;
         else                 icon_color = COL_ERROR;
 
-        lv_obj_t* btn = lv_btn_create(list_wifi);
+        lv_obj_t* btn = lv_button_create(list_wifi);
         lv_obj_set_size(btn, lv_pct(100), SY(50));
         lv_obj_set_user_data(btn, (void*)(intptr_t)ui);
         lv_obj_set_style_bg_color(btn, COL_CARD, 0);
@@ -402,10 +402,10 @@ void ev_wifi_scan(lv_event_t* e) {
             selectedSSID = wifiNetworks[idx];
             // Show password strip + update SSID label
             lv_label_set_text(lbl_pw_ssid, selectedSSID.c_str());
-            lv_obj_clear_flag(pw_strip, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(pw_strip, false);
             lv_label_set_text_fmt(lbl_wifi_status, MDI_WIFI " %s", selectedSSID.c_str());
             lv_obj_set_style_text_color(lbl_wifi_status, COL_TEXT, 0);
-            lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(kb, false);
         }, LV_EVENT_CLICKED, NULL);
 
         lv_obj_t* icon = lv_label_create(btn);
@@ -441,7 +441,7 @@ void ev_wifi_connect(lv_event_t* e) {
 
     lv_label_set_text_fmt(lbl_wifi_status, MDI_REFRESH " Connecting to %s...", selectedSSID.c_str());
     lv_obj_set_style_text_color(lbl_wifi_status, COL_ACCENT, 0);
-    lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(kb, true);
     lv_refr_now(NULL);  // Update UI (nested lv_timer_handler would be a no-op)
 
     WiFi.disconnect();
@@ -476,7 +476,7 @@ void ev_wifi_connect(lv_event_t* e) {
 
     // Re-enable button
     if (btn_wifi_connect) {
-        lv_obj_clear_state(btn_wifi_connect, LV_STATE_DISABLED);
+        lv_obj_remove_state(btn_wifi_connect, LV_STATE_DISABLED);
     }
 
     if (WiFi.status() == WL_CONNECTED) {
@@ -503,8 +503,8 @@ void ev_wifi_connect(lv_event_t* e) {
         lv_obj_set_style_text_color(lbl_wifi_status, COL_OK, 0);
 
         // Hide strip + keyboard, clear password field
-        lv_obj_add_flag(pw_strip, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(pw_strip, true);
+        lv_obj_set_hidden(kb, true);
         lv_textarea_set_text(ta_password, "");
     } else {
         // Determine failure reason
@@ -610,7 +610,7 @@ static void checkForUpdates() {
             lv_label_set_text(lbl_ota_status, MDI_ALERT " Network busy, try again");
             lv_obj_set_style_text_color(lbl_ota_status, COL_ERROR, 0);
         }
-        if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
+        if (btn_check_update) lv_obj_remove_state(btn_check_update, LV_STATE_DISABLED);
         return;
     }
 
@@ -676,7 +676,7 @@ static void checkForUpdates() {
     // Release mutex after ALL network activity including TLS cleanup
     xSemaphoreGive(network_mutex);
 
-    if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
+    if (btn_check_update) lv_obj_remove_state(btn_check_update, LV_STATE_DISABLED);
 
     if (httpCode == 200) {
         JsonDocument doc;
@@ -769,7 +769,7 @@ static void checkForUpdates() {
                         lv_label_set_text_fmt(lbl_latest_version, "v%s", current_version.c_str());
                     }
                     if (btn_install_update) {
-                        lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_set_hidden(btn_install_update, true);
                     }
                 } else {
                     // User is on stable, no nightlies available
@@ -856,7 +856,7 @@ static void checkForUpdates() {
                     lv_obj_set_style_text_color(lbl_ota_status, COL_WARN, 0);
                 }
                 if (btn_install_update) {
-                    lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_set_hidden(btn_install_update, true);
                 }
             } else if (update_available) {
                 if (lbl_ota_status) {
@@ -864,7 +864,7 @@ static void checkForUpdates() {
                     lv_obj_set_style_text_color(lbl_ota_status, COL_OK, 0);
                 }
                 if (btn_install_update) {
-                    lv_obj_clear_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_set_hidden(btn_install_update, false);
                 }
             } else {
                 if (lbl_ota_status) {
@@ -872,7 +872,7 @@ static void checkForUpdates() {
                     lv_obj_set_style_text_color(lbl_ota_status, COL_OK, 0);
                 }
                 if (btn_install_update) {
-                    lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_set_hidden(btn_install_update, true);
                 }
             }
         } else {
@@ -902,10 +902,10 @@ static void otaRecovery() {
 
     // Hide progress bar and re-enable buttons
     if (bar_ota_progress) {
-        lv_obj_add_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(bar_ota_progress, true);
     }
-    if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
-    if (btn_install_update) lv_obj_clear_state(btn_install_update, LV_STATE_DISABLED);
+    if (btn_check_update) lv_obj_remove_state(btn_check_update, LV_STATE_DISABLED);
+    if (btn_install_update) lv_obj_remove_state(btn_install_update, LV_STATE_DISABLED);
 
     // Re-enable WiFi features
     WiFi.setAutoReconnect(true);
@@ -1140,7 +1140,7 @@ static void performOTAUpdate() {
         lv_obj_set_style_text_color(lbl_ota_status, COL_ACCENT, 0);
     }
     if (bar_ota_progress) {
-        lv_obj_clear_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(bar_ota_progress, false);
         lv_bar_set_value(bar_ota_progress, 0, LV_ANIM_OFF);
     }
     lv_tick_inc(10);
@@ -1671,7 +1671,18 @@ static void performOTAUpdate() {
 }
 
 void ev_check_update(lv_event_t* e) {
+    // Same watchdog bracket as otaBackgroundCheckTick(), and for the same
+    // reason. This is an LVGL event callback, so it runs inside
+    // lv_timer_handler() — which is only ever called from mainAppTask, the
+    // watchdog-subscribed task. loopTask is idle and is not subscribed in
+    // steady state. checkForUpdates() can block for 5s mutex + 2.2s cooldowns
+    // + two (connect 5s + read OTA_CHECK_TIMEOUT_MS) attempts + a 3s retry gap
+    // = ~37s against a 30s WATCHDOG_TIMEOUT_SEC with trigger_panic=true, so a
+    // user tapping "Check for Updates" behind a captive portal that accepts
+    // :443 and goes quiet panics the panel.
+    esp_task_wdt_delete(NULL);
     checkForUpdates();
+    esp_task_wdt_add(NULL);
 }
 
 // Background update check, called once per mainAppTask iteration.
@@ -1690,14 +1701,30 @@ void otaBackgroundCheckTick() {
     // the toast never appears in the same iteration as an HTTPS session — the
     // animation would be competing with TLS teardown for the same few
     // milliseconds, on the thread that draws.
-    if (toast_pending) {
+    // Never over the screensaver. The toast lives on lv_layer_top(), so it draws
+    // above scr_clock and takes the tap that would otherwise reach the clock's
+    // own LV_EVENT_CLICKED handler — the only thing that calls exitClockScreen()
+    // in CLOCK_MODE_INACTIVITY. Loading scr_ota from under it leaves clock_state
+    // at CLOCK_ACTIVE with art_shutdown_requested still set, so album art and
+    // lyrics never come back and clockBgTask keeps fetching photos. Hold the
+    // notice instead: toast_pending stays set and it appears once the user is
+    // back on a real screen.
+    if (toast_pending && clock_state == CLOCK_IDLE) {
         toast_pending = false;
         if (ota_update_available && latest_version.length() > 0) {
             updateToastShow(latest_version.c_str());
         }
     }
 
-    if (millis() < next_check_ms) return;
+    // Wrap-safe. A plain `millis() < next_check_ms` breaks at 49.7 days: the
+    // re-arm below computes millis() + 86,400,000, which overflows uint32_t on
+    // the 49th daily check and lands in the past. The comparison is then false
+    // forever, so this runs on every mainAppTask iteration (~3ms) for the ~17
+    // hours until millis() itself wraps — OTA_CHECK_DEBOUNCE_MS caps that at one
+    // GitHub TLS session every 5s, which is still thousands of handshakes each
+    // holding network_mutex. Subtract-then-compare-signed is wrap-immune and is
+    // what lastWifiCheck/lastHeapLog in main.cpp already use.
+    if ((int32_t)(millis() - next_check_ms) < 0) return;
 
     // Re-arm first, so every early return below still backs off a full interval
     // rather than retrying this condition on the very next iteration.
@@ -1707,7 +1734,12 @@ void otaBackgroundCheckTick() {
 
     // Never during an OTA, and never while artwork is mid-download: both hold
     // the radio, and an update notice is the least urgent thing on this device.
-    if (ota_in_progress || art_download_in_progress) {
+    // clock_photo_in_progress is not optional here. Until the photo had its own
+    // flag, its use of art_download_in_progress is what kept a GitHub TLS
+    // session out of the photo window; splitting the flags without adding it
+    // here would let a handshake start during an in-flight Bing download — a
+    // new overlap, on an SDIO path, introduced by the fix itself.
+    if (ota_in_progress || art_download_in_progress || clock_photo_in_progress) {
         next_check_ms = millis() + OTA_BGCHECK_RETRY_MS;   // look again shortly
         return;
     }
@@ -1720,7 +1752,42 @@ void otaBackgroundCheckTick() {
     }
 
     Serial.println("[UPDATE] Background check");
+
+    // Unsubscribe from the task watchdog across the check, then re-subscribe.
+    //
+    // mainAppTask is the only WDT-subscribed task in steady state and feeds the
+    // dog once per loop iteration (main.cpp). checkForUpdates() contains no
+    // esp_task_wdt_reset() of its own and can block far longer than the 30s
+    // WATCHDOG_TIMEOUT_SEC: mutex 5s + cooldowns 2.2s + TLS connect 5s + a
+    // header stall at OTA_CHECK_TIMEOUT_MS + a body stall at the same, plus one
+    // retry. A connection that opens and then goes quiet — the documented
+    // signature of esp-hosted #184, and equally a captive portal that accepts
+    // :443 and never answers — reaches ~40s and panics with trigger_panic=true.
+    //
+    // Because next_check_ms is a function static, the reboot rearms it at
+    // OTA_BGCHECK_FIRST_MS: a persistently stalling path would reboot the panel
+    // every ten minutes indefinitely, unattended.
+    //
+    // The Updates-screen button reaches the same code and needs the same
+    // bracket — see ev_check_update(). An earlier version of this comment
+    // claimed that path was safe because "loopTask is the subscriber"; that is
+    // wrong. lv_timer_handler() is only called from mainAppTask, so an LVGL
+    // event callback runs on the watchdog-subscribed task too. What is new here
+    // is that it happens unattended and repeats.
+    //
+    // Known trade: while unsubscribed the task is genuinely unwatched, so a
+    // slow-drip response body (HTTPClient restarts its timeout on every byte —
+    // config.h records one download sitting inside HTTPS for 209 SECONDS)
+    // freezes the panel instead of rebooting it. For a once-a-day check against
+    // api.github.com that is the better failure, but it is a trade, not a bound.
+    //
+    // Unsubscribing is safe because the operation is bounded by its own
+    // timeouts — it always returns — so the worst case becomes a slow tick
+    // rather than a reboot loop. The user-initiated path is left alone.
+    esp_task_wdt_delete(NULL);
     checkForUpdates();          // sets ota_update_available + latest_version
+    esp_task_wdt_add(NULL);
+
     toast_pending = true;       // announced on the next iteration
 }
 
@@ -1779,9 +1846,9 @@ void ev_install_update(lv_event_t* e) {
 // existing artwork, so hiding the object alone lets the stale image return the
 // moment either of those runs.
 static void showNoArtwork(void) {
-    if (img_album)       lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-    if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
-    if (img_blur_bg)     lv_obj_add_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
+    if (img_album)       lv_obj_set_hidden(img_album, true);
+    if (art_placeholder) lv_obj_set_hidden(art_placeholder, false);
+    if (img_blur_bg)     lv_obj_set_hidden(img_blur_bg, true);
     blur_bg_valid = false;
     blur_bg_ready = false;
 }
@@ -1847,13 +1914,13 @@ static bool updateConnectionState(SonosDevice* d) {
             lv_slider_set_value(slider_progress, 0, LV_ANIM_OFF);
             playbackPositionReset();   // whatever comes back, it starts over
 
-            lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(img_album, true);
+            lv_obj_set_hidden(art_placeholder, false);
 
-            lv_obj_add_flag(img_next_album, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(lbl_next_title, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(img_next_album, true);
+            lv_obj_set_hidden(lbl_next_title, true);
+            lv_obj_set_hidden(lbl_next_artist, true);
+            lv_obj_set_hidden(lbl_next_header, true);
 
             if (panel_art)   lv_obj_set_style_bg_color(panel_art,   COL_BG, 0);
             if (panel_right) lv_obj_set_style_bg_color(panel_right, COL_BG, 0);
@@ -1944,11 +2011,11 @@ static void displayCompletedArt() {
         art_dsc.header.cf   = LV_COLOR_FORMAT_RGB565;
         art_dsc.data_size   = ART_PX * ART_PX * 2;
         art_dsc.data        = (const uint8_t*)art_buffer;
-        lv_img_set_src(img_album, &art_dsc);
+        lv_image_set_src(img_album, &art_dsc);
         themeApplyArtGeometry(img_album);   // HERO (Classic) vs THUMB (Immersive)
         artFadeIn(img_album);               // fade up; see the note on artFadeIn
-        lv_obj_remove_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(img_album, false);
+        lv_obj_set_hidden(art_placeholder, true);
         art_ready = false;
         art_show_placeholder = false;
     } else if (art_show_placeholder) {
@@ -1965,8 +2032,8 @@ static void displayCompletedArt() {
         blur_bg_dsc.header.cf = LV_COLOR_FORMAT_RGB565;
         blur_bg_dsc.data_size = DISPLAY_WIDTH * DISPLAY_HEIGHT * 2;
         blur_bg_dsc.data      = (const uint8_t*)blur_bg_buf;
-        lv_img_set_src(img_blur_bg, &blur_bg_dsc);
-        lv_obj_remove_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
+        lv_image_set_src(img_blur_bg, &blur_bg_dsc);
+        lv_obj_set_hidden(img_blur_bg, false);
         blur_bg_ready = false;
     }
     if (color_ready) {
@@ -2035,16 +2102,16 @@ static void updateNextTrackUI(SonosDevice* d) {
         if (nextTitle != last_next_title || ui_force_refresh) {
             lv_label_set_text(lbl_next_title, nextTitle.c_str());
             lv_label_set_text(lbl_next_artist, nextArtist.c_str());
-            lv_obj_clear_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(lbl_next_title, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(lbl_next_header, false);
+            lv_obj_set_hidden(lbl_next_title, false);
+            lv_obj_set_hidden(lbl_next_artist, false);
             last_next_title = nextTitle;
         }
     } else if (hideAll) {
         if (last_next_title != "") {
-            lv_obj_add_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(lbl_next_title, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(lbl_next_header, true);
+            lv_obj_set_hidden(lbl_next_title, true);
+            lv_obj_set_hidden(lbl_next_artist, true);
             last_next_title = "";
         }
     }
@@ -2132,8 +2199,8 @@ static void updateAlbumArtRequest(SonosDevice* d) {
             // updateUI frame (cache hit would bypass the placeholder entirely).
             clearAlbumArtCache();
             // Show placeholder immediately (main thread = LVGL-safe)
-            if (img_album)       lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-            if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+            if (img_album)       lv_obj_set_hidden(img_album, true);
+            if (art_placeholder) lv_obj_set_hidden(art_placeholder, false);
         }
     }
 
@@ -2144,8 +2211,8 @@ static void updateAlbumArtRequest(SonosDevice* d) {
         Serial.println("[ART] Not playing - clearing art display");
         art_abort_download = true;  // Stop any in-progress download immediately
         clearAlbumArtCache();
-        if (img_album) lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-        if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+        if (img_album) lv_obj_set_hidden(img_album, true);
+        if (art_placeholder) lv_obj_set_hidden(art_placeholder, false);
         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
             last_art_url = "";
             pending_art_url = "";  // Prevent art task re-fetching the old URL
@@ -2266,8 +2333,8 @@ static void updateAlbumArtRequest(SonosDevice* d) {
         } else {
             // No art available - clear display
             Serial.println("[ART] No art URL - clearing display");
-            if (img_album) lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-            if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+            if (img_album) lv_obj_set_hidden(img_album, true);
+            if (art_placeholder) lv_obj_set_hidden(art_placeholder, false);
             // CRITICAL: Must hold art_mutex when writing last_art_url (not atomic)
             if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
                 last_art_url = "";  // Clear to allow next art request

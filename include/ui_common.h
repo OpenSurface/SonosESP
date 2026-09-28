@@ -21,7 +21,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "2.2.1"
+#define FIRMWARE_VERSION "2.2.4"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -205,6 +205,11 @@ extern volatile unsigned long last_network_end_ms;
 extern volatile unsigned long last_https_end_ms;
 extern volatile unsigned long last_queue_fetch_time;
 extern volatile bool          art_download_in_progress;
+// The clock photo's own suppression flag. Separate from art_download_in_progress
+// because the two tasks overlap at screensaver exit and were clobbering each
+// other's flag; the art task's protocol is deliberately unbalanced (abort paths
+// leave it set) so a shared flag or a refcount cannot express both.
+extern volatile bool          clock_photo_in_progress;
 extern volatile bool          art_dma_recovery_requested;  // Set by art task; mainAppTask handles WiFi stop+reconnect/restart
 extern volatile unsigned long last_art_download_end_ms;
 extern volatile unsigned long last_track_change_ms;
@@ -329,6 +334,11 @@ void updateToastHide(void);
 
 // Set by the background update check; read by the toast scheduler.
 extern volatile bool ota_update_available;
+
+// One-shot: suppresses the Updates screen's on-load reset for the next load.
+// Set only by the toast, which arrives at that screen carrying a result the
+// reset would immediately throw away. See ui_ota_screen.cpp.
+extern bool ota_skip_load_reset;
 
 // Periodic "is there a newer release" check. Call once per mainAppTask
 // iteration; a cheap no-op until its interval is due.

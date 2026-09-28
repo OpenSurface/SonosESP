@@ -119,12 +119,12 @@ static void sbDockWrite(SbDock& d) {
             lv_image_set_src(d.art, &art_dsc);
             lv_obj_invalidate(d.art);
         }
-        lv_obj_remove_flag(d.art, LV_OBJ_FLAG_HIDDEN);
-        if (d.art_note) lv_obj_add_flag(d.art_note, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(d.art, false);
+        if (d.art_note) lv_obj_set_hidden(d.art_note, true);
     } else {
         d.art_track = "";
-        lv_obj_add_flag(d.art, LV_OBJ_FLAG_HIDDEN);
-        if (d.art_note) lv_obj_remove_flag(d.art_note, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(d.art, true);
+        if (d.art_note) lv_obj_set_hidden(d.art_note, false);
     }
 }
 
@@ -182,8 +182,8 @@ static void buildDock(lv_obj_t* screen) {
     lv_obj_set_style_border_color(dock, AMB_CARD, 0);
     lv_obj_set_style_pad_hor(dock, SX(16), 0);
     lv_obj_set_style_pad_ver(dock, 0, 0);
-    lv_obj_remove_flag(dock, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(dock, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(dock, false);
+    lv_obj_set_clickable(dock, false);
 
     // The artwork tile: the real album art when there is any, a music-note glyph
     // otherwise. Both live in the same 40px box and are swapped by sbDockWrite().
@@ -194,8 +194,8 @@ static void buildDock(lv_obj_t* screen) {
     lv_obj_set_style_radius(tile, SMIN(6), 0);
     lv_obj_set_style_border_width(tile, 0, 0);
     lv_obj_set_style_pad_all(tile, 0, 0);
-    lv_obj_remove_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(tile, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(tile, false);
+    lv_obj_set_clickable(tile, false);
     lv_obj_set_style_clip_corner(tile, true, 0);
 
     lv_obj_t* note = lv_label_create(tile);
@@ -215,7 +215,7 @@ static void buildDock(lv_obj_t* screen) {
     lv_image_set_scale(art, (LV_SCALE_NONE * SMIN(40)) / ART_PX);
     lv_obj_set_size(art, SMIN(40), SMIN(40));
     lv_obj_center(art);
-    lv_obj_add_flag(art, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(art, true);
 
     // Right-hand controls first, so the text block can claim what is left.
     //
@@ -288,7 +288,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     lv_obj_set_style_border_color(sidebar, AMB_CARD, 0);
     lv_obj_set_style_radius(sidebar, 0, 0);
     lv_obj_set_style_pad_all(sidebar, 0, 0);
-    lv_obj_remove_flag(sidebar, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(sidebar, false);
 
     // Title, version and close. The version sits under the title now that the
     // dock occupies the rail's foot.

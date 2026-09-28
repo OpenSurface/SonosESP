@@ -193,8 +193,8 @@ static void im_vol_set_open(bool open) {
     // gives the whole width of the bar to volume — nothing is cramped in beside it.
     for (auto* o : im_prog_group) {
         if (!o) continue;
-        if (open) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
-        else      lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
+        if (open) lv_obj_set_hidden(o, true);
+        else      lv_obj_set_hidden(o, false);
     }
 
     // Cross-fade the slider rather than snapping it on/off.
@@ -207,12 +207,12 @@ static void im_vol_set_open(bool open) {
     lv_anim_set_path_cb(&s, lv_anim_path_ease_out);
     if (open) {
         lv_obj_set_style_opa(slider_vol, LV_OPA_TRANSP, 0);
-        lv_obj_remove_flag(slider_vol, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(slider_vol, false);
         lv_anim_set_values(&s, 0, LV_OPA_COVER);
     } else {
         lv_anim_set_values(&s, LV_OPA_COVER, 0);
         lv_anim_set_completed_cb(&s, [](lv_anim_t* a) {
-            lv_obj_add_flag((lv_obj_t*)a->var, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden((lv_obj_t*)a->var, true);
         });
     }
     lv_anim_start(&s);
@@ -296,7 +296,7 @@ static void pressScale(lv_obj_t* b) {
 
 static lv_obj_t* roundBtn(lv_obj_t* parent, const char* icon, const lv_font_t* font,
                           int x, int y, int size, lv_event_cb_t cb, bool outlined) {
-    lv_obj_t* b = lv_btn_create(parent);
+    lv_obj_t* b = lv_button_create(parent);
     lv_obj_set_size(b, SMIN(size), SMIN(size));
     lv_obj_set_pos(b, SX(x), SY(y));
     lv_obj_set_style_radius(b, SMIN(size / 2), 0);
@@ -325,7 +325,7 @@ static lv_obj_t* roundBtn(lv_obj_t* parent, const char* icon, const lv_font_t* f
 static void park(lv_obj_t* o) {
     if (!o) return;
     lv_obj_set_pos(o, SX(900), SY(600));
-    lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(o, true);
 }
 
 // Width of the header text column: stops 16px short of the leftmost chip.
@@ -365,15 +365,15 @@ void buildImmersivePlayer() {
 
     scr_main = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_main, COL_BG, 0);   // until the first art colour lands
-    lv_obj_clear_flag(scr_main, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(scr_main, false);
     lv_obj_add_event_cb(scr_main, im_screen_deleted, LV_EVENT_DELETE, NULL);
 
     // Created for API compatibility only — this theme paints a solid backdrop, so
     // themeUsesBlurBg() keeps the blurred-art upload off and this stays hidden.
-    img_blur_bg = lv_img_create(scr_main);
+    img_blur_bg = lv_image_create(scr_main);
     lv_obj_set_size(img_blur_bg, SX(800), SY(480));
     lv_obj_set_pos(img_blur_bg, 0, 0);
-    lv_obj_add_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(img_blur_bg, true);
 
     // Two fullscreen transparent layers, matching Classic's parenting so
     // setLineInMode()/setTvAudioMode() keep working untouched.
@@ -386,15 +386,15 @@ void buildImmersivePlayer() {
         lv_obj_set_style_bg_opa(p, LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(p, 0, 0);
         lv_obj_set_style_pad_all(p, 0, 0);
-        lv_obj_clear_flag(p, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_clear_flag(p, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_scrollable(p, false);
+        lv_obj_set_clickable(p, false);
         return p;
     };
     panel_art   = mkLayer();
     panel_right = mkLayer();
 
     // ── Header: artwork ─────────────────────────────────────────────────────
-    img_album = lv_img_create(panel_art);
+    img_album = lv_image_create(panel_art);
     lv_obj_set_size(img_album, SMIN(IM_ART), SMIN(IM_ART));
     lv_obj_set_pos(img_album, SX(IM_MARGIN), SY(IM_HEAD_Y));
     // Square artwork, no blur shadow. shadow_width in LVGL is a BLUR RADIUS, not
@@ -426,7 +426,7 @@ void buildImmersivePlayer() {
         lv_obj_set_style_text_font(*m.icon, &lv_font_mdi_80, 0);
         lv_obj_set_style_text_color(*m.icon, COL_TEXT, 0);
         lv_obj_align(*m.icon, LV_ALIGN_CENTER, 0, SY(-40));
-        lv_obj_add_flag(*m.icon, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(*m.icon, true);
 
         *m.sub = lv_label_create(panel_art);
         lv_label_set_text(*m.sub, m.text);
@@ -434,7 +434,7 @@ void buildImmersivePlayer() {
         lv_obj_set_style_text_color(*m.sub, COL_TEXT, 0);
         lv_obj_set_style_text_letter_space(*m.sub, 3, 0);
         lv_obj_align(*m.sub, LV_ALIGN_CENTER, 0, SY(38));
-        lv_obj_add_flag(*m.sub, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(*m.sub, true);
     }
 
     // ── Header: text block ──────────────────────────────────────────────────
@@ -490,7 +490,7 @@ void buildImmersivePlayer() {
     // lights it; see btn_lyrics in ui_common.h.
     btn_lyrics = roundBtn(panel_right, "", &font_text_12,
                           IM_CHIP_X(2), IM_HEAD_Y + 6, IM_CHIP, NULL, true);
-    lv_obj_remove_flag(btn_lyrics, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_clickable(btn_lyrics, false);
     if (lv_obj_get_child_count(btn_lyrics)) {
         lv_obj_t* l = lv_obj_get_child(btn_lyrics, 0);
         lv_label_set_text(l, "LRC");
@@ -524,7 +524,7 @@ void buildImmersivePlayer() {
     lv_obj_set_pos(sink, SX(900), SY(600));
     lv_obj_set_style_bg_opa(sink, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(sink, 0, 0);
-    lv_obj_add_flag(sink, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(sink, true);
     createLyricsOverlay(sink);
 
     im_timer = lv_timer_create(im_tick, 120, NULL);
@@ -543,8 +543,8 @@ void buildImmersivePlayer() {
     lv_obj_set_style_radius(bar, 0, 0);          // square: a rounded bottom edge looked wrong
     lv_obj_set_style_border_width(bar, 0, 0);
     lv_obj_set_style_pad_all(bar, 0, 0);
-    lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(bar, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(bar, false);
+    lv_obj_set_clickable(bar, false);
 
     lbl_time = lv_label_create(bar);
     lv_obj_set_pos(lbl_time, SX(IM_MARGIN), SY(IM_BAR_MID(17)));
@@ -585,7 +585,7 @@ void buildImmersivePlayer() {
     btn_prev = roundBtn(bar, MDI_SKIP_PREV, &lv_font_mdi_32, 454, IM_BAR_MID(52), 52, ev_prev, false);
     lv_obj_set_ext_click_area(btn_prev, 6);
 
-    btn_play = lv_btn_create(bar);
+    btn_play = lv_button_create(bar);
     lv_obj_set_size(btn_play, SMIN(64), SMIN(64));
     lv_obj_set_pos(btn_play, SX(520), SY(IM_BAR_MID(64)));
     lv_obj_set_ext_click_area(btn_play, 6);
@@ -644,7 +644,7 @@ void buildImmersivePlayer() {
             default: break;
         }
     }, LV_EVENT_ALL, NULL);
-    lv_obj_add_flag(slider_vol, LV_OBJ_FLAG_HIDDEN);   // hidden until the icon is tapped
+    lv_obj_set_hidden(slider_vol, true);   // hidden until the icon is tapped
 
     // Watched by im_vol_set_open() so the volume row can take their place.
     im_prog_group[0] = lbl_time;
@@ -666,7 +666,7 @@ void buildImmersivePlayer() {
     // definition above.
     immersiveRestoreTrackLabels();
 
-    img_next_album = lv_img_create(panel_right);
+    img_next_album = lv_image_create(panel_right);
     lv_obj_set_size(img_next_album, SMIN(40), SMIN(40));
     park(img_next_album);
 

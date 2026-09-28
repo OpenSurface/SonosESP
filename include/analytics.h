@@ -48,6 +48,21 @@
 // first artwork download have all settled.
 #define ANALYTICS_BOOT_DELAY_MS 90000
 
+// Retry budget for transient skips (radio busy, DMA under the gate). Sized as a
+// window, not a burst: a panel playing music sits below ART_MIN_DMA_PRE_BURST
+// for most of a session, so a four-minute window would miss exactly the devices
+// worth counting. 5 min x 12 covers the first hour. The DMA-gate retry costs
+// nothing — that check runs before anything blocks — and the mutex path uses a
+// deliberately short timeout, so widening the window is close to free.
+#define ANALYTICS_MAX_TRIES     12
+#define ANALYTICS_RETRY_MS      300000UL
+
+// The ping is the least urgent network user on the device. It waits a fraction
+// of NETWORK_MUTEX_TIMEOUT_MS and gives up, because this runs on mainAppTask
+// and every millisecond it blocks is a millisecond lv_timer_handler() does not
+// run and the touchscreen is dead.
+#define ANALYTICS_MUTEX_WAIT_MS 500
+
 // Called once per mainAppTask iteration. Cheap no-op until it has fired.
 void analyticsTick();
 

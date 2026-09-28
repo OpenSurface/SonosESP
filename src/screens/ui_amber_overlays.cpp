@@ -131,8 +131,8 @@ static void ovBuildQueue(lv_obj_t* parent) {
     lv_obj_set_style_border_side(ov_queue, LV_BORDER_SIDE_LEFT, 0);
     lv_obj_set_style_border_color(ov_queue, AMB_BORDER, 0);
     lv_obj_set_style_pad_all(ov_queue, 0, 0);
-    lv_obj_remove_flag(ov_queue, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_scrollable(ov_queue, false);
+    lv_obj_set_hidden(ov_queue, true);
 
     // Header
     lv_obj_t* head = lv_obj_create(ov_queue);
@@ -145,8 +145,8 @@ static void ovBuildQueue(lv_obj_t* parent) {
     lv_obj_set_style_border_color(head, AMB_LINE, 0);
     lv_obj_set_style_pad_hor(head, SX(18), 0);
     lv_obj_set_style_pad_ver(head, 0, 0);
-    lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(head, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(head, false);
+    lv_obj_set_clickable(head, false);
 
     lv_obj_t* title = ambLabel(head, &font_text_20, AMB_TEXT, "Queue");
     lv_obj_align(title, LV_ALIGN_LEFT_MID, 0, SY(-10));
@@ -184,8 +184,8 @@ static void ovBuildQueue(lv_obj_t* parent) {
     lv_obj_set_style_pad_ver(foot, SY(12), 0);
     lv_obj_set_style_pad_column(foot, SX(10), 0);
     lv_obj_set_flex_flow(foot, LV_FLEX_FLOW_ROW);
-    lv_obj_remove_flag(foot, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(foot, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(foot, false);
+    lv_obj_set_clickable(foot, false);
 
     ovPill(foot, AMB_IC_SHUFFLE, "Shuffle", [](lv_event_t*) {
         SonosDevice* d = sonos.getCurrentDevice();
@@ -334,8 +334,8 @@ static void ovBuildRooms(lv_obj_t* parent) {
     lv_obj_set_style_border_color(ov_rooms, AMB_BORDER, 0);
     lv_obj_set_style_pad_all(ov_rooms, 0, 0);
     lv_obj_set_style_max_height(ov_rooms, SY(400), 0);
-    lv_obj_remove_flag(ov_rooms, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_scrollable(ov_rooms, false);
+    lv_obj_set_hidden(ov_rooms, true);
 
     lv_obj_t* head = lv_obj_create(ov_rooms);
     lv_obj_set_size(head, SX(OV_ROOMS_W), SY(58));
@@ -347,8 +347,8 @@ static void ovBuildRooms(lv_obj_t* parent) {
     lv_obj_set_style_border_color(head, AMB_LINE, 0);
     lv_obj_set_style_pad_hor(head, SX(20), 0);
     lv_obj_set_style_pad_ver(head, 0, 0);
-    lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(head, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(head, false);
+    lv_obj_set_clickable(head, false);
 
     lv_obj_t* t = ambLabel(head, &font_text_20, AMB_TEXT, "Rooms");
     lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, 0);
@@ -413,8 +413,8 @@ static void ovFillRooms(void) {
         lv_obj_set_style_border_color(card, AMB_ACCENT_DIM, 0);
         lv_obj_set_style_pad_hor(card, SX(14), 0);
         lv_obj_set_style_pad_ver(card, 0, 0);
-        lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(card, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_scrollable(card, false);
+        lv_obj_set_clickable(card, false);
 
         // Tapping the name selects the room; the slider is a separate target, so
         // the card itself must NOT be clickable or it would swallow slider drags.
@@ -495,9 +495,9 @@ static void ovFillRooms(void) {
 static const int kSleepPresetMin[] = { 15, 30, 45, 60, 90 };
 
 static void ovSetHidden(lv_obj_t* o, bool hidden) {
-    if (!o || lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN) == hidden) return;
-    if (hidden) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
-    else        lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
+    if (!o || lv_obj_is_hidden(o) == hidden) return;
+    if (hidden) lv_obj_set_hidden(o, true);
+    else        lv_obj_set_hidden(o, false);
 }
 
 static void ovSetText(lv_obj_t* l, const char* t) {
@@ -515,8 +515,8 @@ static lv_obj_t* ovBox(lv_obj_t* parent, lv_flex_flow_t flow) {
     lv_obj_remove_style_all(o);
     lv_obj_set_size(o, lv_pct(100), LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(o, flow);
-    lv_obj_remove_flag(o, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(o, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(o, false);
+    lv_obj_set_clickable(o, false);
     return o;
 }
 
@@ -548,8 +548,8 @@ static void ovBuildSleep(lv_obj_t* parent) {
     lv_obj_set_style_pad_all(ov_sleep, 0, 0);
     lv_obj_set_style_pad_row(ov_sleep, 0, 0);
     lv_obj_set_flex_flow(ov_sleep, LV_FLEX_FLOW_COLUMN);
-    lv_obj_remove_flag(ov_sleep, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_scrollable(ov_sleep, false);
+    lv_obj_set_hidden(ov_sleep, true);
 
     // Header: title, who it stops, close.
     lv_obj_t* head = lv_obj_create(ov_sleep);
@@ -561,8 +561,8 @@ static void ovBuildSleep(lv_obj_t* parent) {
     lv_obj_set_style_border_color(head, AMB_LINE, 0);
     lv_obj_set_style_pad_hor(head, SX(20), 0);
     lv_obj_set_style_pad_ver(head, 0, 0);
-    lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(head, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(head, false);
+    lv_obj_set_clickable(head, false);
 
     lv_obj_t* t = ambLabel(head, &font_text_20, AMB_TEXT, "Sleep timer");
     lv_obj_align(t, LV_ALIGN_LEFT_MID, 0, SY(-9));
@@ -597,7 +597,7 @@ static void ovBuildSleep(lv_obj_t* parent) {
     ov_sleep_armed = ovBox(ov_sleep, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_all(ov_sleep_armed, SMIN(18), 0);
     lv_obj_set_style_pad_row(ov_sleep_armed, SY(14), 0);
-    lv_obj_add_flag(ov_sleep_armed, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(ov_sleep_armed, true);
 
     lv_obj_t* top = ovBox(ov_sleep_armed, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(top, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
@@ -654,9 +654,9 @@ void amberBuildOverlays(lv_obj_t* screen) {
     lv_obj_set_style_bg_opa(ov_scrim, 160, 0);
     lv_obj_set_style_border_width(ov_scrim, 0, 0);
     lv_obj_set_style_radius(ov_scrim, 0, 0);
-    lv_obj_remove_flag(ov_scrim, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(ov_scrim, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_scrollable(ov_scrim, false);
+    lv_obj_set_clickable(ov_scrim, true);
+    lv_obj_set_hidden(ov_scrim, true);
     lv_obj_add_event_cb(ov_scrim, [](lv_event_t*) { amberHideOverlay(); },
                         LV_EVENT_CLICKED, NULL);
 
@@ -679,11 +679,11 @@ bool amberShowQueue(void) {
     // Mutually exclusive. In practice the scrim makes the other trigger
     // unreachable while one is open, but nothing enforces that, and two stacked
     // panels would be a confusing way to find out.
-    if (ov_rooms) lv_obj_add_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
-    if (ov_sleep) lv_obj_add_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN);
+    if (ov_rooms) lv_obj_set_hidden(ov_rooms, true);
+    if (ov_sleep) lv_obj_set_hidden(ov_sleep, true);
     ovFillQueue();
-    lv_obj_remove_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_remove_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(ov_scrim, false);
+    lv_obj_set_hidden(ov_queue, false);
     lv_obj_move_foreground(ov_scrim);
     lv_obj_move_foreground(ov_queue);
     return true;
@@ -691,11 +691,11 @@ bool amberShowQueue(void) {
 
 bool amberShowRooms(void) {
     if (!ov_rooms || !ov_scrim) return false;
-    if (ov_queue) lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
-    if (ov_sleep) lv_obj_add_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN);
+    if (ov_queue) lv_obj_set_hidden(ov_queue, true);
+    if (ov_sleep) lv_obj_set_hidden(ov_sleep, true);
     ovFillRooms();
-    lv_obj_remove_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_remove_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(ov_scrim, false);
+    lv_obj_set_hidden(ov_rooms, false);
     lv_obj_move_foreground(ov_scrim);
     lv_obj_move_foreground(ov_rooms);
     return true;
@@ -708,19 +708,19 @@ void amberRefreshQueue(void) {
     // gated on scr_queue being the ACTIVE screen, which it never is under Amber
     // because the drawer floats over scr_main. Without this the drawer showed
     // "Queue is empty" until it was closed and reopened.
-    if (!ov_queue || lv_obj_has_flag(ov_queue, LV_OBJ_FLAG_HIDDEN)) return;
+    if (!ov_queue || lv_obj_is_hidden(ov_queue)) return;
     ovFillQueue();
 }
 
 void amberHideOverlay(void) {
-    if (ov_scrim) lv_obj_add_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
-    if (ov_queue) lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
-    if (ov_rooms) lv_obj_add_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
-    if (ov_sleep) lv_obj_add_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN);
+    if (ov_scrim) lv_obj_set_hidden(ov_scrim, true);
+    if (ov_queue) lv_obj_set_hidden(ov_queue, true);
+    if (ov_rooms) lv_obj_set_hidden(ov_rooms, true);
+    if (ov_sleep) lv_obj_set_hidden(ov_sleep, true);
 }
 
 bool amberOverlayOpen(void) {
-    return ov_scrim && !lv_obj_has_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
+    return ov_scrim && !lv_obj_is_hidden(ov_scrim);
 }
 
 bool amberSleepStopTime(char* out, size_t n, int secs_left) {
@@ -736,7 +736,7 @@ bool amberSleepStopTime(char* out, size_t n, int secs_left) {
 }
 
 void amberRefreshSleep(void) {
-    if (!ov_sleep || lv_obj_has_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN)) return;
+    if (!ov_sleep || lv_obj_is_hidden(ov_sleep)) return;
     const int left = sonos.sleepTimerRemaining();
     const bool armed = left > 0;
     ovSetHidden(ov_sleep_pick, armed);
@@ -754,8 +754,8 @@ void amberRefreshSleep(void) {
 
 bool amberShowSleep(void) {
     if (!ov_sleep || !ov_scrim) return false;
-    if (ov_queue) lv_obj_add_flag(ov_queue, LV_OBJ_FLAG_HIDDEN);
-    if (ov_rooms) lv_obj_add_flag(ov_rooms, LV_OBJ_FLAG_HIDDEN);
+    if (ov_queue) lv_obj_set_hidden(ov_queue, true);
+    if (ov_rooms) lv_obj_set_hidden(ov_rooms, true);
     // A timer may have been set or changed in the Sonos app since the last read.
     // Ask now; the button's one-second tick redraws the sheet when it lands.
     sonos.refreshSleepTimer();
@@ -764,15 +764,34 @@ bool amberShowSleep(void) {
     // room stops its partners too, and that should not be a surprise.
     char sub[64] = "";
     if (SonosDevice* d = sonos.getCurrentDevice()) {
-        const int others = d->groupMemberCount > 1 ? d->groupMemberCount - 1 : 0;
-        if (others > 0) snprintf(sub, sizeof(sub), "Stops %s + %d", d->roomName.c_str(), others);
-        else            snprintf(sub, sizeof(sub), "Stops %s", d->roomName.c_str());
+        // Snapshot roomName, for uniformity with ovFillQueue/ovFillRooms above.
+        //
+        // Not a live race, unlike those two: roomName's only writers are in
+        // sonos_discovery.cpp, and discoverDevices() runs on this same task
+        // (both call sites are LVGL callbacks), so it cannot interleave. The
+        // one off-task writer is tryLoadCachedDevice() on deferredDiscoveryTask,
+        // but currentDeviceIndex is still -1 then, so getCurrentDevice() returns
+        // nullptr and this block never runs. Snapshotting anyway costs nothing
+        // and means every reader in this file follows one rule.
+        String s_room;
+        int    others = 0;
+        SemaphoreHandle_t dm = sonos.getDeviceMutex();
+        if (dm && xSemaphoreTake(dm, pdMS_TO_TICKS(30)) == pdTRUE) {
+            s_room = d->roomName;
+            others = d->groupMemberCount > 1 ? d->groupMemberCount - 1 : 0;
+            xSemaphoreGive(dm);
+        } else {
+            s_room = d->ip.toString();   // never return: the sheet is already up
+            others = d->groupMemberCount > 1 ? d->groupMemberCount - 1 : 0;
+        }
+        if (others > 0) snprintf(sub, sizeof(sub), "Stops %s + %d", s_room.c_str(), others);
+        else            snprintf(sub, sizeof(sub), "Stops %s", s_room.c_str());
         for (char* c = sub; *c; c++) *c = (char)toupper((unsigned char)*c);
     }
     ovSetText(ov_sleep_sub, sub);
 
-    lv_obj_remove_flag(ov_scrim, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_remove_flag(ov_sleep, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(ov_scrim, false);
+    lv_obj_set_hidden(ov_sleep, false);
     lv_obj_move_foreground(ov_scrim);
     lv_obj_move_foreground(ov_sleep);
     amberRefreshSleep();

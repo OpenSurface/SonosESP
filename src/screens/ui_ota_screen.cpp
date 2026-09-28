@@ -29,6 +29,9 @@
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 
+// Consumed by the SCREEN_LOADED reset at the bottom of this file.
+bool ota_skip_load_reset = false;
+
 // ── Grid ────────────────────────────────────────────────────────────────────
 #define OTA_CARD_Y     52
 #define OTA_CARD_H     100
@@ -48,7 +51,7 @@ void createOTAScreen() {
 
     // Create sidebar and get content area (Update is index 7 — Clock added at 6)
     lv_obj_t* content = createSettingsSidebar(scr_ota, 7);
-    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(content, false);
 
     // Title
     addScreenHeader(content, "Update", nullptr);
@@ -62,8 +65,8 @@ void createOTAScreen() {
     lv_obj_set_style_border_width(card_version, 1, 0);
     lv_obj_set_style_border_color(card_version, AMB_BORDER, 0);
     lv_obj_set_style_pad_all(card_version, SMIN(16), 0);
-    lv_obj_clear_flag(card_version, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(card_version, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(card_version, false);
+    lv_obj_set_clickable(card_version, false);
 
     // Tracked captions over the two version numbers, so which is which reads at
     // a glance instead of from a "Current:" / "Latest:" prefix.
@@ -96,6 +99,11 @@ void createOTAScreen() {
     lv_obj_set_style_text_color(lbl_latest_version, AMB_ACCENT, 0);
     lv_obj_set_width(lbl_latest_version, SX(240));
     lv_label_set_long_mode(lbl_latest_version, LV_LABEL_LONG_DOT);
+    // Bounded height for the same reason as lbl_ota_status below. This one hits
+    // every Nightly user: the tag format is X.Y.Z-nightly.<7 hex>, so
+    // "v2.2.1-nightly.abc1234 (pre)" is 321px against a 240px box and wrapped
+    // into lbl_warn underneath it.
+    lv_obj_set_height(lbl_latest_version, lv_font_get_line_height(&font_text_24));
     lv_obj_set_style_text_align(lbl_latest_version, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_align(lbl_latest_version, LV_ALIGN_TOP_RIGHT, 0, SY(22));
 
@@ -119,8 +127,8 @@ void createOTAScreen() {
     lv_obj_set_style_border_side(card_channel, LV_BORDER_SIDE_BOTTOM, 0);
     lv_obj_set_style_border_color(card_channel, AMB_CARD, 0);
     lv_obj_set_style_pad_all(card_channel, 0, 0);
-    lv_obj_clear_flag(card_channel, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(card_channel, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(card_channel, false);
+    lv_obj_set_clickable(card_channel, false);
 
     lv_obj_t* lbl_channel = lv_label_create(card_channel);
     lv_label_set_text(lbl_channel, "Channel");
@@ -187,6 +195,16 @@ void createOTAScreen() {
     // DOT, not WRAP: this label sits in a fixed slot above the progress bar, and
     // a two-line status used to push into it.
     lv_label_set_long_mode(lbl_ota_status, LV_LABEL_LONG_DOT);
+    // ...and DOT needs a bounded HEIGHT to do that. lv_label.c only ellipsises
+    // when the rendered text is taller than the object's box; at content height
+    // the box IS the text, so the condition never fires and it wrapped instead.
+    // On the 7" eight of the real status strings overflow the 467px box -
+    // "Update failed: Could Not Activate The Firmware" is 606px - and the
+    // second line lands on the progress bar at SY(OTA_PROG_Y), which is visible
+    // for every download/flash/verify failure. This height is exactly the
+    // label's current auto height for one line, so anything that already fits
+    // is pixel-identical.
+    lv_obj_set_height(lbl_ota_status, lv_font_get_line_height(&font_icon_16));
 
     // Progress percentage — same baseline as the status, right-hand column.
     lbl_ota_progress = lv_label_create(content);
@@ -210,7 +228,7 @@ void createOTAScreen() {
     lv_obj_set_style_bg_color(bar_ota_progress, AMB_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_opa(bar_ota_progress, LV_OPA_COVER, LV_PART_INDICATOR);
     lv_obj_set_style_radius(bar_ota_progress, 4, LV_PART_INDICATOR);
-    lv_obj_add_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(bar_ota_progress, true);
 
     // ── Actions ─────────────────────────────────────────────────────────────
     // Check is the secondary action and Install the primary one, so Check is now
@@ -219,7 +237,7 @@ void createOTAScreen() {
     // a black rectangle next to a gold one — it read as broken rather than as the
     // quieter of two actions. AMB_CARD gives it the same footing as every other
     // secondary control on these pages.
-    btn_check_update = lv_btn_create(content);
+    btn_check_update = lv_button_create(content);
     lv_obj_set_size(btn_check_update, SX(250), SY(OTA_BTN_H));
     lv_obj_set_pos(btn_check_update, 0, SY(OTA_BTN_Y));
     lv_obj_set_style_bg_color(btn_check_update, AMB_CARD, 0);
@@ -237,7 +255,7 @@ void createOTAScreen() {
     lv_obj_center(lbl_check);
 
     // Install Update button (hidden by default)
-    btn_install_update = lv_btn_create(content);
+    btn_install_update = lv_button_create(content);
     lv_obj_set_size(btn_install_update, SX(260), SY(OTA_BTN_H));
     lv_obj_set_pos(btn_install_update, SX(276), SY(OTA_BTN_Y));
     lv_obj_set_style_bg_color(btn_install_update, AMB_ACCENT, 0);
@@ -249,7 +267,7 @@ void createOTAScreen() {
     lv_obj_set_style_text_color(lbl_install, AMB_ON_ACCENT, 0);
     lv_obj_set_style_text_font(lbl_install, &font_icon_16, 0);
     lv_obj_center(lbl_install);
-    lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);  // Hidden until update available
+    lv_obj_set_hidden(btn_install_update, true);  // Hidden until update available
 
     // ── Footnote ────────────────────────────────────────────────────────────
     lv_obj_t* lbl_info = lv_label_create(content);
@@ -269,15 +287,23 @@ void createOTAScreen() {
     lv_obj_add_event_cb(scr_ota, [](lv_event_t* e) {
         if (lv_event_get_code(e) != LV_EVENT_SCREEN_LOADED) return;
         if (ota_in_progress) return;             // an install is mid-flight
+        // Arriving from the update toast. The background check has just filled
+        // latest_version, download_url and the Install button, and the toast
+        // advertised precisely that — so resetting here would show the user a
+        // blank AVAILABLE and "Tap 'Check for Updates' to begin", and a manual
+        // re-check inside OTA_CHECK_DEBOUNCE_MS would answer "please wait 5
+        // seconds". One-shot, so the normal stale-result reset still applies to
+        // every other way of reaching this screen.
+        if (ota_skip_load_reset) { ota_skip_load_reset = false; return; }
         latest_version = "";
         download_url   = "";
         if (lbl_latest_version) lv_label_set_text(lbl_latest_version, "--");
         if (lbl_ota_progress)   lv_label_set_text(lbl_ota_progress, "");
-        if (bar_ota_progress)   lv_obj_add_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
-        if (btn_install_update) lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+        if (bar_ota_progress)   lv_obj_set_hidden(bar_ota_progress, true);
+        if (btn_install_update) lv_obj_set_hidden(btn_install_update, true);
         if (lbl_ota_status) {
             lv_label_set_text(lbl_ota_status, "Tap 'Check for Updates' to begin");
             lv_obj_set_style_text_color(lbl_ota_status, AMB_TEXT3, 0);
         }
-    }, LV_EVENT_ALL, NULL);
+    }, LV_EVENT_SCREEN_LOADED, NULL);
 }
