@@ -206,7 +206,26 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
 
     // Acquire network_mutex to serialize WiFi access
     if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
-        Serial.println("[SOAP] Failed to acquire network mutex - request failed");
+        // Say which of the two this is. A clock photo holding the radio is
+        // expected and self-corrects on the next cycle; anything else is not.
+        //
+        // The polling task checks the suppression flags ONCE per cycle and then
+        // issues two SOAPs (GetPositionInfo, then GetTransportInfo). clockBgTask
+        // raises clock_photo_in_progress after its cooldown, which can land
+        // between those two - so the second one waits out
+        // NETWORK_MUTEX_TIMEOUT_MS and lands here. That is why a photo cycle
+        // logs one or two of these and never more. Nothing is broken by it:
+        // errorCount and connected are deliberately left alone below, so the
+        // device is not marked down; one poll cycle is skipped and the next
+        // runs 300ms later, while the clock is on screen anyway.
+        //
+        // Closing it properly means re-checking between the two SOAPs, which is
+        // the polling hot path - its own change, not a drive-by here.
+        if (clock_photo_in_progress) {
+            Serial.println("[SOAP] Deferred - clock photo has the radio (expected)");
+        } else {
+            Serial.println("[SOAP] Failed to acquire network mutex - request failed");
+        }
         // Nothing was sent, so say that rather than leaving the last call's code.
         last_soap_http_code = SOAP_NOT_SENT;
         if (out_code) *out_code = SOAP_NOT_SENT;
