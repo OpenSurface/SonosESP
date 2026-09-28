@@ -964,25 +964,48 @@ void clockBgTask(void* /*param*/) {
                     // is the right trade: it is decoration, and the next cycle
                     // tries again.
                     if (!sdioPreWait("CLKBG", SDIO_WAIT_HTTPS_COOLDOWN, &clock_bg_shutdown_requested)) break;
+
+                    // Raise the flag BEFORE the mutex acquire, not after.
+                    //
+                    // This is the art task's protocol and the order matters. A
+                    // flashed build still logged two "[SOAP] Failed to acquire
+                    // network mutex" with the flag set after the take: polling
+                    // checks the guard at the top of its cycle and then commits
+                    // to two SOAPs, so in the window between our take and our
+                    // set it sees flag=false, enters sendSOAP(), and blocks on
+                    // the mutex we now hold until its 5s NETWORK_MUTEX_TIMEOUT_MS
+                    // expires. Setting it first means polling skips the cycle
+                    // instead of committing, and anything already in flight
+                    // finishes and releases before we get the lock.
+                    //
+                    // Still after sdioPreWait, never before: polling must keep
+                    // running through the cooldown or SDIO goes quiet and the
+                    // C6 DMA clock-gates, which is the crash this whole layer
+                    // exists to avoid.
+                    clock_photo_in_progress = true;
+
                     if (xSemaphoreTake(network_mutex, pdMS_TO_TICKS(8000)) != pdTRUE) {
+                        clock_photo_in_progress = false;   // no download will follow
                         Serial.println("[CLKBG] No mutex for photo — skipping this cycle");
                         break;
                     }
                     mutex_held = true;
-                    if (clock_bg_shutdown_requested) { xSemaphoreGive(network_mutex); break; }
+                    if (clock_bg_shutdown_requested) {
+                        clock_photo_in_progress = false;
+                        xSemaphoreGive(network_mutex);
+                        break;
+                    }
 
-                    // Tell the polling task to stand down for the download.
+                    // Flag already raised above, before the mutex acquire.
                     //
-                    // Splitting the two requests shortened the hold but did not
-                    // fix the symptom: a flashed build still logged
-                    // "[SOAP] Failed to acquire network mutex" three times during
-                    // one photo, because a TLS handshake plus 60KB still outlasts
-                    // the 5s NETWORK_MUTEX_TIMEOUT_MS the SOAP callers wait on.
-                    //
-                    // Failing is not how this codebase handles a busy radio. The
-                    // artwork path raises a flag and polling logs
-                    // "[POLL] Skip: ..." and defers cleanly instead. The clock
-                    // photo simply never raised one.
+                    // Why this path needs one at all: splitting the two requests
+                    // shortened the hold but did not fix the symptom - a TLS
+                    // handshake plus ~90KB still outlasts the 5s
+                    // NETWORK_MUTEX_TIMEOUT_MS the SOAP callers wait on, so
+                    // polling logged "[SOAP] Failed to acquire network mutex"
+                    // rather than deferring. Failing is not how this codebase
+                    // handles a busy radio; the artwork path raises a flag and
+                    // polling logs "[POLL] Skip: ..." instead.
                     //
                     // Its OWN flag, not art_download_in_progress. Sharing that
                     // one meant the two clobbered each other at screensaver
@@ -990,8 +1013,6 @@ void clockBgTask(void* /*param*/) {
                     // without waiting for this task: the returning art task
                     // cleared the photo's flag, and the photo cleared the art
                     // task's. Backstopped by CLOCK_PHOTO_FLAG_MAX_HOLD_MS.
-                    clock_photo_in_progress = true;
-
                     Serial.printf("[CLKBG] Fetching: %s\n", photoUrl.c_str());
                     WiFiClientSecure photo_client;
                     photo_client.setInsecure();
