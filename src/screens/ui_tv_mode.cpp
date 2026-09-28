@@ -29,12 +29,12 @@ void setTvAudioMode(bool enable) {
         Serial.println("[TV UI] Switching to TV audio mode");
 
         // ── Left panel: swap album art for TV icon ───────────────────────────
-        if (img_blur_bg)     lv_obj_add_flag(img_blur_bg,     LV_OBJ_FLAG_HIDDEN);
-        if (img_album)       lv_obj_add_flag(img_album,       LV_OBJ_FLAG_HIDDEN);
-        if (art_placeholder) lv_obj_add_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+        if (img_blur_bg)     lv_obj_set_hidden(img_blur_bg, true);
+        if (img_album)       lv_obj_set_hidden(img_album, true);
+        if (art_placeholder) lv_obj_set_hidden(art_placeholder, true);
 
         if (lbl_tv_icon) {
-            lv_obj_clear_flag(lbl_tv_icon, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(lbl_tv_icon, false);
             lv_anim_t a;
             lv_anim_init(&a);
             lv_anim_set_var(&a, lbl_tv_icon);
@@ -45,25 +45,25 @@ void setTvAudioMode(bool enable) {
             lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
             lv_anim_start(&a);
         }
-        if (lbl_tv_subtitle) lv_obj_clear_flag(lbl_tv_subtitle, LV_OBJ_FLAG_HIDDEN);
+        if (lbl_tv_subtitle) lv_obj_set_hidden(lbl_tv_subtitle, false);
 
         // ── Right panel: hide all music-specific controls ────────────────────
-        if (btn_prev)     lv_obj_add_flag(btn_prev,     LV_OBJ_FLAG_HIDDEN);
-        if (btn_next)     lv_obj_add_flag(btn_next,     LV_OBJ_FLAG_HIDDEN);
-        if (btn_queue)    lv_obj_add_flag(btn_queue,    LV_OBJ_FLAG_HIDDEN);
-        if (btn_shuffle)  lv_obj_add_flag(btn_shuffle,  LV_OBJ_FLAG_HIDDEN);
-        if (btn_repeat)   lv_obj_add_flag(btn_repeat,   LV_OBJ_FLAG_HIDDEN);
+        if (btn_prev)     lv_obj_set_hidden(btn_prev, true);
+        if (btn_next)     lv_obj_set_hidden(btn_next, true);
+        if (btn_queue)    lv_obj_set_hidden(btn_queue, true);
+        if (btn_shuffle)  lv_obj_set_hidden(btn_shuffle, true);
+        if (btn_repeat)   lv_obj_set_hidden(btn_repeat, true);
 
-        if (slider_progress)    lv_obj_add_flag(slider_progress,    LV_OBJ_FLAG_HIDDEN);
-        if (lbl_time)           lv_obj_add_flag(lbl_time,           LV_OBJ_FLAG_HIDDEN);
-        if (lbl_time_remaining) lv_obj_add_flag(lbl_time_remaining, LV_OBJ_FLAG_HIDDEN);
+        if (slider_progress)    lv_obj_set_hidden(slider_progress, true);
+        if (lbl_time)           lv_obj_set_hidden(lbl_time, true);
+        if (lbl_time_remaining) lv_obj_set_hidden(lbl_time_remaining, true);
 
-        if (img_next_album)  lv_obj_add_flag(img_next_album,  LV_OBJ_FLAG_HIDDEN);
-        if (lbl_next_title)  lv_obj_add_flag(lbl_next_title,  LV_OBJ_FLAG_HIDDEN);
-        if (lbl_next_artist) lv_obj_add_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
-        if (lbl_next_header) lv_obj_add_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
+        if (img_next_album)  lv_obj_set_hidden(img_next_album, true);
+        if (lbl_next_title)  lv_obj_set_hidden(lbl_next_title, true);
+        if (lbl_next_artist) lv_obj_set_hidden(lbl_next_artist, true);
+        if (lbl_next_header) lv_obj_set_hidden(lbl_next_header, true);
 
-        if (lbl_album) lv_obj_add_flag(lbl_album, LV_OBJ_FLAG_HIDDEN);
+        if (lbl_album) lv_obj_set_hidden(lbl_album, true);
 
         if (lbl_title) {
             lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_CLIP);
@@ -83,31 +83,31 @@ void setTvAudioMode(bool enable) {
         if (lbl_tv_icon) {
             lv_anim_delete(lbl_tv_icon, _tv_anim_cb);
             lv_obj_set_style_text_opa(lbl_tv_icon, LV_OPA_COVER, 0);
-            lv_obj_add_flag(lbl_tv_icon,     LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(lbl_tv_icon, true);
         }
-        if (lbl_tv_subtitle) lv_obj_add_flag(lbl_tv_subtitle, LV_OBJ_FLAG_HIDDEN);
+        if (lbl_tv_subtitle) lv_obj_set_hidden(lbl_tv_subtitle, true);
 
-        if (img_album)       lv_obj_clear_flag(img_album,       LV_OBJ_FLAG_HIDDEN);
-        if (art_placeholder) lv_obj_clear_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
-        if (img_blur_bg)     lv_obj_clear_flag(img_blur_bg,     LV_OBJ_FLAG_HIDDEN);
+        if (img_album)       lv_obj_set_hidden(img_album, false);
+        if (art_placeholder) lv_obj_set_hidden(art_placeholder, false);
+        if (img_blur_bg)     lv_obj_set_hidden(img_blur_bg, false);
 
         // ── Restore right panel ──────────────────────────────────────────────
-        if (btn_prev)     lv_obj_clear_flag(btn_prev,     LV_OBJ_FLAG_HIDDEN);
-        if (btn_next)     lv_obj_clear_flag(btn_next,     LV_OBJ_FLAG_HIDDEN);
-        if (btn_queue)    lv_obj_clear_flag(btn_queue,    LV_OBJ_FLAG_HIDDEN);
-        if (btn_shuffle)  lv_obj_clear_flag(btn_shuffle,  LV_OBJ_FLAG_HIDDEN);
-        if (btn_repeat)   lv_obj_clear_flag(btn_repeat,   LV_OBJ_FLAG_HIDDEN);
+        if (btn_prev)     lv_obj_set_hidden(btn_prev, false);
+        if (btn_next)     lv_obj_set_hidden(btn_next, false);
+        if (btn_queue)    lv_obj_set_hidden(btn_queue, false);
+        if (btn_shuffle)  lv_obj_set_hidden(btn_shuffle, false);
+        if (btn_repeat)   lv_obj_set_hidden(btn_repeat, false);
 
-        if (slider_progress)    lv_obj_clear_flag(slider_progress,    LV_OBJ_FLAG_HIDDEN);
-        if (lbl_time)           lv_obj_clear_flag(lbl_time,           LV_OBJ_FLAG_HIDDEN);
-        if (lbl_time_remaining) lv_obj_clear_flag(lbl_time_remaining, LV_OBJ_FLAG_HIDDEN);
+        if (slider_progress)    lv_obj_set_hidden(slider_progress, false);
+        if (lbl_time)           lv_obj_set_hidden(lbl_time, false);
+        if (lbl_time_remaining) lv_obj_set_hidden(lbl_time_remaining, false);
 
-        if (img_next_album)  lv_obj_clear_flag(img_next_album,  LV_OBJ_FLAG_HIDDEN);
-        if (lbl_next_title)  lv_obj_clear_flag(lbl_next_title,  LV_OBJ_FLAG_HIDDEN);
-        if (lbl_next_artist) lv_obj_clear_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
-        if (lbl_next_header) lv_obj_clear_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
+        if (img_next_album)  lv_obj_set_hidden(img_next_album, false);
+        if (lbl_next_title)  lv_obj_set_hidden(lbl_next_title, false);
+        if (lbl_next_artist) lv_obj_set_hidden(lbl_next_artist, false);
+        if (lbl_next_header) lv_obj_set_hidden(lbl_next_header, false);
 
-        if (lbl_album) lv_obj_clear_flag(lbl_album, LV_OBJ_FLAG_HIDDEN);
+        if (lbl_album) lv_obj_set_hidden(lbl_album, false);
 
         // Hand the labels back to the theme that built them: position, size and
         // long mode together. Restoring only the title's long mode left the

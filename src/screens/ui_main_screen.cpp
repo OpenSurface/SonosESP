@@ -80,7 +80,7 @@ void classicApplyRadioArtist(bool radio) {
 void buildClassicPlayer() {
     scr_main = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_main, COL_SCREEN, 0);  // dark fallback before first art loads
-    lv_obj_clear_flag(scr_main, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(scr_main, false);
 
     // Blurred art background — fullscreen, must be first child (lowest z-order).
     // Ambient keeps this hidden (themeUsesBlurBg() gates the upload) so the tinted
@@ -88,8 +88,8 @@ void buildClassicPlayer() {
     img_blur_bg = lv_img_create(scr_main);
     lv_obj_set_size(img_blur_bg, SX(800), SY(480));
     lv_obj_set_pos(img_blur_bg, 0, 0);
-    lv_obj_clear_flag(img_blur_bg, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);  // hidden until first art loads
+    lv_obj_set_scrollable(img_blur_bg, false);
+    lv_obj_set_hidden(img_blur_bg, true);  // hidden until first art loads
 
     // LEFT: Album Art Area — 450px wide so img has equal 30px margin left/top/bottom
     // (ART_SIZE=420, panel height=480 → top/bottom=(480-420)/2=30px, left=30px inset)
@@ -101,7 +101,7 @@ void buildClassicPlayer() {
     lv_obj_set_style_radius(panel_art, 0, 0);
     lv_obj_set_style_border_width(panel_art, 0, 0);
     lv_obj_set_style_pad_all(panel_art, 0, 0);
-    lv_obj_clear_flag(panel_art, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(panel_art, false);
 
     // Album art image — 30px from left edge, vertically centered → equal margins all sides
     img_album = lv_img_create(panel_art);
@@ -130,7 +130,7 @@ void buildClassicPlayer() {
     lv_obj_set_style_text_font(lbl_linein_icon, &lv_font_mdi_80, 0);
     lv_obj_set_style_text_color(lbl_linein_icon, COL_ACCENT, 0);
     lv_obj_align(lbl_linein_icon, LV_ALIGN_CENTER, SX(15), SY(-20));  // +15px art-centre offset, -20px to leave room below
-    lv_obj_add_flag(lbl_linein_icon, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(lbl_linein_icon, true);
 
     lbl_linein_subtitle = lv_label_create(panel_art);
     lv_label_set_text(lbl_linein_subtitle, "LIVE AUDIO");
@@ -138,7 +138,7 @@ void buildClassicPlayer() {
     lv_obj_set_style_text_color(lbl_linein_subtitle, COL_TEXT2, 0);
     lv_obj_set_style_text_letter_space(lbl_linein_subtitle, 3, 0);  // spaced-out caps for modern look
     lv_obj_align(lbl_linein_subtitle, LV_ALIGN_CENTER, SX(15), SY(58)); // below icon (+80px icon height / 2 + gap)
-    lv_obj_add_flag(lbl_linein_subtitle, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(lbl_linein_subtitle, true);
 
     // TV audio mode: television hero icon (hidden until x-sonos-htastream: detected)
     lbl_tv_icon = lv_label_create(panel_art);
@@ -146,7 +146,7 @@ void buildClassicPlayer() {
     lv_obj_set_style_text_font(lbl_tv_icon, &lv_font_mdi_80, 0);
     lv_obj_set_style_text_color(lbl_tv_icon, COL_ACCENT, 0);
     lv_obj_align(lbl_tv_icon, LV_ALIGN_CENTER, SX(15), SY(-20));
-    lv_obj_add_flag(lbl_tv_icon, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(lbl_tv_icon, true);
 
     lbl_tv_subtitle = lv_label_create(panel_art);
     lv_label_set_text(lbl_tv_subtitle, "TV AUDIO");
@@ -154,7 +154,7 @@ void buildClassicPlayer() {
     lv_obj_set_style_text_color(lbl_tv_subtitle, COL_TEXT2, 0);
     lv_obj_set_style_text_letter_space(lbl_tv_subtitle, 3, 0);
     lv_obj_align(lbl_tv_subtitle, LV_ALIGN_CENTER, SX(15), SY(58));
-    lv_obj_add_flag(lbl_tv_subtitle, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(lbl_tv_subtitle, true);
 
     // Lyrics status indicator — top-left corner of art image
     lbl_lyrics_status = lv_label_create(panel_art);
@@ -175,7 +175,7 @@ void buildClassicPlayer() {
     lv_obj_set_style_radius(panel_right, 0, 0);
     lv_obj_set_style_border_width(panel_right, 0, 0);
     lv_obj_set_style_pad_all(panel_right, 0, 0);
-    lv_obj_clear_flag(panel_right, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(panel_right, false);
 
     // ===== TOP ROW: Back | Now Playing - Device | WiFi Queue Settings =====
     // Setup smooth scale transition for all buttons (110% on press)
@@ -281,7 +281,7 @@ void buildClassicPlayer() {
     lv_obj_set_size(btn_lrc, SMIN(38), SMIN(38));
     lv_obj_set_pos(btn_lrc, SX(205), SY(18));
     headerCircle(btn_lrc);
-    lv_obj_remove_flag(btn_lrc, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_clickable(btn_lrc, false);
     btn_lyrics = btn_lrc;
     lv_obj_t* ico_lrc = lv_label_create(btn_lrc);
     lv_label_set_text(ico_lrc, "LRC");
@@ -481,7 +481,7 @@ void buildClassicPlayer() {
     lv_obj_set_size(img_next_album, SMIN(40), SMIN(40));
     lv_obj_set_style_radius(img_next_album, SMIN(4), 0);
     lv_obj_set_style_clip_corner(img_next_album, true, 0);
-    lv_obj_add_flag(img_next_album, LV_OBJ_FLAG_HIDDEN); // Hide thumbnail for now
+    lv_obj_set_hidden(img_next_album, true); // Hide thumbnail for now
 
     // "Next:" label
     lbl_next_header = lv_label_create(panel_right);  // Use GLOBAL, not local!
@@ -499,7 +499,7 @@ void buildClassicPlayer() {
     lv_obj_set_width(lbl_next_title, SX(275));
     lv_label_set_long_mode(lbl_next_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
     // Make it clickable to play next track
-    lv_obj_add_flag(lbl_next_title, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_clickable(lbl_next_title, true);
     lv_obj_add_event_cb(lbl_next_title, [](lv_event_t* e) {
         if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
             sonos.next();
@@ -515,7 +515,7 @@ void buildClassicPlayer() {
     lv_obj_set_width(lbl_next_artist, SX(275));
     lv_label_set_long_mode(lbl_next_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
     // Make it clickable to play next track
-    lv_obj_add_flag(lbl_next_artist, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_clickable(lbl_next_artist, true);
     lv_obj_add_event_cb(lbl_next_artist, [](lv_event_t* e) {
         if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
             sonos.next();
@@ -532,8 +532,8 @@ void buildClassicPlayer() {
         lv_obj_remove_style_all(row);
         lv_obj_set_pos(row, SX(15), SY(402));
         lv_obj_set_size(row, SX(320), SY(36));
-        lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_scrollable(row, false);
+        lv_obj_set_clickable(row, false);
 
         lv_obj_align(batteryBadgeCreate(row, BATTERY_BADGE_CURRENT), LV_ALIGN_LEFT_MID, 0, 0);
         lv_obj_align(sleepButtonCreate(row, SLEEP_BTN_PILL), LV_ALIGN_RIGHT_MID, 0, 0);

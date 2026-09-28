@@ -19,8 +19,8 @@ lv_obj_t* ambRoundRect(lv_obj_t* parent, int w, int h, int radius, lv_color_t co
     lv_obj_set_style_border_width(o, 0, 0);
     lv_obj_set_style_radius(o, radius ? SMIN(radius) : 0, 0);
     lv_obj_set_style_pad_all(o, 0, 0);
-    lv_obj_remove_flag(o, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(o, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(o, false);
+    lv_obj_set_clickable(o, false);
     return o;
 }
 

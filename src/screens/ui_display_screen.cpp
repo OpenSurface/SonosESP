@@ -317,7 +317,7 @@ void createDisplaySettingsScreen() {
             if (!blur_bg_enabled) {
                 // Hide immediately rather than waiting for the next track — the
                 // backdrop is already on screen behind this settings page.
-                if (img_blur_bg) lv_obj_add_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
+                if (img_blur_bg) lv_obj_set_hidden(img_blur_bg, true);
             } else if (art_mutex && xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
                 // Re-publish the artwork we already hold so it comes straight back.
                 // Gated on blur_bg_valid, not on the buffer pointer: blur_bg_buf is

@@ -51,7 +51,7 @@ void createOTAScreen() {
 
     // Create sidebar and get content area (Update is index 7 — Clock added at 6)
     lv_obj_t* content = createSettingsSidebar(scr_ota, 7);
-    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(content, false);
 
     // Title
     addScreenHeader(content, "Update", nullptr);
@@ -65,8 +65,8 @@ void createOTAScreen() {
     lv_obj_set_style_border_width(card_version, 1, 0);
     lv_obj_set_style_border_color(card_version, AMB_BORDER, 0);
     lv_obj_set_style_pad_all(card_version, SMIN(16), 0);
-    lv_obj_clear_flag(card_version, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(card_version, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(card_version, false);
+    lv_obj_set_clickable(card_version, false);
 
     // Tracked captions over the two version numbers, so which is which reads at
     // a glance instead of from a "Current:" / "Latest:" prefix.
@@ -127,8 +127,8 @@ void createOTAScreen() {
     lv_obj_set_style_border_side(card_channel, LV_BORDER_SIDE_BOTTOM, 0);
     lv_obj_set_style_border_color(card_channel, AMB_CARD, 0);
     lv_obj_set_style_pad_all(card_channel, 0, 0);
-    lv_obj_clear_flag(card_channel, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(card_channel, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(card_channel, false);
+    lv_obj_set_clickable(card_channel, false);
 
     lv_obj_t* lbl_channel = lv_label_create(card_channel);
     lv_label_set_text(lbl_channel, "Channel");
@@ -228,7 +228,7 @@ void createOTAScreen() {
     lv_obj_set_style_bg_color(bar_ota_progress, AMB_ACCENT, LV_PART_INDICATOR);
     lv_obj_set_style_bg_opa(bar_ota_progress, LV_OPA_COVER, LV_PART_INDICATOR);
     lv_obj_set_style_radius(bar_ota_progress, 4, LV_PART_INDICATOR);
-    lv_obj_add_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(bar_ota_progress, true);
 
     // ── Actions ─────────────────────────────────────────────────────────────
     // Check is the secondary action and Install the primary one, so Check is now
@@ -267,7 +267,7 @@ void createOTAScreen() {
     lv_obj_set_style_text_color(lbl_install, AMB_ON_ACCENT, 0);
     lv_obj_set_style_text_font(lbl_install, &font_icon_16, 0);
     lv_obj_center(lbl_install);
-    lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);  // Hidden until update available
+    lv_obj_set_hidden(btn_install_update, true);  // Hidden until update available
 
     // ── Footnote ────────────────────────────────────────────────────────────
     lv_obj_t* lbl_info = lv_label_create(content);
@@ -299,8 +299,8 @@ void createOTAScreen() {
         download_url   = "";
         if (lbl_latest_version) lv_label_set_text(lbl_latest_version, "--");
         if (lbl_ota_progress)   lv_label_set_text(lbl_ota_progress, "");
-        if (bar_ota_progress)   lv_obj_add_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
-        if (btn_install_update) lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+        if (bar_ota_progress)   lv_obj_set_hidden(bar_ota_progress, true);
+        if (btn_install_update) lv_obj_set_hidden(btn_install_update, true);
         if (lbl_ota_status) {
             lv_label_set_text(lbl_ota_status, "Tap 'Check for Updates' to begin");
             lv_obj_set_style_text_color(lbl_ota_status, AMB_TEXT3, 0);

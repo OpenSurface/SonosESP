@@ -146,7 +146,7 @@ void refreshDeviceList() {
         // its volume is real and both appear.
         lv_obj_t* vol = lv_label_create(btn);
         lv_label_set_text_fmt(vol, "%d", s_volume);
-        if (!isSelected) lv_obj_add_flag(vol, LV_OBJ_FLAG_HIDDEN);
+        if (!isSelected) lv_obj_set_hidden(vol, true);
         lv_obj_set_style_text_color(vol, AMB_TEXT3, 0);
         lv_obj_set_style_text_font(vol, &font_text_14, 0);
         lv_obj_align(vol, LV_ALIGN_TOP_RIGHT, SX(-32), hasGroup || isPlaying ? SY(10) : SY(14));
@@ -189,7 +189,7 @@ void refreshDeviceList() {
         lv_obj_set_user_data(vol_sl, vol);          // the number to keep in step
         // Not just hidden — a hidden slider still cannot be pressed, but leaving
         // it out of the layout entirely is what makes the intent obvious.
-        if (!isSelected) lv_obj_add_flag(vol_sl, LV_OBJ_FLAG_HIDDEN);
+        if (!isSelected) lv_obj_set_hidden(vol_sl, true);
 
         // Live while dragging so the number tracks the knob...
         lv_obj_add_event_cb(vol_sl, [](lv_event_t* e) {
@@ -343,7 +343,7 @@ void createDevicesScreen() {
 
     // Create sidebar and get content area (Speakers is index 1)
     lv_obj_t* content = createSettingsSidebar(scr_devices, 1);
-    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(content, false);
 
     // Title + Scan button row
     btn_sonos_scan = addScreenHeader(content, "Speakers", AMB_IC_REFRESH " Scan");
@@ -383,7 +383,7 @@ void createDevicesScreen() {
     lv_obj_set_style_arc_width(spinner_scan, 10, LV_PART_MAIN);
     lv_obj_set_style_arc_rounded(spinner_scan, true, LV_PART_INDICATOR);
     lv_obj_move_foreground(spinner_scan);  // Ensure it's on top
-    lv_obj_add_flag(spinner_scan, LV_OBJ_FLAG_HIDDEN);  // Hidden by default
+    lv_obj_set_hidden(spinner_scan, true);  // Hidden by default
 
     // Refresh list every time the screen is opened so cached/already-discovered
     // speakers show immediately without requiring a manual Scan tap (issue #19).

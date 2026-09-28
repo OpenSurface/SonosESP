@@ -7,8 +7,8 @@ lv_obj_t* nocFaceRoot(lv_obj_t* parent) {
     lv_obj_set_style_border_width(root, 0, 0);
     lv_obj_set_style_pad_all(root, 0, 0);
     lv_obj_set_style_radius(root, 0, 0);
-    lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(root, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_scrollable(root, false);
+    lv_obj_set_hidden(root, true);
 
     nocApplyBackdrop(root, false);
     return root;
@@ -37,8 +37,8 @@ lv_obj_t* nocLabel(lv_obj_t* parent, const lv_font_t* font, lv_color_t col,
 
 void nocMakeInert(lv_obj_t* root) {
     if (!root) return;
-    lv_obj_clear_flag(root, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_clickable(root, false);
+    lv_obj_set_scrollable(root, false);
     uint32_t n = lv_obj_get_child_count(root);
     for (uint32_t i = 0; i < n; i++) nocMakeInert(lv_obj_get_child(root, i));
 }

@@ -117,7 +117,7 @@ static lv_obj_t* bootWordmark(lv_obj_t* parent, const lv_font_t* font, int track
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(row, 0, 0);
-    lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(row, false);
 
     lv_obj_t* a = ambLabel(row, font, AMB_TEXT, "Sonos");
     lv_obj_set_style_text_letter_space(a, track, 0);
@@ -133,7 +133,7 @@ void bootScreenCreate(void) {
     lv_obj_set_style_bg_color(bt_scr, AMB_BG, 0);
     lv_obj_set_style_border_width(bt_scr, 0, 0);
     lv_obj_set_style_pad_all(bt_scr, 0, 0);
-    lv_obj_remove_flag(bt_scr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(bt_scr, false);
     lv_screen_load(bt_scr);
 
     // ── Stage 1: wordmark ───────────────────────────────────────────────────
@@ -145,7 +145,7 @@ void bootScreenCreate(void) {
     lv_obj_set_flex_align(bt_wordmark, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(bt_wordmark, SY(16), 0);
-    lv_obj_remove_flag(bt_wordmark, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(bt_wordmark, false);
 
     bootWordmark(bt_wordmark, &font_text_48, -1);
     ambCaption(bt_wordmark, AMB_TEXT3, "TOUCHSCREEN SONOS CONTROLLER", 5);
@@ -158,8 +158,8 @@ void bootScreenCreate(void) {
     lv_obj_set_size(bt_header, SX(800), SY(480));
     lv_obj_set_pos(bt_header, 0, 0);
     lv_obj_set_style_opa(bt_header, LV_OPA_TRANSP, 0);
-    lv_obj_add_flag(bt_header, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_remove_flag(bt_header, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_hidden(bt_header, true);
+    lv_obj_set_scrollable(bt_header, false);
 
     lv_obj_t* head = lv_obj_create(bt_header);
     lv_obj_remove_style_all(head);
@@ -169,7 +169,7 @@ void bootScreenCreate(void) {
     lv_obj_set_flex_align(head, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(head, SX(12), 0);
-    lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(head, false);
 
     bootWordmark(head, &font_text_20, 0);
     lv_obj_t* ver = ambCaption(head, AMB_TEXT3, "v" FIRMWARE_VERSION, 2);
@@ -198,7 +198,7 @@ void bootScreenCreate(void) {
                               LV_FLEX_ALIGN_CENTER);
         lv_obj_set_style_pad_column(row, SX(14), 0);
         lv_obj_set_style_opa(row, LV_OPA_TRANSP, 0);
-        lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_scrollable(row, false);
 
         lv_obj_t* chip = ambRoundRect(row, 22, 22, 11, AMB_ACCENT_WASH);
         lv_obj_t* tick = ambLabel(chip, &font_icon_16, AMB_ACCENT, AMB_SC_CHECK);
@@ -217,7 +217,7 @@ void bootScreenCreate(void) {
 
     bt_status = ambLabel(bt_header, &font_text_14, AMB_ACCENT, "");
     lv_obj_set_pos(bt_status, SX(BT_PAD), SY(BT_STATUS_Y));
-    lv_obj_add_flag(bt_status, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(bt_status, true);
 
     // ── Footer ──────────────────────────────────────────────────────────────
     lv_obj_t* foot = ambLabel(bt_header, &font_text_12, AMB_TEXT3,
@@ -236,7 +236,7 @@ void bootScreenReveal(void) {
     // finished — and it is bounded, so a SLOW boot never waits here at all.
     while (millis() - bt_shown_ms < BT_WORDMARK_MIN_MS) bootPump(20);
 
-    lv_obj_remove_flag(bt_header, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(bt_header, false);
     // Cross-fade in one pass so the screen is never blank between the two stages.
     for (int i = 1; i <= 12; i++) {
         lv_opa_t up = (lv_opa_t)(LV_OPA_COVER * i / 12);
@@ -244,7 +244,7 @@ void bootScreenReveal(void) {
         lv_obj_set_style_opa(bt_wordmark, (lv_opa_t)(LV_OPA_COVER - up), 0);
         bootPump(15);
     }
-    lv_obj_add_flag(bt_wordmark, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(bt_wordmark, true);
 
     // Land whatever reported while the wordmark was up, in order.
     for (int i = 0; i < BOOT_CHECK_COUNT; i++) {
@@ -296,11 +296,11 @@ void bootScreenCheck(BootCheck which, const char* value, bool ok) {
 void bootScreenStatus(const char* msg) {
     if (!bt_status) return;
     if (!msg) {
-        lv_obj_add_flag(bt_status, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(bt_status, true);
     } else {
         bootScreenReveal();
         lv_label_set_text(bt_status, msg);
-        lv_obj_remove_flag(bt_status, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(bt_status, false);
     }
     lv_refr_now(NULL);
 }

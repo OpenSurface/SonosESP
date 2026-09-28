@@ -144,7 +144,7 @@ void updateToastShow(const char* version) {
     lv_obj_t* layer = lv_layer_top();
     // The layer spans the display. Without this it eats every touch meant for
     // the player sitting underneath it.
-    lv_obj_remove_flag(layer, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_clickable(layer, false);
     lv_obj_set_style_bg_opa(layer, LV_OPA_TRANSP, 0);
 
     toast = lv_button_create(layer);
@@ -171,7 +171,7 @@ void updateToastShow(const char* version) {
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(row, SX(12), 0);
-    lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);   // let taps reach the button
+    lv_obj_set_clickable(row, false);   // let taps reach the button
     lv_obj_center(row);
 
     lv_obj_t* ico = lv_label_create(row);

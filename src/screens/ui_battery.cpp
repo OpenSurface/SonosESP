@@ -92,9 +92,9 @@ static lv_color_t toneColor(battery::Tone t) {
 // a set_text even when the value is the same - so without these checks a
 // visible badge would be redrawn once a second for nothing.
 static void setHidden(lv_obj_t* o, bool hidden) {
-    if (lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN) == hidden) return;
-    if (hidden) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
-    else        lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
+    if (lv_obj_is_hidden(o) == hidden) return;
+    if (hidden) lv_obj_set_hidden(o, true);
+    else        lv_obj_set_hidden(o, false);
 }
 
 static void setColor(lv_obj_t* o, lv_color_t c) {
@@ -189,9 +189,9 @@ lv_obj_t* batteryChipCreate(lv_obj_t* parent, int deviceIndex, int size) {
     lv_obj_set_flex_align(box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_all(box, 0, 0);
     lv_obj_set_style_pad_row(box, 0, 0);
-    lv_obj_remove_flag(box, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(box, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(box, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_scrollable(box, false);
+    lv_obj_set_clickable(box, false);
+    lv_obj_set_hidden(box, true);
 
     lv_obj_t* glyph = lv_label_create(box);
     lv_obj_set_style_text_font(glyph, &font_batt_16, 0);
@@ -225,9 +225,9 @@ lv_obj_t* batteryBadgeCreate(lv_obj_t* parent, int deviceIndex, bool compact,
     lv_obj_set_flex_flow(box, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(box, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(box, compact ? SX(3) : SX(4), 0);
-    lv_obj_remove_flag(box, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(box, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(box, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_scrollable(box, false);
+    lv_obj_set_clickable(box, false);
+    lv_obj_set_hidden(box, true);
 
     lv_obj_t* glyph = lv_label_create(box);
     lv_obj_set_style_text_font(glyph, &font_batt_16, 0);

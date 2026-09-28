@@ -136,7 +136,7 @@ void buildMonolithFace(lv_obj_t* parent) {
     lv_obj_set_pos(rail, SX(ML_PAD_X), SY(ML_RAIL_Y));
     lv_obj_set_flex_flow(rail, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(rail, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_clear_flag(rail, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(rail, false);
 
     for (int i = 0; i < 6; i++) {
         lv_obj_t* cell = lv_obj_create(rail);
@@ -145,7 +145,7 @@ void buildMonolithFace(lv_obj_t* parent) {
         lv_obj_set_flex_flow(cell, LV_FLEX_FLOW_ROW);
         lv_obj_set_flex_align(cell, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
         lv_obj_set_style_pad_column(cell, SX(7), 0);
-        lv_obj_clear_flag(cell, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_scrollable(cell, false);
         ml_rail_hr[i]   = nocLabel(cell, &font_text_12, NOC_N500, "--");
         ml_rail_icon[i] = nocLabel(cell, &lv_font_weathericons_32, NOC_N400, "");
         ml_rail_tmp[i]  = nocLabel(cell, &font_text_16, NOC_TEXT, "--");

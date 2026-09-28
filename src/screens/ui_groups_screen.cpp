@@ -283,7 +283,7 @@ void refreshGroupsList() {
             lv_obj_set_style_bg_color(hdr, AMB_PANEL, 0);
             lv_obj_set_style_border_width(hdr, 0, 0);
             lv_obj_set_style_pad_all(hdr, SMIN(10), 0);
-            lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_set_scrollable(hdr, false);
 
             lv_obj_t* hdrLbl = lv_label_create(hdr);
             lv_label_set_text_fmt(hdrLbl, "Add speakers to \"%s\":", s_coord_room.c_str());
@@ -416,7 +416,7 @@ void createGroupsScreen() {
 
     // Create sidebar and get content area (Groups is index 2)
     lv_obj_t* content = createSettingsSidebar(scr_groups, 2);
-    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(content, false);
 
     // Title + Refresh button row
     btn_groups_scan = addScreenHeader(content, "Groups", AMB_IC_REFRESH " Scan");
@@ -427,7 +427,7 @@ void createGroupsScreen() {
 
         // Show spinner
         if (spinner_groups_scan) {
-            lv_obj_remove_flag(spinner_groups_scan, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(spinner_groups_scan, false);
             lv_obj_move_foreground(spinner_groups_scan);
         }
 
@@ -463,7 +463,7 @@ void createGroupsScreen() {
 
         // Hide spinner and re-enable button
         if (spinner_groups_scan) {
-            lv_obj_add_flag(spinner_groups_scan, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(spinner_groups_scan, true);
         }
         lv_obj_clear_state(btn_groups_scan, LV_STATE_DISABLED);
         lv_obj_set_style_bg_color(btn_groups_scan, AMB_ACCENT, 0);
@@ -504,5 +504,5 @@ void createGroupsScreen() {
     lv_obj_set_style_arc_width(spinner_groups_scan, 10, LV_PART_MAIN);
     lv_obj_set_style_arc_rounded(spinner_groups_scan, true, LV_PART_INDICATOR);
     lv_obj_move_foreground(spinner_groups_scan);
-    lv_obj_add_flag(spinner_groups_scan, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(spinner_groups_scan, true);
 }

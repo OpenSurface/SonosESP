@@ -266,7 +266,7 @@ void ev_discover(lv_event_t* e) {
     // Show spinner
     if (spinner_scan) {
         Serial.println("[SCAN] Showing spinner");
-        lv_obj_remove_flag(spinner_scan, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(spinner_scan, false);
         lv_obj_move_foreground(spinner_scan);  // Bring to front
     } else {
         Serial.println("[SCAN] ERROR: spinner_scan is NULL!");
@@ -281,7 +281,7 @@ void ev_discover(lv_event_t* e) {
 
     // Hide spinner
     if (spinner_scan) {
-        lv_obj_add_flag(spinner_scan, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(spinner_scan, true);
     }
 
     // Re-enable scan button
@@ -323,11 +323,11 @@ void ev_wifi_scan(lv_event_t* e) {
     lv_obj_set_style_text_color(lbl_wifi_status, COL_ACCENT, 0);
     lv_obj_clean(list_wifi);
     // Hide password strip if visible from a previous selection
-    lv_obj_add_flag(pw_strip, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(pw_strip, true);
+    lv_obj_set_hidden(kb, true);
     // Show spinner
     if (spinner_wifi_scan) {
-        lv_obj_remove_flag(spinner_wifi_scan, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(spinner_wifi_scan, false);
         lv_obj_move_foreground(spinner_wifi_scan);
     }
     // lv_refr_now, NOT lv_timer_handler: we are inside an event callback, which
@@ -343,7 +343,7 @@ void ev_wifi_scan(lv_event_t* e) {
     wifiNetworkCount = min(n, 20);
 
     // Hide spinner, re-enable button
-    if (spinner_wifi_scan) lv_obj_add_flag(spinner_wifi_scan, LV_OBJ_FLAG_HIDDEN);
+    if (spinner_wifi_scan) lv_obj_set_hidden(spinner_wifi_scan, true);
     if (btn_wifi_scan)     lv_obj_clear_state(btn_wifi_scan, LV_STATE_DISABLED);
     if (lbl_scan_text)     lv_label_set_text(lbl_scan_text, MDI_REFRESH " Scan");
 
@@ -402,10 +402,10 @@ void ev_wifi_scan(lv_event_t* e) {
             selectedSSID = wifiNetworks[idx];
             // Show password strip + update SSID label
             lv_label_set_text(lbl_pw_ssid, selectedSSID.c_str());
-            lv_obj_clear_flag(pw_strip, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(pw_strip, false);
             lv_label_set_text_fmt(lbl_wifi_status, MDI_WIFI " %s", selectedSSID.c_str());
             lv_obj_set_style_text_color(lbl_wifi_status, COL_TEXT, 0);
-            lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(kb, false);
         }, LV_EVENT_CLICKED, NULL);
 
         lv_obj_t* icon = lv_label_create(btn);
@@ -441,7 +441,7 @@ void ev_wifi_connect(lv_event_t* e) {
 
     lv_label_set_text_fmt(lbl_wifi_status, MDI_REFRESH " Connecting to %s...", selectedSSID.c_str());
     lv_obj_set_style_text_color(lbl_wifi_status, COL_ACCENT, 0);
-    lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(kb, true);
     lv_refr_now(NULL);  // Update UI (nested lv_timer_handler would be a no-op)
 
     WiFi.disconnect();
@@ -503,8 +503,8 @@ void ev_wifi_connect(lv_event_t* e) {
         lv_obj_set_style_text_color(lbl_wifi_status, COL_OK, 0);
 
         // Hide strip + keyboard, clear password field
-        lv_obj_add_flag(pw_strip, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(pw_strip, true);
+        lv_obj_set_hidden(kb, true);
         lv_textarea_set_text(ta_password, "");
     } else {
         // Determine failure reason
@@ -769,7 +769,7 @@ static void checkForUpdates() {
                         lv_label_set_text_fmt(lbl_latest_version, "v%s", current_version.c_str());
                     }
                     if (btn_install_update) {
-                        lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_set_hidden(btn_install_update, true);
                     }
                 } else {
                     // User is on stable, no nightlies available
@@ -856,7 +856,7 @@ static void checkForUpdates() {
                     lv_obj_set_style_text_color(lbl_ota_status, COL_WARN, 0);
                 }
                 if (btn_install_update) {
-                    lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_set_hidden(btn_install_update, true);
                 }
             } else if (update_available) {
                 if (lbl_ota_status) {
@@ -864,7 +864,7 @@ static void checkForUpdates() {
                     lv_obj_set_style_text_color(lbl_ota_status, COL_OK, 0);
                 }
                 if (btn_install_update) {
-                    lv_obj_clear_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_set_hidden(btn_install_update, false);
                 }
             } else {
                 if (lbl_ota_status) {
@@ -872,7 +872,7 @@ static void checkForUpdates() {
                     lv_obj_set_style_text_color(lbl_ota_status, COL_OK, 0);
                 }
                 if (btn_install_update) {
-                    lv_obj_add_flag(btn_install_update, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_set_hidden(btn_install_update, true);
                 }
             }
         } else {
@@ -902,7 +902,7 @@ static void otaRecovery() {
 
     // Hide progress bar and re-enable buttons
     if (bar_ota_progress) {
-        lv_obj_add_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(bar_ota_progress, true);
     }
     if (btn_check_update) lv_obj_clear_state(btn_check_update, LV_STATE_DISABLED);
     if (btn_install_update) lv_obj_clear_state(btn_install_update, LV_STATE_DISABLED);
@@ -1140,7 +1140,7 @@ static void performOTAUpdate() {
         lv_obj_set_style_text_color(lbl_ota_status, COL_ACCENT, 0);
     }
     if (bar_ota_progress) {
-        lv_obj_clear_flag(bar_ota_progress, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(bar_ota_progress, false);
         lv_bar_set_value(bar_ota_progress, 0, LV_ANIM_OFF);
     }
     lv_tick_inc(10);
@@ -1846,9 +1846,9 @@ void ev_install_update(lv_event_t* e) {
 // existing artwork, so hiding the object alone lets the stale image return the
 // moment either of those runs.
 static void showNoArtwork(void) {
-    if (img_album)       lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-    if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
-    if (img_blur_bg)     lv_obj_add_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
+    if (img_album)       lv_obj_set_hidden(img_album, true);
+    if (art_placeholder) lv_obj_set_hidden(art_placeholder, false);
+    if (img_blur_bg)     lv_obj_set_hidden(img_blur_bg, true);
     blur_bg_valid = false;
     blur_bg_ready = false;
 }
@@ -1914,13 +1914,13 @@ static bool updateConnectionState(SonosDevice* d) {
             lv_slider_set_value(slider_progress, 0, LV_ANIM_OFF);
             playbackPositionReset();   // whatever comes back, it starts over
 
-            lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(img_album, true);
+            lv_obj_set_hidden(art_placeholder, false);
 
-            lv_obj_add_flag(img_next_album, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(lbl_next_title, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(img_next_album, true);
+            lv_obj_set_hidden(lbl_next_title, true);
+            lv_obj_set_hidden(lbl_next_artist, true);
+            lv_obj_set_hidden(lbl_next_header, true);
 
             if (panel_art)   lv_obj_set_style_bg_color(panel_art,   COL_BG, 0);
             if (panel_right) lv_obj_set_style_bg_color(panel_right, COL_BG, 0);
@@ -2014,8 +2014,8 @@ static void displayCompletedArt() {
         lv_img_set_src(img_album, &art_dsc);
         themeApplyArtGeometry(img_album);   // HERO (Classic) vs THUMB (Immersive)
         artFadeIn(img_album);               // fade up; see the note on artFadeIn
-        lv_obj_remove_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(img_album, false);
+        lv_obj_set_hidden(art_placeholder, true);
         art_ready = false;
         art_show_placeholder = false;
     } else if (art_show_placeholder) {
@@ -2033,7 +2033,7 @@ static void displayCompletedArt() {
         blur_bg_dsc.data_size = DISPLAY_WIDTH * DISPLAY_HEIGHT * 2;
         blur_bg_dsc.data      = (const uint8_t*)blur_bg_buf;
         lv_img_set_src(img_blur_bg, &blur_bg_dsc);
-        lv_obj_remove_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(img_blur_bg, false);
         blur_bg_ready = false;
     }
     if (color_ready) {
@@ -2102,16 +2102,16 @@ static void updateNextTrackUI(SonosDevice* d) {
         if (nextTitle != last_next_title || ui_force_refresh) {
             lv_label_set_text(lbl_next_title, nextTitle.c_str());
             lv_label_set_text(lbl_next_artist, nextArtist.c_str());
-            lv_obj_clear_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(lbl_next_title, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(lbl_next_header, false);
+            lv_obj_set_hidden(lbl_next_title, false);
+            lv_obj_set_hidden(lbl_next_artist, false);
             last_next_title = nextTitle;
         }
     } else if (hideAll) {
         if (last_next_title != "") {
-            lv_obj_add_flag(lbl_next_header, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(lbl_next_title, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(lbl_next_artist, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(lbl_next_header, true);
+            lv_obj_set_hidden(lbl_next_title, true);
+            lv_obj_set_hidden(lbl_next_artist, true);
             last_next_title = "";
         }
     }
@@ -2199,8 +2199,8 @@ static void updateAlbumArtRequest(SonosDevice* d) {
             // updateUI frame (cache hit would bypass the placeholder entirely).
             clearAlbumArtCache();
             // Show placeholder immediately (main thread = LVGL-safe)
-            if (img_album)       lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-            if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+            if (img_album)       lv_obj_set_hidden(img_album, true);
+            if (art_placeholder) lv_obj_set_hidden(art_placeholder, false);
         }
     }
 
@@ -2211,8 +2211,8 @@ static void updateAlbumArtRequest(SonosDevice* d) {
         Serial.println("[ART] Not playing - clearing art display");
         art_abort_download = true;  // Stop any in-progress download immediately
         clearAlbumArtCache();
-        if (img_album) lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-        if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+        if (img_album) lv_obj_set_hidden(img_album, true);
+        if (art_placeholder) lv_obj_set_hidden(art_placeholder, false);
         if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
             last_art_url = "";
             pending_art_url = "";  // Prevent art task re-fetching the old URL
@@ -2333,8 +2333,8 @@ static void updateAlbumArtRequest(SonosDevice* d) {
         } else {
             // No art available - clear display
             Serial.println("[ART] No art URL - clearing display");
-            if (img_album) lv_obj_add_flag(img_album, LV_OBJ_FLAG_HIDDEN);
-            if (art_placeholder) lv_obj_remove_flag(art_placeholder, LV_OBJ_FLAG_HIDDEN);
+            if (img_album) lv_obj_set_hidden(img_album, true);
+            if (art_placeholder) lv_obj_set_hidden(art_placeholder, false);
             // CRITICAL: Must hold art_mutex when writing last_art_url (not atomic)
             if (xSemaphoreTake(art_mutex, pdMS_TO_TICKS(50))) {
                 last_art_url = "";  // Clear to allow next art request

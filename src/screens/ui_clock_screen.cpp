@@ -247,8 +247,8 @@ static void applyWeatherToWidgets() {
             snprintf(buf, sizeof(buf), "%d%s", clock_wx_hourly[i].temp, tempUnit());
             lv_label_set_text(clock_wx_fc_temp[i], buf);
         }
-        lv_obj_clear_flag(clock_wx_tl_panel, LV_OBJ_FLAG_HIDDEN);
-        if (clock_wx_bottom) lv_obj_clear_flag(clock_wx_bottom, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(clock_wx_tl_panel, false);
+        if (clock_wx_bottom) lv_obj_set_hidden(clock_wx_bottom, false);
 
         // ── Top-right panel: UV + feels-like + sunrise/sunset ─────────────────
         if (clock_wx_tr_panel) {
@@ -264,12 +264,12 @@ static void applyWeatherToWidgets() {
             snprintf(buf, sizeof(buf), "Set   %s", clock_wx_sunset);
             lv_label_set_text(clock_wx_set_t_lbl, buf);
 
-            lv_obj_clear_flag(clock_wx_tr_panel, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_hidden(clock_wx_tr_panel, false);
         }
     } else {
-        lv_obj_add_flag(clock_wx_tl_panel, LV_OBJ_FLAG_HIDDEN);
-        if (clock_wx_bottom)    lv_obj_add_flag(clock_wx_bottom,    LV_OBJ_FLAG_HIDDEN);
-        if (clock_wx_tr_panel)  lv_obj_add_flag(clock_wx_tr_panel,  LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(clock_wx_tl_panel, true);
+        if (clock_wx_bottom)    lv_obj_set_hidden(clock_wx_bottom, true);
+        if (clock_wx_tr_panel)  lv_obj_set_hidden(clock_wx_tr_panel, true);
     }
 }
 
@@ -381,7 +381,7 @@ static void buildStandbyFace(lv_obj_t* parent) {
         lv_obj_set_width(sb_digit[idx], SX(SB_CELL));
         lv_obj_set_style_text_align(sb_digit[idx], LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_pos(sb_digit[idx], SX(xpos), SY(SB_TOP));
-        lv_obj_add_flag(sb_digit[idx], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(sb_digit[idx], true);
     };
 
     addDigit(0, x);  sb_base_x[0] = x;                x += SB_CELL - SB_OVERLAP;
@@ -401,9 +401,9 @@ static void buildStandbyFace(lv_obj_t* parent) {
         lv_obj_set_style_radius(sb_dot[i], LV_RADIUS_CIRCLE, 0);
         lv_obj_set_style_border_width(sb_dot[i], 0, 0);
         lv_obj_set_style_shadow_width(sb_dot[i], 0, 0);
-        lv_obj_clear_flag(sb_dot[i], LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_clear_flag(sb_dot[i], LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_flag(sb_dot[i], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_scrollable(sb_dot[i], false);
+        lv_obj_set_clickable(sb_dot[i], false);
+        lv_obj_set_hidden(sb_dot[i], true);
     }
 
     // Sits directly under the digits, not pinned to the bottom of the screen —
@@ -414,7 +414,7 @@ static void buildStandbyFace(lv_obj_t* parent) {
     lv_obj_set_style_text_color(sb_date, COL_TEXT, 0);
     lv_obj_set_style_text_opa(sb_date, LV_OPA_60, 0);
     lv_obj_align(sb_date, LV_ALIGN_TOP_MID, 0, SY(SB_TOP + SB_INK + 14));
-    lv_obj_add_flag(sb_date, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(sb_date, true);
 }
 
 // Repaints the StandBy digits from the current artwork colour.
@@ -474,8 +474,8 @@ static void applyClockStyle(void) {
             } else {
                 show = (c != root);
             }
-            if (show) lv_obj_remove_flag(c, LV_OBJ_FLAG_HIDDEN);
-            else      lv_obj_add_flag(c, LV_OBJ_FLAG_HIDDEN);
+            if (show) lv_obj_set_hidden(c, false);
+            else      lv_obj_set_hidden(c, true);
         }
         // The face root is created before the photo can be, so make sure it is
         // drawn on top of it rather than behind.
@@ -488,8 +488,8 @@ static void applyClockStyle(void) {
     const bool standby = !own_face && (clock_style == CLOCK_STYLE_STANDBY);
     auto vis = [](lv_obj_t* o, bool show) {
         if (!o) return;
-        if (show) lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
-        else      lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+        if (show) lv_obj_set_hidden(o, false);
+        else      lv_obj_set_hidden(o, true);
     };
     for (int i = 0; i < 4; i++) vis(sb_digit[i], standby);
     for (int i = 0; i < 2; i++) vis(sb_dot[i],   standby);
@@ -553,8 +553,8 @@ static void clock_tick_cb(lv_timer_t* /*timer*/) {
         // zero with " " drew a tofu box. Hide the whole cell instead, and shift the
         // row so the remaining glyphs stay centred on the screen.
         const bool hide_lead = (clock_12h && h1[0] == '0');
-        if (hide_lead) lv_obj_add_flag(sb_digit[0], LV_OBJ_FLAG_HIDDEN);
-        else           lv_obj_remove_flag(sb_digit[0], LV_OBJ_FLAG_HIDDEN);
+        if (hide_lead) lv_obj_set_hidden(sb_digit[0], true);
+        else           lv_obj_set_hidden(sb_digit[0], false);
         if (hide_lead != sb_lead_hidden) {
             sb_lead_hidden = hide_lead;
             standbyReflow(hide_lead);
@@ -1150,14 +1150,14 @@ void clockBgTask(void* /*param*/) {
 void createClockScreen() {
     scr_clock = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_clock, lv_color_hex(0x000000), 0);
-    lv_obj_clear_flag(scr_clock, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(scr_clock, false);
 
     // Background image (hidden until clockBgTask fetches a photo)
     clock_bg_img = lv_img_create(scr_clock);
     lv_obj_set_size(clock_bg_img, CLOCK_BG_WIDTH, CLOCK_BG_HEIGHT);
     lv_obj_set_pos(clock_bg_img, 0, 0);
     lv_obj_set_style_img_opa(clock_bg_img, LV_OPA_TRANSP, 0);
-    lv_obj_clear_flag(clock_bg_img, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_clickable(clock_bg_img, false);
     // Stretch image to fill widget — handles any decoded size (especially when
     // the JPEG dimensions differ from CLOCK_BG_WIDTH×CLOCK_BG_HEIGHT)
     lv_image_set_align(clock_bg_img, LV_IMAGE_ALIGN_STRETCH);
@@ -1170,8 +1170,8 @@ void createClockScreen() {
     lv_obj_set_style_bg_opa(overlay, 160, 0);  // ~63% dark veil
     lv_obj_set_style_border_width(overlay, 0, 0);
     lv_obj_set_style_radius(overlay, 0, 0);
-    lv_obj_clear_flag(overlay, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_clear_flag(overlay, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_clickable(overlay, false);
+    lv_obj_set_scrollable(overlay, false);
 
     // The Classic time/date labels used to be created here. Classic was removed
     // from the face registry in 1.10 (clock_face.cpp migrates saved indices off
@@ -1194,9 +1194,9 @@ void createClockScreen() {
     lv_obj_set_style_bg_opa(clock_wx_tl_panel, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(clock_wx_tl_panel, 0, 0);
     lv_obj_set_style_pad_all(clock_wx_tl_panel, 0, 0);
-    lv_obj_clear_flag(clock_wx_tl_panel, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(clock_wx_tl_panel, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(clock_wx_tl_panel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_scrollable(clock_wx_tl_panel, false);
+    lv_obj_set_clickable(clock_wx_tl_panel, false);
+    lv_obj_set_hidden(clock_wx_tl_panel, true);
 
     clock_wx_city_lbl = lv_label_create(clock_wx_tl_panel);
     lv_label_set_text(clock_wx_city_lbl, "---");
@@ -1228,7 +1228,7 @@ void createClockScreen() {
     lv_obj_set_style_text_font(clock_wx_icon, &lv_font_weathericons_80, 0);
     lv_obj_set_style_text_color(clock_wx_icon, COL_TEXT3, 0);
     lv_obj_set_pos(clock_wx_icon, SX(155), SY(10));
-    lv_obj_clear_flag(clock_wx_icon, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_clickable(clock_wx_icon, false);
 
     // ── Bottom strip: 6-hour hourly forecast (no background, no separator) ─────
     clock_wx_bottom = lv_obj_create(scr_clock);
@@ -1237,9 +1237,9 @@ void createClockScreen() {
     lv_obj_set_style_bg_opa(clock_wx_bottom, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(clock_wx_bottom, 0, 0);
     lv_obj_set_style_pad_all(clock_wx_bottom, 0, 0);
-    lv_obj_clear_flag(clock_wx_bottom, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(clock_wx_bottom, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(clock_wx_bottom, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_scrollable(clock_wx_bottom, false);
+    lv_obj_set_clickable(clock_wx_bottom, false);
+    lv_obj_set_hidden(clock_wx_bottom, true);
 
     // 6 equal columns (133px each, last extends to 800)
     for (int i = 0; i < 6; i++) {
@@ -1284,9 +1284,9 @@ void createClockScreen() {
     lv_obj_set_style_bg_opa(clock_wx_tr_panel, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(clock_wx_tr_panel, 0, 0);
     lv_obj_set_style_pad_all(clock_wx_tr_panel, 0, 0);
-    lv_obj_clear_flag(clock_wx_tr_panel, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(clock_wx_tr_panel, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(clock_wx_tr_panel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_scrollable(clock_wx_tr_panel, false);
+    lv_obj_set_clickable(clock_wx_tr_panel, false);
+    lv_obj_set_hidden(clock_wx_tr_panel, true);
 
     // Row 0 — Feels like
     clock_wx_fl_lbl = lv_label_create(clock_wx_tr_panel);
@@ -1333,7 +1333,7 @@ void createClockScreen() {
     // Touch anywhere on the screen to dismiss — except the touch that just woke
     // the screen during night hours (issue #172). At 3am you want to see the
     // time, not the player: the first tap lights the clock, the next one leaves.
-    lv_obj_add_flag(scr_clock, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_clickable(scr_clock, true);
     lv_obj_add_event_cb(scr_clock, [](lv_event_t* /*e*/) {
         if (night_wake_ms && millis() - night_wake_ms < NIGHT_WAKE_GRACE_MS) {
             night_wake_ms = 0;   // consumed: the next tap dismisses as usual
@@ -1362,8 +1362,8 @@ void exitClockScreen() {
     }
 
     // Hide weather overlay immediately
-    if (clock_wx_tl_panel) lv_obj_add_flag(clock_wx_tl_panel, LV_OBJ_FLAG_HIDDEN);
-    if (clock_wx_bottom)   lv_obj_add_flag(clock_wx_bottom,   LV_OBJ_FLAG_HIDDEN);
+    if (clock_wx_tl_panel) lv_obj_set_hidden(clock_wx_tl_panel, true);
+    if (clock_wx_bottom)   lv_obj_set_hidden(clock_wx_bottom, true);
     clock_weather_updated = false;
     // Reset auto-detect cache so next session re-checks (device may have moved)
     clock_auto_loc_valid = false;

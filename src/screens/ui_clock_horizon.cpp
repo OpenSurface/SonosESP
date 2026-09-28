@@ -107,7 +107,7 @@ void buildHorizonFace(lv_obj_t* parent) {
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(row, SX(12), 0);
-    lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(row, false);
 
     hz_icon   = nocLabel(row, &lv_font_weathericons_32, NOC_ACCENT, "");
     hz_temp   = nocLabel(row, &font_text_24, NOC_TEXT, "--°");
@@ -121,7 +121,7 @@ void buildHorizonFace(lv_obj_t* parent) {
     lv_obj_set_pos(chips, SX(HZ_PAD_X), SY(HZ_CHIP_Y));
     lv_obj_set_flex_flow(chips, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(chips, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_clear_flag(chips, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(chips, false);
 
     for (int i = 0; i < 6; i++) {
         lv_obj_t* chip = lv_obj_create(chips);
@@ -133,7 +133,7 @@ void buildHorizonFace(lv_obj_t* parent) {
         lv_obj_set_style_border_opa(chip, 100, 0);
         lv_obj_set_style_border_width(chip, 1, 0);
         lv_obj_set_style_pad_all(chip, 0, 0);
-        lv_obj_clear_flag(chip, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_scrollable(chip, false);
         lv_obj_set_flex_flow(chip, LV_FLEX_FLOW_ROW);
         lv_obj_set_flex_align(chip, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
         lv_obj_set_style_pad_column(chip, SX(6), 0);

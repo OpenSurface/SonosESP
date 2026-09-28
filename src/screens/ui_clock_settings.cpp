@@ -118,15 +118,15 @@ static lv_obj_t* bottom_spacer       = nullptr;  // grows when kb appears so the
 // Show/hide the sub-controls based on the selected method.
 static void update_location_method_visibility(int method) {
     if (city_sub_container) {
-        if (method == LOC_METHOD_CITY) lv_obj_clear_flag(city_sub_container, LV_OBJ_FLAG_HIDDEN);
-        else                            lv_obj_add_flag(city_sub_container,  LV_OBJ_FLAG_HIDDEN);
+        if (method == LOC_METHOD_CITY) lv_obj_set_hidden(city_sub_container, false);
+        else                            lv_obj_set_hidden(city_sub_container, true);
     }
     if (custom_loc_card) {
-        if (method == LOC_METHOD_CUSTOM) lv_obj_clear_flag(custom_loc_card, LV_OBJ_FLAG_HIDDEN);
-        else                              lv_obj_add_flag(custom_loc_card,  LV_OBJ_FLAG_HIDDEN);
+        if (method == LOC_METHOD_CUSTOM) lv_obj_set_hidden(custom_loc_card, false);
+        else                              lv_obj_set_hidden(custom_loc_card, true);
     }
     if (method != LOC_METHOD_CUSTOM && custom_kb) {
-        lv_obj_add_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(custom_kb, true);
     }
 }
 
@@ -219,7 +219,7 @@ static void custom_ta_event_cb(lv_event_t* e) {
         }
 
         lv_keyboard_set_textarea(custom_kb, ta);
-        lv_obj_clear_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(custom_kb, false);
         lv_obj_move_foreground(custom_kb);
 
         // Scroll the focused textarea above the keyboard. Both keyboards now sit
@@ -233,7 +233,7 @@ static void custom_ta_event_cb(lv_event_t* e) {
         }
     } else if (code == LV_EVENT_DEFOCUSED) {
         persist_custom_loc_from_textareas();
-        lv_obj_add_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(custom_kb, true);
         // Collapse the spacer so the screen doesn't show empty space at the bottom.
         if (bottom_spacer) lv_obj_set_height(bottom_spacer, 0);
     }
@@ -246,7 +246,7 @@ static void kb_close_event_cb(lv_event_t* e) {
     lv_event_code_t code = lv_event_get_code(e);
     if (code != LV_EVENT_CANCEL && code != LV_EVENT_READY) return;
     persist_custom_loc_from_textareas();
-    lv_obj_add_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(custom_kb, true);
     lv_obj_t* ta = lv_keyboard_get_textarea(custom_kb);
     if (ta) {
         lv_obj_clear_state(ta, LV_STATE_FOCUSED);
@@ -508,7 +508,7 @@ void createClockSettingsScreen() {
         lv_obj_set_style_pad_all(city_sub_container, 0, 0);
         lv_obj_set_style_pad_row(city_sub_container, SY(4), 0);
         lv_obj_set_flex_flow(city_sub_container, LV_FLEX_FLOW_COLUMN);
-        lv_obj_clear_flag(city_sub_container, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_scrollable(city_sub_container, false);
 
         addSettingLabel(city_sub_container, "City");
         // Build the city list — predefined entries only (skip CLOCK_CITIES[0] which is Auto).
@@ -546,7 +546,7 @@ void createClockSettingsScreen() {
         lv_obj_set_style_pad_row(custom_loc_card, SY(6), 0);
         lv_obj_set_style_margin_top(custom_loc_card, 6, 0);
         lv_obj_set_flex_flow(custom_loc_card, LV_FLEX_FLOW_COLUMN);
-        lv_obj_clear_flag(custom_loc_card, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_scrollable(custom_loc_card, false);
 
         lv_obj_t* sub_title = lv_label_create(custom_loc_card);
         lv_label_set_text(sub_title, "Custom coordinates");
@@ -627,8 +627,8 @@ void createClockSettingsScreen() {
     lv_obj_set_style_bg_opa(bottom_spacer, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(bottom_spacer, 0, 0);
     lv_obj_set_style_pad_all(bottom_spacer, 0, 0);
-    lv_obj_clear_flag(bottom_spacer, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_clear_flag(bottom_spacer, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_clickable(bottom_spacer, false);
+    lv_obj_set_scrollable(bottom_spacer, false);
 
     // ─── Floating compact numeric pad (dark-styled, 4×4) ────────────────────
     // Custom map: digits + minus + decimal + backspace + close. No OK/validate.
@@ -639,7 +639,7 @@ void createClockSettingsScreen() {
     lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_USER_1);
     lv_obj_set_size(custom_kb, SX(340), SY(200));
     lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, SY(-10));
-    lv_obj_add_flag(custom_kb, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(custom_kb, true);
     lv_obj_add_event_cb(custom_kb, kb_close_event_cb, LV_EVENT_CANCEL, NULL);
     lv_obj_add_event_cb(custom_kb, kb_close_event_cb, LV_EVENT_READY,  NULL);
     style_keyboard_dark(custom_kb);

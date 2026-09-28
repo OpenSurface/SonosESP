@@ -94,9 +94,9 @@ static void spFitLyric(lv_obj_t* lbl, const char* text);
 static void shelfSwapCb(lv_timer_t*) {
     if (!ap_shelf_next || !ap_lyric_slot) return;
     lv_obj_t* lyr = lv_obj_get_child(ap_lyric_slot, 0);
-    const bool lyrics_showing = lyr && !lv_obj_has_flag(lyr, LV_OBJ_FLAG_HIDDEN);
-    if (lyrics_showing) lv_obj_add_flag(ap_shelf_next, LV_OBJ_FLAG_HIDDEN);
-    else                lv_obj_remove_flag(ap_shelf_next, LV_OBJ_FLAG_HIDDEN);
+    const bool lyrics_showing = lyr && !lv_obj_is_hidden(lyr);
+    if (lyrics_showing) lv_obj_set_hidden(ap_shelf_next, true);
+    else                lv_obj_set_hidden(ap_shelf_next, false);
 
     // Refit when the line changes. Compared by content rather than by index so a
     // repeated line (choruses repeat) does not re-measure, and a track change
@@ -212,7 +212,7 @@ static lv_obj_t* amberSlider(lv_obj_t* parent, int x, int y, int w,
 static void park(lv_obj_t* o) {
     if (!o) return;
     lv_obj_set_pos(o, SX(900), SY(600));
-    lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(o, true);
 }
 
 // ── Track label geometry (issues #151, #177) ────────────────────────────────
@@ -247,14 +247,14 @@ void buildAmberPlayer() {
     lv_obj_set_style_bg_color(scr_main, AMB_BG, 0);
     lv_obj_set_style_pad_all(scr_main, 0, 0);
     lv_obj_set_style_border_width(scr_main, 0, 0);
-    lv_obj_remove_flag(scr_main, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(scr_main, false);
     lv_obj_add_event_cb(scr_main, ap_screen_deleted, LV_EVENT_DELETE, nullptr);
 
     // Created for API compatibility — THEME_BG_FLAT keeps the blurred art off.
     img_blur_bg = lv_image_create(scr_main);
     lv_obj_set_size(img_blur_bg, SX(800), SY(480));
     lv_obj_set_pos(img_blur_bg, 0, 0);
-    lv_obj_add_flag(img_blur_bg, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_hidden(img_blur_bg, true);
 
     // Transparent layers, matching Classic's parenting so setLineInMode() and
     // setTvAudioMode() keep working untouched.
@@ -265,8 +265,8 @@ void buildAmberPlayer() {
         lv_obj_set_style_bg_opa(p, LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(p, 0, 0);
         lv_obj_set_style_pad_all(p, 0, 0);
-        lv_obj_remove_flag(p, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(p, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_scrollable(p, false);
+        lv_obj_set_clickable(p, false);
         return p;
     };
     panel_art   = mkLayer();
@@ -303,7 +303,7 @@ void buildAmberPlayer() {
         lv_obj_set_style_text_font(*m.icon, &lv_font_mdi_80, 0);
         lv_obj_set_style_text_color(*m.icon, AMB_ACCENT, 0);
         lv_obj_set_pos(*m.icon, SX(AP_ART / 2 - 40), SY(AP_ART / 2 - 60));
-        lv_obj_add_flag(*m.icon, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(*m.icon, true);
 
         *m.sub = lv_label_create(panel_art);
         lv_label_set_text(*m.sub, m.text);
@@ -311,7 +311,7 @@ void buildAmberPlayer() {
         lv_obj_set_style_text_color(*m.sub, AMB_TEXT3, 0);
         lv_obj_set_style_text_letter_space(*m.sub, 3, 0);
         lv_obj_set_pos(*m.sub, SX(AP_ART / 2 - 44), SY(AP_ART / 2 + 40));
-        lv_obj_add_flag(*m.sub, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_hidden(*m.sub, true);
     }
 
     // ── Shelf: the divider, then Next-up and lyrics stacked in the same box ──
@@ -322,7 +322,7 @@ void buildAmberPlayer() {
     lv_obj_remove_style_all(ap_shelf_next);
     lv_obj_set_size(ap_shelf_next, SX(AP_ART), SY(AP_SHELF_H));
     lv_obj_set_pos(ap_shelf_next, 0, SY(AP_SHELF_Y));
-    lv_obj_remove_flag(ap_shelf_next, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollable(ap_shelf_next, false);
 
     const int shelf_w = AP_ART - AP_SHELF_PAD * 2;   // 304
 
@@ -365,8 +365,8 @@ void buildAmberPlayer() {
     lv_obj_remove_style_all(ap_lyric_slot);
     lv_obj_set_size(ap_lyric_slot, SX(AP_ART), SY(AP_SHELF_H));
     lv_obj_set_pos(ap_lyric_slot, 0, SY(AP_SHELF_Y));
-    lv_obj_remove_flag(ap_lyric_slot, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(ap_lyric_slot, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_scrollable(ap_lyric_slot, false);
+    lv_obj_set_clickable(ap_lyric_slot, false);
     createLyricsOverlay(ap_lyric_slot);
     if (lv_obj_t* lyr = lv_obj_get_child(ap_lyric_slot, 0)) {
         // Flatten the overlay's own dark gradient: the shelf already has a
@@ -420,7 +420,7 @@ void buildAmberPlayer() {
         for (int i = 0; i < 3; i++) {
             lv_obj_t* l = lv_obj_get_child(lyr, i);
             if (!l) continue;
-            if (i == 0) { lv_obj_add_flag(l, LV_OBJ_FLAG_HIDDEN); continue; }
+            if (i == 0) { lv_obj_set_hidden(l, true); continue; }
             lv_obj_set_style_text_font(l, fonts[i], 0);
             lv_obj_set_style_text_color(l, cols[i], 0);
             lv_obj_set_size(l, SX(shelf_w), SY(rows[i]));
@@ -489,7 +489,7 @@ void buildAmberPlayer() {
     // updateLyricsStatus() lights it; see btn_lyrics in ui_common.h.
     lv_obj_t* lrc = roundBtn(panel_right, "", &font_text_12, AP_RIGHT - chip * 3 - gap * 2,
                              AP_HEAD_Y, chip, NULL, true, AMB_TEXT3);
-    lv_obj_remove_flag(lrc, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_clickable(lrc, false);
     btn_lyrics = lrc;
     // A text chip, not a glyph: the MDI set carries no "lyrics" icon and the
     // canvas labels this one "LRC" anyway.
@@ -648,8 +648,8 @@ void buildAmberPlayer() {
         lv_obj_remove_style_all(row);
         lv_obj_set_pos(row, SX(AP_R), SY(band_y));
         lv_obj_set_size(row, SX(AP_RW), SY(band_h));
-        lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(row, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_scrollable(row, false);
+        lv_obj_set_clickable(row, false);
 
         lv_obj_t* bat = batteryBadgeCreate(row, BATTERY_BADGE_CURRENT);
         lv_obj_align(bat, LV_ALIGN_LEFT_MID, 0, 0);
