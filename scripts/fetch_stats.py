@@ -25,6 +25,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -41,6 +42,22 @@ OUT = Path(__file__).resolve().parent.parent / "docs" / "public" / "stats.json"
 WINDOW_DAYS = 30
 
 
+# GoatCounter 404s intermittently on endpoints that exist.
+#
+# Observed twice: 2026-09-25 and 2026-09-28, both `GET /api/v0/stats/hits`
+# returning 404 {"error":"not found"} on a window that had data. It is not the
+# URL and it is not the token - two manual runs 82 SECONDS apart on 2026-09-25
+# disagreed, one 404 and one clean, and GoatCounter's own docs say auth
+# problems are 401 (missing/incorrect key) and 403 (insufficient permission),
+# never 404. So the route is right and the failure is on their side.
+#
+# 401/403 are NOT retried: those mean the secret is actually wrong, and hiding
+# that behind three retries would turn a five-minute fix into a mystery.
+RETRY_ON = {404, 429, 500, 502, 503, 504}
+RETRIES = 4
+RETRY_WAIT_S = 6
+
+
 def api(path, params=None):
     url = f"{BASE}{path}"
     if params:
@@ -55,23 +72,34 @@ def api(path, params=None):
             "User-Agent": "SonosESP-stats/1.0 (+https://github.com/OpenSurface/SonosESP)",
         },
     )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read().decode())
-    except urllib.error.HTTPError as e:
-        # Print the URL and GoatCounter's own message. The first version reported
-        # only the status code, which for a 404 says nothing about whether the
-        # path, the parameters or the token's permissions were at fault.
-        body = ""
+    for attempt in range(1, RETRIES + 1):
         try:
-            body = e.read().decode()[:500]
-        except Exception:  # noqa: BLE001
-            pass
-        print(f"  request : GET {url}", file=sys.stderr)
-        print(f"  response: {e.code} {e.reason}", file=sys.stderr)
-        if body:
-            print(f"  body    : {body}", file=sys.stderr)
-        raise
+            with urllib.request.urlopen(req, timeout=30) as r:
+                if attempt > 1:
+                    print(f"  recovered on attempt {attempt}", file=sys.stderr)
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            # Print the URL and GoatCounter's own message. The first version
+            # reported only the status code, which for a 404 says nothing about
+            # whether the path, the parameters or the token were at fault.
+            body = ""
+            try:
+                body = e.read().decode()[:500]
+            except Exception:  # noqa: BLE001
+                pass
+            print(f"  request : GET {url}", file=sys.stderr)
+            print(f"  response: {e.code} {e.reason}  (attempt {attempt}/{RETRIES})",
+                  file=sys.stderr)
+            if body:
+                print(f"  body    : {body}", file=sys.stderr)
+            if e.code not in RETRY_ON or attempt == RETRIES:
+                raise
+        except urllib.error.URLError as e:
+            print(f"  request : GET {url}", file=sys.stderr)
+            print(f"  network : {e.reason}  (attempt {attempt}/{RETRIES})", file=sys.stderr)
+            if attempt == RETRIES:
+                raise
+        time.sleep(RETRY_WAIT_S)
 
 
 def main():
