@@ -2001,6 +2001,47 @@ static void artFadeIn(lv_obj_t* img) {
 static void displayCompletedArt() {
     if (!xSemaphoreTake(art_mutex, 0)) return;
 
+    // Reconcile: we hold decoded art for the current track, but the widget is
+    // not showing it. Re-publish.
+    //
+    // art_ready is a one-shot, and there are four places that clear it - the
+    // display below plus three "discard a just-completed download" sites on the
+    // URI-change paths. Any of those can fire between the art task raising the
+    // flag and this function consuming it, which loses the art with no way back:
+    // last_seen_album_art/last_seen_station have already recorded the URL, so
+    // artChanged stays false and it is never re-requested.
+    //
+    // Radio is where this bites, and why issue #190 is radio-only. A station's
+    // URI changes on every song while its artwork URL does not, so the discard
+    // throws away art that was still correct and the memo then says "already
+    // have it" - permanently. An album's art URL changes with the track, so the
+    // next track re-requests and it self-heals.
+    //
+    // themeSet() already recovers from this by re-raising art_ready from
+    // art_buffer, which is exactly why switching theme and back was the
+    // workaround people found. This makes that automatic.
+    //
+    // The condition is deliberately narrow, and the last clause is what keeps it
+    // out of line-in and TV mode. Those hide the artwork too, but they hide the
+    // PLACEHOLDER as well, because they put their own hero in that space -
+    // republishing there would paint album art over it. The broken state we are
+    // repairing looks different: artwork hidden while the placeholder is
+    // showing, i.e. the panel is displaying "no artwork" while holding perfectly
+    // good artwork for the current track.
+    //
+    // last_art_url is the proof that the art in the buffer belongs to the track
+    // playing now. showNoArtwork() itself does NOT clear it - its callers do,
+    // under art_mutex, on the paths where the track genuinely has no art - so a
+    // track with no artwork cannot be dragged back into showing the previous
+    // one.
+    if (!art_ready && !art_show_placeholder && art_buffer &&
+        last_art_url.length() > 0 &&
+        img_album       && lv_obj_is_hidden(img_album) &&
+        art_placeholder && !lv_obj_is_hidden(art_placeholder)) {
+        Serial.println("[ART] Holding art for this track but showing the placeholder - republishing");
+        art_ready = true;
+    }
+
     if (art_ready) {
         // Build art_dsc here on the main thread — same thread as lv_timer_handler() /
         // LVGL renderer — so there is never concurrent read+write of the descriptor.
