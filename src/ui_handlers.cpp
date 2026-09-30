@@ -2322,6 +2322,28 @@ static void updateAlbumArtRequest(SonosDevice* d) {
             art_ready = false;     // Discard any just-completed download (prevents art flash)
             xSemaphoreGive(art_mutex);
         }
+        // Forget what we last fetched, or this placeholder becomes permanent.
+        //
+        // Reported by John on #190 after v2.2.5 fixed the first-play case:
+        // pause a radio station and press play again and only the note shows,
+        // while Settings still has the thumbnail.
+        //
+        // Pause/resume makes Sonos report the URI as empty and then back again,
+        // so uri_changed fires while the art metadata is still a poll behind.
+        // hasArt is false for that one frame and we land here. A frame later the
+        // metadata arrives - but it is the SAME station, so s_albumArtURL and
+        // s_stationURL both equal what these already hold, uri_changed has gone
+        // false, and artChanged is therefore false. Nothing re-requests the art
+        // and the placeholder stays up for the rest of the session.
+        //
+        // Clearing them restores the invariant: we have just thrown the art
+        // away, so we must stop claiming we already have it. The next frame
+        // then sees a real change and re-requests. The reconciliation added in
+        // v2.2.5 cannot cover this path because it deliberately keys on
+        // last_art_url, which the block above has just cleared - correctly, as
+        // the art we hold may genuinely belong to a different track.
+        last_seen_album_art = "";
+        last_seen_station   = "";
     } else if (hasArt && artChanged) {
         String artURL = "";
         bool usingStationLogo = false;  // Track if we're using station logo (PNG allowed)
