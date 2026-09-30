@@ -219,5 +219,18 @@ void updateToastShow(const char* version) {
 }
 
 void updateToastHide(void) {
+    // Clear the dedupe. This path is the SYSTEM taking the notice away, not the
+    // user dealing with it.
+    //
+    // announced_version is set the moment the toast is created, so without this
+    // a notice that appears and is then hidden by the screensaver a second later
+    // is gone for good: updateToastShow() early-returns on that version for the
+    // rest of the boot, and the daily re-check finds the same version and
+    // returns too. The user is never told a release exists.
+    //
+    // The two paths where the user DID get their chance - tapping it, and the
+    // UPDATE_TOAST_HOLD_MS timer expiring - deliberately leave it set, so an
+    // ignored notice is not nagged.
+    announced_version = "";
     toastDismiss(false);
 }

@@ -1709,11 +1709,22 @@ void otaBackgroundCheckTick() {
     // lyrics never come back and clockBgTask keeps fetching photos. Hold the
     // notice instead: toast_pending stays set and it appears once the user is
     // back on a real screen.
-    if (toast_pending && clock_state == CLOCK_IDLE) {
-        toast_pending = false;
-        if (ota_update_available && latest_version.length() > 0) {
-            updateToastShow(latest_version.c_str());
-        }
+    // toast_owed stays set after the first show, deliberately. If the
+    // screensaver takes the toast away before the user acts, updateToastHide()
+    // clears the announced-version dedupe, and this re-shows it on the next
+    // tick where the clock is idle. Without that the notice was lost for good:
+    // shown for a second, hidden, and never announced again for the rest of the
+    // boot because the dedupe still said "already told them".
+    //
+    // updateToastShow() is idempotent - it returns immediately when the version
+    // has already been announced - so evaluating this every tick costs a string
+    // compare and cannot produce a second toast or re-nag a notice the user
+    // ignored or tapped. Those two paths leave the dedupe set on purpose.
+    static bool toast_owed = false;
+    if (toast_pending) { toast_pending = false; toast_owed = true; }
+    if (toast_owed && clock_state == CLOCK_IDLE &&
+        ota_update_available && latest_version.length() > 0) {
+        updateToastShow(latest_version.c_str());
     }
 
     // Wrap-safe. A plain `millis() < next_check_ms` breaks at 49.7 days: the
