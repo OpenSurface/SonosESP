@@ -2171,6 +2171,41 @@ static void updateNextTrackUI(SonosDevice* d) {
 
 // Selects the correct art URL and calls requestAlbumArt() when needed.
 // Also handles URI change detection and "not playing" transitions.
+// What the DEVICE last reported for artwork, at the moment we last asked for
+// it. updateAlbumArtRequest() only re-requests when one of these differs from
+// what the device reports now, so between them they mean "we already have the
+// art for this".
+//
+// File scope, not function statics, so artForgetWhatWeHave() can reach them.
+// That matters: every place that throws the artwork away has to clear these in
+// the same breath, and when they were locals only one of the four such places
+// did. See the note on artForgetWhatWeHave().
+static String last_seen_album_art = "";
+static String last_seen_station   = "";
+
+// Throwing the artwork away and keeping the memo is what makes a placeholder
+// permanent, so the two must always happen together.
+//
+// The memo is the ONLY thing gating a re-request. Clear the art without
+// clearing it and updateAlbumArtRequest() concludes "we already have this",
+// artChanged stays false, and the panel shows the note until the track URL
+// itself changes - which for a radio station it does not, because the station
+// URL is stable while its URI changes every song. That is issue #190, and it
+// had four separate entry points:
+//
+//   * the URI-change reset        - survived, artChanged includes uri_changed
+//   * "Not Playing"               - dead end: it clears pending_art_url too,
+//                                   so even the art task could not retry. This
+//                                   is the pause-then-play case John reported.
+//   * "no art URL for this track" - dead end
+//   * "no art available"          - partial; the art task could still retry
+//
+// Call this wherever the art is abandoned. It is cheap and idempotent.
+static inline void artForgetWhatWeHave() {
+    last_seen_album_art = "";
+    last_seen_station   = "";
+}
+
 static void updateAlbumArtRequest(SonosDevice* d) {
     static String last_track_uri = "";
     static String last_source_prefix = "";
@@ -2271,6 +2306,13 @@ static void updateAlbumArtRequest(SonosDevice* d) {
             art_ready = false;     // Discard any just-completed download (prevents art flash)
             xSemaphoreGive(art_mutex);
         }
+        // This is the pause-then-play case from #190, and it was the worst of
+        // the four: clearing pending_art_url above stops the art task retrying,
+        // so the memo was the only remaining way back and it was left set.
+        // Pausing a radio station empties the track, which lands here; pressing
+        // play restores the SAME station, so every URL matches the memo,
+        // artChanged is false, and the note stays up for good.
+        artForgetWhatWeHave();
     }
     had_track = has_track;
 
@@ -2299,8 +2341,6 @@ static void updateAlbumArtRequest(SonosDevice* d) {
     // Comparing reported-against-reported also makes the original HTTPS-vs-HTTP
     // note below unnecessary rather than merely satisfied: both sides now come from
     // the same field, so they cannot differ by scheme.
-    static String last_seen_album_art = "";
-    static String last_seen_station   = "";
     bool hasArt = !d->isLineIn && !d->isTvAudio &&
                   ((s_albumArtURL.length() > 0) || (d->isRadioStation && s_stationURL.length() > 0));
     bool artChanged = uri_changed ||
@@ -2322,6 +2362,27 @@ static void updateAlbumArtRequest(SonosDevice* d) {
             art_ready = false;     // Discard any just-completed download (prevents art flash)
             xSemaphoreGive(art_mutex);
         }
+        // Forget what we last fetched, or this placeholder becomes permanent.
+        //
+        // Reported by John on #190 after v2.2.5 fixed the first-play case:
+        // pause a radio station and press play again and only the note shows,
+        // while Settings still has the thumbnail.
+        //
+        // Pause/resume makes Sonos report the URI as empty and then back again,
+        // so uri_changed fires while the art metadata is still a poll behind.
+        // hasArt is false for that one frame and we land here. A frame later the
+        // metadata arrives - but it is the SAME station, so s_albumArtURL and
+        // s_stationURL both equal what these already hold, uri_changed has gone
+        // false, and artChanged is therefore false. Nothing re-requests the art
+        // and the placeholder stays up for the rest of the session.
+        //
+        // Clearing them restores the invariant: we have just thrown the art
+        // away, so we must stop claiming we already have it. The next frame
+        // then sees a real change and re-requests. The reconciliation added in
+        // v2.2.5 cannot cover this path because it deliberately keys on
+        // last_art_url, which the block above has just cleared - correctly, as
+        // the art we hold may genuinely belong to a different track.
+        artForgetWhatWeHave();
     } else if (hasArt && artChanged) {
         String artURL = "";
         bool usingStationLogo = false;  // Track if we're using station logo (PNG allowed)
@@ -2392,6 +2453,12 @@ static void updateAlbumArtRequest(SonosDevice* d) {
                 last_art_url = "";  // Clear to allow next art request
                 xSemaphoreGive(art_mutex);
             }
+            // We got here with artChanged true but nothing to fetch, so the memo
+            // below was never updated and still describes the art we just threw
+            // away. Leaving it would block the re-request once a URL does
+            // appear. Milder than the other three - pending_art_url survives, so
+            // the art task could still retry - but the invariant is the same.
+            artForgetWhatWeHave();
         }
     }
 }
