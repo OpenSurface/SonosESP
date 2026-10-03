@@ -1,13 +1,13 @@
 {
-  "panels": 86,
-  "boots": 85,
-  "updated": "2026-10-02T10:00:00Z",
+  "panels": 92,
+  "boots": 90,
+  "updated": "2026-10-03T09:00:00Z",
   "windowDays": 30,
   "countries": [
     {
       "code": "GB",
       "name": "United Kingdom",
-      "count": 40
+      "count": 44
     },
     {
       "code": "CA",
@@ -38,6 +38,11 @@
       "code": "ZA",
       "name": "South Africa",
       "count": 2
+    },
+    {
+      "code": "AT",
+      "name": "Austria",
+      "count": 1
     },
     {
       "code": "AU",
@@ -72,11 +77,11 @@
     },
     {
       "version": "2.2.1",
-      "count": 19
+      "count": 21
     },
     {
       "version": "2.2.6",
-      "count": 17
+      "count": 20
     },
     {
       "version": "2.2.0",
