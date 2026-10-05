@@ -36,6 +36,9 @@
 #include "amber_icons.h"
 #include "amber.h"
 #include "ui_sleep_button.h"   // the sleep timer, shared with the other players
+#include "clock_screen.h"      // clock_12h, for the shelf clock (#199)
+#include <time.h>
+#include <ctype.h>
 
 // ── Grid ────────────────────────────────────────────────────────────────────
 #define AP_ART        344                  // artwork column width AND art edge
@@ -79,6 +82,20 @@ static lv_obj_t* ap_lyric_slot = nullptr;   // the lyrics overlay's wrapper
 static lv_obj_t* ap_lyric_cur  = nullptr;   // the current line, auto-fitted
 static lv_timer_t* ap_shelf_timer = nullptr;
 
+// ── Shelf clock (#199) ──────────────────────────────────────────────────────
+// A third, mutually exclusive occupant of the shelf. Built unconditionally and
+// parked hidden so the Settings toggle takes effect on the next 200ms tick
+// without rebuilding the screen.
+static lv_obj_t* ap_shelf_clock = nullptr;
+static lv_obj_t* ap_clk_time    = nullptr;
+static lv_obj_t* ap_clk_ampm    = nullptr;
+static lv_obj_t* ap_clk_date    = nullptr;
+static lv_obj_t* ap_clk_sec     = nullptr;
+static lv_obj_t* ap_clk_wx      = nullptr;   // the weather column, hidden when stale
+static lv_obj_t* ap_clk_wx_icon = nullptr;
+static lv_obj_t* ap_clk_wx_temp = nullptr;
+static void shelfClockTick(void);
+
 
 // Defined below, next to the reasoning for it; used by shelfSwapCb() above it.
 static void spFitLyric(lv_obj_t* lbl, const char* text);
@@ -93,6 +110,20 @@ static void spFitLyric(lv_obj_t* lbl, const char* text);
 // 200ms is far below the rate either side actually changes.
 static void shelfSwapCb(lv_timer_t*) {
     if (!ap_shelf_next || !ap_lyric_slot) return;
+
+    // The clock takes the WHOLE shelf when it is on - it replaces Next-up and
+    // the lyrics both, which is the point of it (#199). Checked before either,
+    // so neither can claim the space back on a later tick.
+    if (ap_shelf_clock && amber_shelf_clock) {
+        lv_obj_set_hidden(ap_shelf_clock, false);
+        lv_obj_set_hidden(ap_shelf_next,  true);
+        lv_obj_set_hidden(ap_lyric_slot,  true);
+        shelfClockTick();
+        return;
+    }
+    if (ap_shelf_clock) lv_obj_set_hidden(ap_shelf_clock, true);
+    lv_obj_set_hidden(ap_lyric_slot, false);
+
     lv_obj_t* lyr = lv_obj_get_child(ap_lyric_slot, 0);
     const bool lyrics_showing = lyr && !lv_obj_is_hidden(lyr);
     if (lyrics_showing) lv_obj_set_hidden(ap_shelf_next, true);
@@ -107,6 +138,93 @@ static void shelfSwapCb(lv_timer_t*) {
     if (cur && last != cur) {
         last = cur;
         spFitLyric(ap_lyric_cur, cur);
+    }
+}
+
+// ── Shelf clock tick (#199) ─────────────────────────────────────────────────
+// Driven from shelfSwapCb, so it inherits that timer's 200ms rather than adding
+// a second one. getLocalTime() is called with a ZERO timeout: this runs on the
+// LVGL task, which is the watchdog-subscribed one, and the blocking form would
+// park the whole UI for its timeout every tick before NTP has synced.
+static void shelfClockTick(void) {
+    if (!ap_clk_time) return;
+
+    static int last_min = -1;
+    static int last_day = -1;
+
+    struct tm t;
+    if (!getLocalTime(&t, 0)) {
+        if (last_min != -1) {              // only repaint on the transition
+            lv_label_set_text(ap_clk_time, "--:--");
+            if (ap_clk_ampm) lv_label_set_text(ap_clk_ampm, "");
+            if (ap_clk_date) lv_label_set_text(ap_clk_date, "WAITING FOR TIME");
+            last_min = -1;
+            last_day = -1;
+        }
+        if (ap_clk_sec) lv_obj_set_width(ap_clk_sec, 1);
+        return;
+    }
+
+    char buf[64];
+
+    if (t.tm_min != last_min) {
+        last_min = t.tm_min;
+        strftime(buf, sizeof(buf), clock_12h ? "%I:%M" : "%H:%M", &t);
+        // 12h drops the leading zero - "9:05", not "09:05". 24h keeps it, since
+        // a 24-hour clock without it reads as a typo.
+        const char* shown = (clock_12h && buf[0] == '0') ? buf + 1 : buf;
+        lv_label_set_text(ap_clk_time, shown);
+
+        if (ap_clk_ampm) {
+            if (clock_12h) {
+                strftime(buf, sizeof(buf), "%p", &t);
+                lv_label_set_text(ap_clk_ampm, buf);
+            } else {
+                lv_label_set_text(ap_clk_ampm, "");
+            }
+        }
+    }
+
+    if (ap_clk_date && t.tm_yday != last_day) {
+        last_day = t.tm_yday;
+        // "%-d" is not portable to newlib, so the zero-padded day stays and the
+        // whole string is uppercased in place - same as amberFaceTick().
+        strftime(buf, sizeof(buf), "%A %d %B", &t);
+        for (char* c = buf; *c; c++) *c = (char)toupper((unsigned char)*c);
+        lv_label_set_text(ap_clk_date, buf);
+    }
+
+    // ── Weather ─────────────────────────────────────────────────────────────
+    // Re-read every tick rather than cached: clockBgTask writes these from
+    // another task whenever the screensaver is up, so there is no event to hang
+    // a refresh off, and relabelling two short strings at 5Hz costs nothing
+    // next to the 48px digits above.
+    if (ap_clk_wx) {
+        // Keep the data coming without the screensaver. Rate-limited inside,
+        // and we are on the LVGL task here, which is what it requires.
+        clockRequestWeatherRefresh();
+
+        const bool have_wx = clock_weather_enabled && clock_wx_valid;
+        lv_obj_set_hidden(ap_clk_wx, !have_wx);
+        if (have_wx) {
+            // amberSky(), NOT wmoGlyph(). The lv_font_amber_wx_* faces carry
+            // exactly three glyphs, at U+E000..U+E002. wmoGlyph() returns
+            // Weather-Icons codepoints at U+F0xx, which live in a different
+            // font entirely — pairing the two renders a tofu box, which is
+            // precisely what the first cut of this did. It also keeps the
+            // player's sky icon identical to the Amber screensaver face.
+            lv_label_set_text(ap_clk_wx_icon, amberSky(clock_wx_wmo));
+            // Bare degree, no C/F suffix: clock_wx_temp is already in the unit
+            // the user picked (Open-Meteo is queried with it), and the Amber
+            // face prints "18°" the same way.
+            lv_label_set_text_fmt(ap_clk_wx_temp, "%d°", clock_wx_temp);
+        }
+    }
+
+    // +1 so the bar is full on :59 rather than one step short of the minute.
+    if (ap_clk_sec) {
+        const int32_t w = SX(AP_ART - AP_SHELF_PAD * 2) * (t.tm_sec + 1) / 60;
+        lv_obj_set_width(ap_clk_sec, w > 1 ? w : 1);
     }
 }
 
@@ -428,6 +546,114 @@ void buildAmberPlayer() {
             lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_LEFT, 0);
         }
         ap_lyric_cur = lv_obj_get_child(lyr, 1);
+    }
+
+    // ── Shelf clock (#199) ──────────────────────────────────────────────────
+    // Same box as the other two shelf occupants. Laid out with FLEX rather than
+    // the SY() constants used elsewhere in this file: the type here is large and
+    // font_text_48 does not scale at the same rate as SY() between the two
+    // panels (the AP_ARTIST_Y note above is the bug that causes), so letting
+    // LVGL stack the rows keeps the digits and their box together on both.
+    ap_shelf_clock = lv_obj_create(panel_art);
+    lv_obj_remove_style_all(ap_shelf_clock);
+    lv_obj_set_size(ap_shelf_clock, SX(AP_ART), SY(AP_SHELF_H));
+    lv_obj_set_pos(ap_shelf_clock, 0, SY(AP_SHELF_Y));
+    lv_obj_set_scrollable(ap_shelf_clock, false);
+    lv_obj_set_clickable(ap_shelf_clock, false);
+    lv_obj_set_style_pad_left(ap_shelf_clock, SX(AP_SHELF_PAD), 0);
+    lv_obj_set_style_pad_right(ap_shelf_clock, SX(AP_SHELF_PAD), 0);
+    lv_obj_set_style_pad_top(ap_shelf_clock, SY(14), 0);
+    // Two columns: time + date on the left, weather on the right, pushed apart.
+    // The shelf is 344 wide and the time only needs about 130 of it, so the
+    // right half was dead space - which is what makes the weather worth adding
+    // here rather than stacking it under the date.
+    lv_obj_set_flex_flow(ap_shelf_clock, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(ap_shelf_clock, LV_FLEX_ALIGN_SPACE_BETWEEN,
+                          LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_hidden(ap_shelf_clock, true);   // shelfSwapCb owns visibility
+
+    lv_obj_t* clk_left = lv_obj_create(ap_shelf_clock);
+    lv_obj_remove_style_all(clk_left);
+    lv_obj_set_size(clk_left, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_scrollable(clk_left, false);
+    lv_obj_set_flex_flow(clk_left, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(clk_left, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_row(clk_left, SY(2), 0);
+
+    // Time + AM/PM on one baseline. A row container rather than absolute
+    // positions because the digits change width ("9:05" vs "12:45") and the
+    // meridiem has to follow them.
+    lv_obj_t* clk_row = lv_obj_create(clk_left);
+    lv_obj_remove_style_all(clk_row);
+    lv_obj_set_width(clk_row, LV_SIZE_CONTENT);
+    lv_obj_set_height(clk_row, lv_font_get_line_height(&font_text_48));
+    lv_obj_set_scrollable(clk_row, false);
+    lv_obj_set_flex_flow(clk_row, LV_FLEX_FLOW_ROW);
+    // Cross-axis END puts the small meridiem on the big digits' baseline
+    // instead of floating at their cap height.
+    lv_obj_set_flex_align(clk_row, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
+    lv_obj_set_style_pad_column(clk_row, SX(8), 0);
+
+    ap_clk_time = ambLabel(clk_row, &font_text_48, AMB_TEXT_HI, "--:--");
+    // Tightened: at 48px Montserrat's default tracking makes a 5-glyph time read
+    // as five separate numbers rather than one reading.
+    lv_obj_set_style_text_letter_space(ap_clk_time, -1, 0);
+
+    ap_clk_ampm = ambCaption(clk_row, AMB_TEXT3, "", 2);
+    // Lifted off the baseline so it sits with the digits' lower half rather than
+    // hanging below them, which is where a descender-free glyph lands.
+    lv_obj_set_style_pad_bottom(ap_clk_ampm, SY(10), 0);
+
+    // "SUNDAY 05 OCTOBER" - same formatting as the Amber screensaver face, so
+    // the two clocks in this product read as the same clock.
+    ap_clk_date = ambCaption(clk_left, AMB_TEXT3, "", 3);
+
+    // ── Weather, right column ───────────────────────────────────────────
+    // DISPLAY ONLY. clock_wx_* is filled by clockBgTask, which is created on
+    // screensaver entry and exits on leave, so these are the values from the
+    // last time the clock screen was up. Deliberately NOT fetched from here:
+    // that would put an HTTPS call on the player screen, and every network path
+    // in this project goes through the SDIO crash-defence cooldowns for reasons
+    // documented in sdioPreWait(). A stale temperature is worth far less than
+    // the risk of adding a new radio path to the busiest screen.
+    //
+    // Hidden outright when there is nothing real to show - a weather slot
+    // reading "--°" looks broken, whereas time and date alone look finished.
+    ap_clk_wx = lv_obj_create(ap_shelf_clock);
+    lv_obj_remove_style_all(ap_clk_wx);
+    lv_obj_set_size(ap_clk_wx, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_scrollable(ap_clk_wx, false);
+    lv_obj_set_flex_flow(ap_clk_wx, LV_FLEX_FLOW_COLUMN);
+    // Cross-axis END right-aligns the icon over the temperature, so the column
+    // has a clean right edge against the shelf padding.
+    lv_obj_set_flex_align(ap_clk_wx, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
+    lv_obj_set_style_pad_row(ap_clk_wx, SY(2), 0);
+    lv_obj_set_style_pad_top(ap_clk_wx, SY(4), 0);
+    lv_obj_set_hidden(ap_clk_wx, true);
+
+    ap_clk_wx_icon = ambLabel(ap_clk_wx, &font_icon_wx_32, AMB_TEXT2, "");
+    ap_clk_wx_temp = ambLabel(ap_clk_wx, &font_text_20,    AMB_TEXT,  "");
+
+    // Seconds, as a hairline that fills across the minute. Lifted straight from
+    // the Amber face (AF_SEC_W) - it is the detail that makes a static time
+    // feel live without a ticking colon redrawing 5 glyphs every second.
+    // IGNORE_LAYOUT keeps both out of the flex column so they can hold the
+    // bottom edge regardless of how tall the rows above come out.
+    ap_clk_sec = nullptr;
+    {
+        lv_obj_t* groove = ambRect(ap_shelf_clock, shelf_w, 1, AMB_LINE);
+        lv_obj_add_flag(groove, LV_OBJ_FLAG_IGNORE_LAYOUT);
+        // X offset 0: lv_obj_align() resolves against the parent's CONTENT area,
+        // which the pad_left above has already inset by AP_SHELF_PAD. Passing
+        // the pad again here would indent it twice.
+        lv_obj_align(groove, LV_ALIGN_BOTTOM_LEFT, 0, -SY(16));
+
+        ap_clk_sec = ambRect(ap_shelf_clock, shelf_w, 1, AMB_ACCENT);
+        lv_obj_add_flag(ap_clk_sec, LV_OBJ_FLAG_IGNORE_LAYOUT);
+        lv_obj_align(ap_clk_sec, LV_ALIGN_BOTTOM_LEFT, 0, -SY(16));
     }
 
     lbl_lyrics_status = lv_label_create(panel_art);

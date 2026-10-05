@@ -480,6 +480,7 @@
 #define NVS_KEY_OTA_CHANNEL     "ota_channel"
 #define NVS_KEY_CACHED_DEVICE   "cached_dev"
 #define NVS_KEY_LYRICS          "lyrics"
+#define NVS_KEY_SHELF_CLOCK     "shelf_clock"    // Amber: clock in the player shelf (#199)
 #define NVS_KEY_ANALYTICS       "stats_on"     // anonymous install counter
 #define NVS_KEY_BLUR_BG         "blur_bg"        // Blurred album-art backdrop (#49)
 #define NVS_KEY_OTA_PENDING     "ota_pending"    // Auto-reboot OTA flag

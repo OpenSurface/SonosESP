@@ -49,7 +49,11 @@ const char* wmoCondition(int code);            // ui_clock_screen.cpp
 // That is a real reduction in detail: lv_font_weathericons_* distinguishes fog,
 // sleet, snow and thunder, and this collapses all of them onto rain. The other
 // faces are unaffected — they still call wmoGlyph() and keep the full set.
-static const char* amberSky(int wmo) {
+//
+// Non-static: the Amber PLAYER's shelf clock (#199) shows the same weather and
+// has to pick from the same three, because it draws them out of the same
+// lv_font_amber_wx_* face. Declared in amber.h.
+const char* amberSky(int wmo) {
     if (wmo <= 1)  return AMB_WX_SUN;     // 0 clear, 1 mainly clear
     if (wmo <= 48) return AMB_WX_CLOUD;   // 2-3 cloud, 45/48 fog
     return AMB_WX_RAIN;                   // 51+ drizzle, rain, snow, storm

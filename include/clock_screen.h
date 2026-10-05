@@ -272,6 +272,15 @@ extern int  clock_refresh_min;    // Minutes between background photo refreshes
 extern int  clock_bg_kw_idx;      // Index into CLOCK_BG_KEYWORDS[]
 extern bool clock_12h;            // true = 12h AM/PM format, false = 24h
 extern int  clock_style;          // CLOCK_STYLE_* — which clock face to draw
+extern volatile bool clock_bg_weather_only;
+
+// Ask for a one-shot weather fetch without opening the clock screen. Used by
+// the Amber shelf clock (#199), which otherwise only ever sees whatever the
+// last screensaver session happened to leave behind. Rate-limited internally
+// and a no-op when the task is already running, so it is safe to call often.
+// MUST be called from the main/LVGL thread - it creates a FreeRTOS task.
+void clockRequestWeatherRefresh();
+
 extern bool clock_weather_enabled;   // true = show weather widget
 extern int  clock_weather_city_idx;  // Index into CLOCK_CITIES[], OR == CLOCK_CITY_COUNT for custom location (issue #74)
 extern bool clock_wx_fahrenheit;     // true = display temps in °F

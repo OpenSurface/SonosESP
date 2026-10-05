@@ -56,6 +56,10 @@ int  night_level      = BRIGHTNESS_DIM_MIN;
 int  night_touch_level = DEFAULT_NIGHT_TOUCH;
 volatile uint32_t night_wake_ms = 0;
 bool lyrics_enabled = true;
+// Amber only: the player shelf shows a clock instead of Next-up / lyrics (#199).
+// Off by default - it REPLACES two existing panes, so an existing device must
+// look unchanged until its owner asks for it.
+bool amber_shelf_clock = false;
 bool analytics_enabled = ANALYTICS_ENABLED;
 // Defaults on: this shipped as always-on for the Classic theme, so an existing
 // device must look identical until its owner decides otherwise.
@@ -297,6 +301,12 @@ TaskHandle_t         clockBgTaskHandle          = nullptr;
 StaticTask_t         clkbgTaskTCB;                         // TCB in internal SRAM (tiny, ~88 bytes)
 StackType_t*         clkbg_task_stack           = nullptr; // Stack in PSRAM — allocated once, reused across sessions
 volatile bool        clock_bg_shutdown_requested = false;
+// One-shot, weather-only run of clockBgTask, requested by the Amber player's
+// shelf clock (#199). Set before creating the task; the task skips the photo
+// download and exits after a single weather fetch. Cleared on screensaver
+// entry so a run still in flight is promoted to a full session instead of
+// blocking it (the create site refuses to re-create a live task).
+volatile bool        clock_bg_weather_only       = false;
 volatile bool        clock_bg_ready             = false;
 uint16_t*            clock_bg_buffer            = nullptr;
 lv_img_dsc_t         clock_bg_dsc;

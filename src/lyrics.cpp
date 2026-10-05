@@ -765,6 +765,15 @@ void updateLyricsStatus() {
     // show. Driven from here because this already runs every updateUI() tick and
     // is the one place that knows the fetch state.
     if (btn_lyrics && lv_obj_get_child_count(btn_lyrics)) {
+        // Turned off in Settings > General means the chip has nothing to report,
+        // so it LEAVES rather than sitting there greyed out. It only ever said
+        // "this track has synced lyrics", which is not a question worth asking
+        // once the feature is off - and a permanently dim chip reads as a broken
+        // control rather than an inactive indicator.
+        // No early return here: the lbl_lyrics_status handling further down
+        // still has to clear itself when disabled.
+        lv_obj_set_hidden(btn_lyrics, !lyrics_enabled);
+
         const bool live = lyrics_enabled && lyrics_ready;
         lv_obj_set_style_text_color(lv_obj_get_child(btn_lyrics, 0),
                                     live ? themeAccentColor() : themeMutedColor(), 0);
