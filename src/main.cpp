@@ -368,6 +368,28 @@ void setup() {
 
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);  // keep C6 radio always active — no modem sleep on mains-powered device
+
+    // Mesh networks: join the STRONGEST node, not the first one heard (#196).
+    //
+    // arduino-esp32 defaults to WIFI_FAST_SCAN, which stops at the first AP
+    // matching the SSID while walking the channels. On a mesh — several APs
+    // sharing one SSID, which is the whole point of a mesh — that is whichever
+    // node answers first, not the best one. A panel in a far room can sit on a
+    // distant node with a weak link while a strong one is in the next room.
+    // WIFI_CONNECT_AP_BY_SIGNAL has no effect at all under FAST_SCAN.
+    //
+    // Set ONCE, here, rather than before each WiFi.begin(). STAClass keeps
+    // these as members and applies them inside connect() (STA.cpp: conf.sta.
+    // scan_method / sort_method), so they are sticky and cover all five
+    // begin() sites — three retry paths in this file, the OTA stall retry, and
+    // the Wi-Fi setup screen. Per-call-site would mean the next begin() added
+    // silently gets the old behaviour.
+    //
+    // Costs about a second on connect: a full scan of every channel instead of
+    // stopping at the first hit. Paid once at boot, and on a reconnect that was
+    // already going to be slow.
+    WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+    WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
     // ESP32-C6 WiFi initialization delay - fixes ESP-Hosted SDIO timing issues
     vTaskDelay(pdMS_TO_TICKS(WIFI_INIT_DELAY_MS));
     WiFi.begin(ssid.c_str(), pass.c_str());

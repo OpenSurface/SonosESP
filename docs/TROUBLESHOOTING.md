@@ -133,6 +133,44 @@ Points to check:
 
 Credentials are saved in NVS and survive reboots and firmware updates.
 
+### Mesh networks
+
+If several access points share one network name, the panel now scans every
+channel and joins the **strongest** one. Earlier firmware stopped at the first
+access point it heard, which on a mesh is whichever node answered quickest, not
+the best one — a panel in a far room could sit on a distant node while a strong
+one was in the next room. This costs about a second on connect.
+
+### The Wi-Fi co-processor, and the version warning
+
+The ESP32-P4 has no radio of its own. Wi-Fi runs on a second chip, an
+ESP32-C6, over a link called ESP-Hosted: the P4 is the *host*, the C6 is the
+*co-processor*, and each runs its own half of that software.
+
+The two halves can be different versions. Boards ship with whatever C6 firmware
+was flashed at the factory, and the host half is built into SonosESP. Measured
+on a current board: the C6 reports **2.3.0**, the host is **2.12.3**.
+
+**That gap is normal, and on its own it is not a fault.** It has been present on
+every SonosESP release so far and Wi-Fi works. Do not go looking for it as the
+explanation for an unrelated problem.
+
+You will not see it in a normal serial log. The host reports it like this —
+
+```
+Version mismatch: Host [2.12.0] > Co-proc [2.3.0] ==> Upgrade co-proc ...
+```
+
+— but that is a warning-level message, and release builds compile warnings out
+to save space. It is only visible in a build made with the log level raised.
+
+**We do not currently ship a way to update the C6.** The ESP-Hosted project has
+host/slave OTA examples, and the older API for it is deprecated upstream, but
+nothing in SonosESP drives it and we have not tested any procedure. Updating
+the co-processor firmware incorrectly can leave a board with no Wi-Fi at all,
+so this page will not guess at the steps. If you have a genuine link problem,
+a serial log is far more useful than a co-processor reflash.
+
 ---
 
 ## No Sonos speakers found
