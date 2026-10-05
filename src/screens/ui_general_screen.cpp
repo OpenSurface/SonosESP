@@ -87,20 +87,77 @@ void createGeneralScreen() {
     addScreenHeader(content, "General", nullptr);
 
     // ────────────────────────────────────────────────────────────────────────
-    // CARD — Lyrics
+    // CARD — Lyrics & clock  (issues #199)
+    //
+    // MUTUALLY EXCLUSIVE, and adjacent so that reads as a property of the pair
+    // rather than a surprise. On Amber both want the same shelf under the
+    // artwork, and there is only one of it.
+    //
+    // Turning one on turns the other OFF for real — it clears the other's NVS
+    // key and its switch, rather than just winning the draw at paint time. A
+    // setting that still says "on" while showing nothing is the kind of
+    // disagreement the LRC-chip bug came from.
+    //
+    // Both off is a valid state: the shelf falls back to Next-up.
     // ────────────────────────────────────────────────────────────────────────
     {
-        lv_obj_t* card = addCard(content, "Lyrics");
+        lv_obj_t* card = addCard(content, "Lyrics & clock");
 
-        lv_obj_t* slot = addSettingRow(card, "Show synced lyrics",
-                                       "Time-synced from LRCLIB. No API key needed.",
-                                       false);
-        lv_obj_t* sw_lyrics = addSwitch(slot, lyrics_enabled);
+        // File-scope so each callback can clear the other's switch. Reassigned
+        // every time this screen is built, and the callbacks only ever fire
+        // from the live one, so they cannot outlive their widgets.
+        static lv_obj_t* sw_lyrics;
+        static lv_obj_t* sw_clock;
+
+        // Guards the cross-clear below. lv_obj_remove_state() should not re-emit
+        // VALUE_CHANGED — in LVGL that is raised from the CLICKED path, not from
+        // lv_obj_set_state() — but a mutual pair that recursed would lock the UI
+        // task, and two lines is cheaper than depending on that staying true.
+        static bool interlocking;
+
+        lv_obj_t* slot_l = addSettingRow(card, "Show synced lyrics",
+                                         "Time-synced from LRCLIB. No API key needed.",
+                                         false);
+        sw_lyrics = addSwitch(slot_l, lyrics_enabled);
+
+        lv_obj_t* slot_c = addSettingRow(card, "Show a clock on the player",
+                                         "Amber theme only. Takes the shelf under "
+                                         "the artwork, replacing lyrics and Next-up.",
+                                         false);
+        sw_clock = addSwitch(slot_c, amber_shelf_clock);
+
         lv_obj_add_event_cb(sw_lyrics, [](lv_event_t* e) {
+            if (interlocking) return;
             lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
             lyrics_enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
             wifiPrefs.putBool(NVS_KEY_LYRICS, lyrics_enabled);
             setLyricsVisible(lyrics_enabled && lyrics_ready);
+
+            if (lyrics_enabled && amber_shelf_clock) {
+                interlocking = true;
+                amber_shelf_clock = false;
+                wifiPrefs.putBool(NVS_KEY_SHELF_CLOCK, false);
+                if (sw_clock) lv_obj_remove_state(sw_clock, LV_STATE_CHECKED);
+                interlocking = false;
+            }
+        }, LV_EVENT_VALUE_CHANGED, NULL);
+
+        lv_obj_add_event_cb(sw_clock, [](lv_event_t* e) {
+            if (interlocking) return;
+            lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
+            amber_shelf_clock = lv_obj_has_state(sw, LV_STATE_CHECKED);
+            wifiPrefs.putBool(NVS_KEY_SHELF_CLOCK, amber_shelf_clock);
+
+            if (amber_shelf_clock && lyrics_enabled) {
+                interlocking = true;
+                lyrics_enabled = false;
+                wifiPrefs.putBool(NVS_KEY_LYRICS, false);
+                // Tears down the overlay and stops the fetch, so the clock is
+                // not quietly sitting on top of a live lyrics pipeline.
+                setLyricsVisible(false);
+                if (sw_lyrics) lv_obj_remove_state(sw_lyrics, LV_STATE_CHECKED);
+                interlocking = false;
+            }
         }, LV_EVENT_VALUE_CHANGED, NULL);
     }
 

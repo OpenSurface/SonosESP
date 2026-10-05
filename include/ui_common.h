@@ -21,7 +21,7 @@
 #define DEFAULT_WIFI_PASSWORD ""
 
 // Firmware version
-#define FIRMWARE_VERSION "2.2.6"
+#define FIRMWARE_VERSION "2.3.0"
 #define GITHUB_REPO "OpenSurface/SonosESP"
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
@@ -129,6 +129,8 @@ extern volatile uint32_t night_wake_ms;
 bool nightNow();
 extern int panel_variant;   // PANEL_VARIANT_* — which 7" LCD panel is fitted
 extern bool lyrics_enabled;
+// Amber player theme only: swap the Next-up / lyrics shelf for a clock (#199).
+extern bool amber_shelf_clock;
 // Anonymous install counter (see analytics.h for the full payload). Persisted
 // to NVS; ANALYTICS_ENABLED is only the factory default.
 extern bool analytics_enabled;

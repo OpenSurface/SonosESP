@@ -22,6 +22,12 @@
 #include "lvgl.h"
 #include "ui_scale.h"
 
+// Maps a WMO weather code onto one of the three AMB_WX_* sky glyphs that the
+// lv_font_amber_wx_* faces actually carry (U+E000..U+E002). The project's other
+// weather glyphs are Weather-Icons codepoints at U+F0xx and are NOT in these
+// faces - pairing wmoGlyph() with font_icon_wx_* renders tofu.
+const char* amberSky(int wmo);
+
 // ── Surfaces, darkest to lightest ───────────────────────────────────────────
 #define AMB_HEX_BG          0x0B0A09   // the page itself
 #define AMB_HEX_BG_ART      0x0E0D0C   // artwork column

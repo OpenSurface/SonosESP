@@ -859,7 +859,7 @@ void clockBgTask(void* /*param*/) {
         uint8_t* dl_buf = nullptr;
         int dl_total = 0;
 
-        if (clock_picsum_enabled && clockFaceUsesPhotoBg()) {
+        if (clock_picsum_enabled && clockFaceUsesPhotoBg() && !clock_bg_weather_only) {
             // DMA guard: skip photo if DMA is depleted. SDIO TX copy buffer (transport_drv.c:290)
             // fails during HTTP SYN when session DMA loss ≥ -66KB — confirmed log16 crash3.
             // Photo is non-critical; weather fetch runs regardless.
@@ -1184,6 +1184,14 @@ void clockBgTask(void* /*param*/) {
             fetchClockWeather();
         }
 
+        // Shelf-clock run: one fetch, then go. Deliberately NOT a long-lived
+        // task - the player screen is up ~100% of the time, and a permanent
+        // background task holding network_mutex there is exactly the kind of
+        // always-on radio path the SDIO defences exist to limit. Re-checked
+        // rather than latched so that if the screensaver opened mid-run and
+        // cleared the flag, this becomes an ordinary full session.
+        if (clock_bg_weather_only) break;
+
         // --- Wait photo refresh interval, checking shutdown every 500ms ---
         // Weather is also checked each tick: fetches when its own interval expires
         // or when unit toggle sets clock_weather_needs_refetch.
@@ -1202,7 +1210,54 @@ void clockBgTask(void* /*param*/) {
 
     Serial.println("[CLKBG] Task exiting");
     clockBgTaskHandle = nullptr;
+    clock_bg_weather_only = false;
     vTaskDelete(NULL);
+}
+
+// ============================================================================
+// clockRequestWeatherRefresh — a weather fetch without the clock screen (#199)
+//
+// clockBgTask is created on screensaver entry and dies on exit, so the Amber
+// player's shelf clock would otherwise show whatever the last screensaver
+// session left behind — or nothing at all on a device that has never idled.
+//
+// This spawns the SAME task in one-shot, weather-only mode: it skips the photo
+// download entirely and breaks out after a single fetch, so the network path is
+// bounded rather than permanent. All of fetchClockWeather()'s SDIO cooldowns
+// (sdioPreWait with SDIO_WAIT_HTTPS_COOLDOWN) still apply, unchanged.
+//
+// Safe to call every UI tick: it rate-limits itself, refuses while a task is
+// already alive, and does nothing without Wi-Fi.
+// ============================================================================
+void clockRequestWeatherRefresh() {
+    if (!clock_weather_enabled)        return;
+    if (WiFi.status() != WL_CONNECTED) return;
+    if (clockBgTaskHandle)             return;   // one already running
+
+    // Same cadence the screensaver uses, measured from the last SUCCESSFUL
+    // fetch so a failing network does not turn into a retry storm.
+    static uint32_t last_req_ms = 0;
+    const uint32_t  REFRESH_MS  = (uint32_t)CLOCK_WX_REFRESH_MIN * 60000UL;
+    if (clock_wx_valid && last_req_ms && (millis() - last_req_ms) < REFRESH_MS) return;
+    // Retry floor for the not-yet-valid case, so a down network is re-tried
+    // every minute rather than every tick.
+    if (!clock_wx_valid && last_req_ms && (millis() - last_req_ms) < 60000UL) return;
+    last_req_ms = millis();
+
+    if (!clkbg_task_stack) {
+        clkbg_task_stack = (StackType_t*)heap_caps_malloc(
+            CLOCK_BG_TASK_STACK, MALLOC_CAP_SPIRAM);
+    }
+    if (!clkbg_task_stack) return;   // no SRAM fallback: this one is optional
+
+    clock_bg_shutdown_requested = false;
+    clock_bg_weather_only       = true;
+    clock_weather_needs_refetch = true;
+    clockBgTaskHandle = xTaskCreateStaticPinnedToCore(
+        clockBgTask, "ClkBg",
+        CLOCK_BG_TASK_STACK / sizeof(StackType_t),
+        NULL, 1, clkbg_task_stack, &clkbgTaskTCB, 0);
+    if (!clockBgTaskHandle) clock_bg_weather_only = false;
 }
 
 // ============================================================================
@@ -1584,6 +1639,11 @@ void checkClockTrigger() {
             if ((clock_picsum_enabled && clockFaceUsesPhotoBg()) || clock_weather_enabled) {
                 clock_bg_shutdown_requested = false;
                 clock_bg_ready              = false;
+                // A shelf-clock weather run may be in flight. The guard below
+                // refuses to re-create a live task, so clear the one-shot flag
+                // instead: that run then keeps looping as this session's task
+                // rather than exiting and leaving the screensaver with none.
+                clock_bg_weather_only       = false;
                 if (clock_picsum_enabled && clockFaceUsesPhotoBg()) memset(&clock_bg_dsc, 0, sizeof(clock_bg_dsc));
                 // Allocate stack in PSRAM to free 8KB of DMA SRAM for SDIO RX buffers.
                 // Same pattern as art task (20KB) and lyrics task (8KB).

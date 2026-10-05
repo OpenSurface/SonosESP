@@ -302,6 +302,7 @@ void setup() {
     night_level        = wifiPrefs.getInt(NVS_KEY_NIGHT_LEVEL,  BRIGHTNESS_DIM_MIN);
     night_touch_level  = wifiPrefs.getInt(NVS_KEY_NIGHT_TOUCH,  DEFAULT_NIGHT_TOUCH);
     lyrics_enabled = wifiPrefs.getBool(NVS_KEY_LYRICS, true);
+    amber_shelf_clock = wifiPrefs.getBool(NVS_KEY_SHELF_CLOCK, false);
     analytics_enabled = wifiPrefs.getBool(NVS_KEY_ANALYTICS, ANALYTICS_ENABLED);
     blur_bg_enabled = wifiPrefs.getBool(NVS_KEY_BLUR_BG, true);   // #49, defaults on
     // 7" panel variant. MUST be loaded before display_init() — it selects the
