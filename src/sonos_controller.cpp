@@ -973,6 +973,23 @@ int SonosController::waitForQueueToFill(uint32_t timeout_ms) {
     return 0;
 }
 
+// Queue length only - no track data. Same Browse that updateQueue() issues,
+// with RequestedCount 0, so the speaker returns TotalMatches and no DIDL body.
+// That is the whole point: it costs a small fixed response instead of the
+// ~20KB parse, which is what makes it affordable on the radio path where the
+// full refresh was deliberately skipped to save DMA.
+int SonosController::queueTrackCount() {
+    String resp = sendSOAP(transportTarget(), "ContentDirectory", "Browse",
+                           "<ObjectID>Q:0</ObjectID>"
+                           "<BrowseFlag>BrowseDirectChildren</BrowseFlag>"
+                           "<Filter>dc:title</Filter>"
+                           "<StartingIndex>0</StartingIndex>"
+                           "<RequestedCount>0</RequestedCount>"
+                           "<SortCriteria></SortCriteria>");
+    if (resp.length() == 0) return -1;          // busy or failed - say so
+    return extractXML(resp, "TotalMatches").toInt();
+}
+
 bool SonosController::playPlaylist(const char* playlistID, const char* title) {
     SonosDevice* dev = getCurrentDevice();
     if (!dev || !dev->connected) {
@@ -2439,9 +2456,38 @@ void SonosController::pollingTaskFunction(void* param) {
 
             // Background queue refresh every POLL_QUEUE_MODULO cycles (60s).
             // Uses windowed fetch centred on currentTrackNumber — same window as on-demand.
-            if (tick % POLL_QUEUE_MODULO == 0 && !dev->isRadioStation) {
+            //
+            // Radio no longer skips this outright (issue #198). It used to, to
+            // save the ~20KB DIDL parse when there is no next-track to show -
+            // but the QUEUE still exists while radio plays, and the player's
+            // Next-up panel still renders from the cached copy. Clear the queue
+            // in the Sonos app with a station playing and nothing ever re-read
+            // it: the stale "next" sat there until the user opened the Queue
+            // screen, whose refresh button fires CMD_UPDATE_QUEUE by hand. That
+            // is exactly what the reporter described, including the workaround.
+            //
+            // So on radio we ask only for the COUNT, and do the expensive fetch
+            // only when it actually moved. Costs one small SOAP a minute on a
+            // path that was doing none, and keeps the DMA saving the guard was
+            // added for in the usual case where nothing changed.
+            if (tick % POLL_QUEUE_MODULO == 0) {
                 size_t dma_now = heap_caps_get_free_size(MALLOC_CAP_DMA);
-                if (dma_now >= ART_MIN_DMA_PRE_BURST) {
+                bool   do_full = !dev->isRadioStation;
+
+                if (dev->isRadioStation && dma_now >= ART_MIN_DMA_PRE_BURST) {
+                    const int n = ctrl->queueTrackCount();
+                    // -1 is "the speaker did not answer", NOT "zero tracks" -
+                    // treating a busy speaker as an emptied queue would wipe a
+                    // perfectly good Next-up on one dropped SOAP.
+                    if (n >= 0 && n != dev->totalTracks) {
+                        Serial.printf("[POLL] Queue changed under radio: %d -> %d\n",
+                                      dev->totalTracks, n);
+                        do_full = true;
+                    }
+                    vTaskDelay(pdMS_TO_TICKS(SDIO_POST_QUEUE_DRAIN_MS));
+                }
+
+                if (do_full && dma_now >= ART_MIN_DMA_PRE_BURST) {
                     int half  = SONOS_QUEUE_BATCH_SIZE / 2;
                     int start = (dev->currentTrackNumber > 0) ? (dev->currentTrackNumber - half) : 0;
                     if (start < 0) start = 0;

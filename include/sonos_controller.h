@@ -309,6 +309,13 @@ public:
     bool updatePlaybackState();
     bool updateVolume();
     bool updateQueue(int startIndex = 0);  // startIndex: 0-based SOAP StartingIndex for windowed fetch
+
+    // How many tracks the speaker says are in the queue, without fetching any
+    // of them. Browse Q:0 with RequestedCount 0 returns TotalMatches alone, so
+    // this is a small fixed-size response rather than updateQueue()'s ~20KB
+    // DIDL parse. Returns -1 when the speaker did not answer.
+    // Network task only - takes network_mutex via sendSOAP().
+    int queueTrackCount();
     bool updateTransportSettings();
     
     // Queue access
