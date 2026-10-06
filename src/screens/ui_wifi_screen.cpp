@@ -16,6 +16,59 @@
 // Forward declaration
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 
+// ── Live signal strength (#196) ─────────────────────────────────────────────
+// The screen showed SSID and IP but nothing about link quality, so a panel
+// misbehaving in a far room gave no hint that the link was the problem. The
+// only RSSI anywhere was on the boot screen, which scrolls past.
+//
+// Four bars, read the way every phone draws them, using the SAME thresholds
+// the scan list already colours its rows with (ui_handlers.cpp): -60 and -75.
+// Keeping those identical matters - two different scales for "good signal" in
+// one product is worse than not showing it at all.
+#define WB_BARS   4
+static lv_obj_t* wifi_bars[WB_BARS];
+static lv_obj_t* lbl_wifi_rssi   = nullptr;
+static lv_timer_t* wifi_rssi_timer = nullptr;
+
+// Bars grow left to right. Heights are design-space; SY() is applied on build.
+static const int WB_H[WB_BARS] = { 5, 9, 13, 17 };
+
+static void wifiBarsUpdate(int32_t rssi, bool connected) {
+    // Same three tiers as the scan list, plus a fourth bar so the strong case
+    // reads as "full" rather than "one short of something".
+    int lit;
+    lv_color_t col;
+    if      (!connected) { lit = 0; col = AMB_TEXT3;   }
+    else if (rssi > -60) { lit = 4; col = AMB_LIVE;    }
+    else if (rssi > -67) { lit = 3; col = AMB_LIVE;    }
+    else if (rssi > -75) { lit = 2; col = AMB_ACCENT;  }
+    // Weak is DIM, not red. The scan list greys its rows with COL_ERROR, but
+    // that palette is not this one - Amber has no red at all, because gold is
+    // its single action colour, and adding one would be a palette change the
+    // UI linter would rightly flag. One lit bar out of four already says
+    // "weak" without needing a colour to repeat it.
+    else                 { lit = 1; col = AMB_TEXT3;   }
+
+    for (int i = 0; i < WB_BARS; i++) {
+        if (!wifi_bars[i]) continue;
+        const bool on = (i < lit);
+        lv_obj_set_style_bg_color(wifi_bars[i], on ? col : AMB_BORDER, 0);
+        // Unlit bars stay visible but recede, so the widget keeps its shape
+        // and you can see how many bars are MISSING, not just how many are on.
+        lv_obj_set_style_bg_opa(wifi_bars[i], on ? LV_OPA_COVER : LV_OPA_40, 0);
+    }
+    if (lbl_wifi_rssi) {
+        if (connected) lv_label_set_text_fmt(lbl_wifi_rssi, "%d dBm", (int)rssi);
+        else           lv_label_set_text(lbl_wifi_rssi, "");
+        lv_obj_set_style_text_color(lbl_wifi_rssi, col, 0);
+    }
+}
+
+static void wifiRssiTick(lv_timer_t*) {
+    const bool up = (WiFi.status() == WL_CONNECTED);
+    wifiBarsUpdate(up ? WiFi.RSSI() : 0, up);
+}
+
 // ============================================================================
 // WiFi Screen
 // Content area: 584x424 (800 - 216 rail), inner box 376 tall after padding.
@@ -68,6 +121,33 @@ void createWiFiScreen() {
     lv_obj_set_width(lbl_wifi_status, lv_pct(100));
     lv_label_set_long_mode(lbl_wifi_status, LV_LABEL_LONG_DOT);
     lv_obj_align(lbl_wifi_status, LV_ALIGN_LEFT_MID, 0, 0);
+
+    // Signal strength, right-aligned in the status card (#196). Built here so
+    // it exists before the SCREEN_LOADED handler below ever fires.
+    {
+        lv_obj_t* sig = lv_obj_create(status_card);
+        lv_obj_remove_style_all(sig);
+        lv_obj_set_size(sig, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_set_scrollable(sig, false);
+        lv_obj_set_flex_flow(sig, LV_FLEX_FLOW_ROW);
+        // Cross-axis END sits the bars on a common baseline so the staircase
+        // grows upward, which is what makes it read as signal strength.
+        lv_obj_set_flex_align(sig, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END,
+                              LV_FLEX_ALIGN_END);
+        lv_obj_set_style_pad_column(sig, SX(3), 0);
+        lv_obj_align(sig, LV_ALIGN_RIGHT_MID, 0, 0);
+
+        lbl_wifi_rssi = ambLabel(sig, &font_text_12, AMB_TEXT3, "");
+        lv_obj_set_style_pad_right(lbl_wifi_rssi, SX(8), 0);
+
+        for (int i = 0; i < WB_BARS; i++) {
+            wifi_bars[i] = ambRoundRect(sig, 4, WB_H[i], 2, AMB_BORDER);
+            lv_obj_set_style_bg_opa(wifi_bars[i], LV_OPA_40, 0);
+        }
+        // The label must not be pushed off by a long SSID, and the status text
+        // is LONG_DOT at 100% width, so give the bars the foreground.
+        lv_obj_move_foreground(sig);
+    }
 
     // ── "AVAILABLE" caption ────────────────────────────────────────────────────
     // Created BEFORE pw_strip on purpose: the strip shares this band and is
@@ -223,8 +303,24 @@ void createWiFiScreen() {
     }, LV_EVENT_ALL, NULL);
 
     // ── Show connection status every time screen opens ─────────────────────────
+    // The signal refresh lives and dies with the screen (#196): dious38 asked
+    // for ~5s "only while the screen is open", and that is also the correct
+    // scope - a timer left running would poll the radio from every other
+    // screen for a widget nobody can see. UNLOADED deletes it, and the null
+    // guard makes a double-unload harmless.
+    lv_obj_add_event_cb(scr_wifi, [](lv_event_t* e) {
+        if (lv_event_get_code(e) != LV_EVENT_SCREEN_UNLOADED) return;
+        if (wifi_rssi_timer) { lv_timer_delete(wifi_rssi_timer); wifi_rssi_timer = nullptr; }
+    }, LV_EVENT_ALL, NULL);
+
     lv_obj_add_event_cb(scr_wifi, [](lv_event_t* e) {
         if (lv_event_get_code(e) != LV_EVENT_SCREEN_LOADED) return;
+
+        // Paint immediately, then keep it live. Without the first call the
+        // bars would sit blank for five seconds every time the screen opens.
+        wifiRssiTick(nullptr);
+        if (!wifi_rssi_timer) wifi_rssi_timer = lv_timer_create(wifiRssiTick, 5000, nullptr);
+
         if (WiFi.status() == WL_CONNECTED) {
             lv_label_set_text_fmt(lbl_wifi_status,
                 AMB_IC_WIFI " Connected to %s  (%s)",
