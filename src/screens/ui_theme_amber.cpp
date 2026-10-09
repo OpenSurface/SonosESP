@@ -727,8 +727,15 @@ void buildAmberPlayer() {
     btn_queue = roundBtn(panel_right, AMB_IC_QUEUE, &font_icon_24,
                          AP_RIGHT - chip * 2 - gap, AP_HEAD_Y, chip, ev_queue, true, AMB_TEXT2);
     lv_obj_set_ext_click_area(btn_queue, 8);
-    roundBtn(panel_right, AMB_IC_GEAR, &font_icon_24,
+    // The gear had no ext_click_area while the queue button beside it gets 8
+    // (#203). It sits hard in the top-right corner, where GT911 reports land
+    // slightly outside the glyph, so it was the one header control people
+    // missed. Same 8px as its neighbour - the corner means the extra area on
+    // the top and right simply falls off-screen and costs nothing, while the
+    // left and bottom edges gain the margin that was missing.
+    lv_obj_t* gear = roundBtn(panel_right, AMB_IC_GEAR, &font_icon_24,
              AP_RIGHT - chip, AP_HEAD_Y, chip, ev_settings, true, AMB_TEXT2);
+    lv_obj_set_ext_click_area(gear, 8);
 
     // ── Track meta ──────────────────────────────────────────────────────────
     // Geometry for all three comes from amberRestoreTrackLabels(), below.

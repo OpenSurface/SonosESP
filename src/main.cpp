@@ -17,6 +17,7 @@
 #include <esp_ota_ops.h>    // OTA trial-run validation
 #include <esp_core_dump.h>  // stored crash reporting
 #include <esp_system.h>   // esp_reset_reason()
+#include <hal/efuse_hal.h>  // efuse_hal_chip_revision() - silicon rev log (#203)
 #include <esp_task_wdt.h>
 #include "ui_fonts.h"
 #include "screenshot.h"
@@ -272,6 +273,32 @@ void setup() {
         bool suspend_ok = (mfg_id == 0xC8 || mfg_id == 0x20 || mfg_id == 0xA1);
         Serial.printf("[FLASH] %s %dMB (0x%06X) - Auto-suspend: %s\n",
                       mfg_name, flash_size_mb, flash_id, suspend_ok ? "YES" : "NO");
+    }
+
+    // Silicon revision, and which revision THIS image was built for (#203).
+    //
+    // Logged because the failure it guards against is completely silent: a
+    // pre-rev3 image on rev3 silicon is refused by the BOOTLOADER, before any
+    // of our code runs, so the only symptom is a dark panel and a log with
+    // nothing of ours in it. Printing both numbers means any future log answers
+    // "is this board/image pair even compatible" on its first line, instead of
+    // someone losing an evening to it as in #203.
+    //
+    // The CONFIG_* values come from the board's chip_variant: esp32-p4 ->
+    // esp32p4_es (declares v1.0..v1.99), esp32-p4_r3 -> esp32p4 (v3.1..v3.99).
+    {
+        const unsigned rev = efuse_hal_chip_revision();
+        Serial.printf("[CHIP] ESP32-P4 rev v%u.%u - image built for v%u.%u..v%u.%u (%s)\n",
+                      rev / 100, rev % 100,
+                      (unsigned)CONFIG_ESP32P4_REV_MIN_FULL / 100,
+                      (unsigned)CONFIG_ESP32P4_REV_MIN_FULL % 100,
+                      (unsigned)CONFIG_ESP32P4_REV_MAX_FULL / 100,
+                      (unsigned)CONFIG_ESP32P4_REV_MAX_FULL % 100,
+#if CONFIG_ESP32P4_SELECTS_REV_LESS_V3
+                      "pre-rev3 build");
+#else
+                      "rev3 build");
+#endif
     }
 
     // Create network mutex to serialize WiFi access (prevents SDIO buffer overflow)
