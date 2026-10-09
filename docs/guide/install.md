@@ -42,6 +42,22 @@ Grab `bootloader.bin`, `partitions.bin`, `boot_app0.bin` and the firmware for
 your panel (`firmware-4inch.bin` or `firmware-7inch.bin`) from the
 [latest release](https://github.com/OpenSurface/SonosESP/releases/latest).
 
+::: warning ESP32-P4 revision 3.x boards need a different set
+GUITION now ship some 4" panels with **ESP32-P4 rev 3.x** silicon under the
+same product code. Those boards need `firmware-4inch-r3.bin` **and**
+`bootloader-r3.bin` — the rev3 bootloader is a different binary, so do not mix
+it with the shared one. `partitions.bin` and `boot_app0.bin` are the same for
+both.
+
+The two revisions have different internal memory maps, so one image cannot
+serve both. `esptool.py --chip esp32p4 --port COM9 chip_id` prints which you
+have, e.g. `ESP32-P4 (revision v3.2)`. The browser installer has its own
+**4-inch (rev 3.x)** option.
+
+Installing the wrong set gives a black screen. It is recoverable — reinstall
+the correct one over the top — but it will not roll back on its own.
+:::
+
 ```bash
 pip install esptool
 
@@ -64,6 +80,13 @@ From a clone, PlatformIO does the same thing in one step:
 
 ```bash
 pio run -e esp32_4inch --target upload    # or -e esp32_7inch
+```
+
+On a rev 3.x board use the rev3 env, which selects the right silicon target,
+linker script and bootloader in one go:
+
+```bash
+pio run -e esp32_4inch_r3 --target upload
 ```
 
 ## Updating later

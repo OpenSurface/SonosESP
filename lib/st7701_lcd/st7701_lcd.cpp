@@ -64,7 +64,14 @@ void st7701_lcd::example_bsp_init_lcd_backlight()
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .duty_resolution = LEDC_TIMER_10_BIT,  // 10-bit resolution (0-1023)
         .timer_num = LEDC_TIMER_0,
-        .freq_hz = 5000,  // 5kHz PWM frequency
+        // 25 kHz, not 5 kHz: at 5 kHz the backlight inductor is audible at any
+        // brightness below 100%, which on a bedside panel is the one place it
+        // matters most. Above ~20 kHz it is out of hearing range. Reported with
+        // the rev3 work in #203; applies to every revision.
+        //
+        // 10-bit duty at 25 kHz needs a 25.6 MHz timer clock, far inside what
+        // LEDC_AUTO_CLK can source, so dimming resolution is unchanged.
+        .freq_hz = 25000,
         .clk_cfg = LEDC_AUTO_CLK
     };
     ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
@@ -106,6 +113,27 @@ void st7701_lcd::begin()
     // 首先创建 MIPI DSI 总线，它还将初始化 DSI PHY
     esp_lcd_dsi_bus_handle_t mipi_dsi_bus;
     esp_lcd_dsi_bus_config_t bus_config = ST7701_PANEL_BUS_DSI_2CH_CONFIG();
+#if !CONFIG_ESP32P4_SELECTS_REV_LESS_V3
+    // ESP32-P4 rev >= 3: the DSI PHY PLL reference clock must be set explicitly,
+    // or esp_lcd_new_dsi_bus() calls abort() and the panel never lights (#203).
+    //
+    // The macro above sets .phy_clk_src = MIPI_DSI_PHY_CLK_SRC_DEFAULT, which in
+    // IDF 5.5 resolves to MIPI_DSI_PHY_PLLREF_CLK_SRC_DEFAULT_LEGACY = PLL_F20M.
+    // The rev3 HAL accepts only XTAL/APLL/CPLL/SPLL/MPLL and aborts on anything
+    // else (hal/esp32p4/include/hal/mipi_dsi_ll.h, default: abort()).
+    // ..._PLLREF_CLK_SRC_DEFAULT is XTAL, which it accepts.
+    //
+    // GUARDED, deliberately, rather than set unconditionally. Pre-rev3 boards
+    // work today on PLL_F20M and the PHY PLL derives its lane bit rate from
+    // this reference; changing it on hardware that already works, to save one
+    // conditional, is a bad trade. The flag comes from the board choice:
+    // chip_variant esp32p4_es sets CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y
+    // (pioarduino builder/frameworks/espidf.py).
+    //
+    // Reported, diagnosed and fixed by @Insanityforawhile in #203, who decoded
+    // it with addr2line on the only rev3 board anyone has.
+    bus_config.phy_clk_src = MIPI_DSI_PHY_PLLREF_CLK_SRC_DEFAULT;
+#endif
     ESP_ERROR_CHECK(esp_lcd_new_dsi_bus(&bus_config, &mipi_dsi_bus));
 
     ESP_LOGI(TAG, "Install MIPI DSI LCD control panel");

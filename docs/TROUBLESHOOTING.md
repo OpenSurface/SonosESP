@@ -107,6 +107,53 @@ the setting anyway. The check runs itself.
 
 ---
 
+## Black screen from the very first install (ESP32-P4 rev 3.x)
+
+If a brand-new 4" panel flashes and verifies without error but the screen and
+backlight never come on, the board most likely has **ESP32-P4 revision 3.x**
+silicon and needs the separate rev3 build.
+
+GUITION began shipping rev3 chips under the same product code. Nothing on the
+outside of the box distinguishes them.
+
+### How to tell
+
+Either of these answers it:
+
+- **The web installer** — pick **4-inch (rev 3.x)** instead of **4-inch**. If
+  you guessed wrong, reinstall the other one over the top; nothing is damaged.
+- **The serial log**, from v2.3.2 onwards, prints it on the first few lines:
+
+  ```
+  [CHIP] ESP32-P4 rev v1.0 - image built for v0.1..v1.99 (pre-rev3 build)
+  ```
+
+  A board reporting `rev v3.x` needs the rev3 build. If the log shows nothing
+  of ours at all, that is itself the symptom: the firmware is not starting.
+- **esptool** reports it directly, e.g. `ESP32-P4 (revision v3.2)`.
+
+### Why there are two builds
+
+The two silicon revisions have **different on-chip memory maps**. Pre-rev3
+splits the internal SRAM into an executable low region and a data-only high
+region with a reserved gap between them; rev3 presents one contiguous
+executable region. The linker therefore places code and data at different
+addresses, and a binary only works at the addresses it was linked for. Same
+source, same features, same panel — only the layout differs.
+
+The rev3 build also has its own bootloader, so install the complete rev3 set
+rather than mixing parts.
+
+### Updating
+
+OTA keeps the two apart automatically: a rev3 unit asks for
+`firmware-4inch-r3.bin` and will not accept the pre-rev3 asset.
+
+**Do not hand-install the wrong one.** It is not refused and it does not roll
+back by itself — recovery is a cable reinstall of the correct build.
+
+---
+
 ## Blank screen after an update
 
 **Most likely cause: the wrong screen variant was installed.** A 4″ build on a 7″ panel (or the reverse) initialises the wrong display driver, so the panel stays dark even though the device is running normally.

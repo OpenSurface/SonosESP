@@ -29,6 +29,12 @@ jobs:
         include:
           - env: esp32_4inch
             screen: 4inch
+          # ESP32-P4 rev 3.x silicon (#203). Same source, different memory map,
+          # so it needs its own link - see the env comment in platformio.ini.
+          # In the matrix so a break is caught here rather than by the one
+          # person who owns rev3 hardware.
+          - env: esp32_4inch_r3
+            screen: 4inch-r3
           - env: esp32_7inch
             screen: 7inch
 

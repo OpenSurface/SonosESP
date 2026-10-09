@@ -10,12 +10,51 @@ const BOARDS = {
     manifest: 'manifest-4inch.json',
     label: 'Connect and install',
     beta: false,
+    note: '',
     specs: [
       ['Controller', 'ESP32-P4 + ESP32-C6'],
       ['Display', '800×480 (ST7701)'],
       ['Touch', 'GT911 I²C'],
       ['Flash', '16 MB'],
       ['PSRAM', '32 MB OPI'],
+    ],
+  },
+  /* ESP32-P4 rev 3.x silicon (issue #203).
+   *
+   * SAME board, same panel, same firmware source. A separate entry because the
+   * two silicon revisions have DIFFERENT on-chip memory maps - pre-rev3 splits
+   * SRAM into an executable low region and a data-only high region, rev3 has
+   * one contiguous executable region - so the linker places code at different
+   * addresses and one binary cannot serve both.
+   *
+   * Its own bootloader too: the rev3 bootloader is a genuinely different
+   * binary, not just a different app. Flashing the pre-rev3 bootloader here
+   * would be an untested combination.
+   *
+   * ESP Web Tools matches builds on chipFamily only and cannot tell revisions
+   * apart, so this has to be a visible choice the user makes rather than
+   * something detected. Hence the "how to tell" note under the picker.
+   */
+  '4inch-r3': {
+    name: '4-inch (rev 3.x)',
+    part: 'JC4880P443C',
+    bin: 'firmware-4inch-r3.bin',
+    manifest: 'manifest-4inch-r3.json',
+    label: 'Connect and install',
+    beta: true,
+    note:
+      'Only for boards whose ESP32-P4 reports revision v3.x. If you are not '
+      + 'sure, install the plain 4-inch build first: if the screen stays dark '
+      + 'it is a rev3 board and you want this one instead. Picking the wrong '
+      + 'one is recoverable - reinstall the other over the top - but it will '
+      + 'not roll back on its own.',
+    specs: [
+      ['Controller', 'ESP32-P4 rev 3.x + ESP32-C6'],
+      ['Display', '800×480 (ST7701)'],
+      ['Touch', 'GT911 I²C'],
+      ['Flash', '16 MB'],
+      ['PSRAM', '32 MB OPI'],
+      ['CPU', '400 MHz'],
     ],
   },
   '7inch': {
@@ -25,6 +64,10 @@ const BOARDS = {
     manifest: 'manifest-7inch.json',
     label: 'Connect and install',
     beta: true,
+    note:
+      'The 7-inch build runs on hardware but has had far less testing than '
+      + 'the 4-inch. GUITION also ship two different panels under this '
+      + 'product code - a first-boot wizard works out which one you have.',
     specs: [
       ['Controller', 'ESP32-P4 + ESP32-C6'],
       ['Display', '1024×600 (JD9165)'],
@@ -111,11 +154,9 @@ function pick(id: BoardId) {
       </div>
     </dl>
 
-    <p v-if="board.beta" class="ip-note">
-      The 7-inch build runs on hardware but has had far less testing than the
-      4-inch. GUITION also ship two different panels under this product code — a
-      first-boot wizard works out which one you have.
-    </p>
+    <!-- Per-board, not per-beta: two boards are flagged beta now and they need
+         different warnings. -->
+    <p v-if="board.note" class="ip-note">{{ board.note }}</p>
 
     <!-- ── step 2 ────────────────────────────────────────────────────────── -->
     <p class="ip-step"><span class="ip-num">02</span> Plug the panel in over USB-C</p>

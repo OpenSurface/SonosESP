@@ -115,6 +115,18 @@ void jd9165_lcd::begin(uint8_t variant)
     // 首先创建 MIPI DSI 总线，它还将初始化 DSI PHY
     esp_lcd_dsi_bus_handle_t mipi_dsi_bus;
     esp_lcd_dsi_bus_config_t bus_config = JD9165_PANEL_BUS_DSI_2CH_CONFIG();
+#if !CONFIG_ESP32P4_SELECTS_REV_LESS_V3
+    // Same rev3 DSI PHY reference-clock problem as the 4" ST7701 (#203) - this
+    // driver's config macro also uses MIPI_DSI_PHY_CLK_SRC_DEFAULT, which is
+    // PLL_F20M, which the rev3 HAL aborts on. See the longer note in
+    // lib/st7701_lcd/st7701_lcd.cpp.
+    //
+    // UNTESTED, and currently unreachable: no 7" r3 build env exists, because
+    // nobody has a rev3 7" panel - the 7" itself is not hardware-validated yet.
+    // Fixed here anyway so the driver is correct the day one appears, rather
+    // than leaving a known abort() in it.
+    bus_config.phy_clk_src = MIPI_DSI_PHY_PLLREF_CLK_SRC_DEFAULT;
+#endif
     ESP_ERROR_CHECK(esp_lcd_new_dsi_bus(&bus_config, &mipi_dsi_bus));
 
     ESP_LOGI(TAG, "Install MIPI DSI LCD control panel");

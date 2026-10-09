@@ -108,7 +108,7 @@ jobs:
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
       env:
         USE_CCACHE: "1"
-      run: pio run -e esp32_4inch -e esp32_7inch
+      run: pio run -e esp32_4inch -e esp32_4inch_r3 -e esp32_7inch
 
     - name: Copy binaries to web-installer
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true'
@@ -132,6 +132,15 @@ jobs:
         # canonical per-screen app binaries
         cp .pio/build/esp32_4inch/firmware.bin web-installer/firmware-4inch.bin
         cp .pio/build/esp32_7inch/firmware.bin web-installer/firmware-7inch.bin
+        # rev3 (#203) needs its OWN bootloader, not the shared one above: the
+        # rev3 bootloader is a different binary (21568 vs 21392 bytes), because
+        # espidf.py selects bootloader.rev3.ld.in for that chip_variant.
+        # Shipping the pre-rev3 bootloader with a rev3 app is an untested
+        # combination - the only rev3 confirmation we have came via OTA, which
+        # replaces the app and leaves the bootloader alone.
+        # partitions.bin IS identical across all three envs, so it stays shared.
+        cp .pio/build/esp32_4inch_r3/bootloader.bin web-installer/bootloader-r3.bin
+        cp .pio/build/esp32_4inch_r3/firmware.bin   web-installer/firmware-4inch-r3.bin
         # The legacy manifest.json / firmware.bin alias was removed in v1.15.1:
         # nothing linked to it, and the <=v1.8.4 fleet it served shows 0 downloads.
         ls -la web-installer/

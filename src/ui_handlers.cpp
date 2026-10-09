@@ -802,9 +802,29 @@ static void checkForUpdates() {
             //            A 7" unit must never take it or it flashes 4" firmware.
             // Note "firmware-4inch.bin".indexOf("firmware.bin") is -1 (no substring match),
             // so the legacy check cannot accidentally swallow a variant asset.
+            //
+            // The rev3 4" build (#203) is a THIRD asset, not a variant of the
+            // 4" one: its image header declares chip revisions 301..399 while
+            // the pre-rev3 build declares 1..199, and the bootloader enforces
+            // that for application images. Cross-installing is therefore not a
+            // cosmetic mistake - the app is refused and the panel goes dark
+            // until rollback brings the old slot back.
+            //
+            // The substring match is safe in both directions, for the same
+            // reason the legacy check is: "firmware-4inch-r3.bin" does not
+            // contain "firmware-4inch.bin" (".bin" does not follow "4inch"),
+            // and "firmware-4inch.bin" does not contain the r3 name. So a
+            // release carrying both assets cannot feed either one to the wrong
+            // silicon.
+            //
+            // kAllowLegacy is FALSE on r3: every unsuffixed firmware.bin ever
+            // published is a pre-rev3 4" build.
             #if SCREEN_SIZE == 7
                 const char* kVariantAsset = "firmware-7inch.bin";
                 const bool  kAllowLegacy  = false;   // legacy asset is the 4" build
+            #elif !CONFIG_ESP32P4_SELECTS_REV_LESS_V3
+                const char* kVariantAsset = "firmware-4inch-r3.bin";
+                const bool  kAllowLegacy  = false;   // legacy asset is pre-rev3
             #else
                 const char* kVariantAsset = "firmware-4inch.bin";
                 const bool  kAllowLegacy  = true;
