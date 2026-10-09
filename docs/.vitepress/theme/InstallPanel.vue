@@ -2,88 +2,106 @@
 import { ref, computed, onMounted } from 'vue'
 import { withBase } from 'vitepress'
 
-const BOARDS = {
+/* ── Why this is shaped as MODEL -> REVISION, and not a flat list ───────────
+ *
+ * The flat list had "4-inch" and "4-inch (rev 3.x)" sitting side by side as
+ * though they were two different products. They are the same panel, same
+ * product code, same firmware source; only the silicon revision inside
+ * differs. Presented as siblings, the obvious move is to click the first one -
+ * and for a rev3 owner that installs a build whose screen never lights up.
+ *
+ * So the panel is chosen first, and the revision second, as a deliberate step.
+ * A model with more than one revision starts with NOTHING selected and the
+ * install button disabled, because there is no safe default: whichever we
+ * preselected would be wrong for somebody, silently.
+ */
+
+type Build = {
+  bin: string
+  manifest: string
+  beta?: boolean
+}
+
+type Revision = Build & {
+  label: string
+  blurb: string
+}
+
+const MODELS = {
   '4inch': {
     name: '4-inch',
     part: 'JC4880P443C',
-    bin: 'firmware-4inch.bin',
-    manifest: 'manifest-4inch.json',
-    label: 'Connect and install',
-    beta: false,
-    note: '',
     specs: [
+      ['Display', '800×480 · ST7701 · MIPI-DSI'],
+      ['Orientation', 'Portrait (rotated in software)'],
+      ['Touch', 'GT911 capacitive'],
       ['Controller', 'ESP32-P4 + ESP32-C6'],
-      ['Display', '800×480 (ST7701)'],
-      ['Touch', 'GT911 I²C'],
-      ['Flash', '16 MB'],
-      ['PSRAM', '32 MB OPI'],
+      ['Flash / PSRAM', '16 MB / 32 MB OPI'],
     ],
-  },
-  /* ESP32-P4 rev 3.x silicon (issue #203).
-   *
-   * SAME board, same panel, same firmware source. A separate entry because the
-   * two silicon revisions have DIFFERENT on-chip memory maps - pre-rev3 splits
-   * SRAM into an executable low region and a data-only high region, rev3 has
-   * one contiguous executable region - so the linker places code at different
-   * addresses and one binary cannot serve both.
-   *
-   * Its own bootloader too: the rev3 bootloader is a genuinely different
-   * binary, not just a different app. Flashing the pre-rev3 bootloader here
-   * would be an untested combination.
-   *
-   * ESP Web Tools matches builds on chipFamily only and cannot tell revisions
-   * apart, so this has to be a visible choice the user makes rather than
-   * something detected. Hence the "how to tell" note under the picker.
-   */
-  '4inch-r3': {
-    name: '4-inch (rev 3.x)',
-    part: 'JC4880P443C',
-    bin: 'firmware-4inch-r3.bin',
-    manifest: 'manifest-4inch-r3.json',
-    label: 'Connect and install',
-    beta: true,
-    note:
-      'Only for boards whose ESP32-P4 reports revision v3.x. If you are not '
-      + 'sure, install the plain 4-inch build first: if the screen stays dark '
-      + 'it is a rev3 board and you want this one instead. Picking the wrong '
-      + 'one is recoverable - reinstall the other over the top - but it will '
-      + 'not roll back on its own.',
-    specs: [
-      ['Controller', 'ESP32-P4 rev 3.x + ESP32-C6'],
-      ['Display', '800×480 (ST7701)'],
-      ['Touch', 'GT911 I²C'],
-      ['Flash', '16 MB'],
-      ['PSRAM', '32 MB OPI'],
-      ['CPU', '400 MHz'],
-    ],
+    note: '',
+    /* Two revisions of the SAME board. See docs/TROUBLESHOOTING.md: the two
+     * silicon revisions have different internal memory maps, so the linker
+     * places code at different addresses and one image cannot serve both.
+     * rev3 also needs its own bootloader. */
+    revisions: {
+      legacy: {
+        label: 'Revision v1.x or v2.x',
+        blurb: 'Every panel sold up to late 2026. Pick this if unsure.',
+        bin: 'firmware-4inch.bin',
+        manifest: 'manifest-4inch.json',
+      },
+      r3: {
+        label: 'Revision v3.x',
+        blurb: 'Newer silicon. Needed if the screen stays black on the build above.',
+        bin: 'firmware-4inch-r3.bin',
+        manifest: 'manifest-4inch-r3.json',
+        beta: true,
+      },
+    } as Record<string, Revision>,
   },
   '7inch': {
     name: '7-inch',
     part: 'JC1060P470C',
-    bin: 'firmware-7inch.bin',
-    manifest: 'manifest-7inch.json',
-    label: 'Connect and install',
-    beta: true,
-    note:
-      'The 7-inch build runs on hardware but has had far less testing than '
-      + 'the 4-inch. GUITION also ship two different panels under this '
-      + 'product code - a first-boot wizard works out which one you have.',
     specs: [
+      ['Display', '1024×600 · JD9165 · MIPI-DSI'],
+      ['Orientation', 'Landscape (native)'],
+      ['Touch', 'GT911 capacitive'],
       ['Controller', 'ESP32-P4 + ESP32-C6'],
-      ['Display', '1024×600 (JD9165)'],
-      ['Touch', 'GT911 I²C'],
-      ['Flash', '16 MB'],
-      ['PSRAM', '32 MB OPI'],
+      ['Flash / PSRAM', '16 MB / 32 MB OPI'],
       ['Extra', 'Ethernet'],
     ],
+    note:
+      'The 7-inch build runs on hardware but has had far less testing than the '
+      + '4-inch. GUITION also ship two different LCDs under this product code - '
+      + 'a first-boot wizard works out which one you have.',
+    revisions: null,
+    bin: 'firmware-7inch.bin',
+    manifest: 'manifest-7inch.json',
+    beta: true,
   },
 } as const
 
-type BoardId = keyof typeof BOARDS
+type ModelId = keyof typeof MODELS
 
-const selected = ref<BoardId>('4inch')
-const board = computed(() => BOARDS[selected.value])
-const manifestUrl = computed(() => withBase('/' + board.value.manifest))
+const modelId = ref<ModelId | ''>('')
+const revId = ref<string>('')
+
+const model = computed(() => (modelId.value ? MODELS[modelId.value] : null))
+
+/* The chosen build: a revision when the model has them, otherwise the model's
+ * own single build. Null until the choice is complete, which is what gates the
+ * install button. */
+const build = computed<Build | null>(() => {
+  const m = model.value as any
+  if (!m) return null
+  if (!m.revisions) return m as Build
+  return revId.value ? (m.revisions[revId.value] as Build) : null
+})
+
+const needsRevision = computed(() => !!(model.value as any)?.revisions)
+const ready = computed(() => build.value !== null)
+const manifestUrl = computed(() =>
+  build.value ? withBase('/' + build.value.manifest) : '')
 
 const version = ref('')
 const parts = ref<{ path: string; offset: string }[]>([])
@@ -94,13 +112,14 @@ const parts = ref<{ path: string; offset: string }[]>([])
    deploy-pages.yml has a guard for because leaving it out bricks the boot. */
 async function loadManifest(url: string) {
   parts.value = []
+  if (!url) return
   try {
     const m = await (await fetch(url)).json()
     version.value = m.version ?? version.value
-    const build = m.builds?.[0]
-    parts.value = (build?.parts ?? []).map((p: any) => ({
-      path: String(p.path ?? '').split('/').pop() ?? '',
-      offset: '0x' + Number(p.offset ?? 0).toString(16),
+    const b = m.builds?.[0]
+    parts.value = (b?.parts ?? []).map((pt: any) => ({
+      path: String(pt.path ?? '').split('/').pop() ?? '',
+      offset: '0x' + Number(pt.offset ?? 0).toString(16),
     }))
   } catch {
     // Silent on purpose: an unreachable manifest should not put an error in
@@ -108,11 +127,20 @@ async function loadManifest(url: string) {
   }
 }
 
-onMounted(() => loadManifest(manifestUrl.value))
+/* Version for the header badge, before any choice is made. */
+onMounted(() => loadManifest(withBase('/manifest-4inch.json')))
 
-function pick(id: BoardId) {
-  selected.value = id
-  loadManifest(withBase('/' + BOARDS[id].manifest))
+function pickModel(id: ModelId) {
+  modelId.value = id
+  revId.value = ''
+  const m = MODELS[id] as any
+  // Single-build models can resolve immediately; multi-revision ones wait.
+  loadManifest(m.revisions ? '' : withBase('/' + m.manifest))
+}
+
+function pickRevision(id: string) {
+  revId.value = id
+  loadManifest(manifestUrl.value)
 }
 </script>
 
@@ -126,49 +154,139 @@ function pick(id: BoardId) {
       <span class="ip-env">Web Serial · Chrome · Edge · Opera</span>
     </div>
 
-    <!-- ── step 1 ────────────────────────────────────────────────────────── -->
+    <!-- ── before you start ──────────────────────────────────────────────
+         Up front, not buried. The cable is the single most common reason a
+         panel never appears in the browser's port list, and a charge-only
+         USB-C cable looks identical to a data one. -->
+    <p class="ip-step"><span class="ip-num">00</span> Before you start</p>
+    <ul class="ip-pre">
+      <li>
+        <strong>A desktop Chrome, Edge or Opera.</strong>
+        Firefox and Safari have no Web Serial, and no phone browser can do this.
+      </li>
+      <li>
+        <strong>A USB-C <em>data</em> cable.</strong>
+        Charge-only cables look identical and will not work. The board also has
+        <em>two</em> USB-C ports and only one of them talks to a computer — if
+        nothing appears, that is the first thing to change.
+      </li>
+      <li>
+        <strong>Your 2.4 GHz Wi-Fi name and password.</strong>
+        The panel asks for them on first boot. 5 GHz is not supported.
+      </li>
+    </ul>
+
+    <!-- ── step 1 : the panel ───────────────────────────────────────────── -->
     <p class="ip-step"><span class="ip-num">01</span> Pick your panel</p>
     <div class="ip-boards" role="radiogroup" aria-label="Panel size">
       <button
-        v-for="(b, id) in BOARDS"
+        v-for="(m, id) in MODELS"
         :key="id"
         type="button"
         role="radio"
         class="ip-board"
-        :aria-checked="selected === id"
-        @click="pick(id as BoardId)"
+        :aria-checked="modelId === id"
+        @click="pickModel(id as ModelId)"
       >
         <span class="ip-b-top">
-          <span class="ip-b-name">{{ b.name }}</span>
-          <span v-if="b.beta" class="ip-beta">beta</span>
+          <span class="ip-b-name">{{ m.name }}</span>
+          <span v-if="(m as any).beta" class="ip-beta">beta</span>
         </span>
-        <span class="ip-b-part">{{ b.part }}</span>
-        <span class="ip-b-bin">{{ b.bin }}</span>
+        <span class="ip-b-part">{{ m.part }}</span>
+        <span class="ip-b-bin">{{ m.specs[0][1] }}</span>
       </button>
     </div>
 
-    <dl class="ip-specs">
-      <div v-for="row in board.specs" :key="row[0]">
+    <!-- ── step 2 : the revision, only when there is a choice ──────────── -->
+    <template v-if="needsRevision">
+      <p class="ip-step">
+        <span class="ip-num">02</span> Pick your hardware revision
+      </p>
+      <div class="ip-revs" role="radiogroup" aria-label="Hardware revision">
+        <button
+          v-for="(r, id) in (model as any).revisions"
+          :key="id"
+          type="button"
+          role="radio"
+          class="ip-rev"
+          :aria-checked="revId === id"
+          @click="pickRevision(id as string)"
+        >
+          <span class="ip-r-dot" aria-hidden="true"></span>
+          <span class="ip-r-body">
+            <span class="ip-r-top">
+              <span class="ip-r-label">{{ r.label }}</span>
+              <span v-if="r.beta" class="ip-beta">beta</span>
+            </span>
+            <span class="ip-r-blurb">{{ r.blurb }}</span>
+            <span class="ip-r-bin">{{ r.bin }}</span>
+          </span>
+        </button>
+      </div>
+
+      <details class="ip-help">
+        <summary>How do I know which revision I have?</summary>
+        <p>
+          Nothing on the box says. Any of these will tell you:
+        </p>
+        <ul>
+          <li>
+            <strong>Just try it.</strong> Install the v1.x / v2.x build. If the
+            screen stays black, it is a v3.x board — install the other one over
+            the top. Nothing is damaged either way.
+          </li>
+          <li>
+            <strong>Already running SonosESP?</strong> The serial log says so on
+            its first lines:
+            <code>[CHIP] ESP32-P4 rev v1.0 …</code>
+          </li>
+          <li>
+            <strong>esptool</strong> prints it directly:
+            <code>ESP32-P4 (revision v3.2)</code>
+          </li>
+        </ul>
+        <p class="ip-help-warn">
+          Worth knowing: a hand-installed mismatch is <em>not</em> rejected and
+          does <em>not</em> roll itself back. Reinstalling the correct build
+          fixes it.
+        </p>
+      </details>
+    </template>
+
+    <!-- ── specs + per-model caveat ─────────────────────────────────────── -->
+    <dl v-if="model" class="ip-specs">
+      <div v-for="row in model.specs" :key="row[0]">
         <dt>{{ row[0] }}</dt>
         <dd>{{ row[1] }}</dd>
       </div>
     </dl>
 
-    <!-- Per-board, not per-beta: two boards are flagged beta now and they need
-         different warnings. -->
-    <p v-if="board.note" class="ip-note">{{ board.note }}</p>
+    <!-- Per-model, not per-beta: more than one board is flagged beta and they
+         need different warnings. -->
+    <p v-if="model && model.note" class="ip-note">{{ model.note }}</p>
 
-    <!-- ── step 2 ────────────────────────────────────────────────────────── -->
-    <p class="ip-step"><span class="ip-num">02</span> Plug the panel in over USB-C</p>
+    <!-- ── step 3 : connect ─────────────────────────────────────────────── -->
+    <p class="ip-step">
+      <span class="ip-num">{{ needsRevision ? '03' : '02' }}</span>
+      Plug the panel in over USB-C
+    </p>
 
     <!--
-      :key forces Vue to destroy and recreate the element when the board changes.
-      esp-web-tools parses and caches the manifest on the element, so reusing it
-      would keep flashing the previously selected build.
+      Rendered only once the choice is complete. The disabled stand-in below is
+      a plain button rather than a disabled esp-web-install-button, so the web
+      component is never live with an empty manifest.
+
+      :key forces Vue to destroy and recreate the element when the build
+      changes. esp-web-tools parses and caches the manifest on the element, so
+      reusing it would keep flashing the previously selected build.
     -->
-    <esp-web-install-button :key="selected" :manifest="manifestUrl">
+    <esp-web-install-button
+      v-if="ready"
+      :key="build!.manifest"
+      :manifest="manifestUrl"
+    >
       <button slot="activate" type="button" class="ip-go">
-        {{ board.label }} <span class="ip-arrow">&#8594;</span>
+        Connect and install <span class="ip-arrow">&#8594;</span>
       </button>
       <span slot="unsupported" class="ip-unsupported">
         This browser cannot flash over USB — it has no Web Serial. Use Chrome,
@@ -179,8 +297,19 @@ function pick(id: BoardId) {
       </span>
     </esp-web-install-button>
 
+    <template v-else>
+      <button type="button" class="ip-go ip-go-off" disabled>
+        Connect and install <span class="ip-arrow">&#8594;</span>
+      </button>
+      <p class="ip-gate">
+        {{ modelId
+          ? 'Choose your hardware revision above to enable USB installation.'
+          : 'Choose your panel above to enable USB installation.' }}
+      </p>
+    </template>
+
     <!-- What actually gets written. This is the part people get wrong by hand. -->
-    <div v-if="parts.length" class="ip-parts">
+    <div v-if="ready && parts.length" class="ip-parts">
       <p class="ip-parts-h">
         Writes {{ parts.length }} parts
         <span v-if="version" class="ip-ver">v{{ version }}</span>
@@ -191,6 +320,27 @@ function pick(id: BoardId) {
         </li>
       </ul>
       <p class="ip-parts-f">Your Wi-Fi and speaker settings are kept.</p>
+    </div>
+
+    <!-- ── what to expect ───────────────────────────────────────────────
+         Timings, because the two points people give up at are the empty port
+         dialog and the long first boot. -->
+    <div v-if="ready" class="ip-expect">
+      <p class="ip-expect-h">What happens next</p>
+      <ol>
+        <li>
+          A port dialog opens and the panel appears as a USB serial device.
+          <strong>If the list is empty, try the board's other USB-C port</strong>
+          — it has two and only one carries data. That is the most common cause
+          by a wide margin; a charge-only cable is the next.
+        </li>
+        <li>Writing takes about a minute. Do not unplug it.</li>
+        <li>
+          The panel reboots and asks for Wi-Fi. First boot can take
+          <strong>up to 30 seconds</strong> before anything is drawn.
+        </li>
+        <li>Your speakers are found automatically once it is on the network.</li>
+      </ol>
     </div>
   </div>
 </template>
@@ -315,5 +465,107 @@ function pick(id: BoardId) {
 @media (prefers-reduced-motion: reduce) {
   .ip-board, .ip-go { transition: none; }
   .ip-go:hover { transform: none; }
+}
+
+/* ── before-you-start checklist ─────────────────────────────────────────── */
+.ip-pre { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.ip-pre li {
+  font-size: 13.5px; line-height: 1.55; color: var(--vp-c-text-2);
+  padding-left: 18px; position: relative;
+}
+.ip-pre li::before {
+  content: ''; position: absolute; left: 0; top: .55em;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--se-gold);
+}
+.ip-pre strong { color: var(--vp-c-text-1); font-weight: 600; }
+
+/* ── revision picker ─────────────────────────────────────────────────────
+   A vertical list rather than side-by-side cards: the blurb is the part that
+   actually decides it, and it needs room to read as a sentence. */
+.ip-revs { display: grid; gap: 8px; }
+.ip-rev {
+  display: flex; gap: 12px; align-items: flex-start; text-align: left;
+  padding: 13px 15px; border-radius: 12px; cursor: pointer;
+  border: 1px solid rgba(242, 236, 228, .12);
+  background: rgba(242, 236, 228, .02);
+  color: var(--vp-c-text-1); font: inherit;
+  transition: border-color .15s, background .15s;
+}
+.ip-rev:hover { border-color: rgba(242, 236, 228, .3); }
+.ip-rev[aria-checked='true'] {
+  border-color: var(--se-gold); background: rgba(242, 236, 228, .08);
+}
+.ip-r-dot {
+  flex: 0 0 auto; width: 14px; height: 14px; margin-top: 3px;
+  border-radius: 50%; border: 1px solid rgba(242, 236, 228, .35);
+  position: relative;
+}
+.ip-rev[aria-checked='true'] .ip-r-dot { border-color: var(--se-gold); }
+.ip-rev[aria-checked='true'] .ip-r-dot::after {
+  content: ''; position: absolute; inset: 3px;
+  border-radius: 50%; background: var(--se-gold);
+}
+.ip-r-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ip-r-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ip-r-label { font-weight: 600; font-size: 14.5px; }
+.ip-r-blurb { font-size: 13px; line-height: 1.5; color: var(--vp-c-text-2); }
+.ip-r-bin {
+  font-family: var(--vp-font-family-mono); font-size: 11.5px;
+  color: var(--vp-c-text-3);
+}
+
+/* ── "how do I know" disclosure ──────────────────────────────────────────── */
+.ip-help {
+  margin: 12px 0 0; border-radius: 12px;
+  border: 1px solid rgba(242, 236, 228, .1);
+  background: rgba(242, 236, 228, .02);
+}
+.ip-help summary {
+  cursor: pointer; padding: 11px 15px; font-size: 13.5px; font-weight: 600;
+  color: var(--se-gold); list-style: none;
+}
+.ip-help summary::-webkit-details-marker { display: none; }
+.ip-help summary::before { content: '+ '; font-family: var(--vp-font-family-mono); }
+.ip-help[open] summary::before { content: '2 '; }
+.ip-help > p, .ip-help > ul { margin: 0 15px 11px; font-size: 13px; line-height: 1.6; color: var(--vp-c-text-2); }
+.ip-help > ul { padding-left: 18px; display: grid; gap: 7px; }
+.ip-help strong { color: var(--vp-c-text-1); }
+.ip-help code {
+  font-size: 11.5px; padding: 1px 5px; border-radius: 4px;
+  background: rgba(242, 236, 228, .07);
+}
+.ip-help-warn { border-left: 2px solid #c9752f; padding-left: 12px !important; }
+
+/* ── gated install button ───────────────────────────────────────────────── */
+.ip-go-off {
+  background: rgba(242, 236, 228, .08); color: var(--vp-c-text-3);
+  cursor: not-allowed;
+}
+.ip-go-off:hover { background: rgba(242, 236, 228, .08); transform: none; }
+.ip-gate {
+  margin: 9px 0 0; text-align: center; font-size: 12.5px;
+  color: var(--vp-c-text-3);
+}
+
+/* ── what happens next ──────────────────────────────────────────────────── */
+.ip-expect {
+  margin: 18px 0 0; padding: 15px 17px; border-radius: 12px;
+  border: 1px solid rgba(242, 236, 228, .08);
+  background: rgba(242, 236, 228, .02);
+}
+.ip-expect-h {
+  margin: 0 0 9px; font-family: var(--vp-font-family-mono);
+  font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--vp-c-text-3);
+}
+.ip-expect ol {
+  margin: 0; padding-left: 20px; display: grid; gap: 7px;
+  font-size: 13px; line-height: 1.55; color: var(--vp-c-text-2);
+}
+.ip-expect strong { color: var(--vp-c-text-1); }
+
+/* Narrow screens: the panel cards stack rather than squeezing. */
+@media (max-width: 520px) {
+  .ip-board { flex: 1 1 100%; }
 }
 </style>
