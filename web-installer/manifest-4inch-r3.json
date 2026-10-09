@@ -1,0 +1,28 @@
+{
+  "name": "SonosESP — 4\" Screen, ESP32-P4 rev 3.x (GUITION JC4880P443C)",
+  "version": "2.3.1",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-P4",
+      "parts": [
+        {
+          "path": "bootloader-r3.bin",
+          "offset": 8192
+        },
+        {
+          "path": "partitions.bin",
+          "offset": 32768
+        },
+        {
+          "path": "boot_app0.bin",
+          "offset": 57344
+        },
+        {
+          "path": "firmware-4inch-r3.bin",
+          "offset": 65536
+        }
+      ]
+    }
+  ]
+}

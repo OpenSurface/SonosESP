@@ -135,7 +135,7 @@ jobs:
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       env:
         USE_CCACHE: "1"
-      run: pio run -e esp32_4inch -e esp32_7inch
+      run: pio run -e esp32_4inch -e esp32_4inch_r3 -e esp32_7inch
 
     - name: Assemble release assets (per-screen)
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
@@ -151,6 +151,19 @@ jobs:
           cp "$OUT/firmware.bin" "dist/firmware-${s}.bin"
           (cd "$OUT" && zip -r "$ROOT/dist/sonos-controller-firmware-${s}-v${VER}.zip" bootloader.bin partitions.bin firmware.bin)
         done
+
+        # ESP32-P4 rev 3.x (#203). Deliberately NOT in the loop above, because
+        # that loop leans on the shared bootloader.bin copied before it, and
+        # rev3's bootloader is a DIFFERENT binary (21568 vs 21392 bytes -
+        # espidf.py picks bootloader.rev3.ld.in for that chip_variant). Pairing
+        # the pre-rev3 bootloader with a rev3 app is an untested combination.
+        #
+        # partitions.bin IS byte-identical across all three envs, so the zip
+        # below reuses the env's own copy and the shared asset stays correct.
+        R3=".pio/build/esp32_4inch_r3"
+        cp "$R3/firmware.bin"   dist/firmware-4inch-r3.bin
+        cp "$R3/bootloader.bin" dist/bootloader-r3.bin
+        (cd "$R3" && zip -r "$ROOT/dist/sonos-controller-firmware-4inch-r3-v${VER}.zip" bootloader.bin partitions.bin firmware.bin)
         ls -l dist/
 
         # DROPPED in v1.15.1 — firmware-merged-*.bin, firmware-merged.bin, firmware.bin
@@ -185,10 +198,13 @@ jobs:
         name: v${{ steps.get_version.outputs.VERSION }}
         files: |
           dist/firmware-4inch.bin
+          dist/firmware-4inch-r3.bin
           dist/firmware-7inch.bin
           dist/bootloader.bin
+          dist/bootloader-r3.bin
           dist/partitions.bin
           dist/sonos-controller-firmware-4inch-v${{ steps.get_version.outputs.VERSION }}.zip
+          dist/sonos-controller-firmware-4inch-r3-v${{ steps.get_version.outputs.VERSION }}.zip
           dist/sonos-controller-firmware-7inch-v${{ steps.get_version.outputs.VERSION }}.zip
         draft: false
         prerelease: false
