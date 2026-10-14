@@ -1,13 +1,13 @@
 {
-  "panels": 199,
-  "boots": 193,
-  "updated": "2026-10-13T11:00:00Z",
+  "panels": 211,
+  "boots": 201,
+  "updated": "2026-10-14T09:00:00Z",
   "windowDays": 30,
   "countries": [
     {
       "code": "GB",
       "name": "United Kingdom",
-      "count": 98
+      "count": 102
     },
     {
       "code": "CA",
@@ -17,7 +17,7 @@
     {
       "code": "CH",
       "name": "Switzerland",
-      "count": 20
+      "count": 22
     },
     {
       "code": "FR",
@@ -27,7 +27,7 @@
     {
       "code": "US",
       "name": "United States",
-      "count": 14
+      "count": 17
     },
     {
       "code": "NL",
@@ -77,12 +77,12 @@
   ],
   "versions": [
     {
-      "version": "2.2.6",
-      "count": 52
+      "version": "2.3.1",
+      "count": 55
     },
     {
-      "version": "2.3.1",
-      "count": 47
+      "version": "2.2.6",
+      "count": 52
     },
     {
       "version": "2.2.1",
