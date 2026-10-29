@@ -1,43 +1,43 @@
 {
-  "panels": 353,
-  "boots": 300,
-  "updated": "2026-10-28T10:00:00Z",
+  "panels": 364,
+  "boots": 295,
+  "updated": "2026-10-29T10:00:00Z",
   "windowDays": 30,
   "countries": [
     {
       "code": "GB",
       "name": "United Kingdom",
-      "count": 152
+      "count": 150
     },
     {
       "code": "CH",
       "name": "Switzerland",
-      "count": 42
+      "count": 41
     },
     {
       "code": "CA",
       "name": "Canada",
-      "count": 26
-    },
-    {
-      "code": "US",
-      "name": "United States",
-      "count": 22
-    },
-    {
-      "code": "FR",
-      "name": "France",
-      "count": 20
+      "count": 24
     },
     {
       "code": "DE",
       "name": "Germany",
-      "count": 19
+      "count": 21
+    },
+    {
+      "code": "US",
+      "name": "United States",
+      "count": 21
+    },
+    {
+      "code": "FR",
+      "name": "France",
+      "count": 17
     },
     {
       "code": "NL",
       "name": "Netherlands",
-      "count": 16
+      "count": 15
     },
     {
       "code": "BR",
@@ -52,7 +52,7 @@
     {
       "code": "CN",
       "name": "China",
-      "count": 5
+      "count": 6
     },
     {
       "code": "AU",
@@ -65,6 +65,11 @@
       "count": 3
     },
     {
+      "code": "PL",
+      "name": "Poland",
+      "count": 2
+    },
+    {
       "code": "AT",
       "name": "Austria",
       "count": 1
@@ -72,11 +77,6 @@
     {
       "code": "IT",
       "name": "Italy",
-      "count": 1
-    },
-    {
-      "code": "PL",
-      "name": "Poland",
       "count": 1
     },
     {
@@ -93,19 +93,19 @@
   "versions": [
     {
       "version": "2.3.1",
-      "count": 180
+      "count": 186
     },
     {
       "version": "2.2.6",
       "count": 54
     },
     {
-      "version": "2.2.4",
-      "count": 27
+      "version": "2.2.1",
+      "count": 20
     },
     {
-      "version": "2.2.1",
-      "count": 21
+      "version": "2.2.4",
+      "count": 18
     },
     {
       "version": "2.3.0",
@@ -117,7 +117,7 @@
     },
     {
       "version": "2.2.0",
-      "count": 2
+      "count": 1
     }
   ]
 }
