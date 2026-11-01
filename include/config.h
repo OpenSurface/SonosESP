@@ -639,6 +639,24 @@
 #define SDIO_QUEUE_POLL_COOLDOWN_MS  3000   // After updateQueue() 20KB Browse response residue (was 2000, too short)
 #define SDIO_POST_QUEUE_DRAIN_MS     1000   // Polling task: drain Browse response before next cycle
 
+// Music services (src/music_services.cpp) — browsing Spotify & co. over SMAPI.
+// The HTTPS path is the lyrics one (same DMA floor, same cooldowns); the event
+// capture is a one-shot UPnP subscription held under network_mutex.
+#define SVC_TASK_STACK              12288   // PSRAM. TLS handshake + std::string parsing of a 50-item page
+#define SVC_TASK_PRIORITY               1   // Same as lyrics: never preempts the Sonos tasks
+#define SVC_MIN_FREE_DMA            LYRICS_MIN_FREE_DMA  // same mbedTLS AES floor as lyrics
+#define SVC_HTTP_TIMEOUT_MS         10000   // per read. network_mutex is held throughout, so keep it short
+#define SVC_CONNECT_TIMEOUT_MS       8000   // TCP connect
+#define SVC_HANDSHAKE_TIMEOUT_S        10   // TLS handshake. The library default is 120s - a stalled
+                                            // handshake held network_mutex for 100s+ on the bench
+#define SVC_MAX_BODY_BYTES     (256 * 1024) // a 50-item getMetadata page is ~20-60KB
+#define SVC_EVENT_PORT               3480   // our UPnP callback port, open only during the capture
+#define SVC_EVENT_WAIT_MS            6000   // how long to wait for the initial NOTIFY
+#define SVC_EVENT_MAX_BYTES    (512 * 1024) // ZoneGroupTopology NOTIFY carries the whole ZoneGroupState
+#define SVC_PAGE_SIZE                  25   // items per getMetadata page. Providers build pages slowly
+                                            // (Pocket Casts: 15s for 50) and network_mutex is held meanwhile
+#define SVC_ART_WAIT_TIMEOUT_MS      8000   // wait for an in-flight art download before our TLS burst
+
 // Lyrics-specific
 #define LYRICS_ART_WAIT_TIMEOUT_MS  15000   // Max wait for art_download_in_progress to clear (storm cooldown 3000ms + download ~2000ms + margin)
 #define LYRICS_RETRY_DELAY_MS        2000   // Between lyrics HTTPS fetch retry attempts

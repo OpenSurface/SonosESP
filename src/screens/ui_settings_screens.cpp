@@ -10,6 +10,7 @@
 #include "ui_fonts.h"
 #include "amber_icons.h"
 #include "amber.h"
+#include "ui_service_browse.h"  // streaming-service tiles and browsing
 
 // Forward declaration for sidebar (now in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -307,7 +308,7 @@ static String browse_stack_title[BROWSE_STACK_MAX];
 static int    browse_depth = 0;
 
 // Enter a top-level source. Clears the trail, so Back leaves for the Sources list.
-static void browseEnterRoot(const String& id, const String& title) {
+void browseEnterRoot(const String& id, const String& title) {
     browse_depth = 0;
     current_browse_id    = id;
     current_browse_title = title;
@@ -316,7 +317,7 @@ static void browseEnterRoot(const String& id, const String& title) {
 }
 
 // Descend into a child container, remembering the level being left.
-static void browseDescend(const String& id, const String& title) {
+void browseDescend(const String& id, const String& title) {
     if (browse_depth < BROWSE_STACK_MAX) {
         browse_stack_id[browse_depth]    = current_browse_id;
         browse_stack_title[browse_depth] = current_browse_title;
@@ -359,6 +360,40 @@ static void sourceRowDeleteCb(lv_event_t* e) {
 // Two tiles plus one 10px gap: (536 - 10) / 2 = 263.
 #define SOURCE_TILE_W 263
 
+// One Sources tile: card, icon, and the name as child index 1 (click handlers
+// read the title back from there). Callers attach their own data and handlers.
+// SOURCE_TILE_W is half the inner content width less the column gap, so two
+// tiles fill the row exactly on both panels.
+lv_obj_t* sourceTileCreate(lv_obj_t* list, const char* icon, const char* label) {
+    lv_obj_t* btn = lv_button_create(list);
+    lv_obj_set_size(btn, SX(SOURCE_TILE_W), SY(74));
+    lv_obj_set_style_radius(btn, 12, 0);
+    lv_obj_set_style_shadow_width(btn, 0, 0);
+    lv_obj_set_style_bg_color(btn, AMB_CARD, 0);
+    lv_obj_set_style_bg_color(btn, AMB_BORDER, LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(btn, 1, 0);
+    lv_obj_set_style_border_color(btn, AMB_BORDER, 0);
+    lv_obj_set_style_pad_all(btn, SMIN(15), 0);
+
+    lv_obj_t* ico = lv_label_create(btn);
+    lv_label_set_text(ico, icon);
+    lv_obj_set_style_text_color(ico, AMB_ACCENT, 0);
+    lv_obj_set_style_text_font(ico, &font_icon_24, 0);
+    lv_obj_align(ico, LV_ALIGN_LEFT_MID, SX(5), 0);
+
+    lv_obj_t* name = lv_label_create(btn);
+    lv_label_set_text(name, label);
+    lv_obj_set_style_text_color(name, AMB_TEXT, 0);
+    lv_obj_set_style_text_font(name, &font_text_16, 0);
+    // Sized to the tile rather than a full-width row. Two lines of
+    // font_text_16 fit the 74px tile, so a long source name wraps and
+    // ellipsises instead of running off the tile's edge.
+    lv_obj_set_width(name, SX(SOURCE_TILE_W - 66));
+    lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
+    lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(40), 0);
+    return btn;
+}
+
 static void refreshSourcesList(lv_event_t* e) {
     if (!sources_list) return;
     lv_obj_clean(sources_list);   // per-row delete cbs free their ObjectIDs
@@ -399,37 +434,10 @@ static void refreshSourcesList(lv_event_t* e) {
         if (!idCopy) { Serial.println("[SOURCES] malloc failed"); break; }
         strcpy(idCopy, browseID.c_str());
 
-        // SOURCE_TILE_W is half the inner content width less the column gap, so
-        // two tiles fill the row exactly on both panels.
-        lv_obj_t* btn = lv_button_create(sources_list);
-        lv_obj_set_size(btn, SX(SOURCE_TILE_W), SY(74));
-        lv_obj_set_style_radius(btn, 12, 0);
-        lv_obj_set_style_shadow_width(btn, 0, 0);
-        lv_obj_set_style_bg_color(btn, AMB_CARD, 0);
-        lv_obj_set_style_bg_color(btn, AMB_BORDER, LV_STATE_PRESSED);
-        lv_obj_set_style_border_width(btn, 1, 0);
-        lv_obj_set_style_border_color(btn, AMB_BORDER, 0);
-        lv_obj_set_style_pad_all(btn, SMIN(15), 0);
+        // Child index 1 is the name — the click handler reads the title back from it.
+        lv_obj_t* btn = sourceTileCreate(sources_list, icon, label);
         lv_obj_set_user_data(btn, idCopy);
         lv_obj_add_event_cb(btn, sourceRowDeleteCb, LV_EVENT_DELETE, NULL);
-
-        lv_obj_t* ico = lv_label_create(btn);
-        lv_label_set_text(ico, icon);
-        lv_obj_set_style_text_color(ico, AMB_ACCENT, 0);
-        lv_obj_set_style_text_font(ico, &font_icon_24, 0);
-        lv_obj_align(ico, LV_ALIGN_LEFT_MID, SX(5), 0);
-
-        // Child index 1 — the click handler reads the title back from here.
-        lv_obj_t* name = lv_label_create(btn);
-        lv_label_set_text(name, label);
-        lv_obj_set_style_text_color(name, AMB_TEXT, 0);
-        lv_obj_set_style_text_font(name, &font_text_16, 0);
-        // Sized to the tile rather than the old full-width row. Two lines of
-        // font_text_16 fit the 74px tile, so a long source name wraps and
-        // ellipsises instead of running off the tile's edge.
-        lv_obj_set_width(name, SX(SOURCE_TILE_W - 66));
-        lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
-        lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(40), 0);
 
         lv_obj_add_event_cb(btn, [](lv_event_t* ev) {
             lv_obj_t* b = (lv_obj_t*)lv_event_get_target(ev);
@@ -452,31 +460,9 @@ static void refreshSourcesList(lv_event_t* e) {
         // Same tile geometry as the browse sources above. It was left full-width
         // when that list became a two-column grid, so this one row spanned both
         // columns and pushed the grid out of alignment.
-        lv_obj_t* btn = lv_button_create(sources_list);
-        lv_obj_set_size(btn, SX(SOURCE_TILE_W), SY(74));
-        lv_obj_set_style_radius(btn, 12, 0);
-        lv_obj_set_style_shadow_width(btn, 0, 0);
-        lv_obj_set_style_bg_color(btn, AMB_CARD, 0);
-        lv_obj_set_style_bg_color(btn, AMB_BORDER, LV_STATE_PRESSED);
-        lv_obj_set_style_border_width(btn, 1, 0);
-        lv_obj_set_style_border_color(btn, AMB_BORDER, 0);
-        lv_obj_set_style_pad_all(btn, SMIN(15), 0);
-
-        lv_obj_t* ico = lv_label_create(btn);
         // MDI_WAVEFORM is the line-in hero glyph but exists only at 40/80, so at
         // mdi_24 it renders as a tofu box. MDI_BROADCAST is in this size.
-        lv_label_set_text(ico, MDI_BROADCAST);
-        lv_obj_set_style_text_color(ico, AMB_ACCENT, 0);
-        lv_obj_set_style_text_font(ico, &font_icon_24, 0);
-        lv_obj_align(ico, LV_ALIGN_LEFT_MID, SX(5), 0);
-
-        lv_obj_t* name = lv_label_create(btn);
-        lv_label_set_text(name, "Line-In");
-        lv_obj_set_style_text_color(name, AMB_TEXT, 0);
-        lv_obj_set_style_text_font(name, &font_text_16, 0);
-        lv_obj_set_width(name, SX(SOURCE_TILE_W - 66));
-        lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
-        lv_obj_align(name, LV_ALIGN_LEFT_MID, SX(40), 0);
+        lv_obj_t* btn = sourceTileCreate(sources_list, MDI_BROADCAST, "Line-In");
 
         lv_obj_add_event_cb(btn, [](lv_event_t* ev) {
             SonosDevice* d = sonos.getCurrentDevice();
@@ -488,6 +474,10 @@ static void refreshSourcesList(lv_event_t* e) {
         }, LV_EVENT_CLICKED, NULL);
         shown++;
     }
+
+    // Streaming services the household has linked (Spotify, Apple Music, ...).
+    // Discovered once in the background; a placeholder tile stands in until then.
+    shown += svcAppendSourceTiles(sources_list);
 
     if (shown == 0) {
         lv_obj_t* lbl = lv_label_create(sources_list);
@@ -612,6 +602,9 @@ void createBrowseScreen() {
     // active screen. Build first, delete last; the caller loads immediately after.
     lv_obj_t* old_browse = scr_browse;
 
+    // A service page still loading belongs to the screen being replaced.
+    svcBrowseCancel();
+
     scr_browse = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_browse, AMB_BG, 0);
 
@@ -678,7 +671,13 @@ void createBrowseScreen() {
 
     browse_list     = list;
     browse_more_btn = nullptr;
-    browse_offset   = browsePopulate(list, 0);
+    if (svcIsBrowseId(current_browse_id)) {
+        // Streaming service: fetched off the UI thread, rows arrive later.
+        browse_offset = 0;
+        svcBrowseBegin(list);
+    } else {
+        browse_offset = browsePopulate(list, 0);
+    }
 
     // Now the replacement is populated, retire the old screen. Per-row ItemData
     // is released by browseItemDeleteCb as LVGL tears down the subtree — no

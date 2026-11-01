@@ -263,6 +263,8 @@ public:
     bool playPlaylist(const char* playlistID, const char* title = "Playlist");  // Play a Sonos playlist by ID (e.g., "SQ:25")
     bool playContainer(const char* containerURI, const char* metadata = "");  // Play a container URI with DIDL metadata
     String listMusicServices();  // List available music services
+    String getHouseholdID();     // DeviceProperties.GetHouseholdID — "" on failure
+    String getSystemString(const char* variableName);  // SystemProperties.GetString
     String getCurrentTrackInfo();  // Get current track URI and metadata for analysis
 
     // Helper methods (public for UI)

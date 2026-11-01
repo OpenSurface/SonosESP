@@ -274,6 +274,11 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
     } else if (strcmp(service, "ZoneGroupTopology") == 0) {
         // NOT under /MediaRenderer — the topology service sits at the device root.
         endpoint = "/ZoneGroupTopology/Control";
+    } else if (strcmp(service, "DeviceProperties") == 0) {
+        // Device-root services too. The /MediaRenderer fallback below would 404.
+        endpoint = "/DeviceProperties/Control";
+    } else if (strcmp(service, "SystemProperties") == 0) {
+        endpoint = "/SystemProperties/Control";
     } else {
         // Fallback - build endpoint in buffer
         snprintf(custom_endpoint, sizeof(custom_endpoint), "/MediaRenderer/%s/Control", service);
@@ -1320,6 +1325,23 @@ bool SonosController::playContainer(const char* containerURI, const char* metada
     updateQueue();
     Serial.println("[CONTAINER] Container loaded and playing");
     return true;
+}
+
+// The household this speaker belongs to ("Sonos_..."). Music-service accounts
+// are stored per household, encrypted under a key derived from this id, and
+// SMAPI calls identify themselves with it. "" when the speaker did not answer.
+String SonosController::getHouseholdID() {
+    String resp = sendSOAP(getCurrentDevice(), "DeviceProperties", "GetHouseholdID", "");
+    return extractXML(resp, "CurrentHouseholdID");
+}
+
+// SystemProperties.GetString. The music-service code reads R_TrialZPSerial, the
+// deviceId the official controller sends with every SMAPI request.
+String SonosController::getSystemString(const char* variableName) {
+    char args[128];
+    snprintf(args, sizeof(args), "<VariableName>%s</VariableName>", variableName);
+    String resp = sendSOAP(getCurrentDevice(), "SystemProperties", "GetString", args);
+    return extractXML(resp, "StringValue");
 }
 
 String SonosController::listMusicServices() {

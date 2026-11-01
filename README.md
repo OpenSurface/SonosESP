@@ -78,11 +78,17 @@ you are, so a deep path like Music Library → Artists → an artist → an albu
 navigable. Long lists load in pages rather than truncating, so a 500-track queue is
 fully reachable.
 
-**Streaming services.** Content you have saved — favourites and playlists from
-Spotify, Apple Music, YouTube Music and others — plays directly, because the speaker
-resolves it with credentials it already holds. SonosESP never asks you to sign in to
-anything. Searching a service's full catalogue is not supported; add what you want in
-the Sonos app and it appears here.
+**Streaming services.** Every service linked in the Sonos app — Spotify, Apple Music,
+Amazon Music, TuneIn and the rest — gets its own tile under Sources. Browse its
+library and catalogue (playlists, albums, artists, radio) and play an album, a
+playlist or a single track. SonosESP never asks you to sign in to anything: it uses
+the accounts the speakers already hold, through the same service endpoints the Sonos
+app calls. See [PRIVACY.md](PRIVACY.md#streaming-service-accounts) for what that
+involves. Searching a catalogue is not supported yet.
+
+> This uses an undocumented part of the Sonos protocol, reverse-engineered by the
+> [SoCo](https://github.com/SoCo/SoCo/pull/1010) project. A Sonos update can break it;
+> your favourites and playlists keep working regardless.
 
 ## Player themes
 

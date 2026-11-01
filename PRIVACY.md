@@ -30,8 +30,10 @@ people fetched a file, not how many panels are switched on.
 - **No IP address is stored.** GoatCounter uses it to work out the country and
   does not keep it.
 - **Nothing about your music.** No room names, no speaker names, no track,
-  artist, album, playlist or queue. No Wi-Fi network name. No Sonos account
-  information — the firmware never has any.
+  artist, album, playlist or queue. No Wi-Fi network name. No Sonos or
+  streaming-service account information (see
+  [Streaming-service accounts](#streaming-service-accounts) for the one place
+  the panel holds any, and where it goes).
 - **No cookies, no advertising, no third-party trackers.**
 
 ### Turning it off
@@ -94,10 +96,33 @@ none of them involve us:
 | Bing | Daily wallpaper photos for the clock screensaver background | On entry and every few minutes, if photo backgrounds are on |
 | Album art hosts | Cover images, at whatever URL Sonos supplies | Per track |
 | GitHub | Checking for and downloading firmware updates | On an update check, and once a day in the background |
+| Your streaming services' Sonos endpoints | Browsing Spotify, Apple Music and the other services linked in the Sonos app — see below | When you open one under Sources |
 
 Your Wi-Fi credentials are stored on the device and are never transmitted
 anywhere. See [SECURITY.md](.github/SECURITY.md) for how they are stored and
 what that means if you pass the hardware on.
+
+## Streaming-service accounts
+
+To browse Spotify, Apple Music, Amazon Music and the other services linked in
+the Sonos app, the panel uses the accounts your speakers already hold. Nothing
+is entered on the panel and nothing is linked anew.
+
+- **Where they come from.** The first time you open Sources, the panel asks a
+  speaker for the household's service accounts. The speaker hands them out to
+  any device on your network, encrypted under a key derived from the household
+  id; the panel decrypts them the same way the official Sonos desktop app does.
+- **Where they are kept.** In memory only, until the panel restarts. They are
+  never written to flash, never logged, and never shown on screen.
+- **Where they are sent.** Each account's token goes only to that service's own
+  Sonos endpoint (for Spotify, `spotify-v5.ws.sonos.com`), over HTTPS, when you
+  browse it — exactly the request the Sonos app makes. Like the panel's other
+  HTTPS connections, the server certificate is not verified.
+- **What the services see.** The same requests as from a Sonos controller:
+  which folder you opened, the household id, and the speaker's serial number.
+
+This relies on an undocumented part of the Sonos protocol. A Sonos update can
+change it, in which case the services simply stop appearing under Sources.
 
 ## Questions
 
