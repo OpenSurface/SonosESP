@@ -381,7 +381,27 @@
 // because which of those two dominates decides the fix. If the rotate
 // dominates, PPA is the answer. If the transfer dominates, PPA changes nothing
 // and partial render mode is the answer.
+#ifndef DISPLAY_PERF_TRACE
 #define DISPLAY_PERF_TRACE      0
+#endif
+
+// ── Partial render (4" only) ────────────────────────────────────────────────
+// 1: LVGL redraws only what changed (DIRECT mode, one landscape buffer) and the
+//    PPA rotates each changed area straight into the panel's frame buffer.
+// 0: the previous path - full 800x480 redraw, full-frame rotate into a staging
+//    buffer, then a DMA2D copy of all 750KB to the panel, every frame.
+// The full-frame path moved 1.5MB of PSRAM per frame whatever changed (see the
+// trace note above); this moves only the changed pixels. The 7" panel is
+// native landscape and is unaffected.
+//
+// Measured on the bench (DISPLAY_PERF_TRACE=1), scrolling a service list:
+//   full frame : 50ms/frame (render 35 + rotate/push 15), 384,000 px, 14fps
+//   partial    : 20ms/frame (render 13 + rotate/push 7.5), ~165,000 px, 30fps
+// and on the idle player (progress bar, lyric line) 60ms -> 2.5ms per frame.
+// The 30fps also needs LVGL on real time - see lv_tick_set_cb in main.cpp.
+#ifndef DISPLAY_PARTIAL_RENDER
+#define DISPLAY_PARTIAL_RENDER  1
+#endif
 
 
 // =============================================================================

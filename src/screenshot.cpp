@@ -60,10 +60,11 @@ void screenshotCaptureHook(const uint8_t* px_map, const lv_area_t* area) {
     // The entire cost of this feature on the hot path.
     if (!s_request || s_ready) return;
 
-    // With LV_DISPLAY_RENDER_MODE_FULL this is always the whole screen, but a
-    // partial area would mean copying DISPLAY_WIDTH*DISPLAY_HEIGHT out of a
-    // smaller buffer — a read overrun. Leave the request pending and try again
-    // on the next flush rather than capture a torn or short frame.
+    // The caller passes the whole screen: FULL mode always flushes it, and the
+    // 4" partial path (DIRECT mode) passes its full buffer on the last flush of
+    // a refresh. Anything smaller would mean copying DISPLAY_WIDTH*DISPLAY_HEIGHT
+    // out of a smaller buffer — a read overrun. Leave the request pending and
+    // try again on the next flush rather than capture a torn or short frame.
     const uint32_t w = (uint32_t)(area->x2 - area->x1 + 1);
     const uint32_t h = (uint32_t)(area->y2 - area->y1 + 1);
     if (w != DISPLAY_WIDTH || h != DISPLAY_HEIGHT) return;

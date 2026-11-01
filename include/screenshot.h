@@ -10,9 +10,10 @@
 // Type "screenshot" into the serial monitor and the next completed frame is
 // base64'd out of the port. tools/screenshot.py drives it and writes a PNG.
 //
-// The frame already exists: LVGL renders with LV_DISPLAY_RENDER_MODE_FULL, so
-// display_flush() is handed one contiguous RGB565 buffer of the whole screen.
-// Nothing is re-rendered; we copy bytes that are already there.
+// The frame already exists: LVGL keeps one contiguous RGB565 buffer of the
+// whole screen (RENDER_MODE_DIRECT on the 4" with partial render, FULL
+// otherwise), and display_flush() hands it over complete on the last flush of
+// a refresh. Nothing is re-rendered; we copy bytes that are already there.
 //
 // Cost when idle is one bool test per flush. The frame is copied ONLY after a
 // request arrives, and the copy buffer is freed again once the dump completes,
