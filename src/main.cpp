@@ -428,6 +428,10 @@ void setup() {
     }
     if (WiFi.status() == WL_CONNECTED) {
         Serial.printf("\n[WIFI] Connected - IP: %s\n", WiFi.localIP().toString().c_str());
+        // Which access point: with a mesh, several share the SSID and the panel
+        // stays on whichever it joined at boot.
+        Serial.printf("[WIFI] AP %s ch=%d rssi=%d\n", WiFi.BSSIDstr().c_str(), (int)WiFi.channel(),
+                      (int)WiFi.RSSI());
         // Start NTP sync (SNTP daemon — no HTTPS, tiny UDP packets)
         configTime(0, 0, "pool.ntp.org", "time.nist.gov");
         // Apply user-selected timezone via POSIX TZ string

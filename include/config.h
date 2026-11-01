@@ -653,6 +653,9 @@
 #define SVC_EVENT_PORT               3480   // our UPnP callback port, open only during the capture
 #define SVC_EVENT_WAIT_MS            6000   // how long to wait for the initial NOTIFY
 #define SVC_EVENT_MAX_BYTES    (512 * 1024) // ZoneGroupTopology NOTIFY carries the whole ZoneGroupState
+#define SVC_KEEPALIVE_MS            20000   // close the kept TLS session after this long unused
+#define SVC_KEEPALIVE_TICK_MS         500   // how often the worker checks it while open
+#define SVC_KEEPALIVE_MIN_DMA       64000   // ...or as soon as free DMA falls under this (= CLOCK_BG_MIN_DMA)
 #define SVC_PAGE_SIZE                  25   // items per getMetadata page. Providers build pages slowly
                                             // (Pocket Casts: 15s for 50) and network_mutex is held meanwhile
 #define SVC_ART_WAIT_TIMEOUT_MS      8000   // wait for an in-flight art download before our TLS burst

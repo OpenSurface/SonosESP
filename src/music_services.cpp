@@ -329,13 +329,81 @@ static bool decryptAccounts(const String& encoded, const std::string& household,
 
 typedef std::vector<std::pair<std::string, std::string>> Headers;
 
+// ── TLS keep-alive ───────────────────────────────────────────────────────────
+// One TLS session kept open between requests to the same host. Measured on the
+// bench, a tap spent ~3.4s in the HTTPS cooldown and ~0.25s in the handshake,
+// against ~0.3s of server time. That cooldown exists for the residue of a TLS
+// TEARDOWN (SDIO_HTTPS_COOLDOWN_MS); a reused session has had no teardown, so
+// it is skipped. The price is ~32KB of DMA-capable RAM held while the session
+// is open, so it is closed once idle, when free DMA runs low, or as soon as an
+// art download, clock photo or OTA wants the radio.
+//
+// The HTTPClient is kept too: its destructor stop()s the client it was given.
+// Worker task only - no lock beyond network_mutex.
+static WiFiClientSecure* g_tls  = nullptr;
+static HTTPClient*       g_http = nullptr;
+static std::string       g_tlsHost;
+static uint16_t          g_tlsPort    = 0;
+static uint32_t          g_tlsLastUse = 0;
+
+// Caller holds network_mutex. Same teardown envelope as a one-shot request.
+static void tlsDropLocked(const char* why) {
+    if (!g_tls) return;
+    delete g_http;          // stop()s the client
+    g_http = nullptr;
+    g_tls->stop();          // frees the mbedTLS record buffers (~32KB DMA)
+    delete g_tls;
+    g_tls = nullptr;
+    vTaskDelay(pdMS_TO_TICKS(SDIO_HTTPS_TCP_CLOSE_MS));
+    last_network_end_ms = millis();
+    last_https_end_ms   = millis();
+    Serial.printf("[SVC] TLS session closed (%s) | dma=%u\n", why,
+                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_DMA));
+}
+
+static bool tlsOpen() { return g_tls != nullptr; }
+
+// Called by the worker between jobs, every SVC_KEEPALIVE_TICK_MS while open.
+static void tlsIdleTick() {
+    if (!g_tls) return;
+    const bool idle    = millis() - g_tlsLastUse > SVC_KEEPALIVE_MS;
+    const bool lowDma  = heap_caps_get_free_size(MALLOC_CAP_DMA) < SVC_KEEPALIVE_MIN_DMA;
+    const bool wanted  = art_download_in_progress || clock_photo_in_progress || ota_in_progress;
+    if (!idle && !lowDma && !wanted) return;
+    if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(1000))) return;   // next tick
+    tlsDropLocked(idle ? "idle" : lowDma ? "low DMA" : "radio wanted");
+    xSemaphoreGive(network_mutex);
+}
+
 // One HTTPS exchange under the full SDIO envelope. `body` null means GET.
 // `label` is only for the log.
 static bool httpsRequest(const std::string& url, const char* label, const std::string* body,
                          const Headers& headers, int* code, std::string* resp, String* err) {
     if (ota_in_progress) { *err = "Busy updating"; return false; }
 
+    std::string host;
+    uint16_t port = 443;
+    {
+        size_t hs = url.find("://");
+        hs = hs == std::string::npos ? 0 : hs + 3;
+        size_t he = url.find_first_of(":/", hs);
+        host = url.substr(hs, he == std::string::npos ? std::string::npos : he - hs);
+        if (he != std::string::npos && url[he] == ':') port = (uint16_t)atoi(url.c_str() + he + 1);
+    }
+
+    const uint32_t t_enter = millis();
     for (int attempt = 0; attempt < 3; attempt++) {
+        bool reuse = g_tls && g_tlsHost == host && g_tlsPort == port &&
+                     millis() - g_tlsLastUse < SVC_KEEPALIVE_MS;
+        if (g_tls && !reuse) {
+            // Another host, or stale: close it first, so the cooldown below
+            // covers its teardown like any other.
+            if (xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
+                tlsDropLocked("replaced");
+                xSemaphoreGive(network_mutex);
+            }
+        }
+
         // An art download in flight plus our TLS handshake burst is the
         // pkt_rxbuff overflow this firmware is built around avoiding. Wait it out.
         uint32_t waitStart = millis();
@@ -343,71 +411,127 @@ static bool httpsRequest(const std::string& url, const char* label, const std::s
                millis() - waitStart < SVC_ART_WAIT_TIMEOUT_MS) {
             vTaskDelay(pdMS_TO_TICKS(100));
         }
-        sdioPreWait("SVC", SDIO_WAIT_HTTPS_COOLDOWN);
+        sdioPreWait("SVC", reuse ? 0 : SDIO_WAIT_HTTPS_COOLDOWN);
 
         if (!xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_MS))) {
             *err = "Network busy";
             return false;
         }
         if (art_download_in_progress || clock_photo_in_progress) {
+            // Started while we waited for the mutex: give the radio up, and the
+            // session with it - art checks DMA before its burst.
+            tlsDropLocked("radio wanted");
             xSemaphoreGive(network_mutex);
-            continue;   // started while we waited for the mutex: go round again
+            continue;
+        }
+        if (reuse && !g_tls->connected()) {
+            tlsDropLocked("closed by server");
+            reuse = false;
         }
         {
             unsigned long now = millis();
             unsigned long eNet = now - last_network_end_ms, eHttps = now - last_https_end_ms;
             if (last_network_end_ms > 0 && eNet < SDIO_GENERAL_COOLDOWN_MS)
                 vTaskDelay(pdMS_TO_TICKS(SDIO_GENERAL_COOLDOWN_MS - eNet));
-            if (last_https_end_ms > 0 && eHttps < SDIO_HTTPS_TCP_CLOSE_MS)
+            if (!reuse && last_https_end_ms > 0 && eHttps < SDIO_HTTPS_TCP_CLOSE_MS)
                 vTaskDelay(pdMS_TO_TICKS(SDIO_HTTPS_TCP_CLOSE_MS - eHttps));
         }
-        size_t dma = heap_caps_get_free_size(MALLOC_CAP_DMA);
-        if (dma < SVC_MIN_FREE_DMA) {
-            xSemaphoreGive(network_mutex);
-            Serial.printf("[SVC] DMA too low for TLS (%u < %u)\n", (unsigned)dma, (unsigned)SVC_MIN_FREE_DMA);
-            *err = "Low memory, try again";
-            return false;
+        if (!reuse) {
+            size_t dma = heap_caps_get_free_size(MALLOC_CAP_DMA);
+            if (dma < SVC_MIN_FREE_DMA) {
+                xSemaphoreGive(network_mutex);
+                Serial.printf("[SVC] DMA too low for TLS (%u < %u)\n", (unsigned)dma,
+                              (unsigned)SVC_MIN_FREE_DMA);
+                *err = "Low memory, try again";
+                return false;
+            }
         }
 
         uint32_t t0 = millis();
-        {
-            WiFiClientSecure client;
+        // Phase timings, to tell the provider's think time from our own receive
+        // path: wait (cooldowns + mutex), tls (TCP + handshake, 0 when reused),
+        // ttfb (request sent until the headers are in), body (reading it).
+        uint32_t t_tls = 0, t_ttfb = 0, t_body = 0;
+        int hdr_len = 0;
+
+        if (!reuse) {
+            g_tls = new WiFiClientSecure();
             // Same posture as lyrics, art, weather and OTA. The token sent here
             // is one any device on the LAN can already read from the speaker.
-            client.setInsecure();
-            client.setHandshakeTimeout(SVC_HANDSHAKE_TIMEOUT_S);
-            HTTPClient http;
-            http.begin(client, url.c_str());
-            http.setConnectTimeout(SVC_CONNECT_TIMEOUT_MS);
-            http.setTimeout(SVC_HTTP_TIMEOUT_MS);
-            http.setReuse(false);
-            http.setUserAgent(kUserAgent);
-            for (const auto& h : headers) http.addHeader(h.first.c_str(), h.second.c_str());
-
-            *code = body ? http.POST((uint8_t*)body->data(), body->size()) : http.GET();
-            if (*code > 0) {
-                int len = http.getSize();
-                if (len > SVC_MAX_BODY_BYTES) {
-                    Serial.printf("[SVC] %s response too large (%d)\n", label, len);
-                    *code = -100;
-                } else {
-                    String s = http.getString();
-                    resp->assign(s.c_str(), s.length());
-                }
+            g_tls->setInsecure();
+            g_tls->setHandshakeTimeout(SVC_HANDSHAKE_TIMEOUT_S);
+            uint32_t t_c = millis();
+            bool up = g_tls->connect(host.c_str(), port, SVC_CONNECT_TIMEOUT_MS);
+            t_tls = millis() - t_c;
+            if (!up) {
+                delete g_tls;
+                g_tls = nullptr;
+                vTaskDelay(pdMS_TO_TICKS(SDIO_HTTPS_TCP_CLOSE_MS));
+                last_network_end_ms = millis();
+                last_https_end_ms   = millis();
+                xSemaphoreGive(network_mutex);
+                Serial.printf("[SVC/T] %s connect failed after %lums\n", label, (unsigned long)t_tls);
+                *err = "Could not reach the service";
+                return false;
             }
-            if (WiFiClient* st = http.getStreamPtr()) {
-                for (int i = 0; i < 200 && st->connected(); i++) vTaskDelay(pdMS_TO_TICKS(1));
-            }
-            http.end();
-            client.stop();   // free the mbedTLS record buffers now (~32KB DMA)
+            g_http = new HTTPClient();
+            g_tlsHost = host;
+            g_tlsPort = port;
         }
-        vTaskDelay(pdMS_TO_TICKS(SDIO_HTTPS_TCP_CLOSE_MS));
-        last_network_end_ms = millis();
-        last_https_end_ms   = millis();
+
+        HTTPClient& http = *g_http;
+        // begin() on the same host keeps the connected client; end() below
+        // clears the request headers and leaves the socket open if the server
+        // allows it (HTTP/1.1, no "Connection: close").
+        http.begin(*g_tls, url.c_str());
+        http.setConnectTimeout(SVC_CONNECT_TIMEOUT_MS);
+        http.setTimeout(SVC_HTTP_TIMEOUT_MS);
+        http.setReuse(true);
+        http.setUserAgent(kUserAgent);
+        for (const auto& h : headers) http.addHeader(h.first.c_str(), h.second.c_str());
+
+        uint32_t t_r = millis();
+        *code = body ? http.POST((uint8_t*)body->data(), body->size()) : http.GET();
+        t_ttfb = millis() - t_r;
+        if (*code > 0) {
+            int len = http.getSize();
+            hdr_len = len;
+            uint32_t t_b = millis();
+            if (len > SVC_MAX_BODY_BYTES) {
+                Serial.printf("[SVC] %s response too large (%d)\n", label, len);
+                *code = -100;
+            } else {
+                String s = http.getString();
+                resp->assign(s.c_str(), s.length());
+            }
+            t_body = millis() - t_b;
+        }
+        http.end();
+        size_t dma_open = heap_caps_get_free_size(MALLOC_CAP_DMA);
+        const bool kept = *code > 0 && *code != -100 && g_tls->connected();
+        if (kept) {
+            g_tlsLastUse = millis();
+            last_network_end_ms = millis();
+        } else {
+            tlsDropLocked(*code > 0 ? "not reusable" : "request failed");
+        }
         xSemaphoreGive(network_mutex);
 
         Serial.printf("[SVC] %s -> HTTP %d, %u bytes in %lums\n", label, *code,
                       (unsigned)resp->size(), (unsigned long)(millis() - t0));
+        // One greppable line per request. len=-1 means chunked / no
+        // Content-Length; rate is the body's effective throughput.
+        Serial.printf("[SVC/T] %s %s wait=%lu tls=%lu ttfb=%lu body=%lu bytes=%u len=%d rate=%luKB/s "
+                      "dma=%u rssi=%d ap=%s\n",
+                      label, reuse ? "REUSED" : "new", (unsigned long)(t0 - t_enter), (unsigned long)t_tls,
+                      (unsigned long)t_ttfb, (unsigned long)t_body, (unsigned)resp->size(), hdr_len,
+                      t_body ? (unsigned long)(resp->size() / t_body) : 0UL, (unsigned)dma_open,
+                      (int)WiFi.RSSI(), WiFi.BSSIDstr().c_str());
+        if (*code <= 0 && *code != -100 && reuse && attempt < 2) {
+            // A reused session the server had quietly dropped: once more, fresh.
+            resp->clear();
+            continue;
+        }
         if (*code == -100) { *err = "Response too large"; return false; }
         if (*code <= 0)    { *err = "Could not reach the service"; return false; }
         return true;
@@ -538,14 +662,42 @@ static bool smapiCall(int sid, int serial, const char* action, const smapi::Fiel
 // to SMAPI with the provider's own object id. Mirrors content.py / _content_root
 // in the reference.
 
+// Fixed-size and in PSRAM, like a browse page. A home page is ~200 items; held
+// as std::strings they all landed in internal RAM (every allocation under 4KB
+// does), which took ~50KB off the DMA-capable pool the Wi-Fi link runs on -
+// measured: free DMA 110KB -> 61KB after the Spotify home page.
 struct ContentView {
-    std::string id, title;
-    std::vector<smapi::Item> items;
+    char     id[128];
+    char     title[128];
+    int      count;
+    SvcItem* items;   // PSRAM
 };
+struct ContentViews {
+    ContentView* v = nullptr;   // PSRAM
+    int          n = 0;
+};
+static void freeViews(ContentViews* vs) {
+    if (vs->v) {
+        for (int i = 0; i < vs->n; i++) if (vs->v[i].items) heap_caps_free(vs->v[i].items);
+        heap_caps_free(vs->v);
+    }
+    vs->v = nullptr;
+    vs->n = 0;
+}
+
+// ArduinoJson in PSRAM too: its pools are small blocks, i.e. internal RAM by default.
+struct SpiRamJsonAllocator : ArduinoJson::Allocator {
+    void* allocate(size_t n) override { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); }
+    void deallocate(void* p) override { heap_caps_free(p); }
+    void* reallocate(void* p, size_t n) override {
+        return heap_caps_realloc(p, n, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    }
+};
+static SpiRamJsonAllocator g_jsonAlloc;
 
 // Only the worker touches these, so no lock: the views of the last content page
 // fetched, for browsing into a section without fetching the page again.
-static std::vector<ContentView> g_views;
+static ContentViews g_views;
 static int g_viewsSid = -1, g_viewsSerial = -1;
 static int g_rootPre = 0;   // sections prepended to that service's SMAPI root
 static const char* const kViewPrefix = "@view:";   // our ids for home-page sections
@@ -631,9 +783,27 @@ static bool contentItem(JsonObject item, smapi::Item* out) {
     return true;
 }
 
+// One parsed item into the fixed-size row the UI keeps. False when the id does
+// not fit: a truncated id would name a different object.
+static bool toSvcItem(const smapi::Item& it, SvcItem* d) {
+    if (it.id.size() >= sizeof(d->id)) {
+        Serial.printf("[SVC] Skipped item with a %u-byte id\n", (unsigned)it.id.size());
+        return false;
+    }
+    copyStr(d->id, sizeof(d->id), it.id);
+    copyStr(d->title, sizeof(d->title), it.title);
+    copyStr(d->subtitle, sizeof(d->subtitle), it.subtitle);
+    copyStr(d->itemType, sizeof(d->itemType), it.itemType);
+    copyStr(d->mimeType, sizeof(d->mimeType), it.mimeType);
+    d->collection = it.collection;
+    d->canPlay = it.canPlay;
+    d->canEnumerate = it.canEnumerate;
+    return true;
+}
+
 // Fetches and parses the content home page into views. False with an empty
 // *err when the service simply has no such page.
-static bool contentRoot(int sid, int serial, std::vector<ContentView>* views, String* err,
+static bool contentRoot(int sid, int serial, ContentViews* out, String* err,
                         SemaphoreHandle_t lock) {
     std::string uri = contentEndpoint(sid, serial, lock);
     if (uri.empty()) { *err = ""; return false; }
@@ -668,7 +838,7 @@ static bool contentRoot(int sid, int serial, std::vector<ContentView>* views, St
 
     // Keep only what is shown: a home page can be large, and most of it is
     // artwork and layout hints.
-    JsonDocument filter;
+    JsonDocument filter(&g_jsonAlloc);
     JsonObject fv = filter["views"][0].to<JsonObject>();
     fv["id"]["objectId"] = true;
     fv["content"]["container"]["name"] = true;
@@ -683,31 +853,46 @@ static bool contentRoot(int sid, int serial, std::vector<ContentView>* views, St
         k["mimeType"] = true;
         k["artist"]["name"] = true;
     }
-    JsonDocument doc;
+    JsonDocument doc(&g_jsonAlloc);
     DeserializationError jerr = deserializeJson(doc, resp, DeserializationOption::Filter(filter));
     if (jerr) {
         Serial.printf("[SVC] Home page JSON: %s\n", jerr.c_str());
         *err = "Unexpected home page";
         return false;
     }
-    for (JsonObject v : doc["views"].as<JsonArray>()) {
-        ContentView cv;
-        cv.id = v["id"]["objectId"] | "";
-        cv.title = v["content"]["container"]["name"] | "";
-        if (cv.id.empty() || cv.title.empty()) continue;
-        for (JsonObject it : v["items"].as<JsonArray>()) {
-            smapi::Item item;
-            if (contentItem(it, &item)) cv.items.push_back(item);
-        }
-        Serial.printf("[SVC] Home view %s \"%s\": %u item(s)\n", cv.id.c_str(), cv.title.c_str(),
-                      (unsigned)cv.items.size());
-        if (!cv.items.empty()) views->push_back(cv);
+    JsonArray views = doc["views"].as<JsonArray>();
+    ContentViews vs;
+    if (views.size()) {
+        vs.v = (ContentView*)heap_caps_calloc(views.size(), sizeof(ContentView),
+                                              MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (!vs.v) { *err = "Out of memory"; return false; }
     }
-    if (views->empty()) {
+    for (JsonObject v : views) {
+        const char* id = v["id"]["objectId"] | "";
+        const char* title = v["content"]["container"]["name"] | "";
+        JsonArray items = v["items"].as<JsonArray>();
+        if (!id[0] || !title[0] || strlen(id) >= sizeof(vs.v[0].id) || !items.size()) continue;
+        ContentView& cv = vs.v[vs.n];
+        strncpy(cv.id, id, sizeof(cv.id) - 1);
+        strncpy(cv.title, title, sizeof(cv.title) - 1);
+        cv.items = (SvcItem*)heap_caps_calloc(items.size(), sizeof(SvcItem), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (!cv.items) break;
+        for (JsonObject it : items) {
+            smapi::Item item;
+            if (contentItem(it, &item) && toSvcItem(item, &cv.items[cv.count])) cv.count++;
+        }
+        Serial.printf("[SVC] Home view %s \"%s\": %d item(s)\n", cv.id, cv.title, cv.count);
+        if (cv.count) vs.n++;
+        else { heap_caps_free(cv.items); memset(&cv, 0, sizeof(cv)); }
+    }
+    if (!vs.n) {
         Serial.printf("[SVC] Home page had no usable views (%u bytes): %.300s\n", (unsigned)resp.size(),
                       resp.c_str());
+        freeViews(&vs);
+        return false;
     }
-    return !views->empty();
+    *out = vs;
+    return true;
 }
 
 // ============================================================================
@@ -730,7 +915,9 @@ void MusicServices::taskEntry(void* arg) { static_cast<MusicServices*>(arg)->tas
 
 void MusicServices::taskLoop() {
     for (;;) {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        // While a TLS session is open, wake regularly to close it once idle.
+        ulTaskNotifyTake(pdTRUE, tlsOpen() ? pdMS_TO_TICKS(SVC_KEEPALIVE_TICK_MS) : portMAX_DELAY);
+        tlsIdleTick();
         for (;;) {
             bool load = false, browse = false;
             uint32_t reqId = 0;
@@ -871,39 +1058,57 @@ SvcPage* MusicServices::doBrowse(uint32_t reqId, int sid, int serial, const Stri
 
     if (objectId.startsWith(kViewPrefix)) {
         // A home-page section: its items came embedded in the page.
-        std::string viewId = objectId.c_str() + strlen(kViewPrefix);
+        const char* viewId = objectId.c_str() + strlen(kViewPrefix);
         if (g_viewsSid != sid || g_viewsSerial != serial) {
-            std::vector<ContentView> views;
-            if (!contentRoot(sid, serial, &views, &err, lock_)) {
+            ContentViews vs;
+            if (!contentRoot(sid, serial, &vs, &err, lock_)) {
                 snprintf(page->error, sizeof(page->error), "%s", err.length() ? err.c_str() : "Section is gone");
                 return page;
             }
-            g_views.swap(views);
+            freeViews(&g_views);
+            g_views = vs;
             g_viewsSid = sid;
             g_viewsSerial = serial;
         }
         const ContentView* view = nullptr;
-        for (const auto& v : g_views) if (v.id == viewId) { view = &v; break; }
+        for (int i = 0; i < g_views.n; i++) if (strcmp(g_views.v[i].id, viewId) == 0) { view = &g_views.v[i]; break; }
         if (!view) {
             snprintf(page->error, sizeof(page->error), "Section is gone");
             return page;
         }
-        p.index = index;
-        p.total = (int)view->items.size();
-        for (int i = index; i < (int)view->items.size() && i < index + count; i++)
-            p.items.push_back(view->items[i]);
+        // Already in row form: copy the slice straight into the page.
+        int from = index < view->count ? index : view->count;
+        int n = view->count - from < count ? view->count - from : count;
+        page->ok = true;
+        page->index = index;
+        page->total = view->count;
+        if (n > 0) {
+            page->items = (SvcItem*)heap_caps_calloc(n, sizeof(SvcItem), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+            if (!page->items) {
+                page->ok = false;
+                snprintf(page->error, sizeof(page->error), "Out of memory");
+                return page;
+            }
+            memcpy(page->items, view->items + from, n * sizeof(SvcItem));
+        }
+        page->count = n > 0 ? n : 0;
+        Serial.printf("[SVC] Browse %s: %d item(s) from %d of %d\n", objectId.c_str(), page->count, index,
+                      view->count);
+        return page;
     } else {
         // The root of a service with a home page gets its sections on top, then
         // the SMAPI root as before — so nothing the old root offered is lost.
         std::vector<smapi::Item> pre;
         if (isRoot && index == 0) {
-            std::vector<ContentView> views;
+            ContentViews vs;
             String cerr;
-            if (contentRoot(sid, serial, &views, &cerr, lock_)) {
-                g_views.swap(views);
+            if (contentRoot(sid, serial, &vs, &cerr, lock_)) {
+                freeViews(&g_views);
+                g_views = vs;
                 g_viewsSid = sid;
                 g_viewsSerial = serial;
-                for (const auto& v : g_views) {
+                for (int i = 0; i < g_views.n; i++) {
+                    const ContentView& v = g_views.v[i];
                     smapi::Item it;
                     it.id = std::string(kViewPrefix) + v.id;
                     it.title = v.title;
@@ -964,19 +1169,8 @@ SvcPage* MusicServices::doBrowse(uint32_t reqId, int sid, int serial, const Stri
     }
     int n = 0;
     for (const auto& it : p.items) {
-        if (it.id.size() >= sizeof(page->items[0].id)) {
-            Serial.printf("[SVC] Skipped item with a %u-byte id\n", (unsigned)it.id.size());
-            continue;
-        }
-        SvcItem& d = page->items[n++];
-        copyStr(d.id, sizeof(d.id), it.id);
-        copyStr(d.title, sizeof(d.title), it.title);
-        copyStr(d.subtitle, sizeof(d.subtitle), it.subtitle);
-        copyStr(d.itemType, sizeof(d.itemType), it.itemType);
-        copyStr(d.mimeType, sizeof(d.mimeType), it.mimeType);
-        d.collection = it.collection;
-        d.canPlay = it.canPlay;
-        d.canEnumerate = it.canEnumerate;
+        if (!toSvcItem(it, &page->items[n])) continue;
+        n++;
         // One line per row, as the local browse does — the provider's own ids
         // and types are what any per-service fix has to be written against.
         Serial.printf("[SVC]   #%d %s%s%s type=%s id=%s  \"%s\"\n", p.index + n - 1,

@@ -127,7 +127,11 @@ int svcAppendSourceTiles(lv_obj_t* list) {
     s_src_list = list;
     if (s_src_timer) { lv_timer_delete(s_src_timer); s_src_timer = nullptr; }
 
-    if (musicServices.state() == SVC_IDLE) musicServices.requestLoad(false);
+    // A failed discovery is retried on every visit rather than left behind a
+    // retry tile: the usual cause is a speaker that stopped answering for a few
+    // seconds (seen on a weak link), which has long passed by the next visit.
+    if (musicServices.state() == SVC_IDLE)   musicServices.requestLoad(false);
+    if (musicServices.state() == SVC_FAILED) musicServices.requestLoad(true);
     switch (musicServices.state()) {
         case SVC_READY:  return svcAppendReadyTiles(list);
         case SVC_FAILED: return svcAppendFailedTile(list);
