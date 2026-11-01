@@ -854,8 +854,19 @@ void logHeapStatus() {
 // Main application task — runs all LVGL and UI logic with a 16KB internal SRAM stack.
 // The Arduino loopTask (fixed 8KB) becomes idle below; it was regularly hitting
 // only ~976 bytes free, causing Store access fault crashes via LVGL buffer corruption.
+static uint32_t lvglRealTick(void) { return millis(); }
+
 static void mainAppTask(void* param) {
     esp_task_wdt_add(NULL);  // Register this task with watchdog (not loopTask)
+
+    // From here on LVGL runs on real time. Until now its clock only moved where
+    // code called lv_tick_inc() by hand - which setup() and the boot screen
+    // still rely on (see ui_boot_screen.cpp) - and this loop added a flat 3ms
+    // per pass. A pass that renders a frame takes ~20ms, so LVGL saw a sixth of
+    // the time that had passed: the 16ms refresh timer needed several more
+    // passes to come due, capping scrolling at ~24fps, and every animation and
+    // scroll throw ran slow exactly when the screen was busiest.
+    lv_tick_set_cb(lvglRealTick);
 
     for (;;) {
         esp_task_wdt_reset();
@@ -878,7 +889,6 @@ static void mainAppTask(void* param) {
         // "A newer version is available" toast. No-op until its interval is due,
         // and the check itself is gated on WiFi, DMA and the radio being idle.
         otaBackgroundCheckTick();
-        lv_tick_inc(3);
 
         // Skip LVGL timer during OTA to prevent PSRAM access during flash writes
         bool skip_updates = false;
