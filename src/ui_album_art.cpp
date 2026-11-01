@@ -1634,6 +1634,12 @@ void albumArtTask(void* param) {
                         // failure path below could not safely increment anything.
                         bool abortedByRequest = false;
                         uint32_t t_dl_start = millis();
+                        // Last time a byte arrived. A server that stops sending but
+                        // keeps the connection open satisfies connected() forever,
+                        // and this loop holds network_mutex the whole time - every
+                        // SOAP, browse and fetch on the panel then fails until reboot.
+                        // Seen on the bench with a speaker's /getaa for Spotify art.
+                        uint32_t t_last_data = millis();
 
                         // Read loop: keep going while connected OR data still buffered.
                         // IMPORTANT: check bytesRead < alloc_len FIRST (short-circuit).
@@ -1667,6 +1673,12 @@ void albumArtTask(void* param) {
 
                             size_t available = stream->available();
                             if (available == 0) {
+                                if (millis() - t_last_data > ART_READ_STALL_MS) {
+                                    Serial.printf("[ART] No data for %ums at %u bytes - aborting\n",
+                                                  (unsigned)ART_READ_STALL_MS, (unsigned)bytesRead);
+                                    readSuccess = false;
+                                    break;
+                                }
                                 vTaskDelay(pdMS_TO_TICKS(1));
                                 // Only break if connection closed AND no buffered data
                                 if (!stream->connected() && stream->available() == 0) break;
@@ -1688,6 +1700,7 @@ void albumArtTask(void* param) {
                             }
 
                             bytesRead += actualRead;
+                            t_last_data = millis();
                             // Log every ~80KB (20 chunks × 4KB)
                             if (chunkSize > 0 && (bytesRead / chunkSize) % 20 == 1 && bytesRead < (size_t)(len > 0 ? len : (int)alloc_len)) {
                                 Serial.printf("[ART] DL progress: %u/%d bytes avail=%u conn=%d\n",

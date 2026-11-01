@@ -634,6 +634,8 @@
                                             // if WiFi dynamic RX buffers allocate ~15KB after dl-start passes, this
                                             // catches the resulting DMA drop before it hits the crash floor (~6-7KB).
                                             // Confirmed crash floor: 6744 bytes. 8KB = 6744 + ~1.3KB safety margin.
+#define ART_READ_STALL_MS            8000   // Abort an art download that delivers nothing for this long
+                                            // while the peer keeps the socket open (it holds network_mutex)
 #define SDIO_QUEUE_POLL_COOLDOWN_MS  3000   // After updateQueue() 20KB Browse response residue (was 2000, too short)
 #define SDIO_POST_QUEUE_DRAIN_MS     1000   // Polling task: drain Browse response before next cycle
 
