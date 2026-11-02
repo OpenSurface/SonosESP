@@ -167,6 +167,10 @@ static const int CLOCK_BG_REGION_COUNT =
 // callback already clips vertical overflow, so it crops rather than resamples.
 #if SCREEN_SIZE == 7
   #define CLOCK_BG_BING_SIZE "1024x768"
+#elif UI_PORTRAIT
+  // Bing's mobile size; exact for the upright 4". If it stops being served,
+  // the fetch fails like any other and the face keeps its plain ground.
+  #define CLOCK_BG_BING_SIZE "480x800"
 #else
   #define CLOCK_BG_BING_SIZE "800x480"
 #endif
@@ -346,6 +350,9 @@ extern lv_obj_t* clock_bg_img;      // Background image widget
 void createClockScreen();
 void createClockSettingsScreen();
 void checkClockTrigger();
+#if UI_DEBUG_TAP
+void clockDebugEnter();   // serial "clock" on UI_DEBUG_TAP bench builds
+#endif
 void exitClockScreen();
 void clockBgTask(void* param);
 void clockStyleChanged();   // re-apply CLOCK_STYLE_* to the built clock screen

@@ -23,8 +23,18 @@
 // See docs/MULTI_SCREEN_SUPPORT.md.
 // ---------------------------------------------------------------------------
 
+// Portrait (UI_PORTRAIT, config.h) has its own design space, 480x800 - the 4"
+// panel's native size, so it is 1:1 there just as 800x480 is in landscape.
+// Portrait layouts are authored in it; the landscape builders are not run.
+// Code shared by both orientations writes full-screen sizes as
+// SX(UI_DESIGN_W) / SY(UI_DESIGN_H), never as the literals.
+#if UI_PORTRAIT
+#define UI_DESIGN_W 480
+#define UI_DESIGN_H 800
+#else
 #define UI_DESIGN_W 800
 #define UI_DESIGN_H 480
+#endif
 
 // Scale an X / Y coordinate (or width / height) from design space to the panel.
 #define SX(v) ((lv_coord_t)((int32_t)(v) * DISPLAY_WIDTH  / UI_DESIGN_W))

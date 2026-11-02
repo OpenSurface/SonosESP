@@ -26,6 +26,16 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // Bounded overall by the degraded flag: only the FIRST row can pay this.
 #define UI_DEVICE_SNAPSHOT_WAIT_MS 150
 
+// Name widths, leaving room for the volume, battery and chevron on the right.
+// Landscape content is 536 wide; portrait 448.
+#if UI_PORTRAIT
+#define DEV_NAME_W      272
+#define DEV_ROW_NAME_W  342
+#else
+#define DEV_NAME_W      360
+#define DEV_ROW_NAME_W  430
+#endif
+
 void refreshDeviceList() {
     lv_obj_clean(list_devices);
     int cnt = sonos.getDeviceCount();
@@ -120,7 +130,7 @@ void refreshDeviceList() {
         // room name ran under the chevron. Generous — only bites past ~40 chars.
         // Clears the volume + chevron column on the right, in the 536-wide inner
         // content box left by the 216 rail.
-        lv_obj_set_width(lbl, SX(360));
+        lv_obj_set_width(lbl, SX(DEV_NAME_W));
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
         lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, hasGroup ? SX(55) : SX(45), hasGroup || isPlaying ? SY(4) : SY(8));
 
@@ -320,7 +330,7 @@ void refreshDeviceList() {
             lv_label_set_text(lbl, s_sa_room.c_str());
             lv_obj_set_style_text_color(lbl, AMB_TEXT, 0);
             lv_obj_set_style_text_font(lbl, &font_text_20, 0);
-            lv_obj_set_width(lbl, SX(430));
+            lv_obj_set_width(lbl, SX(DEV_ROW_NAME_W));
             lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
             lv_obj_align(lbl, LV_ALIGN_LEFT_MID, SX(40), 0);
             // Battery (issue #165), as on every other speaker row.
@@ -346,7 +356,30 @@ void createDevicesScreen() {
     lv_obj_set_scrollable(content, false);
 
     // Title + Scan button row
+#if UI_PORTRAIT
+    // The Rooms tab. Groups had its own rail entry in landscape; here it hangs
+    // off this page, as a second header button left of Scan.
+    btn_sonos_scan = addScreenHeader(content, "Rooms", AMB_IC_REFRESH " Scan");
+    {
+        lv_obj_t* grp = lv_button_create(lv_obj_get_parent(btn_sonos_scan));
+        lv_obj_set_size(grp, SX(110), SY(38));
+        lv_obj_align(grp, LV_ALIGN_RIGHT_MID, -SX(120), 0);
+        lv_obj_set_style_bg_color(grp, AMB_CARD, 0);
+        lv_obj_set_style_bg_color(grp, AMB_RAISED, LV_STATE_PRESSED);
+        lv_obj_set_style_border_width(grp, 1, 0);
+        lv_obj_set_style_border_color(grp, AMB_BORDER, 0);
+        lv_obj_set_style_radius(grp, SY(19), 0);
+        lv_obj_set_style_shadow_width(grp, 0, 0);
+        lv_obj_add_event_cb(grp, ev_groups, LV_EVENT_CLICKED, NULL);
+        lv_obj_t* gl = lv_label_create(grp);
+        lv_label_set_text(gl, AMB_IC_GROUPS " Groups");
+        lv_obj_set_style_text_color(gl, AMB_TEXT2, 0);
+        lv_obj_set_style_text_font(gl, &font_icon_16, 0);
+        lv_obj_center(gl);
+    }
+#else
     btn_sonos_scan = addScreenHeader(content, "Speakers", AMB_IC_REFRESH " Scan");
+#endif
     lv_obj_add_event_cb(btn_sonos_scan, ev_discover, LV_EVENT_CLICKED, NULL);
 
     // Status label
@@ -363,7 +396,7 @@ void createDevicesScreen() {
     // set_size() below overrides anyway, plus the flex flow set here.
     list_devices = lv_obj_create(content);
     lv_obj_set_flex_flow(list_devices, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_size(list_devices, lv_pct(100), SETTINGS_LIST_H(75));
+    lv_obj_set_size(list_devices, lv_pct(100), SETTINGS_ROOT_LIST_H(75));
     lv_obj_set_pos(list_devices, 0, SY(75));
     lv_obj_set_style_bg_color(list_devices, AMB_PANEL, 0);
     lv_obj_set_style_border_width(list_devices, 0, 0);

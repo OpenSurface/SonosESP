@@ -13,6 +13,7 @@
 #include "clock_face.h"
 #include "ui_theme.h"
 #include "ui_boot_screen.h"
+#include "ui_portrait_nav.h"   // portrait tab screens (empty on landscape builds)
 #include <esp_flash.h>
 #include <esp_ota_ops.h>    // OTA trial-run validation
 #include <esp_core_dump.h>  // stored crash reporting
@@ -354,6 +355,11 @@ void setup() {
     clock_style          = wifiPrefs.getInt(NVS_KEY_CLOCK_STYLE,   CLOCK_DEFAULT_STYLE);
     clockFaceMigrate();      // rewrite pre-1.11 indices (Classic was removed)
     clockFaceClampStyle();   // registry-driven: survives a face being removed by a downgrade
+#if UI_PORTRAIT
+    // Only the Amber face has a portrait layout so far. In memory only: the
+    // saved choice is kept for a landscape image flashed back later.
+    clock_style = CLOCK_STYLE_AMBER;
+#endif
     // Clamp indices in case lists changed between firmware versions
     if (clock_tz_idx    < 0 || clock_tz_idx    >= CLOCK_ZONES_COUNT)   clock_tz_idx    = 0;
     // The photo list changed from 25 keywords to 13 regions when the source moved
@@ -675,6 +681,12 @@ void setup() {
     createGeneralScreen();
     createClockScreen();
     createClockSettingsScreen();
+#if UI_PORTRAIT
+    // The Settings tab's landing page and the Search placeholder. Last, so
+    // every screen their rows and buttons open already exists.
+    createSettingsMenuScreen();
+    createSearchScreen();
+#endif
     bootScreenProgress(85);
 
     art_mutex = xSemaphoreCreateMutex();

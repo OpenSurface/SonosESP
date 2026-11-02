@@ -85,9 +85,16 @@ static bool touch_sample(int32_t* x, int32_t* y) {
     if (touch_y < 0) touch_y = 0;
     if (touch_y > 799) touch_y = 799;
 
+#if UI_PORTRAIT
+    // The display draws at the panel's own orientation, so the sensor's
+    // portrait coordinates are LVGL's coordinates as they are.
+    *x = touch_x;
+    *y = touch_y;
+#else
     // 90° rotation to match the display: portrait (x, y) -> landscape (y, 479 - x)
     *x = touch_y;
     *y = 479 - touch_x;
+#endif
     return true;
 }
 
@@ -173,6 +180,18 @@ bool touch_take_wake_request(void) {
     t_wake = false;
     return true;
 }
+
+#if UI_DEBUG_TAP
+// Bench-only: a serial "tap x y" lands here as if a finger had touched and
+// lifted between two LVGL polls - the same latched path a quick real tap takes.
+void touch_inject_tap(int32_t x, int32_t y) {
+    t_x = x;
+    t_y = y;
+    last_touch_time = millis();
+    t_wake = true;
+    t_pending = true;
+}
+#endif
 
 void touch_read(lv_indev_t *indev_drv, lv_indev_data_t *data) {
     // t_pending covers the case this whole driver exists for: the tap started

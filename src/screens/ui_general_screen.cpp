@@ -125,6 +125,12 @@ void createGeneralScreen() {
                                          "the artwork, replacing lyrics and Next-up.",
                                          false);
         sw_clock = addSwitch(slot_c, amber_shelf_clock);
+#if UI_PORTRAIT
+        // No shelf in the portrait player, so the row would toggle nothing but
+        // its lyrics interlock. Built and hidden, so the callbacks below still
+        // have both switches to talk to.
+        lv_obj_set_hidden(lv_obj_get_parent(slot_c), true);
+#endif
 
         lv_obj_add_event_cb(sw_lyrics, [](lv_event_t* e) {
             if (interlocking) return;
@@ -161,6 +167,9 @@ void createGeneralScreen() {
         }, LV_EVENT_VALUE_CHANGED, NULL);
     }
 
+    // Portrait has a single player layout (ui_theme.cpp), so there is nothing
+    // to choose between.
+#if !UI_PORTRAIT
     // ────────────────────────────────────────────────────────────────────────
     // CARD — Theme  (issue #87)
     // Options and descriptions come straight from the THEMES[] registry, so
@@ -218,6 +227,7 @@ void createGeneralScreen() {
             if (lbl_theme_desc) lv_label_set_text(lbl_theme_desc, THEMES[active_theme].desc);
         }, LV_EVENT_VALUE_CHANGED, NULL);
     }
+#endif  // !UI_PORTRAIT
 
     // ────────────────────────────────────────────────────────────────────────
     // CARD - Device  (issue #159)

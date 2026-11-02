@@ -33,6 +33,19 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 bool ota_skip_load_reset = false;
 
 // ── Grid ────────────────────────────────────────────────────────────────────
+// Inner content width: 536 landscape, 448 portrait. The two action buttons
+// share it (250 + 26 gap + 260 landscape; 214 + 20 + 214 portrait).
+#if UI_PORTRAIT
+#define OTA_INNER_W    448
+#define OTA_CHECK_W    214
+#define OTA_INSTALL_W  214
+#define OTA_INSTALL_X  234
+#else
+#define OTA_INNER_W    536
+#define OTA_CHECK_W    250
+#define OTA_INSTALL_W  260
+#define OTA_INSTALL_X  276
+#endif
 #define OTA_CARD_Y     52
 #define OTA_CARD_H     100
 #define OTA_CHAN_Y     162
@@ -208,7 +221,7 @@ void createOTAScreen() {
 
     // Progress percentage — same baseline as the status, right-hand column.
     lbl_ota_progress = lv_label_create(content);
-    lv_obj_set_pos(lbl_ota_progress, SX(370), SY(OTA_STATUS_Y));
+    lv_obj_set_pos(lbl_ota_progress, SX(OTA_INNER_W - 166), SY(OTA_STATUS_Y));
     lv_label_set_text(lbl_ota_progress, "");
     lv_obj_set_style_text_color(lbl_ota_progress, AMB_ACCENT, 0);
     lv_obj_set_style_text_font(lbl_ota_progress, &font_text_16, 0);
@@ -238,7 +251,7 @@ void createOTAScreen() {
     // quieter of two actions. AMB_CARD gives it the same footing as every other
     // secondary control on these pages.
     btn_check_update = lv_button_create(content);
-    lv_obj_set_size(btn_check_update, SX(250), SY(OTA_BTN_H));
+    lv_obj_set_size(btn_check_update, SX(OTA_CHECK_W), SY(OTA_BTN_H));
     lv_obj_set_pos(btn_check_update, 0, SY(OTA_BTN_Y));
     lv_obj_set_style_bg_color(btn_check_update, AMB_CARD, 0);
     lv_obj_set_style_bg_color(btn_check_update, AMB_RAISED, LV_STATE_PRESSED);
@@ -256,8 +269,8 @@ void createOTAScreen() {
 
     // Install Update button (hidden by default)
     btn_install_update = lv_button_create(content);
-    lv_obj_set_size(btn_install_update, SX(260), SY(OTA_BTN_H));
-    lv_obj_set_pos(btn_install_update, SX(276), SY(OTA_BTN_Y));
+    lv_obj_set_size(btn_install_update, SX(OTA_INSTALL_W), SY(OTA_BTN_H));
+    lv_obj_set_pos(btn_install_update, SX(OTA_INSTALL_X), SY(OTA_BTN_Y));
     lv_obj_set_style_bg_color(btn_install_update, AMB_ACCENT, 0);
     lv_obj_set_style_radius(btn_install_update, 12, 0);
     lv_obj_set_style_shadow_width(btn_install_update, 0, 0);

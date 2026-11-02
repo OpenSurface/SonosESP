@@ -60,25 +60,43 @@ const char* amberSky(int wmo) {
 }
 
 // ── Grid, 800x480 design space ──────────────────────────────────────────────
+// Portrait (480x800) stacks the two columns: clock on top, a horizontal rule
+// where the vertical divider was, then the weather column, full width.
+#define AF_LINE_H     (NOC_INK_MD + 8)          // 136 — ink plus a gap
+#define AF_SEC_W      230
+#define AF_NOW_W      290
+#define AF_GRID_PITCH 62
+#if UI_PORTRAIT
+#define AF_PAD_L      40
+#define AF_DATE_Y     56
+#define AF_STACK_Y    84
+#define AF_SEC_Y      366
+#define AF_NOW_Y      396
+#define AF_DIV_Y      452                       // the rule between the halves
+#define AF_R          40
+#define AF_R_RIGHT    440
+#define AF_HEAD_Y     470
+#define AF_WX_Y       500
+#define AF_GRID_Y     594
+#define AF_RAIL_RULE  702
+#define AF_RAIL_Y     712
+#else
 #define AF_PAD_L      40
 #define AF_DATE_Y     74
 #define AF_STACK_Y    104
-#define AF_LINE_H     (NOC_INK_MD + 8)          // 136 — ink plus a gap
 #define AF_SEC_Y      386
-#define AF_SEC_W      230
 #define AF_NOW_Y      420                       // now-playing chip
-#define AF_NOW_W      290
 
 #define AF_COL_X      344                       // the vertical divider
 #define AF_R          378                       // right column content origin
 #define AF_R_RIGHT    760
-#define AF_RW         (AF_R_RIGHT - AF_R)       // 382
 #define AF_HEAD_Y     34
 #define AF_WX_Y       64
 #define AF_GRID_Y     168
-#define AF_GRID_PITCH 62
 #define AF_RAIL_RULE  388
 #define AF_RAIL_Y     398
+#endif
+#define AF_RW         (AF_R_RIGHT - AF_R)       // 382 landscape, 400 portrait
 // 78, not 74. The cell is a fixed-height flex column holding hour + icon +
 // temperature, and at 74 the 4" needed 75 - it only looked right because the
 // 1px lost was a descender. The rail sits at AF_RAIL_Y 398 in a 480 design
@@ -137,7 +155,7 @@ void buildAmberFace(lv_obj_t* parent) {
     // specified flat. Same contract otherwise — full bleed, at the origin,
     // created hidden for applyClockStyle() to reveal.
     af_root = lv_obj_create(parent);
-    lv_obj_set_size(af_root, SX(800), SY(480));
+    lv_obj_set_size(af_root, SX(UI_DESIGN_W), SY(UI_DESIGN_H));
     lv_obj_set_pos(af_root, 0, 0);
     amberFaceBackdrop(af_root, false);   // applyClockStyle() re-applies with the real state
     lv_obj_set_style_border_width(af_root, 0, 0);
@@ -197,8 +215,13 @@ void buildAmberFace(lv_obj_t* parent) {
     lv_label_set_long_mode(af_now_title, LV_LABEL_LONG_DOT);
 
     // ── Divider ─────────────────────────────────────────────────────────────
+#if UI_PORTRAIT
+    lv_obj_t* div = ambRect(af_root, AF_RW, 1, AMB_LINE_SOFT);
+    lv_obj_set_pos(div, SX(AF_R), SY(AF_DIV_Y));
+#else
     lv_obj_t* div = ambRect(af_root, 1, 480, AMB_LINE_SOFT);
     lv_obj_set_pos(div, SX(AF_COL_X), 0);
+#endif
 
     // ── Right column header: city / condition ───────────────────────────────
     af_city = ambCaption(af_root, AMB_TEXT3, "", 4);

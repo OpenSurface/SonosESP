@@ -42,7 +42,7 @@
 // One dock is built per settings screen (there are eight), but only the one on
 // the active screen is worth refreshing. A single shared timer walks the list
 // and updates that one; nothing here runs while the player is on screen.
-#define SB_MAX_DOCKS 12
+#define SB_MAX_DOCKS 16   // 8 settings screens + the portrait tab screens
 
 typedef struct {
     lv_obj_t* screen;
@@ -169,12 +169,15 @@ static lv_obj_t* dockBtn(lv_obj_t* parent, const char* glyph, lv_color_t col,
     return b;
 }
 
-static void buildDock(lv_obj_t* screen) {
+// `y` and `h` are design units; the dock always spans the full width. The
+// landscape settings frame puts it under both columns (y 424, 56 tall), the
+// portrait frame above the tab bar (ui_portrait_nav.cpp).
+void nowDockBuild(lv_obj_t* screen, int y, int h) {
     if (sb_dock_count >= SB_MAX_DOCKS) return;
 
     lv_obj_t* dock = lv_obj_create(screen);
-    lv_obj_set_size(dock, SX(800), SY(SB_DOCK_H));
-    lv_obj_set_pos(dock, 0, SY(SETTINGS_CONTENT_H));
+    lv_obj_set_size(dock, SX(UI_DESIGN_W), SY(h));
+    lv_obj_set_pos(dock, 0, SY(y));
     lv_obj_set_style_bg_color(dock, AMB_PANEL, 0);
     lv_obj_set_style_radius(dock, 0, 0);
     lv_obj_set_style_border_width(dock, 1, 0);
@@ -183,7 +186,15 @@ static void buildDock(lv_obj_t* screen) {
     lv_obj_set_style_pad_hor(dock, SX(16), 0);
     lv_obj_set_style_pad_ver(dock, 0, 0);
     lv_obj_set_scrollable(dock, false);
+#if UI_PORTRAIT
+    // Portrait has no rail with a close button: the dock IS the way back to
+    // the player, as in the mockups. The two transport buttons keep their own
+    // clicks (LVGL does not bubble them up to the dock).
+    lv_obj_set_style_bg_color(dock, AMB_CARD, LV_STATE_PRESSED);
+    lv_obj_add_event_cb(dock, ev_back_main, LV_EVENT_CLICKED, NULL);
+#else
     lv_obj_set_clickable(dock, false);
+#endif
 
     // The artwork tile: the real album art when there is any, a music-note glyph
     // otherwise. Both live in the same 40px box and are swapped by sbDockWrite().
@@ -229,11 +240,13 @@ static void buildDock(lv_obj_t* screen) {
     lv_obj_t* b_play = dockBtn(dock, AMB_IC_PAUSE, AMB_ACCENT, ev_play);
     lv_obj_align(b_play, LV_ALIGN_RIGHT_MID, -SX(46), 0);
 
-    const int text_w = 800 - 32 - 40 - 14 - 92 - 14;   // dock minus tile and controls
+    const int text_w = UI_DESIGN_W - 32 - 40 - 14 - 92 - 14;   // dock minus tile and controls
+    const int title_y = h / 2 - 18;   // 10 in the 56px landscape dock
+    const int meta_y  = h / 2 + 2;    // 30
 
     lv_obj_t* title = lv_label_create(dock);
     lv_label_set_text(title, "Not Playing");
-    lv_obj_set_pos(title, SX(54), SY(10));
+    lv_obj_set_pos(title, SX(54), SY(title_y));
     lv_obj_set_width(title, SX(text_w));
     lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(title, &font_text_14, 0);
@@ -247,7 +260,7 @@ static void buildDock(lv_obj_t* screen) {
 
     lv_obj_t* meta = lv_label_create(dock);
     lv_label_set_text(meta, "");
-    lv_obj_set_pos(meta, SX(54), SY(30));
+    lv_obj_set_pos(meta, SX(54), SY(meta_y));
     lv_obj_set_width(meta, SX(text_w));
     lv_label_set_long_mode(meta, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(meta, &font_text_12, 0);
@@ -277,6 +290,9 @@ static void buildDock(lv_obj_t* screen) {
 // ============================================================================
 // Settings sidebar — creates the rail + dock and returns the content area
 // ============================================================================
+// Portrait builds have no rail: createSettingsSidebar() lives in
+// ui_portrait_nav.cpp there, with the same signature and contract.
+#if !UI_PORTRAIT
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     // ========== LEFT RAIL ==========
     lv_obj_t* sidebar = lv_obj_create(screen);
@@ -394,7 +410,8 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
     lv_obj_set_style_pad_right(content, SX(2), LV_PART_SCROLLBAR);
 
     // ========== NOW-PLAYING DOCK ==========
-    buildDock(screen);
+    nowDockBuild(screen, SETTINGS_CONTENT_H, SB_DOCK_H);
 
     return content;
 }
+#endif  // !UI_PORTRAIT

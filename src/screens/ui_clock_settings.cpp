@@ -192,6 +192,18 @@ static const lv_buttonmatrix_ctrl_t num_kb_ctrl[] = {
 // Focus / defocus handler for the custom-coords textareas.
 // Numeric textareas (lat/lon) use the compact 4x4 keypad docked bottom-right.
 // The name textarea uses the built-in alpha keyboard (full-width, docked bottom-center).
+// Keyboard sizes. Portrait is 480 wide: the alpha layout goes full width and
+// taller, the numeric pad stays compact.
+#if UI_PORTRAIT
+#define CLK_KB_ALPHA_W  (UI_DESIGN_W - 10)
+#define CLK_KB_ALPHA_H  260
+#define CLK_KB_NUM_W    340
+#else
+#define CLK_KB_ALPHA_W  760
+#define CLK_KB_ALPHA_H  230
+#define CLK_KB_NUM_W    340
+#endif
+
 static void custom_ta_event_cb(lv_event_t* e) {
     lv_event_code_t code = lv_event_get_code(e);
     lv_obj_t* ta = (lv_obj_t*)lv_event_get_target(e);
@@ -202,10 +214,10 @@ static void custom_ta_event_cb(lv_event_t* e) {
         // dark style; they only differ in size + mode (numeric pad vs alpha layout).
         if (is_name) {
             lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_TEXT_LOWER);
-            lv_obj_set_size(custom_kb, SX(760), SY(230));
+            lv_obj_set_size(custom_kb, SX(CLK_KB_ALPHA_W), SY(CLK_KB_ALPHA_H));
         } else {
             lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_USER_1);
-            lv_obj_set_size(custom_kb, SX(340), SY(200));
+            lv_obj_set_size(custom_kb, SX(CLK_KB_NUM_W), SY(200));
         }
         lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, SY(-10));
 
@@ -372,6 +384,10 @@ void createClockSettingsScreen() {
             if (desc) lv_label_set_text(desc, clockFaceCurrent()->desc);
             clockStyleChanged();   // swap faces on the already-built clock screen
         }, LV_EVENT_VALUE_CHANGED, NULL);
+#if UI_PORTRAIT
+        // One face in portrait (main.cpp pins it), so no choice to offer.
+        lv_obj_set_hidden(lv_obj_get_parent(slot_face), true);
+#endif
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -637,7 +653,7 @@ void createClockSettingsScreen() {
     custom_kb = lv_keyboard_create(scr_clock_settings);
     lv_keyboard_set_map(custom_kb, LV_KEYBOARD_MODE_USER_1, num_kb_map, num_kb_ctrl);
     lv_keyboard_set_mode(custom_kb, LV_KEYBOARD_MODE_USER_1);
-    lv_obj_set_size(custom_kb, SX(340), SY(200));
+    lv_obj_set_size(custom_kb, SX(CLK_KB_NUM_W), SY(200));
     lv_obj_align(custom_kb, LV_ALIGN_BOTTOM_MID, 0, SY(-10));
     lv_obj_set_hidden(custom_kb, true);
     lv_obj_add_event_cb(custom_kb, kb_close_event_cb, LV_EVENT_CANCEL, NULL);

@@ -595,7 +595,7 @@ void buildImmersivePlayer() {
     pressScale(btn_play);
     lv_obj_add_event_cb(btn_play, ev_play, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_play = lv_label_create(btn_play);
-    lv_label_set_text(ico_play, MDI_PAUSE);
+    lv_label_set_text(ico_play, MDI_PLAY);
     lv_obj_set_style_text_font(ico_play, &lv_font_mdi_32, 0);
     lv_obj_set_style_text_color(ico_play, COL_SCREEN, 0);
     lv_obj_center(ico_play);

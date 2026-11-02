@@ -63,7 +63,7 @@ static lv_font_t mdi_fb_40;
 // be wired before whatever points at it. Text first, then the MDI links, then
 // the icon faces. Do not reorder.
 void uiFontsInit(void) {
-#if DISPLAY_WIDTH >= 1024
+#if SCREEN_SIZE == 7   // panel, not width: a portrait 7" would be 600 wide
     // ── 7" (1024x600) ───────────────────────────────────────────────────────
     // SX/SY scale the layout by ~1.25 but glyphs cannot scale continuously, so
     // each design size is re-pointed at the next face up. Without this the type

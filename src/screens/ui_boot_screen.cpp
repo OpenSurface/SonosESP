@@ -41,17 +41,28 @@
 #include "config.h"
 
 // ── Grid ────────────────────────────────────────────────────────────────────
+// Portrait keeps the same stack, narrower and lower: the checklist would sit
+// in the top third of a tall screen otherwise.
+#if UI_PORTRAIT
+#define BT_PAD        32
+#define BT_HEAD_Y     64
+#define BT_PROG_Y     124
+#define BT_CHECK_Y    184
+#define BT_CHECK_W    (UI_DESIGN_W - BT_PAD * 2)   // 416
+#else
 #define BT_PAD        44
 #define BT_HEAD_Y     38
 #define BT_PROG_Y     96
-#define BT_PROG_W     (800 - BT_PAD * 2)      // 712
 #define BT_CHECK_Y    150
 #define BT_CHECK_W    520
+#endif
+#define BT_PROG_W     (UI_DESIGN_W - BT_PAD * 2)      // 712 landscape
 #define BT_ROW_H      24
 #define BT_ROW_GAP    18
 #define BT_CHECKS_H   (BOOT_CHECK_COUNT * BT_ROW_H + (BOOT_CHECK_COUNT - 1) * BT_ROW_GAP)
 #define BT_STATUS_Y   (BT_CHECK_Y + BT_CHECKS_H + 22)
-#define BT_FOOT_Y     422
+#define BT_FOOT_Y     (UI_DESIGN_H - 58)       // 422 landscape
+#define BT_WORDMARK_Y ((UI_DESIGN_H - 120) / 2 + 6)   // 186 landscape
 
 // The footer names the panel it is actually running on rather than the 4" the
 // artboard was drawn at. PANEL_SIZE_LABEL comes from config.h, where it sits
@@ -139,8 +150,8 @@ void bootScreenCreate(void) {
     // ── Stage 1: wordmark ───────────────────────────────────────────────────
     bt_wordmark = lv_obj_create(bt_scr);
     lv_obj_remove_style_all(bt_wordmark);
-    lv_obj_set_size(bt_wordmark, SX(800), SY(120));
-    lv_obj_set_pos(bt_wordmark, 0, SY(186));
+    lv_obj_set_size(bt_wordmark, SX(UI_DESIGN_W), SY(120));
+    lv_obj_set_pos(bt_wordmark, 0, SY(BT_WORDMARK_Y));
     lv_obj_set_flex_flow(bt_wordmark, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(bt_wordmark, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
@@ -155,7 +166,7 @@ void bootScreenCreate(void) {
     // pass at the moment a subsystem reports.
     bt_header = lv_obj_create(bt_scr);
     lv_obj_remove_style_all(bt_header);
-    lv_obj_set_size(bt_header, SX(800), SY(480));
+    lv_obj_set_size(bt_header, SX(UI_DESIGN_W), SY(UI_DESIGN_H));
     lv_obj_set_pos(bt_header, 0, 0);
     lv_obj_set_style_opa(bt_header, LV_OPA_TRANSP, 0);
     lv_obj_set_hidden(bt_header, true);
@@ -163,7 +174,7 @@ void bootScreenCreate(void) {
 
     lv_obj_t* head = lv_obj_create(bt_header);
     lv_obj_remove_style_all(head);
-    lv_obj_set_size(head, SX(400), SY(24));
+    lv_obj_set_size(head, SX(BT_CHECK_W < 400 ? BT_CHECK_W : 400), SY(24));
     lv_obj_set_pos(head, SX(BT_PAD), SY(BT_HEAD_Y));
     lv_obj_set_flex_flow(head, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(head, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,

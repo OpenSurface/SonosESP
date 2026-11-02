@@ -227,12 +227,62 @@ static void cacheWriteback(const void *p, size_t len) {
 // clockwise, landscape (x, y) -> portrait (H-1-y, x) - applied to a block:
 // rows y1..y2 / columns x1..x2 land at portrait columns H-1-y2..H-1-y1 and
 // rows x1..x2.
+//
+// UI_PORTRAIT: LVGL already draws at the panel's 480x800, so the same call is a
+// straight block copy - identical offsets, no rotation. It still goes through
+// a separate LVGL buffer rather than letting LVGL draw into the scanned-out
+// frame buffer: the DSI controller reads that memory continuously, and a half-
+// drawn area (background painted, text not yet) would reach the glass.
 static bool rotate_area_to_panel(const uint16_t *src, const lv_area_t *a, bool *used_ppa) {
     const int w = lv_area_get_width(a);
     const int h = lv_area_get_height(a);
 
     // LVGL drew these rows through the CPU cache; the PPA reads PSRAM directly.
     cacheWriteback(src + (size_t)a->y1 * DISPLAY_WIDTH, (size_t)h * DISPLAY_WIDTH * sizeof(uint16_t));
+
+#if UI_PORTRAIT
+#if USE_PPA_ACCELERATION
+    if (ppa_handle) {
+        ppa_srm_oper_config_t op = {};
+        op.in.buffer = (void *)src;
+        op.in.pic_w = DISPLAY_WIDTH;
+        op.in.pic_h = DISPLAY_HEIGHT;
+        op.in.block_w = w;
+        op.in.block_h = h;
+        op.in.block_offset_x = a->x1;
+        op.in.block_offset_y = a->y1;
+        op.in.srm_cm = PPA_SRM_COLOR_MODE_RGB565;
+        op.out.buffer = panel_fb;
+        op.out.buffer_size = panel_fb_bytes;
+        op.out.pic_w = PANEL_WIDTH;
+        op.out.pic_h = PANEL_HEIGHT;
+        op.out.block_offset_x = a->x1;
+        op.out.block_offset_y = a->y1;
+        op.out.srm_cm = PPA_SRM_COLOR_MODE_RGB565;
+        op.rotation_angle = PPA_SRM_ROTATION_ANGLE_0;
+        op.scale_x = 1.0;
+        op.scale_y = 1.0;
+        op.mode = PPA_TRANS_MODE_BLOCKING;
+        if (ppa_do_scale_rotate_mirror(ppa_handle, &op) == ESP_OK) {
+            *used_ppa = true;
+            return true;
+        }
+        static bool warned = false;
+        if (!warned) {
+            warned = true;
+            Serial.printf("[Display] PPA area copy failed (%d,%d %dx%d) - CPU fallback\n",
+                          (int)a->x1, (int)a->y1, w, h);
+        }
+    }
+#endif
+    for (int y = a->y1; y <= a->y2; y++) {
+        memcpy(panel_fb + (size_t)y * PANEL_WIDTH + a->x1,
+               src + (size_t)y * DISPLAY_WIDTH + a->x1, (size_t)w * sizeof(uint16_t));
+    }
+    cacheWriteback(panel_fb + (size_t)a->y1 * PANEL_WIDTH, (size_t)h * PANEL_WIDTH * sizeof(uint16_t));
+    *used_ppa = false;
+    return true;
+#else
 
 #if USE_PPA_ACCELERATION
     if (ppa_handle) {
@@ -278,6 +328,7 @@ static bool rotate_area_to_panel(const uint16_t *src, const lv_area_t *a, bool *
     cacheWriteback(panel_fb + (size_t)a->x1 * PANEL_WIDTH, (size_t)w * PANEL_WIDTH * sizeof(uint16_t));
     *used_ppa = false;
     return true;
+#endif  // UI_PORTRAIT
 }
 #endif
 
@@ -366,8 +417,8 @@ bool display_init(void) {
     Serial.printf("[Display] Rotate buffer: %d bytes (portrait %dx%d)\n",
                   PANEL_WIDTH * PANEL_HEIGHT * sizeof(lv_color_t), PANEL_WIDTH, PANEL_HEIGHT);
 #else
-    Serial.printf("[Display] Partial render: 1 LVGL buffer (%u bytes), rotating changed areas into the panel FB\n",
-                  (unsigned)fb_bytes);
+    Serial.printf("[Display] Partial render: 1 LVGL buffer (%u bytes), %s changed areas into the panel FB\n",
+                  (unsigned)fb_bytes, UI_PORTRAIT ? "copying" : "rotating");
 #endif
     Serial.printf("[Display] Free PSRAM: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
@@ -403,7 +454,11 @@ bool display_init(void) {
 
     // DON'T use lv_display_set_rotation - we do rotation manually in flush callback
 
+#if UI_PORTRAIT
+    Serial.println("[Display] Ready! 480x800 portrait, no rotation");
+#else
     Serial.println("[Display] Ready! 800x480 landscape with manual 90° rotation to portrait panel");
+#endif
     return true;
 }
 

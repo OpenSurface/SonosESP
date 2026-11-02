@@ -1,4 +1,6 @@
 #include "screenshot.h"
+#include "touch_driver.h"   // UI_DEBUG_TAP
+#include "clock_screen.h"   // clockDebugEnter (UI_DEBUG_TAP)
 #include "battery.h"
 #include "config.h"
 #include <esp_heap_caps.h>
@@ -182,6 +184,16 @@ void screenshotPoll(void) {
                     resendLine((uint32_t)strtoul(cmd + 9, nullptr, 16));
                 } else if (strcmp(cmd, "shotfree") == 0) {
                     releaseBuffer();
+#if UI_DEBUG_TAP
+                } else if (strncmp(cmd, "tap ", 4) == 0) {
+                    int tx = 0, ty = 0;
+                    if (sscanf(cmd + 4, "%d %d", &tx, &ty) == 2) {
+                        touch_inject_tap(tx, ty);
+                        Serial.printf("[tap] %d,%d\n", tx, ty);
+                    }
+                } else if (strcmp(cmd, "clock") == 0) {
+                    clockDebugEnter();
+#endif
                 } else if (batterySerialCommand(cmd)) {
                     // "bat ..." - the battery simulator (issue #165); "bat help"
                 }

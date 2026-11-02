@@ -37,6 +37,7 @@
 #include "amber.h"
 #include "ui_sleep_button.h"   // the sleep timer, shared with the other players
 #include "clock_screen.h"      // clock_12h, for the shelf clock (#199)
+#include "ui_portrait_nav.h"   // portrait builder at the end of this file
 #include <time.h>
 #include <ctype.h>
 
@@ -128,6 +129,17 @@ static void shelfSwapCb(lv_timer_t*) {
     const bool lyrics_showing = lyr && !lv_obj_is_hidden(lyr);
     if (lyrics_showing) lv_obj_set_hidden(ap_shelf_next, true);
     else                lv_obj_set_hidden(ap_shelf_next, false);
+#if UI_PORTRAIT
+    // Portrait draws Next-up as a pill ON the artwork. updateUI() hides the
+    // labels inside it when there is no next track (radio, last in queue), which
+    // on the landscape shelf leaves plain ground; here it would leave an empty
+    // pill floating on the cover. So the pill follows its title - hidden OR
+    // empty: updateNextTrackUI() only hides labels that once held a title, so
+    // after a boot with an empty queue they are visible with no text.
+    if (!lyrics_showing && lbl_next_title &&
+        (lv_obj_is_hidden(lbl_next_title) || !*lv_label_get_text(lbl_next_title)))
+        lv_obj_set_hidden(ap_shelf_next, true);
+#endif
 
     // Refit when the line changes. Compared by content rather than by index so a
     // repeated line (choruses repeat) does not re-measure, and a track change
@@ -833,7 +845,10 @@ void buildAmberPlayer() {
     lv_obj_set_style_border_width(btn_play, 0, 0);
     lv_obj_add_event_cb(btn_play, ev_play, LV_EVENT_CLICKED, NULL);
     lv_obj_t* ico_play = lv_label_create(btn_play);
-    lv_label_set_text(ico_play, AMB_IC_PAUSE);
+    // PLAY, matching ui_playing's initial false: updateUI() only rewrites this
+    // icon when the state differs from that cache, so a PAUSE here stayed up
+    // over a paused speaker until something was played.
+    lv_label_set_text(ico_play, AMB_IC_PLAY);
     lv_obj_set_style_text_font(ico_play, &font_icon_40, 0);
     lv_obj_set_style_text_color(ico_play, AMB_ON_ACCENT, 0);
     lv_obj_center(ico_play);
@@ -899,3 +914,393 @@ void buildAmberPlayer() {
     // overlay down with them.
     amberBuildOverlays(scr_main);
 }
+
+#if UI_PORTRAIT
+// ============================================================================
+// Amber, portrait — the "Portrait · Lecture" artboard of the redesign canvas.
+// ============================================================================
+// One column instead of two: header, artwork, meta, progress, transport,
+// volume, battery/sleep, then the tab bar. Same widgets, helpers and shelf
+// machinery as the landscape builder above (shelfSwapCb, spFitLyric), so the
+// two cannot drift apart in behaviour, only in geometry.
+//
+// What moves:
+//   - Next-up is a pill on the artwork's bottom edge instead of a shelf.
+//   - The lyrics sit over the bottom of the artwork with the overlay's own
+//     fade, the way the SonosESP theme draws them; they replace the pill.
+//   - The shelf clock (#199) has no shelf to live in and is not built.
+//   - Settings is a tab, so the header loses its gear; Rooms is a tab too, so
+//     the room pill opens it instead of the modal (amberShowRooms()).
+//
+// ── Grid (480x800 design space) ─────────────────────────────────────────────
+#define PP_X          30                   // column, both edges
+#define PP_W          (UI_DESIGN_W - PP_X * 2)   // 420
+#define PP_HEAD_Y     12
+#define PP_HEAD_H     44
+#define PP_ART        360
+#define PP_ART_X      ((UI_DESIGN_W - PP_ART) / 2)   // 60
+#define PP_ART_Y      64
+#define PP_ARTIST_Y   (PP_ART_Y + PP_ART + 16)       // 440
+#define PP_TITLE_Y    (PP_ARTIST_Y + 22)             // 462
+#define PP_ALBUM_Y    522
+#define PP_PROG_Y     556
+#define PP_TIME_Y     570
+#define PP_CTRL_Y     596
+#define PP_CTRL_H     72
+#define PP_VOL_Y      684
+#define PP_BAND_Y     704
+#define PP_BAND_H     (UI_DESIGN_H - PNAV_TAB_H - PP_BAND_Y)   // 32
+
+void amberPortraitRestoreTrackLabels(void) {
+    if (lbl_artist) {
+        lv_obj_set_pos(lbl_artist, SX(PP_X), SY(PP_ARTIST_Y));
+        lv_obj_set_size(lbl_artist, SX(PP_W), lv_font_get_line_height(&font_text_12));
+        lv_label_set_long_mode(lbl_artist, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    }
+    if (lbl_title) {
+        lv_obj_set_pos(lbl_title, SX(PP_X), SY(PP_TITLE_Y));
+        lv_obj_set_size(lbl_title, SX(PP_W), lv_font_get_line_height(&font_text_24) * 2);
+        lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_DOT);
+    }
+    if (lbl_album) {
+        lv_obj_set_pos(lbl_album, SX(PP_X), SY(PP_ALBUM_Y));
+        lv_obj_set_size(lbl_album, SX(PP_W), lv_font_get_line_height(&font_text_14));
+        lv_label_set_long_mode(lbl_album, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    }
+}
+
+void buildAmberPortraitPlayer() {
+    scr_main = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(scr_main, AMB_BG, 0);
+    lv_obj_set_style_pad_all(scr_main, 0, 0);
+    lv_obj_set_style_border_width(scr_main, 0, 0);
+    lv_obj_set_scrollable(scr_main, false);
+    lv_obj_add_event_cb(scr_main, ap_screen_deleted, LV_EVENT_DELETE, nullptr);
+
+    // Tab bar first: it is the ground the layers below sit on. No dock - this is
+    // the screen the dock leads back to.
+    portraitFrame(scr_main, PTAB_PLAYER, false);
+    const int layer_h = UI_DESIGN_H - PNAV_TAB_H;
+
+    img_blur_bg = lv_image_create(scr_main);
+    lv_obj_set_size(img_blur_bg, SX(UI_DESIGN_W), SY(layer_h));
+    lv_obj_set_pos(img_blur_bg, 0, 0);
+    lv_obj_set_hidden(img_blur_bg, true);
+
+    // Same two transparent layers as landscape, so setLineInMode() and
+    // setTvAudioMode() hide and show the same things. They stop above the tab
+    // bar rather than covering it.
+    auto mkLayer = [&](void) {
+        lv_obj_t* p = lv_obj_create(scr_main);
+        lv_obj_set_size(p, SX(UI_DESIGN_W), SY(layer_h));
+        lv_obj_set_pos(p, 0, 0);
+        lv_obj_set_style_bg_opa(p, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(p, 0, 0);
+        lv_obj_set_style_pad_all(p, 0, 0);
+        lv_obj_set_scrollable(p, false);
+        lv_obj_set_clickable(p, false);
+        return p;
+    };
+    panel_art   = mkLayer();
+    panel_right = mkLayer();
+
+    // ── Artwork ─────────────────────────────────────────────────────────────
+    // A box the size of the cover; THEMES' portrait row (ui_theme.cpp) centres
+    // the image in it. Scaled from ART_PX, so square corners, as in landscape.
+    lv_obj_t* art_box = lv_obj_create(panel_art);
+    lv_obj_remove_style_all(art_box);
+    lv_obj_set_size(art_box, SMIN(PP_ART), SMIN(PP_ART));
+    lv_obj_set_pos(art_box, SX(PP_ART_X), SY(PP_ART_Y));
+    lv_obj_set_style_bg_color(art_box, AMB_BG_ART, 0);
+    lv_obj_set_style_bg_opa(art_box, LV_OPA_COVER, 0);
+    lv_obj_set_scrollable(art_box, false);
+    lv_obj_set_clickable(art_box, false);
+
+    img_album = lv_image_create(art_box);
+    lv_obj_set_size(img_album, SMIN(PP_ART), SMIN(PP_ART));
+    lv_obj_set_style_radius(img_album, 0, 0);
+    lv_obj_set_style_shadow_width(img_album, 0, 0);
+    lv_obj_set_style_border_width(img_album, 0, 0);
+    lv_obj_center(img_album);
+
+    art_placeholder = lv_label_create(art_box);
+    lv_label_set_text(art_placeholder, AMB_IC_MUSIC);
+    lv_obj_set_style_text_font(art_placeholder, &font_icon_32, 0);
+    lv_obj_set_style_text_color(art_placeholder, AMB_TEXT3, 0);
+    lv_obj_center(art_placeholder);
+
+    struct { lv_obj_t** icon; lv_obj_t** sub; const char* glyph; const char* text; } modes[] = {
+        { &lbl_linein_icon, &lbl_linein_subtitle, MDI_WAVEFORM,   "LIVE AUDIO" },
+        { &lbl_tv_icon,     &lbl_tv_subtitle,     MDI_TELEVISION, "TV AUDIO"   },
+    };
+    for (auto& m : modes) {
+        *m.icon = lv_label_create(art_box);
+        lv_label_set_text(*m.icon, m.glyph);
+        lv_obj_set_style_text_font(*m.icon, &lv_font_mdi_80, 0);
+        lv_obj_set_style_text_color(*m.icon, AMB_ACCENT, 0);
+        lv_obj_align(*m.icon, LV_ALIGN_CENTER, 0, -SY(20));
+        lv_obj_set_hidden(*m.icon, true);
+
+        *m.sub = lv_label_create(art_box);
+        lv_label_set_text(*m.sub, m.text);
+        lv_obj_set_style_text_font(*m.sub, &font_text_14, 0);
+        lv_obj_set_style_text_color(*m.sub, AMB_TEXT3, 0);
+        lv_obj_set_style_text_letter_space(*m.sub, 3, 0);
+        lv_obj_align(*m.sub, LV_ALIGN_CENTER, 0, SY(50));
+        lv_obj_set_hidden(*m.sub, true);
+    }
+
+    // ── Next-up pill, on the artwork's bottom-left ──────────────────────────
+    ap_shelf_next = lv_obj_create(art_box);
+    lv_obj_set_size(ap_shelf_next, LV_SIZE_CONTENT, SY(34));
+    lv_obj_set_style_max_width(ap_shelf_next, SMIN(PP_ART - 24), 0);
+    lv_obj_align(ap_shelf_next, LV_ALIGN_BOTTOM_LEFT, SX(12), -SY(12));
+    lv_obj_set_style_bg_color(ap_shelf_next, AMB_PANEL, 0);
+    lv_obj_set_style_bg_opa(ap_shelf_next, LV_OPA_90, 0);
+    lv_obj_set_style_border_color(ap_shelf_next, AMB_BORDER, 0);
+    lv_obj_set_style_border_width(ap_shelf_next, 1, 0);
+    lv_obj_set_style_radius(ap_shelf_next, SMIN(17), 0);
+    lv_obj_set_style_pad_hor(ap_shelf_next, SX(12), 0);
+    lv_obj_set_style_pad_ver(ap_shelf_next, 0, 0);
+    lv_obj_set_scrollable(ap_shelf_next, false);
+    lv_obj_set_clickable(ap_shelf_next, false);
+    lv_obj_set_flex_flow(ap_shelf_next, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(ap_shelf_next, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(ap_shelf_next, SX(8), 0);
+    lv_obj_set_hidden(ap_shelf_next, true);   // shelfSwapCb owns it from here
+
+    lbl_next_header = ambCaption(ap_shelf_next, AMB_TEXT3, "NEXT", 2);
+
+    lbl_next_title = lv_label_create(ap_shelf_next);
+    lv_label_set_text(lbl_next_title, "");
+    lv_obj_set_size(lbl_next_title, LV_SIZE_CONTENT, lv_font_get_line_height(&font_text_14));
+    lv_obj_set_style_max_width(lbl_next_title, SX(170), 0);
+    lv_label_set_long_mode(lbl_next_title, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_font(lbl_next_title, &font_text_14, 0);
+    lv_obj_set_style_text_color(lbl_next_title, AMB_TEXT, 0);
+
+    lbl_next_artist = lv_label_create(ap_shelf_next);
+    lv_label_set_text(lbl_next_artist, "");
+    lv_obj_set_size(lbl_next_artist, LV_SIZE_CONTENT, lv_font_get_line_height(&font_text_12));
+    lv_obj_set_style_max_width(lbl_next_artist, SX(100), 0);
+    lv_label_set_long_mode(lbl_next_artist, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_font(lbl_next_artist, &font_text_12, 0);
+    lv_obj_set_style_text_color(lbl_next_artist, AMB_TEXT3, 0);
+
+    img_next_album = lv_image_create(panel_art);
+    lv_obj_set_size(img_next_album, SMIN(40), SMIN(40));
+    park(img_next_album);
+
+    // ── Lyrics, over the artwork's lower part ───────────────────────────────
+    // A slot the size of the cover; createLyricsOverlay() bottom-aligns itself
+    // in it and brings its own dark fade, which is what lyrics over a cover
+    // need (the landscape shelf flattens that fade because it has no cover).
+    ap_lyric_slot = lv_obj_create(art_box);
+    lv_obj_remove_style_all(ap_lyric_slot);
+    lv_obj_set_size(ap_lyric_slot, SMIN(PP_ART), SMIN(PP_ART));
+    lv_obj_set_pos(ap_lyric_slot, 0, 0);
+    lv_obj_set_scrollable(ap_lyric_slot, false);
+    lv_obj_set_clickable(ap_lyric_slot, false);
+    createLyricsOverlay(ap_lyric_slot);
+    if (lv_obj_t* lyr = lv_obj_get_child(ap_lyric_slot, 0)) {
+        const int lyr_h = 150, lyr_pad = 16;
+        lv_obj_set_size(lyr, SMIN(PP_ART), SY(lyr_h));
+        lv_obj_set_style_radius(lyr, 0, 0);
+        lv_obj_align(lyr, LV_ALIGN_BOTTOM_MID, 0, 0);
+        lv_obj_set_style_pad_left(lyr, SX(lyr_pad), 0);
+        lv_obj_set_style_pad_right(lyr, SX(lyr_pad), 0);
+        lv_obj_set_style_pad_row(lyr, SY(4), 0);
+        // Previous line hidden for the reason the landscape shelf gives; the
+        // current line gets three rows and is fitted per line by spFitLyric().
+        const lv_font_t* fonts[3] = { &font_text_12, &font_text_20, &font_text_12 };
+        const lv_color_t cols[3]  = { AMB_TEXT3, AMB_TEXT_HI, AMB_TEXT2 };
+        const int        rows[3]  = { 0,             78,            20 };
+        for (int i = 0; i < 3; i++) {
+            lv_obj_t* l = lv_obj_get_child(lyr, i);
+            if (!l) continue;
+            if (i == 0) { lv_obj_set_hidden(l, true); continue; }
+            lv_obj_set_style_text_font(l, fonts[i], 0);
+            lv_obj_set_style_text_color(l, cols[i], 0);
+            lv_obj_set_size(l, SMIN(PP_ART - lyr_pad * 2), SY(rows[i]));
+            lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
+            lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_LEFT, 0);
+        }
+        ap_lyric_cur = lv_obj_get_child(lyr, 1);
+    }
+
+    // No shelf, so no shelf clock: shelfSwapCb and shelfClockTick both skip a
+    // null box and null labels.
+    ap_shelf_clock = nullptr;
+    ap_clk_time = ap_clk_ampm = ap_clk_date = ap_clk_sec = nullptr;
+    ap_clk_wx = ap_clk_wx_icon = ap_clk_wx_temp = nullptr;
+
+    ap_shelf_timer = lv_timer_create(shelfSwapCb, 200, nullptr);
+
+    // ── Header: room pill, LRC indicator, queue ─────────────────────────────
+    const int chip = PP_HEAD_H, gap = 10;
+    lv_obj_t* pill = lv_button_create(panel_right);
+    lv_obj_set_size(pill, SX(PP_W - chip * 2 - gap * 2), SY(PP_HEAD_H));
+    lv_obj_set_pos(pill, SX(PP_X), SY(PP_HEAD_Y));
+    lv_obj_set_style_radius(pill, SMIN(PP_HEAD_H / 2), 0);
+    lv_obj_set_style_bg_color(pill, AMB_CARD, 0);
+    lv_obj_set_style_border_color(pill, AMB_BORDER, 0);
+    lv_obj_set_style_border_width(pill, 1, 0);
+    lv_obj_set_style_shadow_width(pill, 0, 0);
+    lv_obj_set_style_pad_all(pill, 0, 0);
+    lv_obj_set_flex_flow(pill, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(pill, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_left(pill, SX(16), 0);
+    lv_obj_set_style_pad_right(pill, SX(10), 0);
+    lv_obj_set_style_pad_column(pill, SX(10), 0);
+    pressFade(pill);
+    lv_obj_add_event_cb(pill, ev_devices, LV_EVENT_CLICKED, NULL);
+
+    ambRoundRect(pill, 8, 8, 4, AMB_LIVE);
+
+    lbl_device_name = lv_label_create(pill);
+    lv_label_set_text(lbl_device_name, "Now Playing");
+    lv_obj_set_flex_grow(lbl_device_name, 1);
+    lv_obj_set_height(lbl_device_name, lv_font_get_line_height(&font_text_14));
+    lv_label_set_long_mode(lbl_device_name, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_color(lbl_device_name, AMB_TEXT, 0);
+    lv_obj_set_style_text_font(lbl_device_name, &font_text_14, 0);
+
+    lv_obj_t* chev = lv_label_create(pill);
+    lv_label_set_text(chev, AMB_IC_CHEV);
+    lv_obj_set_style_text_font(chev, &font_icon_16, 0);
+    lv_obj_set_style_text_color(chev, AMB_TEXT3, 0);
+
+    // Indicator only - see the landscape builder.
+    lv_obj_t* lrc = roundBtn(panel_right, "", &font_text_12, PP_X + PP_W - chip * 2 - gap,
+                             PP_HEAD_Y, chip, NULL, true, AMB_TEXT3);
+    lv_obj_set_clickable(lrc, false);
+    btn_lyrics = lrc;
+    if (lv_obj_t* l = lv_obj_get_child(lrc, 0)) {
+        lv_label_set_text(l, "LRC");
+        lv_obj_set_style_text_letter_space(l, 1, 0);
+    }
+
+    btn_queue = roundBtn(panel_right, AMB_IC_QUEUE, &font_icon_24,
+                         PP_X + PP_W - chip, PP_HEAD_Y, chip, ev_queue, true, AMB_TEXT2);
+    lv_obj_set_ext_click_area(btn_queue, 8);
+
+    // ── Track meta ──────────────────────────────────────────────────────────
+    // Geometry for all three comes from amberPortraitRestoreTrackLabels().
+    lbl_artist = lv_label_create(panel_right);
+    lv_label_set_text(lbl_artist, "");
+    lv_obj_set_style_text_color(lbl_artist, AMB_ACCENT, 0);
+    lv_obj_set_style_text_font(lbl_artist, &font_text_12, 0);
+    lv_obj_set_style_text_letter_space(lbl_artist, 3, 0);
+
+    lbl_title = lv_label_create(panel_right);
+    lv_label_set_text(lbl_title, "Not Playing");
+    lv_obj_set_style_text_color(lbl_title, AMB_TEXT, 0);
+    lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
+
+    lbl_album = lv_label_create(panel_right);
+    lv_label_set_text(lbl_album, "");
+    lv_obj_set_style_text_color(lbl_album, AMB_TEXT3, 0);
+    lv_obj_set_style_text_font(lbl_album, &font_text_14, 0);
+
+    amberPortraitRestoreTrackLabels();
+
+    // ── Progress ────────────────────────────────────────────────────────────
+    slider_progress = amberSlider(panel_right, PP_X, PP_PROG_Y, PP_W, AMB_ACCENT, ev_progress);
+    lv_slider_set_range(slider_progress, 0, PROGRESS_SLIDER_MAX);
+
+    lbl_time = lv_label_create(panel_right);
+    lv_obj_set_pos(lbl_time, SX(PP_X), SY(PP_TIME_Y));
+    lv_label_set_text(lbl_time, "0:00");
+    lv_obj_set_style_text_color(lbl_time, AMB_TEXT3, 0);
+    lv_obj_set_style_text_font(lbl_time, &font_text_14, 0);
+
+    lbl_time_remaining = lv_label_create(panel_right);
+    lv_obj_set_pos(lbl_time_remaining, SX(PP_X + PP_W - 60), SY(PP_TIME_Y));
+    lv_obj_set_size(lbl_time_remaining, SX(60), SY(18));
+    lv_label_set_long_mode(lbl_time_remaining, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_align(lbl_time_remaining, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_label_set_text(lbl_time_remaining, "-0:00");
+    lv_obj_set_style_text_color(lbl_time_remaining, AMB_TEXT3, 0);
+    lv_obj_set_style_text_font(lbl_time_remaining, &font_text_14, 0);
+
+    // Lyrics status ("searching…") between the two times.
+    lbl_lyrics_status = lv_label_create(panel_right);
+    lv_label_set_text(lbl_lyrics_status, "");
+    lv_obj_set_width(lbl_lyrics_status, SX(PP_W - 140));
+    lv_obj_set_style_text_align(lbl_lyrics_status, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_pos(lbl_lyrics_status, SX(PP_X + 70), SY(PP_TIME_Y + 1));
+    lv_obj_set_style_text_color(lbl_lyrics_status, AMB_TEXT3, 0);
+    lv_obj_set_style_text_font(lbl_lyrics_status, &font_text_12, 0);
+
+    // ── Transport ───────────────────────────────────────────────────────────
+    // Widths 44/52/72/52/44 = 264 across 420: four gaps of 39.
+    const int b0 = PP_X;                      // shuffle 44
+    const int b1 = PP_X + 44 + 39;            // prev    52
+    const int b2 = b1 + 52 + 39;              // play    72
+    const int b3 = b2 + PP_CTRL_H + 39;       // next    52
+    const int b4 = PP_X + PP_W - 44;          // repeat  44
+
+    btn_shuffle = roundBtn(panel_right, AMB_IC_SHUFFLE, &font_icon_32,
+                           b0, PP_CTRL_Y + 14, 44, ev_shuffle, false, AMB_TEXT3);
+    btn_prev    = roundBtn(panel_right, AMB_IC_PREV, &font_icon_40,
+                           b1, PP_CTRL_Y + 10, 52, ev_prev, false, AMB_TEXT);
+    btn_next    = roundBtn(panel_right, AMB_IC_NEXT, &font_icon_40,
+                           b3, PP_CTRL_Y + 10, 52, ev_next, false, AMB_TEXT);
+    btn_repeat  = roundBtn(panel_right, AMB_IC_REPEAT, &font_icon_32,
+                           b4, PP_CTRL_Y + 14, 44, ev_repeat, false, AMB_TEXT3);
+
+    btn_play = lv_button_create(panel_right);
+    lv_obj_set_size(btn_play, SMIN(PP_CTRL_H), SMIN(PP_CTRL_H));
+    lv_obj_set_pos(btn_play, SX(b2), SY(PP_CTRL_Y));
+    lv_obj_set_style_bg_color(btn_play, AMB_ACCENT, 0);
+    lv_obj_set_style_bg_color(btn_play, AMB_ACCENT_HI, LV_STATE_PRESSED);
+    lv_obj_set_style_radius(btn_play, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_shadow_width(btn_play, 0, 0);
+    lv_obj_set_style_border_width(btn_play, 0, 0);
+    lv_obj_add_event_cb(btn_play, ev_play, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* ico_play = lv_label_create(btn_play);
+    // PLAY, matching ui_playing's initial false: updateUI() only rewrites this
+    // icon when the state differs from that cache, so a PAUSE here stayed up
+    // over a paused speaker until something was played.
+    lv_label_set_text(ico_play, AMB_IC_PLAY);
+    lv_obj_set_style_text_font(ico_play, &font_icon_40, 0);
+    lv_obj_set_style_text_color(ico_play, AMB_ON_ACCENT, 0);
+    lv_obj_center(ico_play);
+
+    // ── Volume ──────────────────────────────────────────────────────────────
+    btn_mute = roundBtn(panel_right, AMB_IC_VOL, &font_icon_24,
+                        PP_X - 4, PP_VOL_Y - 11, 28, ev_mute, false, AMB_TEXT3);
+
+    slider_vol = amberSlider(panel_right, PP_X + 34, PP_VOL_Y, PP_W - 34 - 40,
+                              AMB_TEXT_BRIGHT, ev_vol_slider);
+    lv_obj_set_style_anim_duration(slider_vol, VOL_GLIDE_MS, 0);
+
+    lv_obj_t* lbl_vol = ambLabel(panel_right, &font_text_14, AMB_TEXT3, "--");
+    lv_obj_set_width(lbl_vol, SX(32));
+    lv_obj_set_style_text_align(lbl_vol, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_set_pos(lbl_vol, SX(PP_X + PP_W - 32), SY(PP_VOL_Y - 6));
+    lv_obj_set_user_data(slider_vol, lbl_vol);
+    lv_obj_add_event_cb(slider_vol, [](lv_event_t* e) {
+        lv_obj_t* sl = (lv_obj_t*)lv_event_get_target(e);
+        lv_obj_t* l  = (lv_obj_t*)lv_obj_get_user_data(sl);
+        if (l) lv_label_set_text_fmt(l, "%d", (int)lv_slider_get_value(sl));
+    }, LV_EVENT_VALUE_CHANGED, NULL);
+
+    // ── Battery and sleep timer, the band above the tab bar ─────────────────
+    {
+        lv_obj_t* row = lv_obj_create(panel_right);
+        lv_obj_remove_style_all(row);
+        lv_obj_set_pos(row, SX(PP_X), SY(PP_BAND_Y));
+        lv_obj_set_size(row, SX(PP_W), SY(PP_BAND_H));
+        lv_obj_set_scrollable(row, false);
+        lv_obj_set_clickable(row, false);
+
+        lv_obj_t* bat = batteryBadgeCreate(row, BATTERY_BADGE_CURRENT);
+        lv_obj_align(bat, LV_ALIGN_LEFT_MID, 0, 0);
+        lv_obj_align(sleepButtonCreate(row, SLEEP_BTN_PILL), LV_ALIGN_RIGHT_MID, 0, 0);
+    }
+
+    // Queue drawer and sleep sheet, above everything including the tab bar.
+    amberBuildOverlays(scr_main);
+}
+#endif  // UI_PORTRAIT

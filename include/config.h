@@ -97,13 +97,32 @@
 #define SCREEN_SIZE 4                   // default to 4" if no build flag is set
 #endif
 
+// UI_PORTRAIT=1 builds the 4" for an upright mount (platformio.ini,
+// esp32_4inch_portrait). LVGL then draws at the panel's own 480x800, with no
+// rotation in the flush path or the touch path.
+#ifndef UI_PORTRAIT
+#define UI_PORTRAIT 0
+#endif
+
+// Bench builds only (PLATFORMIO_BUILD_FLAGS=-DUI_DEBUG_TAP=1): serial "tap x y"
+// and "clock" commands drive the UI for screenshot tours. Never in a release.
+#ifndef UI_DEBUG_TAP
+#define UI_DEBUG_TAP 0
+#endif
+
 #if SCREEN_SIZE == 4
     // GUITION JC4880P443C — ST7701 MIPI DSI
+  #if UI_PORTRAIT
+    #define DISPLAY_WIDTH       480     // LVGL width (portrait = panel native)
+    #define DISPLAY_HEIGHT      800     // LVGL height (portrait = panel native)
+    #define DISPLAY_MODEL       "ST7701 4\" (480x800)"
+  #else
     #define DISPLAY_WIDTH       800     // LVGL width (landscape)
     #define DISPLAY_HEIGHT      480     // LVGL height (landscape)
+    #define DISPLAY_MODEL       "ST7701 4\" (800x480)"
+  #endif
     #define PANEL_WIDTH         480     // Physical panel width (portrait)
     #define PANEL_HEIGHT        800     // Physical panel height (portrait)
-    #define DISPLAY_MODEL       "ST7701 4\" (800x480)"
     #define PANEL_SIZE_LABEL    "4\""   // short form for the settings rail / boot footer
     // Lowest "Dimmed brightness" (issue #172). The ST7701 backlight is 10-bit,
     // so 1% is a real step: still lit, and clearly darker than 5% on a
@@ -117,6 +136,9 @@
     #define TOUCH_PANEL_WIDTH   480     // Touch panel native width (portrait)
     #define TOUCH_PANEL_HEIGHT  800     // Touch panel native height (portrait)
 #elif SCREEN_SIZE == 7
+  #if UI_PORTRAIT
+    #error "UI_PORTRAIT is 4\"-only for now: the 7\" JD9165 is a landscape panel and has no rotate path yet"
+  #endif
     // GUITION JC1060P470C — JD9165 MIPI DSI, native 1024x600 LANDSCAPE.
     // Unlike the 4" ST7701 (portrait panel rotated 90°), the JD9165 is wired
     // landscape, so the flush path does NOT rotate (PANEL_* == DISPLAY_*).
@@ -401,6 +423,11 @@
 // The 30fps also needs LVGL on real time - see lv_tick_set_cb in main.cpp.
 #ifndef DISPLAY_PARTIAL_RENDER
 #define DISPLAY_PARTIAL_RENDER  1
+#endif
+// Portrait only has a partial-render flush (display_driver.cpp): the legacy
+// full-frame path is built around its rotate buffer.
+#if UI_PORTRAIT && !DISPLAY_PARTIAL_RENDER
+#error "UI_PORTRAIT needs DISPLAY_PARTIAL_RENDER=1"
 #endif
 
 

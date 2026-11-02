@@ -358,7 +358,14 @@ static void sourceRowDeleteCb(lv_event_t* e) {
 // user actually opens the screen — nothing is spent at boot.
 // Inner content width is 800 - SB_RAIL_W(216) - 2*SETTINGS_CONTENT_PAD(24) = 536.
 // Two tiles plus one 10px gap: (536 - 10) / 2 = 263.
+// Portrait: 480 - 2*16 = 448, so (448 - 10) / 2 = 219.
+#if UI_PORTRAIT
+#define SOURCE_TILE_W 219
+#define BROWSE_TEXT_W 400   // right of the back arrow, to the content edge
+#else
 #define SOURCE_TILE_W 263
+#define BROWSE_TEXT_W 520
+#endif
 
 // One Sources tile: card, icon, and the name as child index 1 (click handlers
 // read the title back from there). Callers attach their own data and handlers.
@@ -498,13 +505,17 @@ void createSourcesScreen() {
     lv_obj_t* content = createSettingsSidebar(scr_sources, 3);
     lv_obj_set_scrollable(content, false);
 
-    // Title
+    // Title. Portrait promotes this page to the Library tab, and names it so.
+#if UI_PORTRAIT
+    addScreenHeader(content, "Library", nullptr);
+#else
     addScreenHeader(content, "Sources", nullptr);
+#endif
 
     // Scrollable list
     lv_obj_t* list = lv_obj_create(content);
     lv_obj_set_pos(list, 0, SY(50));
-    lv_obj_set_size(list, lv_pct(100), SETTINGS_LIST_H(50));
+    lv_obj_set_size(list, lv_pct(100), SETTINGS_ROOT_LIST_H(50));
     lv_obj_set_style_bg_color(list, AMB_PANEL, 0);
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_set_style_pad_all(list, 0, 0);
@@ -643,7 +654,7 @@ void createBrowseScreen() {
         lv_obj_set_style_text_font(lbl_trail, &font_text_12, 0);
         lv_obj_set_style_text_color(lbl_trail, AMB_TEXT3, 0);
         lv_obj_set_pos(lbl_trail, SX(48), SY(2));
-        lv_obj_set_width(lbl_trail, SX(520));
+        lv_obj_set_width(lbl_trail, SX(BROWSE_TEXT_W));
         lv_label_set_long_mode(lbl_trail, LV_LABEL_LONG_DOT);
     }
 
@@ -655,13 +666,13 @@ void createBrowseScreen() {
     lv_obj_set_style_text_font(lbl_title, &font_text_24, 0);
     lv_obj_set_style_text_color(lbl_title, AMB_TEXT, 0);
     lv_obj_set_pos(lbl_title, SX(48), nested ? SY(18) : SY(4));
-    lv_obj_set_width(lbl_title, SX(520));
+    lv_obj_set_width(lbl_title, SX(BROWSE_TEXT_W));
     lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_DOT);
 
     // Content list
     lv_obj_t* list = lv_obj_create(content);
     lv_obj_set_pos(list, 0, SY(50));
-    lv_obj_set_size(list, lv_pct(100), SETTINGS_LIST_H(50));
+    lv_obj_set_size(list, lv_pct(100), SETTINGS_ROOT_LIST_H(50));
     lv_obj_set_style_bg_color(list, AMB_PANEL, 0);
     lv_obj_set_style_border_width(list, 0, 0);
     lv_obj_set_style_pad_all(list, 0, 0);

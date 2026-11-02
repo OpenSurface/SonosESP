@@ -64,7 +64,21 @@ void themeMigrate(void) {
     wifiPrefs.putInt(NVS_KEY_THEME_VER, THEME_SCHEMA);
 }
 
+#if UI_PORTRAIT
+// Portrait has one player, whatever the saved theme says. The saved index is
+// left alone (a landscape image flashed back gets its theme back) and the
+// General screen hides the picker. The cover is centred unscaled-or-scaled in
+// the builder's own art box, so the geometry is "centred, 360".
+static const ThemeDef PORTRAIT_THEME = {
+    "Amber", "Portrait layout", THEME_BG_FLAT, 360, THEME_ART_CENTRED, THEME_ART_CENTRED,
+    buildAmberPortraitPlayer
+};
+#endif
+
 const ThemeDef* themeCurrent(void) {
+#if UI_PORTRAIT
+    return &PORTRAIT_THEME;
+#endif
     return &THEMES[active_theme < THEME_COUNT ? active_theme : 0];
 }
 
@@ -73,6 +87,9 @@ const ThemeDef* themeCurrent(void) {
 // see themeMigrate) without silently pointing these at the wrong geometry.
 void themeRestoreTrackLabels(void) {
     ThemeBuildFn b = themeCurrent()->build;
+#if UI_PORTRAIT
+    if (b == buildAmberPortraitPlayer) { amberPortraitRestoreTrackLabels(); return; }
+#endif
     if      (b == buildAmberPlayer)     amberRestoreTrackLabels();
     else if (b == buildImmersivePlayer) immersiveRestoreTrackLabels();
     else                                classicRestoreTrackLabels();

@@ -1518,6 +1518,19 @@ void exitClockScreen() {
 // checkClockTrigger — call every loop() iteration.
 // Drives the clock state machine without blocking the main thread.
 // ============================================================================
+#if UI_DEBUG_TAP
+// Bench-only (serial "clock"): enter the screensaver now, through the same
+// CLOCK_ENTERING path a real trigger takes, whatever the mode and timeout.
+void clockDebugEnter() {
+    if (clock_state != CLOCK_IDLE) return;
+    Serial.println("[CLOCK] Debug trigger - entering clock screen");
+    clock_state             = CLOCK_ENTERING;
+    clock_entering_start_ms = millis();
+    art_shutdown_requested    = true;
+    lyrics_shutdown_requested = true;
+}
+#endif
+
 void checkClockTrigger() {
     switch (clock_state) {
 

@@ -22,6 +22,7 @@
 
 #include <stdint.h>
 #include "lvgl.h"
+#include "config.h"   // UI_PORTRAIT
 
 // How the player backdrop is painted.
 typedef enum {
@@ -128,6 +129,10 @@ void themeApplyArtGeometry(lv_obj_t* img);
 void buildClassicPlayer(void);     // ui_main_screen.cpp
 void buildImmersivePlayer(void);   // ui_theme_immersive.cpp
 void buildAmberPlayer(void);      // ui_theme_amber.cpp
+#if UI_PORTRAIT
+void buildAmberPortraitPlayer(void);        // ui_theme_amber.cpp, portrait builds
+void amberPortraitRestoreTrackLabels(void);
+#endif
 
 // ── Amber overlays (ui_amber_overlays.cpp) ────────────────────────────────
 // The canvas draws Queue and Rooms OVER the player rather than as their own

@@ -118,7 +118,7 @@ def check_geometry(findings):
                     continue
                 args = line[m.end():]
                 # Drop anything already wrapped in a scaling macro or a percentage.
-                cleaned = re.sub(r'\b(SX|SY|SMIN|SETTINGS_LIST_H)\s*\([^)]*\)', '', args)
+                cleaned = re.sub(r'\b(SX|SY|SMIN|SETTINGS_LIST_H|SETTINGS_ROOT_LIST_H)\s*\([^)]*\)', '', args)
                 cleaned = re.sub(r'lv_pct\s*\([^)]*\)', '', cleaned)
                 cleaned = re.sub(r'LV_(SIZE_CONTENT|PCT|ALIGN_[A-Z_]+)', '', cleaned)
                 bare = [t for t in re.findall(r'(?<![\w.])(-?\d+)(?![\w.])', cleaned)

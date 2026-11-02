@@ -7,6 +7,7 @@
  * Implementations live in src/screens/ui_settings_card.cpp.
  */
 #include "lvgl.h"
+#include "config.h"   // UI_PORTRAIT
 
 // Dark-theme tokens (slightly elevated from screen bg = COL_SCREEN).
 // Aliases, not literals: these were duplicate 0x1A1A1A / 0x2A2A2A copies of
@@ -35,10 +36,25 @@
 // trip into Settings. Every screen's list height derives from these, so that
 // change landed without editing any of them — which is the reason the arithmetic
 // was centralised here in the first place.
+#if UI_PORTRAIT
+// Portrait (ui_portrait_nav.cpp): 800 - 64 tab bar - 60 dock - 48 back bar.
+// Top-level tab screens (Rooms, Library) have no back bar and get 48 more,
+// which their own lists account for.
+#define SETTINGS_CONTENT_H   628
+#define SETTINGS_CONTENT_PAD 16
+#else
 #define SETTINGS_CONTENT_H   424
 #define SETTINGS_CONTENT_PAD 24
+#endif
 #define SETTINGS_INNER_H     (SETTINGS_CONTENT_H - 2 * SETTINGS_CONTENT_PAD)   // 376
 #define SETTINGS_LIST_H(top) SY(SETTINGS_INNER_H - (top))
+// A list on a portrait TAB ROOT (Library, Rooms): those screens have no back
+// bar, so 48 more design pixels are theirs. Same as SETTINGS_LIST_H landscape.
+#if UI_PORTRAIT
+#define SETTINGS_ROOT_LIST_H(top) SY(SETTINGS_INNER_H + 48 - (top))
+#else
+#define SETTINGS_ROOT_LIST_H(top) SETTINGS_LIST_H(top)
+#endif
 
 // Create a card container with a title + accent underline. Returns the card
 // object so callers can add child controls (flex column layout, scroll disabled).

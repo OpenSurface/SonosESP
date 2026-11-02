@@ -30,14 +30,27 @@
 #include <ctype.h>
 #include <time.h>
 
-// ── Geometry, 800x480 design space ──────────────────────────────────────────
+// ── Geometry, design space (800x480, or 480x800 in portrait) ────────────────
+// Portrait turns the right-hand drawer into a bottom sheet: full width, the
+// upper part of the player still visible above it. Rooms is a tab there, so
+// its modal is built but never shown (amberShowRooms()).
+#if UI_PORTRAIT
+#define OV_DRAWER_W    UI_DESIGN_W
+#define OV_DRAWER_H    620
+#define OV_ROOMS_W     440
+#define OV_SLEEP_Y     240
+#else
 #define OV_DRAWER_W    400
+#define OV_DRAWER_H    UI_DESIGN_H
 #define OV_ROOMS_W     520
-#define OV_ROOMS_X     140
+#define OV_SLEEP_Y     104   // the sleep sheet: Rooms' frame, lower, as it is shorter
+#endif
+#define OV_DRAWER_X    (UI_DESIGN_W - OV_DRAWER_W)     // 400 landscape, 0 portrait
+#define OV_DRAWER_Y    (UI_DESIGN_H - OV_DRAWER_H)     // 0 landscape
+#define OV_ROOMS_X     ((UI_DESIGN_W - OV_ROOMS_W) / 2)   // 140 landscape
 #define OV_ROOMS_Y     56
 #define OV_ROW_H       62
 #define OV_SLIDER_W    150
-#define OV_SLEEP_Y     104   // the sleep sheet: Rooms' frame, lower, as it is shorter
 
 static lv_obj_t* ov_scrim       = nullptr;
 static lv_obj_t* ov_queue       = nullptr;
@@ -123,12 +136,16 @@ static lv_obj_t* ovPill(lv_obj_t* parent, const char* icon, const char* text,
 // ── Queue drawer ────────────────────────────────────────────────────────────
 static void ovBuildQueue(lv_obj_t* parent) {
     ov_queue = lv_obj_create(parent);
-    lv_obj_set_size(ov_queue, SX(OV_DRAWER_W), SY(480));
-    lv_obj_set_pos(ov_queue, SX(800 - OV_DRAWER_W), 0);
+    lv_obj_set_size(ov_queue, SX(OV_DRAWER_W), SY(OV_DRAWER_H));
+    lv_obj_set_pos(ov_queue, SX(OV_DRAWER_X), SY(OV_DRAWER_Y));
     lv_obj_set_style_bg_color(ov_queue, AMB_BG_DRAWER, 0);
     lv_obj_set_style_radius(ov_queue, 0, 0);
     lv_obj_set_style_border_width(ov_queue, 1, 0);
+#if UI_PORTRAIT
+    lv_obj_set_style_border_side(ov_queue, LV_BORDER_SIDE_TOP, 0);
+#else
     lv_obj_set_style_border_side(ov_queue, LV_BORDER_SIDE_LEFT, 0);
+#endif
     lv_obj_set_style_border_color(ov_queue, AMB_BORDER, 0);
     lv_obj_set_style_pad_all(ov_queue, 0, 0);
     lv_obj_set_scrollable(ov_queue, false);
@@ -159,7 +176,7 @@ static void ovBuildQueue(lv_obj_t* parent) {
 
     // Rows
     ov_queue_list = lv_obj_create(ov_queue);
-    lv_obj_set_size(ov_queue_list, SX(OV_DRAWER_W), SY(480 - 64 - 68));
+    lv_obj_set_size(ov_queue_list, SX(OV_DRAWER_W), SY(OV_DRAWER_H - 64 - 68));
     lv_obj_set_pos(ov_queue_list, 0, SY(64));
     lv_obj_set_style_bg_opa(ov_queue_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(ov_queue_list, 0, 0);
@@ -174,7 +191,7 @@ static void ovBuildQueue(lv_obj_t* parent) {
     // Footer
     lv_obj_t* foot = lv_obj_create(ov_queue);
     lv_obj_set_size(foot, SX(OV_DRAWER_W), SY(68));
-    lv_obj_set_pos(foot, 0, SY(480 - 68));
+    lv_obj_set_pos(foot, 0, SY(OV_DRAWER_H - 68));
     lv_obj_set_style_bg_opa(foot, LV_OPA_TRANSP, 0);
     lv_obj_set_style_radius(foot, 0, 0);
     lv_obj_set_style_border_width(foot, 1, 0);
@@ -648,7 +665,7 @@ void amberBuildOverlays(lv_obj_t* screen) {
     // The scrim dims the player and swallows taps outside the panels, so tapping
     // the background dismisses — which is how the canvas behaves.
     ov_scrim = lv_obj_create(screen);
-    lv_obj_set_size(ov_scrim, SX(800), SY(480));
+    lv_obj_set_size(ov_scrim, SX(UI_DESIGN_W), SY(UI_DESIGN_H));
     lv_obj_set_pos(ov_scrim, 0, 0);
     lv_obj_set_style_bg_color(ov_scrim, lv_color_hex(0x060605), 0);
     lv_obj_set_style_bg_opa(ov_scrim, 160, 0);
@@ -690,6 +707,10 @@ bool amberShowQueue(void) {
 }
 
 bool amberShowRooms(void) {
+#if UI_PORTRAIT
+    // Rooms is a tab in portrait: false sends ev_devices() to scr_devices.
+    return false;
+#endif
     if (!ov_rooms || !ov_scrim) return false;
     if (ov_queue) lv_obj_set_hidden(ov_queue, true);
     if (ov_sleep) lv_obj_set_hidden(ov_sleep, true);

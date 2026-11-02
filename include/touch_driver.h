@@ -14,4 +14,10 @@ void touch_read(lv_indev_t *indev, lv_indev_data_t *data);
 // block in touch_driver.cpp — so mainAppTask does it on the sampler's behalf.
 bool touch_take_wake_request(void);
 
+// UI_DEBUG_TAP builds only: a serial "tap x y" command (screenshot.cpp) uses
+// this to drive the UI from the bench, for screenshot tours without a finger.
+#if UI_DEBUG_TAP
+void touch_inject_tap(int32_t x, int32_t y);
+#endif
+
 #endif // TOUCH_DRIVER_H

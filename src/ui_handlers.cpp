@@ -9,6 +9,7 @@
 #include <vector>
 #include "config.h"
 #include "ui_theme.h"
+#include "ui_portrait_nav.h"
 #include "lyrics.h"
 #include "position_estimate.h"
 #include "clock_screen.h"
@@ -234,6 +235,10 @@ void ev_settings(lv_event_t* e) {
     // that already exists; by the time anyone taps the gear, General is built.
     // The design canvas opens Settings on General, and it is the page whose
     // controls are least likely to need a network round-trip to be meaningful.
+#if UI_PORTRAIT
+    // Portrait has a Settings landing page; the sections hang off it.
+    if (scr_settings_menu) { lv_screen_load(scr_settings_menu); return; }
+#endif
     lv_screen_load(scr_general ? scr_general : scr_settings);
 }
 
@@ -819,9 +824,23 @@ static void checkForUpdates() {
             //
             // kAllowLegacy is FALSE on r3: every unsuffixed firmware.bin ever
             // published is a pre-rev3 4" build.
+            //
+            // Portrait (UI_PORTRAIT) is its own asset for the same reason the
+            // 4"/7" split is: installing the landscape image on an upright
+            // panel would turn the whole UI sideways. The names stay disjoint
+            // under substring matching - neither "firmware-4inch.bin" nor
+            // "firmware-4inch-r3.bin" occurs inside "firmware-4inch-portrait.bin"
+            // or "firmware-4inch-r3-portrait.bin", and the reverse holds too.
+            // A release without a portrait asset simply offers no update.
             #if SCREEN_SIZE == 7
                 const char* kVariantAsset = "firmware-7inch.bin";
                 const bool  kAllowLegacy  = false;   // legacy asset is the 4" build
+            #elif UI_PORTRAIT && !CONFIG_ESP32P4_SELECTS_REV_LESS_V3
+                const char* kVariantAsset = "firmware-4inch-r3-portrait.bin";
+                const bool  kAllowLegacy  = false;
+            #elif UI_PORTRAIT
+                const char* kVariantAsset = "firmware-4inch-portrait.bin";
+                const bool  kAllowLegacy  = false;   // legacy asset is landscape
             #elif !CONFIG_ESP32P4_SELECTS_REV_LESS_V3
                 const char* kVariantAsset = "firmware-4inch-r3.bin";
                 const bool  kAllowLegacy  = false;   // legacy asset is pre-rev3

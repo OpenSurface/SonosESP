@@ -2,7 +2,7 @@
 
 lv_obj_t* nocFaceRoot(lv_obj_t* parent) {
     lv_obj_t* root = lv_obj_create(parent);
-    lv_obj_set_size(root, SX(800), SY(480));
+    lv_obj_set_size(root, SX(UI_DESIGN_W), SY(UI_DESIGN_H));
     lv_obj_set_pos(root, 0, 0);
     lv_obj_set_style_border_width(root, 0, 0);
     lv_obj_set_style_pad_all(root, 0, 0);

@@ -26,6 +26,7 @@ lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
 // Keeping those identical matters - two different scales for "good signal" in
 // one product is worse than not showing it at all.
 #define WB_BARS   4
+#define WB_RESERVE_W 96   // status text keeps clear of the dBm label + bars
 static lv_obj_t* wifi_bars[WB_BARS];
 static lv_obj_t* lbl_wifi_rssi   = nullptr;
 static lv_timer_t* wifi_rssi_timer = nullptr;
@@ -84,6 +85,21 @@ static void wifiRssiTick(lv_timer_t*) {
 //   screen root after the settings dock, so it draws over the dock while typing;
 //   pw_strip at 104..156 stays clear of it.
 // ============================================================================
+// Password strip budget. Landscape: 516 inner, see the textarea note below.
+// Portrait: 480 - 2x16 content padding - 2x10 strip padding = 428, so
+// SSID 42..134, field 142..312, Connect 322..428.
+#if UI_PORTRAIT
+#define PW_SSID_W     92
+#define PW_TA_X       142
+#define PW_TA_W       170
+#define PW_CONNECT_W  106
+#else
+#define PW_SSID_W     138
+#define PW_TA_X       190
+#define PW_TA_W       198
+#define PW_CONNECT_W  120
+#endif
+
 void createWiFiScreen() {
     scr_wifi = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr_wifi, AMB_BG, 0);
@@ -120,6 +136,10 @@ void createWiFiScreen() {
     lv_obj_set_style_text_font(lbl_wifi_status, &font_icon_16, 0);
     lv_obj_set_width(lbl_wifi_status, lv_pct(100));
     lv_label_set_long_mode(lbl_wifi_status, LV_LABEL_LONG_DOT);
+    // Keep the text out from under the signal widget on the right ("-75 dBm"
+    // plus four bars, ~85px). Without this a long status ran beneath it: on the
+    // 480-wide portrait card "Connected to <SSID> (<IP>)" already does.
+    lv_obj_set_style_pad_right(lbl_wifi_status, SX(WB_RESERVE_W), 0);
     lv_obj_align(lbl_wifi_status, LV_ALIGN_LEFT_MID, 0, 0);
 
     // Signal strength, right-aligned in the status card (#196). Built here so
@@ -207,7 +227,7 @@ void createWiFiScreen() {
     lv_label_set_text(lbl_pw_ssid, "");
     lv_obj_set_style_text_font(lbl_pw_ssid, &font_text_14, 0);
     lv_obj_set_style_text_color(lbl_pw_ssid, AMB_TEXT, 0);
-    lv_obj_set_width(lbl_pw_ssid, SX(138));
+    lv_obj_set_width(lbl_pw_ssid, SX(PW_SSID_W));
     lv_label_set_long_mode(lbl_pw_ssid, LV_LABEL_LONG_DOT);
     lv_obj_align(lbl_pw_ssid, LV_ALIGN_LEFT_MID, SX(42), 0);
 
@@ -228,8 +248,8 @@ void createWiFiScreen() {
     // before the rail widened to 216 and SETTINGS_CONTENT_PAD was introduced;
     // its budget (30+140+255+120 = 545) never fitted 516.
     ta_password = lv_textarea_create(pw_strip);
-    lv_obj_set_size(ta_password, SX(198), SY(38));
-    lv_obj_align(ta_password, LV_ALIGN_LEFT_MID, SX(190), 0);
+    lv_obj_set_size(ta_password, SX(PW_TA_W), SY(38));
+    lv_obj_align(ta_password, LV_ALIGN_LEFT_MID, SX(PW_TA_X), 0);
     lv_textarea_set_password_mode(ta_password, true);
     lv_textarea_set_one_line(ta_password, true);
     lv_textarea_set_placeholder_text(ta_password, "Password");
@@ -243,7 +263,7 @@ void createWiFiScreen() {
 
     // Connect button — far right
     btn_wifi_connect = lv_button_create(pw_strip);
-    lv_obj_set_size(btn_wifi_connect, SX(120), SY(38));
+    lv_obj_set_size(btn_wifi_connect, SX(PW_CONNECT_W), SY(38));
     lv_obj_align(btn_wifi_connect, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_set_style_bg_color(btn_wifi_connect, AMB_ACCENT, 0);
     lv_obj_set_style_radius(btn_wifi_connect, 10, 0);
@@ -289,8 +309,16 @@ void createWiFiScreen() {
     kb = lv_keyboard_create(scr_wifi);
     lv_keyboard_set_textarea(kb, ta_password);
     lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_TEXT_LOWER);
+#if UI_PORTRAIT
+    // Full width and taller: portrait has the height, and the keys need it.
+    // It covers the dock and tab bar while typing, as the landscape one covers
+    // the dock.
+    lv_obj_set_size(kb, SX(UI_DESIGN_W - 10), SY(260));
+    lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, SY(-5));
+#else
     lv_obj_set_size(kb, SX(615), SY(175));
     lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, SX(90), SY(-5));
+#endif
     lv_obj_set_hidden(kb, true);
     lv_obj_set_style_bg_color(kb, AMB_CARD, 0);
     lv_obj_set_style_pad_all(kb, SMIN(5), 0);

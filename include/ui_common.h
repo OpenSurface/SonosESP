@@ -355,6 +355,9 @@ void triggerPendingOTA();  // Called from setup() if NVS_KEY_OTA_PENDING was sav
 String urlEncode(const char *url);
 // (cleanupBrowseData removed — browse rows now free their ItemData via LV_EVENT_DELETE)
 lv_obj_t *createSettingsSidebar(lv_obj_t *screen, int activeIdx);
+// The now-playing strip (art, title, play/next) at design-space y, h tall,
+// full width. One per screen; a shared 500ms timer refreshes the visible one.
+void nowDockBuild(lv_obj_t *screen, int y, int h);
 
 // HTML entity decoding helper (inline to avoid code duplication)
 inline String decodeHTMLEntities(const String& str) {
