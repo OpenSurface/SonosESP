@@ -1,5 +1,5 @@
 /**
- * Portrait navigation frame — tab bar, dock, Settings menu, Search placeholder.
+ * Portrait navigation frame — tab bar, dock, Settings menu.
  *
  * UI_PORTRAIT builds only (see ui_portrait_nav.h). Drawn from the "Portrait"
  * row of the redesign canvas: five tabs along the bottom, the now-playing dock
@@ -24,13 +24,12 @@
 #include "ui_portrait_nav.h"
 
 lv_obj_t* scr_settings_menu = nullptr;
-lv_obj_t* scr_search        = nullptr;
 
 // ── Search glyph ────────────────────────────────────────────────────────────
 // Neither icon font carries a magnifier, and regenerating them for one glyph
 // is a tooling detour. A ring and a handle draw it at any size. lv_line keeps
 // a POINTER to its points, so each size gets its own static pair.
-static lv_obj_t* searchGlyph(lv_obj_t* parent, int size, lv_color_t col) {
+lv_obj_t* portraitSearchGlyph(lv_obj_t* parent, int size, lv_color_t col) {
     static lv_point_precise_t pts[4][2];
     static int pts_size[4] = {0, 0, 0, 0};
     int slot = 0;
@@ -141,7 +140,7 @@ static void buildTabBar(lv_obj_t* screen, PortraitTab active) {
             lv_obj_set_size(hold, SMIN(24), lv_font_get_line_height(&font_icon_24));
             lv_obj_remove_flag(hold, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_set_scrollable(hold, false);
-            lv_obj_center(searchGlyph(hold, SMIN(22), col));
+            lv_obj_center(portraitSearchGlyph(hold, SMIN(22), col));
         }
 
         lv_obj_t* lbl = lv_label_create(b);
@@ -187,7 +186,7 @@ static void styleContent(lv_obj_t* content) {
 // Display, WiFi, Clock, Update), mapped onto tabs. Speakers is the Rooms tab
 // itself and Sources the Library tab, so those two have no back bar.
 struct PortraitHome { PortraitTab tab; const char* back_label; };
-static const PortraitHome SB_HOME[8] = {
+static const PortraitHome SB_HOME[9] = {
     {PTAB_SETTINGS, "Settings"},   // 0 General
     {PTAB_ROOMS,    nullptr},      // 1 Speakers = Rooms tab root
     {PTAB_ROOMS,    "Rooms"},      // 2 Groups
@@ -196,6 +195,7 @@ static const PortraitHome SB_HOME[8] = {
     {PTAB_SETTINGS, "Settings"},   // 5 WiFi
     {PTAB_SETTINGS, "Settings"},   // 6 Clock
     {PTAB_SETTINGS, "Settings"},   // 7 Update
+    {PTAB_SEARCH,   nullptr},      // 8 Browse opened from Search (SB_IDX_SEARCH_BROWSE)
 };
 
 static void backClicked(lv_event_t* e) {
@@ -205,7 +205,7 @@ static void backClicked(lv_event_t* e) {
 }
 
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx) {
-    if (activeIdx < 0 || activeIdx > 7) activeIdx = 0;
+    if (activeIdx < 0 || activeIdx > SB_IDX_SEARCH_BROWSE) activeIdx = 0;
     const PortraitHome& home = SB_HOME[activeIdx];
     lv_obj_t* frame = portraitFrame(screen, home.tab, true);
 
@@ -325,51 +325,6 @@ void createSettingsMenuScreen() {
         lv_obj_set_style_text_color(chev, AMB_TEXT3, 0);
         lv_obj_align(chev, LV_ALIGN_RIGHT_MID, 0, 0);
     }
-}
-
-// ── Search placeholder ──────────────────────────────────────────────────────
-// The tab is there so the layout is final; catalogue search over SMAPI is not
-// written yet (smapi.h already parses searchResult). Until it is, the page says
-// so and points at the Library, where everything is reachable by browsing.
-void createSearchScreen() {
-    scr_search = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_search, AMB_BG, 0);
-    lv_obj_t* frame = portraitFrame(scr_search, PTAB_SEARCH, true);
-    lv_obj_set_style_pad_hor(frame, SX(40), 0);
-    lv_obj_set_flex_flow(frame, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(frame, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_row(frame, SY(14), 0);
-
-    searchGlyph(frame, SMIN(64), AMB_TEXT3);
-
-    lv_obj_t* title = lv_label_create(frame);
-    lv_label_set_text(title, "Search is coming");
-    lv_obj_set_style_text_font(title, &font_text_20, 0);
-    lv_obj_set_style_text_color(title, AMB_TEXT, 0);
-
-    lv_obj_t* desc = lv_label_create(frame);
-    lv_label_set_text(desc, "Searching your library and streaming services from the panel "
-                            "is on its way. Meanwhile, everything is one browse away in Library.");
-    lv_label_set_long_mode(desc, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(desc, lv_pct(100));
-    lv_obj_set_style_text_align(desc, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_style_text_font(desc, &font_text_14, 0);
-    lv_obj_set_style_text_color(desc, AMB_TEXT3, 0);
-
-    lv_obj_t* btn = lv_button_create(frame);
-    lv_obj_set_size(btn, LV_SIZE_CONTENT, SY(44));
-    lv_obj_set_style_margin_top(btn, SY(8), 0);
-    lv_obj_set_style_pad_hor(btn, SX(22), 0);
-    lv_obj_set_style_radius(btn, SMIN(22), 0);
-    lv_obj_set_style_bg_color(btn, AMB_ACCENT, 0);
-    lv_obj_set_style_bg_color(btn, AMB_ACCENT_HI, LV_STATE_PRESSED);
-    lv_obj_set_style_shadow_width(btn, 0, 0);
-    lv_obj_add_event_cb(btn, tabClicked, LV_EVENT_CLICKED, (void*)(intptr_t)PTAB_LIBRARY);
-    lv_obj_t* bl = lv_label_create(btn);
-    lv_label_set_text(bl, "Open Library");
-    lv_obj_set_style_text_font(bl, &font_text_14, 0);
-    lv_obj_set_style_text_color(bl, AMB_ON_ACCENT, 0);
-    lv_obj_center(bl);
 }
 
 #endif  // UI_PORTRAIT

@@ -66,6 +66,18 @@ struct SvcSource {
 
 enum SvcState { SVC_IDLE, SVC_LOADING, SVC_READY, SVC_FAILED };
 
+// One search category of a service, from its presentation map: `id` is the
+// generic name ("artists", "albums", "all"...), `mappedId` what the provider
+// expects in the search call ("artist", "search-artist", ...).
+struct SvcCategory {
+    char id[24];
+    char mappedId[48];
+};
+
+// searchCategories() results that are not a count.
+static const int SVC_CATS_LOADING = -1;   // fetching the presentation map
+static const int SVC_CATS_FAILED  = -2;   // could not fetch it; calling again retries
+
 class MusicServices {
 public:
     // ── UI thread ────────────────────────────────────────────────────────────
@@ -85,6 +97,18 @@ public:
     SvcPage* takePage(uint32_t reqId);
     static void freePage(SvcPage* page);
 
+    // The search categories of one account. Returns how many were copied (0:
+    // the service offers no search), or SVC_CATS_LOADING while its presentation
+    // map is being fetched (poll again), or SVC_CATS_FAILED. Fetched once per
+    // account, on first use: it is one or two HTTPS GETs per service.
+    int searchCategories(int serviceId, int serial, SvcCategory* out, int max);
+
+    // Search one category of an account. The answer is a page like a browse
+    // page, collected with takePage(), and shares its single request slot: a
+    // search replaces a browse still queued, and the other way round.
+    uint32_t requestSearch(int serviceId, int serial, const char* mappedId, const char* term,
+                           int index, int count);
+
     // URI + DIDL for playing `item` through its account. `container` true means
     // enqueue it (playContainer), false means play it directly (playURI).
     bool buildPlayback(int serviceId, int serial, const SvcItem& item,
@@ -95,6 +119,7 @@ private:
     static void taskEntry(void* arg);
     void taskLoop();
     void doLoad();
+    void doSearchCategories(int sid, int serial);
     SvcPage* doBrowse(uint32_t reqId, int sid, int serial, const String& objectId,
                       int index, int count);
     void fail(const String& why);

@@ -11,6 +11,7 @@
 #include "amber_icons.h"
 #include "amber.h"
 #include "ui_service_browse.h"  // streaming-service tiles and browsing
+#include "ui_portrait_nav.h"    // scr_search, SB_IDX_SEARCH_BROWSE (portrait)
 
 // Forward declaration for sidebar (now in ui_sidebar.cpp)
 lv_obj_t* createSettingsSidebar(lv_obj_t* screen, int activeIdx);
@@ -306,10 +307,22 @@ static lv_obj_t* sources_list = nullptr;
 static String browse_stack_id[BROWSE_STACK_MAX];
 static String browse_stack_title[BROWSE_STACK_MAX];
 static int    browse_depth = 0;
+static bool   browse_from_search = false;   // the trail began on the Search screen
 
 // Enter a top-level source. Clears the trail, so Back leaves for the Sources list.
 void browseEnterRoot(const String& id, const String& title) {
     browse_depth = 0;
+    browse_from_search = false;
+    current_browse_id    = id;
+    current_browse_title = title;
+    createBrowseScreen();
+    lv_screen_load(scr_browse);
+}
+
+// A search result: a trail of its own, whose top-level Back returns to Search.
+void browseEnterFromSearch(const String& id, const String& title) {
+    browse_depth = 0;
+    browse_from_search = true;
     current_browse_id    = id;
     current_browse_title = title;
     createBrowseScreen();
@@ -341,6 +354,9 @@ static void browseBack(void) {
         createBrowseScreen();
         lv_screen_load(scr_browse);
     } else {
+#if UI_PORTRAIT
+        if (browse_from_search && scr_search) { lv_screen_load(scr_search); return; }
+#endif
         lv_screen_load(scr_sources);
     }
 }
@@ -620,7 +636,12 @@ void createBrowseScreen() {
     lv_obj_set_style_bg_color(scr_browse, AMB_BG, 0);
 
     // Create sidebar and get content area (Sources is index 3)
+#if UI_PORTRAIT
+    // Opened from a search result: keep the Search tab lit.
+    lv_obj_t* content = createSettingsSidebar(scr_browse, browse_from_search ? SB_IDX_SEARCH_BROWSE : 3);
+#else
     lv_obj_t* content = createSettingsSidebar(scr_browse, 3);
+#endif
     lv_obj_set_scrollable(content, false);
 
     // Back arrow — up one container, or out to Sources at the top level. Without

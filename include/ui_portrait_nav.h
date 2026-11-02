@@ -41,8 +41,17 @@ static inline int portraitFreeH(bool with_dock) {
     return 800 - PNAV_TAB_H - (with_dock ? PNAV_DOCK_H : 0);
 }
 
+// createSettingsSidebar() index for a Browse screen opened from a search
+// result: no back bar (Browse draws its own), Search tab lit. 0-7 are the
+// landscape rail's sections.
+#define SB_IDX_SEARCH_BROWSE 8
+
+// The magnifier glyph (neither icon font has one), `size` px square.
+lv_obj_t* portraitSearchGlyph(lv_obj_t* parent, int size, lv_color_t col);
+
 // The Settings tab's landing page (General, Display, WiFi, Clock, Update) and
-// the Search placeholder. Built once at boot, like every other screen.
+// the Search tab (ui_search_screen.cpp). Built once at boot, like every other
+// screen.
 void createSettingsMenuScreen();
 void createSearchScreen();
 extern lv_obj_t* scr_settings_menu;

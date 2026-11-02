@@ -430,6 +430,46 @@ void test_play_refuses_unplayable(void) {
     TEST_ASSERT_FALSE(buildPlayback(it, 12, 3, SPOTIFY_UDN, &pb));
 }
 
+// ── Search categories ───────────────────────────────────────────────────────
+
+static void test_search_categories_spotify(void) {
+    const char* pmap =
+        "<Presentation><PresentationMap type=\"DisplayType\"><DisplayType id=\"x\"/></PresentationMap>"
+        "<PresentationMap type=\"Search\"><Match><SearchCategories>"
+        "<Category id=\"artists\" mappedId=\"artist\"/>"
+        "<Category id=\"albums\" mappedId=\"album\"/>"
+        "<Category id=\"all\" mappedId=\"all\"/>"
+        "</SearchCategories></Match></PresentationMap></Presentation>";
+    auto c = smapi::parseSearchCategories(pmap);
+    TEST_ASSERT_EQUAL(3, (int)c.size());
+    TEST_ASSERT_EQUAL_STRING("artists", c[0].id.c_str());
+    TEST_ASSERT_EQUAL_STRING("artist", c[0].mappedId.c_str());
+    TEST_ASSERT_EQUAL_STRING("all", c[2].mappedId.c_str());
+}
+
+static void test_search_categories_first_wins_and_custom_skipped(void) {
+    // Apple Music: catalogue first, then the library repeats the same ids.
+    const char* pmap =
+        "<PresentationMap type=\"Search\">\n<Match>\n<SearchCategories>\n"
+        "\t<Category id=\"artists\" mappedId=\"artist\"/>\n"
+        "\t<CustomCategory stringId=\"radioShows\" mappedId=\"radioshow\"/>\n"
+        "</SearchCategories></Match>\n<Match><SearchCategories>"
+        "<Category id=\"artists\" mappedId=\"libraryartist\"/>"
+        "<Category id=\"stations\" mappedId=\"search:station\"/>"
+        "</SearchCategories></Match></PresentationMap>";
+    auto c = smapi::parseSearchCategories(pmap);
+    TEST_ASSERT_EQUAL(2, (int)c.size());
+    TEST_ASSERT_EQUAL_STRING("artist", c[0].mappedId.c_str());
+    TEST_ASSERT_EQUAL_STRING("stations", c[1].id.c_str());
+    TEST_ASSERT_EQUAL_STRING("search:station", c[1].mappedId.c_str());
+}
+
+static void test_search_categories_absent(void) {
+    TEST_ASSERT_EQUAL(0, (int)smapi::parseSearchCategories(
+        "<PresentationMap type=\"DisplayType\"><Category id=\"a\" mappedId=\"b\"/></PresentationMap>").size());
+    TEST_ASSERT_EQUAL(0, (int)smapi::parseSearchCategories("").size());
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_unescape_single_level);
@@ -459,5 +499,8 @@ int main(int, char**) {
     RUN_TEST(test_play_other_service_tracks);
     RUN_TEST(test_play_streams_and_programs);
     RUN_TEST(test_play_refuses_unplayable);
+    RUN_TEST(test_search_categories_spotify);
+    RUN_TEST(test_search_categories_first_wins_and_custom_skipped);
+    RUN_TEST(test_search_categories_absent);
     return UNITY_END();
 }

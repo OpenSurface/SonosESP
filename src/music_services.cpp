@@ -38,6 +38,9 @@ struct Entry {
     std::string    label;
     bool           manifestTried = false;   // content endpoint looked up (see contentEndpoint)
     std::string    contentUri;              // the manifest's "browse" endpoint, if any
+    // Search categories from the presentation map, fetched on first use.
+    enum { CATS_UNTRIED, CATS_LOADING, CATS_READY, CATS_FAILED } catsState = CATS_UNTRIED;
+    std::vector<smapi::SearchCategory> cats;
 };
 
 // Accounts and the identity the requests are made under. Rewritten by the
@@ -56,6 +59,8 @@ uint32_t    g_browseReqId  = 0;
 int         g_browseSid    = 0, g_browseSerial = 0, g_browseIndex = 0, g_browseCount = 0;
 String      g_browseObjId;
 uint32_t    g_nextReqId    = 1;
+bool        g_catsPending  = false;   // a presentation map to fetch
+int         g_catsSid      = 0, g_catsSerial = 0;
 
 // The finished page, waiting for the UI to take it.
 SvcPage*    g_donePage     = nullptr;
@@ -701,6 +706,11 @@ static ContentViews g_views;
 static int g_viewsSid = -1, g_viewsSerial = -1;
 static int g_rootPre = 0;   // sections prepended to that service's SMAPI root
 static const char* const kViewPrefix = "@view:";   // our ids for home-page sections
+// Our ids for a search: "@search:<mappedId>\x1f<term>". Never sent to a provider;
+// doBrowse() turns it into a search call. \x1f because mapped ids contain ':'
+// ("catalog:artists:search") and a term can contain anything a keyboard types.
+static const char* const kSearchPrefix = "@search:";
+static const char        kSearchSep    = '\x1f';
 
 static std::string randomUuid() {
     uint32_t r[4] = {esp_random(), esp_random(), esp_random(), esp_random()};
@@ -724,7 +734,7 @@ static std::string contentEndpoint(int sid, int serial, SemaphoreHandle_t lock) 
     }
     xSemaphoreGive(lock);
 
-    std::string uri;
+    std::string uri, pmap;
     if (manifest.compare(0, 8, "https://") == 0) {
         Headers h;
         h.push_back({"Accept", "application/json"});
@@ -738,6 +748,9 @@ static std::string contentEndpoint(int sid, int serial, SemaphoreHandle_t lock) 
                 for (JsonObject ep : doc["endpoints"].as<JsonArray>()) {
                     if (strcmp(ep["type"] | "", "browse") == 0) { uri = ep["uri"] | ""; break; }
                 }
+                // Newer services (Spotify) name their presentation map here
+                // instead of in the service descriptor.
+                pmap = doc["presentationMap"]["uri"] | "";
             }
         }
     }
@@ -749,6 +762,7 @@ static std::string contentEndpoint(int sid, int serial, SemaphoreHandle_t lock) 
         if (ge.acct.serviceId == sid && ge.acct.serial == serial) {
             ge.manifestTried = true;
             ge.contentUri = uri;
+            if (ge.svc.pmapUri.empty() && pmap.compare(0, 8, "https://") == 0) ge.svc.pmapUri = pmap;
         }
     }
     xSemaphoreGive(lock);
@@ -919,7 +933,7 @@ void MusicServices::taskLoop() {
         ulTaskNotifyTake(pdTRUE, tlsOpen() ? pdMS_TO_TICKS(SVC_KEEPALIVE_TICK_MS) : portMAX_DELAY);
         tlsIdleTick();
         for (;;) {
-            bool load = false, browse = false;
+            bool load = false, browse = false, cats = false;
             uint32_t reqId = 0;
             int sid = 0, serial = 0, index = 0, count = 0;
             String objId;
@@ -927,6 +941,12 @@ void MusicServices::taskLoop() {
             if (g_loadPending) {
                 load = true;
                 g_loadPending = false;
+            } else if (g_catsPending) {
+                // Before a browse: it is small, and the search screen is
+                // waiting on it to show anything at all.
+                cats = true;
+                g_catsPending = false;
+                sid = g_catsSid; serial = g_catsSerial;
             } else if (g_browsePending) {
                 browse = true;
                 g_browsePending = false;
@@ -937,6 +957,8 @@ void MusicServices::taskLoop() {
 
             if (load) {
                 doLoad();
+            } else if (cats) {
+                doSearchCategories(sid, serial);
             } else if (browse) {
                 SvcPage* page = doBrowse(reqId, sid, serial, objId, index, count);
                 xSemaphoreTake(lock_, portMAX_DELAY);
@@ -1056,7 +1078,27 @@ SvcPage* MusicServices::doBrowse(uint32_t reqId, int sid, int serial, const Stri
     smapi::Page p;
     const bool isRoot = objectId == "root";
 
-    if (objectId.startsWith(kViewPrefix)) {
+    if (objectId.startsWith(kSearchPrefix)) {
+        const int sep = objectId.indexOf(kSearchSep);
+        if (sep < 0) {
+            snprintf(page->error, sizeof(page->error), "Bad search");
+            return page;
+        }
+        smapi::Fields f;
+        f.push_back({"id", objectId.substring(strlen(kSearchPrefix), sep).c_str()});
+        f.push_back({"term", objectId.substring(sep + 1).c_str()});
+        f.push_back({"index", std::to_string(index)});
+        f.push_back({"count", std::to_string(count)});
+        std::string body;
+        if (!smapiCall(sid, serial, "search", f, &body, &err, lock_)) {
+            snprintf(page->error, sizeof(page->error), "%s", err.c_str());
+            return page;
+        }
+        if (!smapi::parseMetadataResult(body, "searchResult", &p)) {
+            snprintf(page->error, sizeof(page->error), "Unexpected answer from the service");
+            return page;
+        }
+    } else if (objectId.startsWith(kViewPrefix)) {
         // A home-page section: its items came embedded in the page.
         const char* viewId = objectId.c_str() + strlen(kViewPrefix);
         if (g_viewsSid != sid || g_viewsSerial != serial) {
@@ -1182,6 +1224,68 @@ SvcPage* MusicServices::doBrowse(uint32_t reqId, int sid, int serial, const Stri
     return page;
 }
 
+// Fetches one account's presentation map and keeps its search categories. The
+// map is public and the same for every account of a service, but it is cached
+// per account like the content endpoint, which keeps the bookkeeping in one
+// place; two accounts of one service cost a second small GET at most.
+void MusicServices::doSearchCategories(int sid, int serial) {
+    auto setState = [&](int st, std::vector<smapi::SearchCategory>* cats) {
+        xSemaphoreTake(lock_, portMAX_DELAY);
+        for (auto& ge : g_entries) {
+            if (ge.acct.serviceId != sid || ge.acct.serial != serial) continue;
+            ge.catsState = (decltype(ge.catsState))st;
+            if (cats) ge.cats = *cats;
+        }
+        xSemaphoreGive(lock_);
+    };
+
+    std::string pmap;
+    bool known = false, manifestTried = false;
+    xSemaphoreTake(lock_, portMAX_DELAY);
+    for (const auto& ge : g_entries) {
+        if (ge.acct.serviceId == sid && ge.acct.serial == serial) {
+            known = true;
+            pmap = ge.svc.pmapUri;
+            manifestTried = ge.manifestTried;
+        }
+    }
+    xSemaphoreGive(lock_);
+    if (!known) return;
+
+    if (pmap.empty() && !manifestTried) {
+        contentEndpoint(sid, serial, lock_);   // also records the manifest's pmap
+        xSemaphoreTake(lock_, portMAX_DELAY);
+        for (const auto& ge : g_entries)
+            if (ge.acct.serviceId == sid && ge.acct.serial == serial) pmap = ge.svc.pmapUri;
+        xSemaphoreGive(lock_);
+    }
+
+    std::vector<smapi::SearchCategory> cats;
+    if (pmap.compare(0, 8, "https://") == 0) {
+        Headers h;
+        h.push_back({"Accept-Language", "en-US"});
+        int code = 0;
+        std::string resp;
+        String err;
+        if (!httpsRequest(pmap, "pmap", nullptr, h, &code, &resp, &err) || code != 200) {
+            Serial.printf("[SVC] Presentation map for sid=%d failed: %s (HTTP %d)\n", sid,
+                          err.c_str(), code);
+            setState(Entry::CATS_FAILED, nullptr);
+            return;
+        }
+        cats = smapi::parseSearchCategories(resp);
+    }
+    String names;
+    for (const auto& c : cats) {
+        names += " ";
+        names += c.id.c_str();
+        names += "=";
+        names += c.mappedId.c_str();
+    }
+    Serial.printf("[SVC] Search categories for sid=%d:%s\n", sid, names.length() ? names.c_str() : " (none)");
+    setState(Entry::CATS_READY, &cats);
+}
+
 // ============================================================================
 // UI-thread API
 // ============================================================================
@@ -1237,6 +1341,59 @@ uint32_t MusicServices::requestBrowse(int serviceId, int serial, const char* obj
     xSemaphoreGive(lock_);
     xTaskNotifyGive(task_);
     return id;
+}
+
+int MusicServices::searchCategories(int serviceId, int serial, SvcCategory* out, int max) {
+    ensureTask();
+    if (!task_ || state_ != SVC_READY) return SVC_CATS_FAILED;
+    int n = 0;
+    bool queue = false;
+    xSemaphoreTake(lock_, portMAX_DELAY);
+    Entry* e = nullptr;
+    for (auto& ge : g_entries)
+        if (ge.acct.serviceId == serviceId && ge.acct.serial == serial) { e = &ge; break; }
+    if (!e) {
+        n = SVC_CATS_FAILED;
+    } else if (e->catsState == Entry::CATS_READY) {
+        for (const auto& c : e->cats) {
+            if (n >= max) break;
+            copyStr(out[n].id, sizeof(out[n].id), c.id);
+            copyStr(out[n].mappedId, sizeof(out[n].mappedId), c.mappedId);
+            n++;
+        }
+    } else if (e->catsState == Entry::CATS_FAILED) {
+        e->catsState = Entry::CATS_UNTRIED;   // the next call retries
+        n = SVC_CATS_FAILED;
+    } else {
+        if (e->catsState == Entry::CATS_UNTRIED) {
+            // One slot: an account still waiting in it goes back to untried,
+            // or it would read "loading" forever.
+            if (g_catsPending && (g_catsSid != serviceId || g_catsSerial != serial)) {
+                for (auto& ge : g_entries)
+                    if (ge.acct.serviceId == g_catsSid && ge.acct.serial == g_catsSerial &&
+                        ge.catsState == Entry::CATS_LOADING)
+                        ge.catsState = Entry::CATS_UNTRIED;
+            }
+            e->catsState = Entry::CATS_LOADING;
+            g_catsPending = true;
+            g_catsSid = serviceId;
+            g_catsSerial = serial;
+            queue = true;
+        }
+        n = SVC_CATS_LOADING;
+    }
+    xSemaphoreGive(lock_);
+    if (queue) xTaskNotifyGive(task_);
+    return n;
+}
+
+uint32_t MusicServices::requestSearch(int serviceId, int serial, const char* mappedId, const char* term,
+                                      int index, int count) {
+    String id = kSearchPrefix;
+    id += mappedId;
+    id += kSearchSep;
+    id += term;
+    return requestBrowse(serviceId, serial, id.c_str(), index, count);
 }
 
 SvcPage* MusicServices::takePage(uint32_t reqId) {

@@ -143,6 +143,14 @@ int svcAppendSourceTiles(lv_obj_t* list) {
 // Browse page
 // ============================================================================
 
+// Row text width: the content width (536 landscape, 448 portrait - see
+// SOURCE_TILE_W) less the 40px icon column and the 50px trailing glyph.
+#if UI_PORTRAIT
+#define SVC_ROW_TEXT_W 358
+#else
+#define SVC_ROW_TEXT_W 446
+#endif
+
 struct SvcRowData {
     int     sid;
     int     serial;
@@ -232,10 +240,10 @@ static lv_obj_t* svcRowCreate(lv_obj_t* list, const char* icon, const char* titl
     lv_obj_set_style_text_font(ico, &font_icon_16, 0);
     lv_obj_align(ico, LV_ALIGN_LEFT_MID, SX(5), 0);
 
-    // Content width 536 (see SOURCE_TILE_W) less the icon column and the
-    // trailing glyph. ambOneLine bounds the height too, so a long title
-    // ellipsises instead of wrapping over the subtitle (issue #151).
-    const int textW = 536 - 40 - 50;
+    // Content width less the icon column and the trailing glyph. ambOneLine
+    // bounds the height too, so a long title ellipsises instead of wrapping
+    // over the subtitle (issue #151).
+    const int textW = SVC_ROW_TEXT_W;
     const bool two = subtitle && subtitle[0];
     lv_obj_t* lbl = ambOneLine(btn, &font_text_16, AMB_TEXT, title, textW);
     lv_obj_align(lbl, LV_ALIGN_LEFT_MID, SX(40), two ? -SY(9) : 0);
@@ -260,7 +268,12 @@ static void svcItemClicked(lv_event_t* e) {
     if (!d) return;
     const SvcItem& it = d->item;
     if (it.collection && it.canEnumerate) {
-        browseDescend(svcMakeId(d->sid, d->serial, it.canPlay, it.itemType, it.id), String(it.title));
+        String id = svcMakeId(d->sid, d->serial, it.canPlay, it.itemType, it.id);
+        // A search result opens a fresh trail whose Back returns to Search.
+        if (lv_obj_get_screen((lv_obj_t*)lv_event_get_target(e)) != scr_browse)
+            browseEnterFromSearch(id, String(it.title));
+        else
+            browseDescend(id, String(it.title));
     } else if (it.canPlay) {
         svcPlay(d->sid, d->serial, it);
     } else {
@@ -288,6 +301,26 @@ static void svcLoadMoreClicked(lv_event_t* e) {
     svcRequestPage(next);
 }
 
+int svcAppendItems(lv_obj_t* list, int sid, int serial, const SvcItem* items, int count) {
+    int n = 0;
+    for (int i = 0; i < count; i++) {
+        const SvcItem& it = items[i];
+        const bool browsable = it.collection && it.canEnumerate;
+        lv_obj_t* btn = svcRowCreate(list, svcIconFor(it), it.title, it.subtitle,
+                                     browsable ? AMB_IC_CHEV : (it.canPlay ? AMB_IC_PLAY : nullptr));
+        SvcRowData* d = (SvcRowData*)heap_caps_malloc(sizeof(SvcRowData), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (!d) { Serial.println("[SVC] Row alloc failed"); lv_obj_delete(btn); break; }
+        d->sid = sid;
+        d->serial = serial;
+        d->item = it;
+        lv_obj_set_user_data(btn, d);
+        lv_obj_add_event_cb(btn, svcRowDelete, LV_EVENT_DELETE, NULL);
+        lv_obj_add_event_cb(btn, svcItemClicked, LV_EVENT_CLICKED, NULL);
+        n++;
+    }
+    return n;
+}
+
 static void svcRender(const SvcPage* p) {
     if (!p->ok) {
         String msg = String("Could not load: ") + p->error;
@@ -298,20 +331,7 @@ static void svcRender(const SvcPage* p) {
         svcStatusRow(b_list, "No items found");
         return;
     }
-    for (int i = 0; i < p->count; i++) {
-        const SvcItem& it = p->items[i];
-        const bool browsable = it.collection && it.canEnumerate;
-        lv_obj_t* btn = svcRowCreate(b_list, svcIconFor(it), it.title, it.subtitle,
-                                     browsable ? AMB_IC_CHEV : (it.canPlay ? AMB_IC_PLAY : nullptr));
-        SvcRowData* d = (SvcRowData*)heap_caps_malloc(sizeof(SvcRowData), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-        if (!d) { Serial.println("[SVC] Row alloc failed"); break; }
-        d->sid = b_sid;
-        d->serial = b_serial;
-        d->item = it;
-        lv_obj_set_user_data(btn, d);
-        lv_obj_add_event_cb(btn, svcRowDelete, LV_EVENT_DELETE, NULL);
-        lv_obj_add_event_cb(btn, svcItemClicked, LV_EVENT_CLICKED, NULL);
-    }
+    svcAppendItems(b_list, b_sid, b_serial, p->items, p->count);
 
     // Providers' "index" is not always reliable; what we asked for is.
     int next = b_req_index + p->count;

@@ -17,6 +17,9 @@
 // Implemented in ui_settings_screens.cpp, shared with this file.
 void browseEnterRoot(const String& id, const String& title);
 void browseDescend(const String& id, const String& title);
+// Open a container from the Search screen: a new trail, whose Back at the top
+// returns to Search instead of the Sources list.
+void browseEnterFromSearch(const String& id, const String& title);
 lv_obj_t* sourceTileCreate(lv_obj_t* list, const char* icon, const char* label);
 
 // True for a browse id produced by this module.
@@ -29,6 +32,12 @@ int svcAppendSourceTiles(lv_obj_t* list);
 // Fills `list` with the service container named by current_browse_id. Rows
 // arrive asynchronously; a "Loading..." row stands in until then.
 void svcBrowseBegin(lv_obj_t* list);
+
+// Appends one row per item to `list` - the same rows, icons and tap actions
+// (open a container, play a leaf) as a service browse page. Returns how many
+// rows were added. Used by the Search screen for its results.
+struct SvcItem;
+int svcAppendItems(lv_obj_t* list, int sid, int serial, const SvcItem* items, int count);
 
 // Drops a page still loading. Call before the Browse screen is rebuilt.
 void svcBrowseCancel();

@@ -500,6 +500,60 @@ inline bool parseMetadataResult(const std::string& xml, const char* resultName, 
 }
 
 // ---------------------------------------------------------------------------
+// Search categories (presentation map)
+// ---------------------------------------------------------------------------
+// A service names its search categories in the <PresentationMap type="Search">
+// block of its presentation map. `id` is the generic category the controller
+// shows ("artists", "albums", ...); `mappedId` is what the provider wants as
+// <id> in the search call, and it differs per service:
+//
+//     Spotify  <Category id="artists" mappedId="artist"/>
+//     Deezer   <Category id="artists" mappedId="search-artist"/>
+//     Amazon   <Category id="artists" mappedId="catalog:artists:search"/>
+//
+// Some maps list a category twice (Apple Music and YouTube Music repeat them
+// for the user's own library after the catalogue); the first one wins, which
+// is the catalogue. <CustomCategory> entries name their label through the
+// strings file, which is not fetched, so they are skipped.
+
+struct SearchCategory {
+    std::string id, mappedId;
+};
+
+inline std::vector<SearchCategory> parseSearchCategories(const std::string& pmap) {
+    std::vector<SearchCategory> out;
+    size_t pos = 0;
+    size_t block = std::string::npos;
+    while ((pos = pmap.find("<PresentationMap", pos)) != std::string::npos) {
+        size_t gt = pmap.find('>', pos);
+        if (gt == std::string::npos) return out;
+        if (attr(pmap.substr(pos, gt - pos + 1), "type") == "Search") { block = gt + 1; break; }
+        pos = gt;
+    }
+    if (block == std::string::npos) return out;
+    size_t stop = pmap.find("</PresentationMap>", block);
+    if (stop == std::string::npos) stop = pmap.size();
+
+    pos = block;
+    while ((pos = pmap.find("<Category", pos)) != std::string::npos && pos < stop) {
+        size_t gt = pmap.find('>', pos);
+        if (gt == std::string::npos || gt > stop) break;
+        const char next = pmap[pos + 9];   // "<Categories" is not a category
+        if (next == ' ' || next == '\t' || next == '\n' || next == '\r') {
+            std::string tag = pmap.substr(pos, gt - pos + 1);
+            SearchCategory c;
+            c.id = attr(tag, "id");
+            c.mappedId = attr(tag, "mappedId");
+            bool dup = false;
+            for (const auto& o : out) if (o.id == c.id) { dup = true; break; }
+            if (!c.id.empty() && !c.mappedId.empty() && !dup) out.push_back(c);
+        }
+        pos = gt;
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
 // Playback
 // ---------------------------------------------------------------------------
 
