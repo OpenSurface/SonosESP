@@ -1,13 +1,13 @@
 {
-  "panels": 426,
-  "boots": 298,
-  "updated": "2026-11-02T12:00:00Z",
+  "panels": 441,
+  "boots": 302,
+  "updated": "2026-11-03T11:00:00Z",
   "windowDays": 30,
   "countries": [
     {
       "code": "GB",
       "name": "United Kingdom",
-      "count": 144
+      "count": 143
     },
     {
       "code": "CH",
@@ -25,19 +25,19 @@
       "count": 21
     },
     {
-      "code": "US",
-      "name": "United States",
-      "count": 20
+      "code": "DK",
+      "name": "Denmark",
+      "count": 21
     },
     {
       "code": "FR",
       "name": "France",
-      "count": 19
+      "count": 21
     },
     {
-      "code": "DK",
-      "name": "Denmark",
-      "count": 18
+      "code": "US",
+      "name": "United States",
+      "count": 21
     },
     {
       "code": "NL",
@@ -47,17 +47,17 @@
     {
       "code": "BR",
       "name": "Brazil",
-      "count": 10
+      "count": 11
     },
     {
       "code": "CN",
       "name": "China",
-      "count": 7
+      "count": 8
     },
     {
       "code": "ZA",
       "name": "South Africa",
-      "count": 6
+      "count": 7
     },
     {
       "code": "PL",
@@ -88,27 +88,35 @@
   "versions": [
     {
       "version": "2.3.1",
-      "count": 226
+      "count": 237
     },
     {
       "version": "2.2.6",
-      "count": 34
-    },
-    {
-      "version": "2.2.1",
-      "count": 11
+      "count": 28
     },
     {
       "version": "2.3.0",
       "count": 11
     },
     {
+      "version": "2.2.1",
+      "count": 10
+    },
+    {
       "version": "2.2.4",
-      "count": 6
+      "count": 5
+    },
+    {
+      "version": "2.8.4",
+      "count": 2
     },
     {
       "version": "2.4.0",
       "count": 2
+    },
+    {
+      "version": "2.8.3",
+      "count": 1
     },
     {
       "version": "2.8.2",
@@ -132,14 +140,6 @@
     },
     {
       "version": "2.7.0",
-      "count": 1
-    },
-    {
-      "version": "2.6.1",
-      "count": 1
-    },
-    {
-      "version": "2.6.0",
       "count": 1
     }
   ]
