@@ -1,18 +1,18 @@
 {
-  "panels": 492,
-  "boots": 291,
-  "updated": "2026-11-09T12:00:00Z",
+  "panels": 503,
+  "boots": 290,
+  "updated": "2026-11-10T12:00:00Z",
   "windowDays": 30,
   "countries": [
     {
       "code": "GB",
       "name": "United Kingdom",
-      "count": 136
+      "count": 135
     },
     {
       "code": "CH",
       "name": "Switzerland",
-      "count": 35
+      "count": 33
     },
     {
       "code": "DK",
@@ -20,13 +20,13 @@
       "count": 26
     },
     {
-      "code": "FR",
-      "name": "France",
-      "count": 23
-    },
-    {
       "code": "DE",
       "name": "Germany",
+      "count": 22
+    },
+    {
+      "code": "FR",
+      "name": "France",
       "count": 22
     },
     {
@@ -88,22 +88,18 @@
   "versions": [
     {
       "version": "2.3.1",
-      "count": 261
-    },
-    {
-      "version": "2.2.6",
-      "count": 7
+      "count": 263
     },
     {
       "version": "2.8.4",
       "count": 4
     },
     {
-      "version": "2.8.5",
-      "count": 3
+      "version": "2.2.6",
+      "count": 4
     },
     {
-      "version": "2.2.1",
+      "version": "2.8.5",
       "count": 3
     },
     {
@@ -116,6 +112,10 @@
     },
     {
       "version": "2.2.4",
+      "count": 2
+    },
+    {
+      "version": "2.2.1",
       "count": 2
     },
     {
@@ -144,6 +144,10 @@
     },
     {
       "version": "2.7.0",
+      "count": 1
+    },
+    {
+      "version": "2.6.1",
       "count": 1
     }
   ]
