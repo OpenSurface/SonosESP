@@ -94,6 +94,13 @@ LV_FONT_DECLARE(font_sqi_44)
 #define IC_SPK_OFF   "\xF3\xB0\x93\x84"   // F04C4 speaker-off
 #define IC_LIBRARY   "\xF3\xB0\x8C\xB3"   // F0333 music-box-multiple
 #define IC_ARTIST    "\xF3\xB0\xA0\x83"   // F0803 account-music
+#define IC_MIC       "\xF3\xB0\x8D\xAC"   // F036C microphone
+#define IC_MIC_OFF   "\xF3\xB0\x8D\xAD"   // F036D microphone-off
+
+// Bench: name any UI-thread call that takes long (a frozen screen).
+#define SQ_SLOW(label, expr) ([&]() { uint32_t _t = millis(); auto _r = (expr); \
+    uint32_t _d = millis() - _t; if (_d > 200) Serial.printf("[SLOW] %s %lums\n", label, (unsigned long)_d); \
+    return _r; }())
 
 // ── Destinations ────────────────────────────────────────────────────────────
 enum SqScreen {
@@ -106,6 +113,7 @@ enum SqScreen {
     SQ_SCR_ROOMS,
     SQ_SCR_SETTINGS,
     SQ_SCR_WIFI,
+    SQ_SCR_LYRICS,
     SQ_SCR_COUNT
 };
 
@@ -153,6 +161,13 @@ void      sqToast(const char* text);
 void sqPlayerCreate(void);
 void sqPlayerUpdate(void);          // from the Sonos update queue
 void sqPlayerTick(void);            // progress bar, ~4 Hz
+// What the Lecture screen shows now (the lyrics screen follows it).
+const char* sqPlayerTitle(void);
+const char* sqPlayerArtist(void);
+const char* sqPlayerArtUrl(void);
+void sqLyricsCreate(void);
+void sqLyricsOnShow(void);
+void sqLyricsTick(void);           // ~10 Hz while the screen is up
 void sqRoomsCreate(void);
 void sqRoomsRefresh(void);
 void sqFavsCreate(void);

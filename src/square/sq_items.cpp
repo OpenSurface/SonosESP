@@ -51,7 +51,7 @@ lv_obj_t* sqItemRowCreate(lv_obj_t* list, const SvcItem& it, int index, lv_event
     out->star = nullptr;
     out->fav_uri[0] = '\0';
     if (onStar && (it.canPlay || !it.collection)) {
-        strlcpy(out->fav_uri, sqItemUri(it).c_str(), sizeof(out->fav_uri));
+        strlcpy(out->fav_uri, SQ_SLOW("sqItemUri", sqItemUri(it)).c_str(), sizeof(out->fav_uri));
         out->star = sqRoundButton(row, 48, SQ_RAISED, IC_STAR_O, &font_sqi_26, SQ_YELLOW);
         lv_obj_align(out->star, LV_ALIGN_RIGHT_MID, 0, 0);
         lv_obj_add_event_cb(out->star, onStar, LV_EVENT_CLICKED, (void*)(intptr_t)index);
@@ -62,7 +62,8 @@ lv_obj_t* sqItemRowCreate(lv_obj_t* list, const SvcItem& it, int index, lv_event
 }
 
 void sqItemRowArt(SqItemRow* r) {
-    const lv_image_dsc_t* img = r->art[0] ? sqArtGet(r->art, r->art_px > 0 ? r->art_px : 48) : nullptr;
+    const lv_image_dsc_t* img = r->art[0]
+        ? SQ_SLOW("sqArtGet", sqArtGet(r->art, r->art_px > 0 ? r->art_px : 48)) : nullptr;
     if (!img) return;
     lv_image_set_src(r->img, img);
     sqSetHidden(r->img, false);
@@ -71,7 +72,7 @@ void sqItemRowArt(SqItemRow* r) {
 
 void sqItemRowStar(SqItemRow* r) {
     if (!r->star) return;
-    bool fav = r->fav_uri[0] && sqFavsFind(r->fav_uri) >= 0;
+    bool fav = r->fav_uri[0] && SQ_SLOW("sqFavsFind", sqFavsFind(r->fav_uri)) >= 0;
     lv_obj_set_style_bg_color(r->star, lv_color_hex(fav ? SQ_YELLOW : SQ_RAISED), 0);
     lv_obj_t* ic = lv_obj_get_child(r->star, 0);
     lv_label_set_text(ic, fav ? IC_STAR : IC_STAR_O);

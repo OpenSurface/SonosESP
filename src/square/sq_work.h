@@ -79,3 +79,25 @@ void sqSpotifyChoose(int serial);
 const lv_image_dsc_t* sqArtGet(const char* url, int size);
 extern volatile uint32_t sq_art_version;   // bumps whenever an image lands
 void sqArtStart(void);
+
+// ── Lyrics (sq_lyrics.cpp) ──────────────────────────────────────────────────
+// LRCLIB lyrics for what is playing. The player calls sqLyricsWant() on every
+// update; only a new artist+title starts a fetch.
+enum SqLyrState {
+    SQ_LYR_NONE,      // nothing to look up (radio, TV, nothing playing)
+    SQ_LYR_LOADING,
+    SQ_LYR_SYNCED,    // lines cued to the music
+    SQ_LYR_PLAIN,     // words without timing
+    SQ_LYR_MISSING,   // looked up, none (or an instrumental)
+};
+void       sqLyricsStart(void);
+void       sqLyricsWant(const char* artist, const char* title, int duration_s, bool eligible);
+SqLyrState sqLyricsState(void);
+extern volatile uint32_t sq_lyrics_version;   // bumps when the state or the lines change
+// Reading the lines: hold the lock, and copy what you keep.
+void        sqLyricsLock(void);
+void        sqLyricsUnlock(void);
+int         sqLyricsCount(void);
+int         sqLyricsMs(int i);          // -1 for plain lyrics
+const char* sqLyricsText(int i);
+int         sqLyricsIndexAt(int pos_ms);

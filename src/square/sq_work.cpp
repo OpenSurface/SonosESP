@@ -43,12 +43,32 @@ bool sqWorkTakeToast(char* out, size_t n) {
 }
 
 // ── Flash ───────────────────────────────────────────────────────────────────
+// Writing flash freezes BOTH cores (the cache, and with it every instruction
+// fetched from flash, is off while a sector is erased): the screen stops for
+// the whole write. So a file is only rewritten when its content changed.
 static bool fsWrite(const char* path, const String& data) {
     if (!s_fs_ok) return false;
+    if (LittleFS.exists(path)) {
+        File f = LittleFS.open(path, "r");
+        bool same = f && (size_t)f.size() == data.length();
+        if (same) {
+            static uint8_t chunk[512];
+            size_t off = 0;
+            while (same && off < data.length()) {
+                size_t n = f.read(chunk, sizeof(chunk));
+                if (!n || memcmp(chunk, data.c_str() + off, n)) same = false;
+                off += n;
+            }
+        }
+        if (f) f.close();
+        if (same) return true;
+    }
+    uint32_t t0 = millis();
     File f = LittleFS.open(path, "w");
     if (!f) return false;
     size_t n = f.print(data);
     f.close();
+    Serial.printf("[SQ/FS] wrote %s: %u bytes in %lums\n", path, (unsigned)n, (unsigned long)(millis() - t0));
     return n == data.length();
 }
 
@@ -208,6 +228,9 @@ void sqSpotifyChoose(int serial) {
 }
 
 bool sqSpotify(int* sid, int* serial) {
+    uint32_t t0 = millis();
+    struct Report { uint32_t t0; ~Report() { uint32_t d = millis() - t0;
+        if (d > 200) Serial.printf("[SLOW] sqSpotify %lums\n", (unsigned long)d); } } rep{t0};
     if (s_spotify_sn == -2) {
         Preferences p;
         p.begin("sq_ui", true);
@@ -385,6 +408,8 @@ static void workerTask(void*) {
     for (;;) {
         if (xQueueReceive(s_jobs, &job, portMAX_DELAY) != pdTRUE) continue;
         s_busy = true;
+        const uint32_t job_t0 = millis();
+        Serial.printf("[SQ/JOB] %d start\n", (int)job.type);
         switch (job.type) {
             case SQ_JOB_START_SONOS:    startSonos(); break;
             case SQ_JOB_DISCOVER:       sonos.discoverDevices(); sonos.updateGroupInfo();
@@ -410,6 +435,7 @@ static void workerTask(void*) {
             case SQ_JOB_GROUP_ALL:      groupAll(); break;
         }
         if (job.item) heap_caps_free(job.item);
+        Serial.printf("[SQ/JOB] %d done in %lums\n", (int)job.type, (unsigned long)(millis() - job_t0));
         s_busy = false;
     }
 }
