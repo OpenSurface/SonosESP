@@ -157,7 +157,7 @@ Continue? [y/N]: y
   gh run list --workflow=nightly-release.yml
   gh run watch
 
-[INFO] Or visit: https://github.com/OpenSurface/SonosESP/actions
+[INFO] Or visit: https://github.com/Beungoud/SonosESP/actions
 ```
 
 ### Step 6: Monitor Workflow
@@ -187,7 +187,7 @@ gh run watch
 gh release view v1.1.6-nightly.abc1234
 
 # Or visit GitHub
-https://github.com/OpenSurface/SonosESP/releases
+https://github.com/Beungoud/SonosESP/releases
 ```
 
 **Release should contain:**

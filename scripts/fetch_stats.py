@@ -69,7 +69,7 @@ def api(path, params=None):
         headers={
             "Authorization": f"Bearer {KEY}",
             "Content-Type": "application/json",
-            "User-Agent": "SonosESP-stats/1.0 (+https://github.com/OpenSurface/SonosESP)",
+            "User-Agent": "SonosESP-stats/1.0 (+https://github.com/Beungoud/SonosESP)",
         },
     )
     for attempt in range(1, RETRIES + 1):

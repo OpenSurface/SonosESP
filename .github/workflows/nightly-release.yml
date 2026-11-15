@@ -18,7 +18,8 @@ concurrency:
 jobs:
   nightly-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Same 8 envs as auto-release.yml, from a clean build directory.
+    timeout-minutes: 60
 
     steps:
     - name: Checkout code
@@ -36,6 +37,17 @@ jobs:
           exit 1
         fi
         echo "Version tag validated: ${{ inputs.version_tag }}"
+
+    # Same check as auto-release.yml: the firmware must look for OTA updates
+    # in the repo this nightly is published to, or no device ever sees it.
+    - name: Guard — GITHUB_REPO must be this repo
+      run: |
+        REPO_FW=$(sed -nE 's/^#define[[:space:]]+GITHUB_REPO[[:space:]]+"([^"]+)".*/\1/p' include/ui_common.h)
+        echo "GITHUB_REPO=$REPO_FW  this repo=${{ github.repository }}"
+        if [ "${REPO_FW,,}" != "${GITHUB_REPOSITORY,,}" ]; then
+          echo "::error::include/ui_common.h GITHUB_REPO is '$REPO_FW', but this nightly is published to ${{ github.repository }}"
+          exit 1
+        fi
 
     - name: Check if release already exists
       id: check_release
@@ -85,11 +97,18 @@ jobs:
         rm -rf .pio
         echo "Build directory cleaned"
 
-    - name: Build firmware
+    # Every variant, not just the default env: each build's OTA looks for its
+    # own asset (firmware-<variant>.bin) and finds nothing in a 4"-only nightly.
+    - name: Build firmware (every screen variant)
       if: steps.check_release.outputs.EXISTS == 'false'
       env:
         USE_CCACHE: "1"
-      run: pio run
+      run: >-
+        pio run
+        -e esp32_4inch -e esp32_4inch_r3 -e esp32_7inch
+        -e esp32_4inch_portrait -e esp32_4inch_r3_portrait
+        -e esp32_4inch_kids -e esp32_4inch_r3_kids
+        -e esp32s3_square
 
     # firmware-merged.bin was dropped in v1.15.1 for the same reason as in
     # auto-release.yml: esptool merge-bin was placing the bootloader at 0x0 when
@@ -103,6 +122,24 @@ jobs:
         cd .pio/build/esp32_4inch
         zip -r ../../../sonos-controller-nightly-v${{ inputs.version_tag }}.zip bootloader.bin partitions.bin firmware.bin
         echo "Created nightly release ZIP"
+
+    - name: Stage per-variant OTA assets
+      if: steps.check_release.outputs.EXISTS == 'false'
+      run: |
+        mkdir -p dist
+        for pair in \
+            esp32_4inch:4inch \
+            esp32_4inch_r3:4inch-r3 \
+            esp32_7inch:7inch \
+            esp32_4inch_portrait:4inch-portrait \
+            esp32_4inch_r3_portrait:4inch-r3-portrait \
+            esp32_4inch_kids:4inch-kids \
+            esp32_4inch_r3_kids:4inch-r3-kids \
+            esp32s3_square:square; do
+          ENV="${pair%%:*}"; S="${pair#*:}"
+          cp ".pio/build/${ENV}/firmware.bin" "dist/firmware-${S}.bin"
+        done
+        ls -l dist/
 
     - name: Create GitHub Nightly Release
       if: steps.check_release.outputs.EXISTS == 'false'
@@ -130,6 +167,9 @@ jobs:
           .pio/build/esp32_4inch/firmware.bin
           .pio/build/esp32_4inch/bootloader.bin
           .pio/build/esp32_4inch/partitions.bin
+          dist/firmware-*.bin
+        # A missing asset means a whole screen variant silently gets no update.
+        fail_on_unmatched_files: true
         draft: false
         prerelease: true
         generate_release_notes: false

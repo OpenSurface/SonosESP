@@ -37,6 +37,19 @@ jobs:
             screen: 4inch-r3
           - env: esp32_7inch
             screen: 7inch
+          # The other UIs and boards: portrait, the kids UI (src/square/ on
+          # the P4, pre-rev3 and rev3) and the square ESP32-S3 panel. Each is
+          # an OTA asset of its own, so a break must show up here first.
+          - env: esp32_4inch_portrait
+            screen: 4inch-portrait
+          - env: esp32_4inch_r3_portrait
+            screen: 4inch-r3-portrait
+          - env: esp32_4inch_kids
+            screen: 4inch-kids
+          - env: esp32_4inch_r3_kids
+            screen: 4inch-r3-kids
+          - env: esp32s3_square
+            screen: square
 
     steps:
     - name: Checkout code

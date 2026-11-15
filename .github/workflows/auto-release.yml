@@ -17,7 +17,9 @@ concurrency:
 jobs:
   auto-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # 8 envs (one of them an ESP32-S3 with its own toolchain) from a clean
+    # build directory: 25 minutes was sized for three.
+    timeout-minutes: 60
 
     steps:
     - name: Checkout code
@@ -62,8 +64,17 @@ jobs:
             if mv != ver_json:
                 print(f"MISMATCH  {mf} says {mv}, version.json says {ver_json}")
                 failed = True
+        # GITHUB_REPO is where the firmware looks for OTA updates. A release
+        # published here while the firmware points at another repo installs
+        # fine, then moves every device to that other repo's releases.
+        m = re.search(r'#define\s+GITHUB_REPO\s+"([^"]+)"', open('include/ui_common.h').read())
+        repo_fw, repo_ci = (m.group(1) if m else None), "${{ github.repository }}"
+        print(f"GITHUB_REPO={repo_fw}  this repo={repo_ci}")
+        if (repo_fw or "").lower() != repo_ci.lower():
+            print(f"MISMATCH  include/ui_common.h GITHUB_REPO is {repo_fw}, but this release is published to {repo_ci}")
+            failed = True
         if failed:
-            print("\nRefusing to publish a release whose firmware reports a different version.")
+            print("\nRefusing to publish a release whose firmware reports a different version or OTA repo.")
             sys.exit(1)
         print("Versions agree.")
         PY
@@ -131,11 +142,16 @@ jobs:
         rm -rf .pio
         echo "Build directory cleaned"
 
-    - name: Build firmware (both screen variants)
+    - name: Build firmware (every screen variant)
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
       env:
         USE_CCACHE: "1"
-      run: pio run -e esp32_4inch -e esp32_4inch_r3 -e esp32_7inch
+      run: >-
+        pio run
+        -e esp32_4inch -e esp32_4inch_r3 -e esp32_7inch
+        -e esp32_4inch_portrait -e esp32_4inch_r3_portrait
+        -e esp32_4inch_kids -e esp32_4inch_r3_kids
+        -e esp32s3_square
 
     - name: Assemble release assets (per-screen)
       if: steps.check_nightly.outputs.IS_NIGHTLY != 'true' && steps.check_release.outputs.EXISTS == 'false'
@@ -164,6 +180,24 @@ jobs:
         cp "$R3/firmware.bin"   dist/firmware-4inch-r3.bin
         cp "$R3/bootloader.bin" dist/bootloader-r3.bin
         (cd "$R3" && zip -r "$ROOT/dist/sonos-controller-firmware-4inch-r3-v${VER}.zip" bootloader.bin partitions.bin firmware.bin)
+
+        # The other UIs and boards. Each OTA asset name is what that build's
+        # firmware searches the release for (substring match, so the names are
+        # kept disjoint: none contains "firmware-4inch.bin" or
+        # "firmware-4inch-r3.bin"). Each zip carries the env's OWN bootloader:
+        # the r3 envs need the rev3 one, and the square is an ESP32-S3, whose
+        # bootloader has nothing in common with the P4's.
+        for pair in \
+            esp32_4inch_portrait:4inch-portrait \
+            esp32_4inch_r3_portrait:4inch-r3-portrait \
+            esp32_4inch_kids:4inch-kids \
+            esp32_4inch_r3_kids:4inch-r3-kids \
+            esp32s3_square:square; do
+          ENV="${pair%%:*}"; S="${pair#*:}"
+          OUT=".pio/build/${ENV}"
+          cp "$OUT/firmware.bin" "dist/firmware-${S}.bin"
+          (cd "$OUT" && zip -r "$ROOT/dist/sonos-controller-firmware-${S}-v${VER}.zip" bootloader.bin partitions.bin firmware.bin)
+        done
         ls -l dist/
 
         # DROPPED in v1.15.1 — firmware-merged-*.bin, firmware-merged.bin, firmware.bin
@@ -206,6 +240,18 @@ jobs:
           dist/sonos-controller-firmware-4inch-v${{ steps.get_version.outputs.VERSION }}.zip
           dist/sonos-controller-firmware-4inch-r3-v${{ steps.get_version.outputs.VERSION }}.zip
           dist/sonos-controller-firmware-7inch-v${{ steps.get_version.outputs.VERSION }}.zip
+          dist/firmware-4inch-portrait.bin
+          dist/firmware-4inch-r3-portrait.bin
+          dist/firmware-4inch-kids.bin
+          dist/firmware-4inch-r3-kids.bin
+          dist/firmware-square.bin
+          dist/sonos-controller-firmware-4inch-portrait-v${{ steps.get_version.outputs.VERSION }}.zip
+          dist/sonos-controller-firmware-4inch-r3-portrait-v${{ steps.get_version.outputs.VERSION }}.zip
+          dist/sonos-controller-firmware-4inch-kids-v${{ steps.get_version.outputs.VERSION }}.zip
+          dist/sonos-controller-firmware-4inch-r3-kids-v${{ steps.get_version.outputs.VERSION }}.zip
+          dist/sonos-controller-firmware-square-v${{ steps.get_version.outputs.VERSION }}.zip
+        # A missing asset means a whole screen variant silently gets no update.
+        fail_on_unmatched_files: true
         draft: false
         prerelease: false
         generate_release_notes: true

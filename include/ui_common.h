@@ -22,7 +22,7 @@
 
 // Firmware version
 #define FIRMWARE_VERSION "2.3.1"
-#define GITHUB_REPO "OpenSurface/SonosESP"
+#define GITHUB_REPO "Beungoud/SonosESP"   // OTA source: releases of this repo. CI refuses to release if it differs from the repo running the workflow.
 #define GITHUB_API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
 // Album art configuration

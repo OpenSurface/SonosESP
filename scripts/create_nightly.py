@@ -11,9 +11,41 @@ Usage:
 """
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
+
+
+def get_ota_repo():
+    """The repo the firmware pulls OTA updates from (GITHUB_REPO in ui_common.h).
+
+    Nightlies must be published THERE, or the devices never see them. Read it
+    from the header rather than repeating it, so a fork changes it in one place.
+    """
+    text = Path('include/ui_common.h').read_text()
+    m = re.search(r'#define\s+GITHUB_REPO\s+"([^"]+)"', text)
+    if not m:
+        print("[ERROR] GITHUB_REPO not found in include/ui_common.h")
+        sys.exit(1)
+    return m.group(1)
+
+
+REPO = get_ota_repo()
+
+
+def get_repo_remote():
+    """Name of the git remote pointing at REPO (a fork has origin = upstream)."""
+    try:
+        out = subprocess.run(['git', 'remote', '-v'], capture_output=True,
+                             text=True, check=True).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return 'origin'
+    for line in out.splitlines():
+        name, url = line.split()[:2]
+        if re.search(rf'[:/]{re.escape(REPO)}(\.git)?$', url):
+            return name
+    return 'origin'
 
 def get_current_version():
     """Read current version from version.json"""
@@ -33,7 +65,7 @@ def get_current_branch():
 def get_git_commit_sha(branch=None):
     """Get git commit SHA (short form) for a branch, or HEAD if not specified"""
     try:
-        ref = f'origin/{branch}' if branch else 'HEAD'
+        ref = f'{get_repo_remote()}/{branch}' if branch else 'HEAD'
         result = subprocess.run(['git', 'rev-parse', '--short=7', ref],
                               capture_output=True,
                               text=True,
@@ -53,7 +85,7 @@ def generate_nightly_tag(base_version, branch=None):
     if not commit_sha:
         if branch:
             print(f"[ERROR] Could not get commit SHA for branch '{branch}'")
-            print(f"[INFO] Make sure the branch is pushed: git push origin {branch}")
+            print(f"[INFO] Make sure the branch is pushed: git push {get_repo_remote()} {branch}")
         else:
             print("[ERROR] Could not get git commit SHA")
             print("[INFO] Make sure you're in a git repository")
@@ -76,9 +108,12 @@ def trigger_workflow(nightly_tag, branch=None):
     """Trigger the nightly-release workflow using GitHub CLI"""
     print(f"\n[INFO] Triggering nightly release workflow...")
     print(f"[INFO] Tag:    v{nightly_tag}")
+    print(f"[INFO] Repo:   {REPO}")
     print(f"[INFO] Branch: {branch or 'main (default)'}")
 
-    cmd = ['gh', 'workflow', 'run', 'nightly-release.yml',
+    # --repo explicitly: with an upstream remote next to the fork, gh may
+    # otherwise resolve to the upstream repo.
+    cmd = ['gh', 'workflow', 'run', 'nightly-release.yml', '--repo', REPO,
            '-f', f'version_tag={nightly_tag}']
     if branch:
         cmd += ['--ref', branch]
@@ -89,9 +124,9 @@ def trigger_workflow(nightly_tag, branch=None):
 
         print(f"\n[SUCCESS] Nightly release workflow triggered!")
         print(f"\n[INFO] Monitor progress:")
-        print(f"  gh run list --workflow=nightly-release.yml")
+        print(f"  gh run list --repo {REPO} --workflow=nightly-release.yml")
         print(f"  gh run watch")
-        print(f"\n[INFO] Or visit: https://github.com/OpenSurface/SonosESP/actions")
+        print(f"\n[INFO] Or visit: https://github.com/{REPO}/actions")
 
         return True
     except subprocess.CalledProcessError as e:
@@ -154,7 +189,7 @@ def main():
         print(f"\n[ERROR] GitHub CLI (gh) not found!")
         print(f"[INFO] Install it from: https://cli.github.com/")
         print(f"\n[MANUAL] To create nightly release manually:")
-        print(f"  1. Go to: https://github.com/OpenSurface/SonosESP/actions/workflows/nightly-release.yml")
+        print(f"  1. Go to: https://github.com/{REPO}/actions/workflows/nightly-release.yml")
         print(f"  2. Click 'Run workflow'")
         print(f"  3. Enter version tag: {nightly_tag}")
         print(f"     Format: X.Y.Z-nightly.COMMITHASH (7 hex chars)")
@@ -190,7 +225,7 @@ def main():
         print(f"\n[NEXT STEPS]")
         print(f"  1. Wait for GitHub Actions to build (~5 minutes)")
         print(f"  2. Nightly release will appear at:")
-        print(f"     https://github.com/OpenSurface/SonosESP/releases/tag/v{nightly_tag}")
+        print(f"     https://github.com/{REPO}/releases/tag/v{nightly_tag}")
         print(f"  3. Test OTA update with 'Nightly' channel selected")
         print(f"\n[NOTE] This is a prerelease and won't appear in Stable channel")
     else:
