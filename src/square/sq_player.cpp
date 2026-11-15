@@ -27,6 +27,7 @@ static uint32_t s_vol_touched = 0;   // ignore polled volume briefly after a tap
 static String   s_uri;
 static String   s_track;
 static uint32_t s_play_ms = 0;      // when Play was tapped, to catch a refusal
+static uint32_t s_toggle_ms = 0;    // last Play/Pause tap: polls before it lands are stale
 
 #define COVER 188
 
@@ -38,6 +39,7 @@ static void playClicked(lv_event_t*) {
         return;
     }
     if (s_playing) sonos.pause(); else { sonos.play(); s_play_ms = millis(); }
+    s_toggle_ms = millis();
     s_playing = !s_playing;
     lv_label_set_text(s_play_icon, s_playing ? IC_PAUSE : IC_PLAY);
 }
@@ -212,7 +214,9 @@ void sqPlayerUpdate(void) {
     tv      = d->isTvAudio;
     xSemaphoreGive(sonos.getDeviceMutex());
 
-    s_playing = d->isPlaying;
+    // A poll answered before the speaker acted on the tap would flip the
+    // button back, and the next tap would undo the first.
+    if (millis() - s_toggle_ms > 3000) s_playing = d->isPlaying;
     lv_label_set_text(s_play_icon, s_playing ? IC_PAUSE : IC_PLAY);
     if (millis() - s_vol_touched > 2500) { s_volume = d->volume; volumeShow(); }
 

@@ -64,8 +64,10 @@ static void touch_begin_hw(void) {
 // A read between two GT911 frames finds the "buffer ready" bit clear, and
 // TAMC_GT911 reports that as zero touches. Mid-drag that looked like a lift and
 // a new press, so releasing a scroll clicked whatever was under the finger.
-// A lift only counts after TOUCH_LIFT_SAMPLES empty reads in a row (~40ms).
-#define TOUCH_LIFT_SAMPLES 4
+// A lift only counts after TOUCH_LIFT_SAMPLES empty reads in a row. 40ms was
+// not enough: the bench log showed presses split in two at the very same
+// point ("down 169,247 / up after 67ms / down 169,247"), i.e. double clicks.
+#define TOUCH_LIFT_SAMPLES 10   // ~100ms
 
 static bool touch_sample(int32_t* x, int32_t* y) {
     static int32_t last_x = 0, last_y = 0;

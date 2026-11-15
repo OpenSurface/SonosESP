@@ -305,7 +305,15 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
     // HTTP/1.1 keep-alive (persistent connections cause -1 / connection-refused errors).
     HTTPClient http;
     http.begin(url);
-    http.setTimeout(2000);
+    // Transport changes answer only once the player has acted on them: a
+    // grouped stereo pair starting a radio stream took over 2s, so Play and
+    // Pause timed out although they worked, the UI kept the old state and the
+    // next tap undid them. Queries keep the short timeout.
+    const bool transport = !strcmp(service, "AVTransport") &&
+        (!strcmp(action, "Play") || !strcmp(action, "Pause") || !strcmp(action, "Next") ||
+         !strcmp(action, "Previous") || !strcmp(action, "Seek") ||
+         !strcmp(action, "SetAVTransportURI") || !strcmp(action, "AddURIToQueue"));
+    http.setTimeout(transport ? 6000 : 2000);
     http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
     // Tell Sonos to close the connection after the response. Sonos already does this
     // (no keep-alive per comment above), but making it explicit ensures the server
