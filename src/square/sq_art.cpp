@@ -319,13 +319,42 @@ static uint16_t* decode(const uint8_t* buf, int len, int size) {
     return out;
 }
 
+// Spotify serves each cover in several sizes behind the same id, the size
+// being part of the id's prefix. Its API hands out the 640px one, which for a
+// 48px row is a 150KB download and a full decode per thumbnail: a search
+// result page meant dozens of them. Ask for the smallest size that covers
+// the box instead.
+static void spotifySized(char* url, size_t cap, int size) {
+    struct Sz { const char* p640; const char* p300; const char* p64; };
+    static const Sz kinds[] = {
+        {"ab67616d0000b273", "ab67616d00001e02", "ab67616d00004851"},   // album covers
+        {"ab6761610000e5eb", "ab67616100005174", "ab6761610000f178"},   // artist pictures (320/160)
+    };
+    char* id = strstr(url, "i.scdn.co/image/");
+    if (!id) return;
+    id += strlen("i.scdn.co/image/");
+    for (const Sz& k : kinds) {
+        if (strncmp(id, k.p640, 16) != 0) continue;
+        memcpy(id, size <= 64 ? k.p64 : k.p300, 16);
+        return;
+    }
+    (void)cap;
+}
+
 static void artTask(void*) {
     ArtReq r;
     for (;;) {
         if (xQueueReceive(s_queue, &r, portMAX_DELAY) != pdTRUE) continue;
+        char original[sizeof(r.url)];
+        strlcpy(original, r.url, sizeof(original));
+        spotifySized(r.url, sizeof(r.url), r.size);
         if (WiFi.status() != WL_CONNECTED) { vTaskDelay(pdMS_TO_TICKS(500)); }
         uint32_t t0 = millis();
         int n = download(r.url, s_dl, ART_MAX_BYTES);
+        if (n <= 0 && strcmp(original, r.url) != 0) {   // that size does not exist: the 640px one
+            strlcpy(r.url, original, sizeof(r.url));
+            n = download(r.url, s_dl, ART_MAX_BYTES);
+        }
         uint16_t* px = n > 0 ? decode(s_dl, n, r.size) : nullptr;
         if (!px) Serial.printf("[SQ/ART] Failed (%d) %.80s\n", n, r.url);
         xSemaphoreTake(s_lock, portMAX_DELAY);
