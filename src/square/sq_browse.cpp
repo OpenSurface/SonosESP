@@ -13,6 +13,7 @@ static uint32_t  s_home_req   = 0;
 static bool      s_home_loaded = false;
 static uint32_t  s_home_svc_seen = 0;
 static uint32_t  s_home_for_ver  = 0xFFFFFFFF;   // sq_svc_version the home was loaded for
+static uint32_t  s_home_retry_at = 0;            // after a failure, wait before asking again
 
 static const uint32_t kTileColors[] = {SQ_MINT, SQ_PINK, SQ_YELLOW, SQ_SKY, SQ_ORANGE, SQ_LILAC};
 
@@ -79,6 +80,7 @@ void sqSpotifyRefresh(void) {
     }
     if (s_home_loaded && s_home_for_ver != sq_svc_version) s_home_loaded = false;   // account changed
     if (!s_home_loaded && !s_home_req) {
+        if (s_home_retry_at && (int32_t)(millis() - s_home_retry_at) < 0) return;
         s_home_for_ver = sq_svc_version;
         s_home_req = musicServices.requestBrowse(sid, serial, "root", 0, MAX_HOME);
         homeMessage("J'ouvre Spotify…");
@@ -92,9 +94,11 @@ void sqSpotifyRefresh(void) {
             s_home_count = 0;
             for (int i = 0; i < p->count && s_home_count < MAX_HOME; ++i) s_home_items[s_home_count++] = p->items[i];
             s_home_loaded = true;
+            s_home_retry_at = 0;
             homeBuild();
         } else {
-            homeMessage("Spotify ne répond pas. Réessaie dans un moment.");
+            homeMessage("Spotify ne répond pas. Je réessaie…");
+            s_home_retry_at = millis() + 5000;
         }
         MusicServices::freePage(p);
     }

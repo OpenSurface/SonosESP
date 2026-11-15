@@ -61,11 +61,26 @@ static void touch_begin_hw(void) {
     ts.setRotation(ROTATION_NORMAL);
 }
 
+// A read between two GT911 frames finds the "buffer ready" bit clear, and
+// TAMC_GT911 reports that as zero touches. Mid-drag that looked like a lift and
+// a new press, so releasing a scroll clicked whatever was under the finger.
+// A lift only counts after TOUCH_LIFT_SAMPLES empty reads in a row (~40ms).
+#define TOUCH_LIFT_SAMPLES 4
+
 static bool touch_sample(int32_t* x, int32_t* y) {
+    static int32_t last_x = 0, last_y = 0;
+    static int     misses = TOUCH_LIFT_SAMPLES;
     ts.read();
-    if (!ts.isTouched || ts.touches <= 0) return false;
-    *x = constrain((int32_t)(TOUCH_PANEL_WIDTH - 1 - ts.points[0].x), 0, DISPLAY_WIDTH - 1);
-    *y = constrain((int32_t)(TOUCH_PANEL_HEIGHT - 1 - ts.points[0].y), 0, DISPLAY_HEIGHT - 1);
+    if (ts.isTouched && ts.touches > 0) {
+        last_x = constrain((int32_t)(TOUCH_PANEL_WIDTH - 1 - ts.points[0].x), 0, DISPLAY_WIDTH - 1);
+        last_y = constrain((int32_t)(TOUCH_PANEL_HEIGHT - 1 - ts.points[0].y), 0, DISPLAY_HEIGHT - 1);
+        misses = 0;
+    } else if (misses < TOUCH_LIFT_SAMPLES) {
+        misses++;
+    }
+    if (misses >= TOUCH_LIFT_SAMPLES) return false;
+    *x = last_x;
+    *y = last_y;
     return true;
 }
 

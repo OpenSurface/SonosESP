@@ -744,7 +744,11 @@
 // capture is a one-shot UPnP subscription held under network_mutex.
 #define SVC_TASK_STACK              12288   // PSRAM. TLS handshake + std::string parsing of a 50-item page
 #define SVC_TASK_PRIORITY               1   // Same as lyrics: never preempts the Sonos tasks
+#if UI_SQUARE
+#define SVC_MIN_FREE_DMA 16000   // S3: mbedTLS buffers are in PSRAM (main_square.cpp); only lwIP needs internal RAM
+#else
 #define SVC_MIN_FREE_DMA            LYRICS_MIN_FREE_DMA  // same mbedTLS AES floor as lyrics
+#endif
 #define SVC_HTTP_TIMEOUT_MS         10000   // per read. network_mutex is held throughout, so keep it short
 #define SVC_CONNECT_TIMEOUT_MS       8000   // TCP connect
 #define SVC_HANDSHAKE_TIMEOUT_S        10   // TLS handshake. The library default is 120s - a stalled
@@ -755,7 +759,11 @@
 #define SVC_EVENT_MAX_BYTES    (512 * 1024) // ZoneGroupTopology NOTIFY carries the whole ZoneGroupState
 #define SVC_KEEPALIVE_MS            20000   // close the kept TLS session after this long unused
 #define SVC_KEEPALIVE_TICK_MS         500   // how often the worker checks it while open
+#if UI_SQUARE
+#define SVC_KEEPALIVE_MIN_DMA 16000   // S3: mbedTLS buffers are in PSRAM (main_square.cpp); only lwIP needs internal RAM
+#else
 #define SVC_KEEPALIVE_MIN_DMA       64000   // ...or as soon as free DMA falls under this (= CLOCK_BG_MIN_DMA)
+#endif
 #define SVC_PAGE_SIZE                  25   // items per getMetadata page. Providers build pages slowly
                                             // (Pocket Casts: 15s for 50) and network_mutex is held meanwhile
 #define SVC_ART_WAIT_TIMEOUT_MS      8000   // wait for an in-flight art download before our TLS burst
