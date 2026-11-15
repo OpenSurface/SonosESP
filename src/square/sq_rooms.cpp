@@ -40,6 +40,39 @@ static void allClicked(lv_event_t*) {
     sqSetHidden(s_busy, false);
 }
 
+// Portrait only: one volume for the whole group, applied to each member.
+#define GROUP_CARD_H 84
+static lv_obj_t* s_gv_label = nullptr;
+static lv_obj_t* s_gv_fill  = nullptr;
+static int       s_members[MAX_SONOS_DEVICES];
+static int       s_member_vol[MAX_SONOS_DEVICES];
+static int       s_member_n = 0;
+static const int kGroupBarW = 280;
+
+static int groupVolume(void) {
+    if (s_member_n == 0) return 0;
+    int sum = 0;
+    for (int i = 0; i < s_member_n; ++i) sum += s_member_vol[i];
+    return sum / s_member_n;
+}
+
+static void groupCardShow(void) {
+    if (!s_gv_label) return;
+    int v = groupVolume();
+    lv_label_set_text_fmt(s_gv_label, s_member_n > 1 ? "Volume du groupe · %d" : "Volume · %d", v);
+    lv_obj_set_width(s_gv_fill, kGroupBarW * v / 100);
+}
+
+static void groupStep(int step) {
+    for (int i = 0; i < s_member_n; ++i) {
+        s_member_vol[i] = constrain(s_member_vol[i] + step, 0, 100);
+        sonos.setDeviceVolume(s_members[i], s_member_vol[i]);
+    }
+    groupCardShow();
+}
+static void groupDown(lv_event_t*) { groupStep(-5); }
+static void groupUp(lv_event_t*)   { groupStep(+5); }
+
 static void settingsClicked(lv_event_t*) { sqShow(SQ_SCR_SETTINGS); }
 static void closeClicked(lv_event_t*) { sqBack(); }
 
@@ -54,7 +87,7 @@ void sqRoomsCreate(void) {
     s_grid = lv_obj_create(s_scr);
     lv_obj_remove_style_all(s_grid);
     lv_obj_set_pos(s_grid, 0, SQ_HEADER_H);
-    lv_obj_set_size(s_grid, SQ_W, SQ_H - SQ_HEADER_H - 88);
+    lv_obj_set_size(s_grid, SQ_W, SQ_H - SQ_HEADER_H - 88 - (SQ_TALL ? GROUP_CARD_H + 16 : 0));
     lv_obj_set_style_pad_hor(s_grid, 16, 0);
     lv_obj_set_style_pad_bottom(s_grid, 8, 0);
     lv_obj_set_flex_flow(s_grid, LV_FLEX_FLOW_ROW_WRAP);
@@ -62,6 +95,23 @@ void sqRoomsCreate(void) {
     lv_obj_set_style_pad_column(s_grid, 12, 0);
     lv_obj_set_scroll_dir(s_grid, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(s_grid, LV_SCROLLBAR_MODE_OFF);
+
+    if (SQ_TALL) {
+        lv_obj_t* card = sqBox(s_scr, SQ_W - 32, GROUP_CARD_H, SQ_SKY_DEEP, 26);
+        lv_obj_align(card, LV_ALIGN_BOTTOM_MID, 0, -(88 + 8));
+        lv_obj_set_style_pad_hor(card, 12, 0);
+        lv_obj_t* minus = sqRoundButton(card, 50, SQ_BG, IC_MINUS, &font_sqi_26, SQ_SKY);
+        lv_obj_align(minus, LV_ALIGN_LEFT_MID, 0, 0);
+        lv_obj_add_event_cb(minus, groupDown, LV_EVENT_CLICKED, nullptr);
+        lv_obj_t* plus = sqRoundButton(card, 50, SQ_BG, IC_PLUS, &font_sqi_26, SQ_SKY);
+        lv_obj_align(plus, LV_ALIGN_RIGHT_MID, 0, 0);
+        lv_obj_add_event_cb(plus, groupUp, LV_EVENT_CLICKED, nullptr);
+        s_gv_label = sqLabel(card, "", &font_sq_16, SQ_SKY_TEXT);
+        lv_obj_align(s_gv_label, LV_ALIGN_TOP_MID, 0, 16);
+        lv_obj_t* bar = sqBox(card, kGroupBarW, 14, SQ_BG, 7);
+        lv_obj_align(bar, LV_ALIGN_BOTTOM_MID, 0, -18);
+        s_gv_fill = sqBox(bar, 0, 14, SQ_SKY, 7);
+    }
 
     lv_obj_t* bottom = lv_obj_create(s_scr);
     lv_obj_remove_style_all(bottom);
@@ -116,6 +166,14 @@ void sqRoomsRefresh(void) {
     }
     leader = coord ? coord->roomName : cur->roomName;
     xSemaphoreGive(sonos.getDeviceMutex());
+    s_member_n = 0;
+    for (int i = 0; i < n && i < MAX_SONOS_DEVICES; ++i) {
+        if (!rows[i].selected && !rows[i].grouped) continue;
+        s_members[s_member_n] = i;
+        s_member_vol[s_member_n] = rows[i].vol;
+        s_member_n++;
+    }
+    groupCardShow();
 
     for (int i = 0; i < n && i < MAX_SONOS_DEVICES; ++i) {
         const Row& r = rows[i];
@@ -124,8 +182,8 @@ void sqRoomsRefresh(void) {
 
         lv_obj_t* tile = lv_button_create(s_grid);
         lv_obj_remove_style_all(tile);
-        lv_obj_set_size(tile, 218, 92);
-        lv_obj_set_style_radius(tile, 26, 0);
+        lv_obj_set_size(tile, 218, SQ_TALL ? 128 : 92);
+        lv_obj_set_style_radius(tile, SQ_TALL ? 28 : 26, 0);
         lv_obj_set_style_bg_color(tile, lv_color_hex(bg), 0);
         lv_obj_set_style_bg_opa(tile, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(tile, r.grouped ? 3 : 0, 0);
@@ -135,9 +193,38 @@ void sqRoomsRefresh(void) {
         lv_obj_add_event_cb(tile, tileClicked, LV_EVENT_CLICKED, (void*)(intptr_t)i);
 
         lv_obj_t* ic = sqBox(tile, 48, 48, r.selected ? SQ_INK : SQ_RAISED, 24);
-        lv_obj_align(ic, LV_ALIGN_LEFT_MID, 0, 0);
+        lv_obj_align(ic, SQ_TALL ? LV_ALIGN_TOP_LEFT : LV_ALIGN_LEFT_MID, 0, SQ_TALL ? 12 : 0);
         lv_obj_t* g = sqIcon(ic, roomIcon(r.name), &font_sqi_26, SQ_SKY);
         lv_obj_center(g);
+
+        if (SQ_TALL) {
+            // Portrait: name under the icon, then the room's volume when it
+            // is part of the group, its state otherwise (P_Enceintes).
+            lv_obj_t* name = sqLabel(tile, r.name.c_str(), &font_sq_20, fg);
+            lv_label_set_long_mode(name, LV_LABEL_LONG_MODE_DOTS);
+            lv_obj_set_size(name, 190, 27);
+            lv_obj_align(name, LV_ALIGN_BOTTOM_LEFT, 2, -30);
+            if (r.selected || r.grouped) {
+                lv_obj_t* bar = sqBox(tile, 150, 10, r.selected ? 0x3D7FC4 : SQ_BG, 5);
+                lv_obj_align(bar, LV_ALIGN_BOTTOM_LEFT, 2, -14);
+                sqBox(bar, 150 * constrain(r.vol, 0, 100) / 100, 10, r.selected ? SQ_INK : SQ_SKY, 5);
+                char v[8];
+                snprintf(v, sizeof(v), "%d", r.vol);
+                lv_obj_t* vl = sqLabel(tile, v, &font_sq_14, r.selected ? SQ_INK : 0xA9C9F0);
+                lv_obj_align(vl, LV_ALIGN_BOTTOM_LEFT, 162, -8);
+            } else {
+                lv_obj_t* sub = sqLabel(tile, r.playing ? "Joue autre chose" : "Libre", &font_sq_14, SQ_MUTED);
+                lv_obj_align(sub, LV_ALIGN_BOTTOM_LEFT, 2, -10);
+            }
+            if (!r.selected) {
+                lv_obj_t* gb = sqRoundButton(tile, 46, r.grouped ? SQ_SKY : SQ_RAISED,
+                                             r.grouped ? IC_CHECK : IC_PLUS, &font_sqi_26,
+                                             r.grouped ? SQ_INK : SQ_SKY);
+                lv_obj_align(gb, LV_ALIGN_TOP_RIGHT, -8, 10);
+                lv_obj_add_event_cb(gb, groupClicked, LV_EVENT_CLICKED, (void*)(intptr_t)i);
+            }
+            continue;
+        }
 
         lv_obj_t* name = sqLabel(tile, r.name.c_str(), &font_sq_20, fg);
         lv_label_set_long_mode(name, LV_LABEL_LONG_MODE_DOTS);

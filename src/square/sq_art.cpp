@@ -8,6 +8,7 @@
 // Progressive JPEGs (JPEGDEC cannot scale those) go through stb_image.
 #include "sq_work.h"
 #include "ui_common.h"
+#include "ui_network_guard.h"
 #include <WiFiClientSecure.h>
 #include <esp_heap_caps.h>
 
@@ -125,7 +126,7 @@ struct BufSink : public Stream {
     int read() override { return -1; }
     int peek() override { return -1; }
 };
-static int download(const char* url, uint8_t* buf, int cap) {
+static int downloadOnce(const char* url, uint8_t* buf, int cap) {
     String full = url;
     if (full.startsWith("/")) {
         // Sonos-relative (/getaa?...): served by the speaker itself.
@@ -169,6 +170,35 @@ static int download(const char* url, uint8_t* buf, int cap) {
     if (sink.overflow) return -1;
     return w < 0 ? w : (int)sink.len;
 }
+
+#if UI_SQUARE
+// S3: the radio is on-chip; nothing to serialise.
+static int download(const char* url, uint8_t* buf, int cap) { return downloadOnce(url, buf, cap); }
+#else
+// P4: the radio is an ESP32-C6 on an SDIO link, and overlapping transfers or a
+// transfer started with too little DMA memory crash that link (see
+// ui_network_guard.h and ui_album_art.cpp). Downloads take the same turns as
+// every other request: SDIO cooldowns, the network mutex, a DMA floor.
+static int download(const char* url, uint8_t* buf, int cap) {
+    const bool https = !strncmp(url, "https://", 8);
+    sdioPreWait("SQART", https ? SDIO_WAIT_HTTPS_COOLDOWN : 0);
+    for (int i = 0; i < 50 && heap_caps_get_free_size(MALLOC_CAP_DMA) < ART_MIN_DMA_PRE_BURST; ++i)
+        vTaskDelay(pdMS_TO_TICKS(100));
+    if (heap_caps_get_free_size(MALLOC_CAP_DMA) < ART_MIN_DMA_PRE_BURST) {
+        Serial.printf("[SQ/ART] DMA too low (%u) - skipped\n", (unsigned)heap_caps_get_free_size(MALLOC_CAP_DMA));
+        return -2;
+    }
+    if (!network_mutex ||
+        xSemaphoreTake(network_mutex, pdMS_TO_TICKS(NETWORK_MUTEX_TIMEOUT_ART_MS)) != pdTRUE)
+        return -3;
+    int n = downloadOnce(url, buf, cap);
+    last_network_end_ms = millis();
+    last_art_download_end_ms = millis();
+    if (https) last_https_end_ms = millis();
+    xSemaphoreGive(network_mutex);
+    return n;
+}
+#endif
 
 // ── Decode ──────────────────────────────────────────────────────────────────
 struct JpegCtx { uint16_t* dst; int w, h; };

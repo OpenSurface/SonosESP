@@ -35,6 +35,13 @@ SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 
 static uint32_t lvglTick(void) { return millis(); }
 
+#if !UI_SQUARE
+#include "screenshot.h"
+// The P4 panel driver calls the old UI's screenshot hook on every flush; this
+// UI has its own bench "shot" command (display_front_buffer), so it is a no-op.
+void screenshotCaptureHook(const uint8_t*, const lv_area_t*) {}
+#endif
+
 // The last crash, kept in the coredump partition, printed at boot and then
 // erased: a panic while no console is attached is otherwise lost, and a dump
 // left in place cannot be told from a new one. Decode the "bt" addresses with
@@ -48,6 +55,7 @@ static void reportStoredCrash(void) {
         char running[APP_ELF_SHA256_SZ] = {0};
         esp_app_get_elf_sha256(running, sizeof(running));
         const bool same = !strncmp((const char*)sum->app_elf_sha256, running, sizeof(running));
+#if CONFIG_IDF_TARGET_ARCH_XTENSA   // S3
         Serial.printf("[CRASH] task %.16s  pc 0x%08X  cause %u  vaddr 0x%08X  build %.9s (%s)\n",
                       sum->exc_task, (unsigned)sum->exc_pc, (unsigned)sum->ex_info.exc_cause,
                       (unsigned)sum->ex_info.exc_vaddr, (const char*)sum->app_elf_sha256,
@@ -56,6 +64,13 @@ static void reportStoredCrash(void) {
         for (uint32_t i = 0; i < sum->exc_bt_info.depth && i < 16; ++i)
             Serial.printf(" 0x%08X", (unsigned)sum->exc_bt_info.bt[i]);
         Serial.println(sum->exc_bt_info.corrupted ? " (corrupted)" : "");
+#else                               // P4 (RISC-V): no backtrace in the summary
+        Serial.printf("[CRASH] task %.16s  pc 0x%08X  mcause 0x%08X  mtval 0x%08X  ra 0x%08X  sp 0x%08X"
+                      "  build %.9s (%s)\n",
+                      sum->exc_task, (unsigned)sum->exc_pc, (unsigned)sum->ex_info.mcause,
+                      (unsigned)sum->ex_info.mtval, (unsigned)sum->ex_info.ra, (unsigned)sum->ex_info.sp,
+                      (const char*)sum->app_elf_sha256, same ? "this firmware" : "another firmware");
+#endif
     } else {
         Serial.println("[CRASH] summary unavailable");
     }
@@ -69,10 +84,12 @@ static void reportStoredCrash(void) {
 // SMAPI keeps one open, a cover download opens another) and nothing is left:
 // downloads failed with "connection refused" at 12KB free. Moving mbedTLS to
 // PSRAM costs a little speed and frees all of that.
+#if UI_SQUARE
 static void* tlsCalloc(size_t n, size_t size) {
     void* p = heap_caps_calloc(n, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     return p ? p : heap_caps_calloc(n, size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 }
+#endif
 
 static bool s_wifi_up     = false;
 static bool s_core_posted = false;
@@ -228,7 +245,9 @@ void setup() {
     }
     reportStoredCrash();
 
+#if UI_SQUARE   // S3: internal RAM is scarce; the P4 keeps mbedTLS where its SDIO code expects it
     mbedtls_platform_set_calloc_free(tlsCalloc, heap_caps_free);
+#endif
 
     // Same watchdog policy as the P4 build: idle tasks are not watched. A TLS
     // handshake plus parsing Spotify's home page keeps core 0 busy for several
@@ -255,6 +274,11 @@ void setup() {
     WiFi.setSleep(false);
     WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);     // mesh: join the strongest node
     WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
+#if !UI_SQUARE
+    // P4: the radio is an ESP32-C6 behind esp-hosted (SDIO); give it time to
+    // come up before the first begin(), as the P4 firmware always has.
+    vTaskDelay(pdMS_TO_TICKS(WIFI_INIT_DELAY_MS));
+#endif
     if (ssid.length()) {
         WiFi.begin(ssid.c_str(), pass.c_str());
         Serial.printf("[WIFI] Connecting to '%s'\n", ssid.c_str());

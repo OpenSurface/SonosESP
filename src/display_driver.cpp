@@ -658,3 +658,9 @@ void display_set_brightness(uint8_t brightness_percent) {
         lcd->example_bsp_set_lcd_backlight(brightness_percent);
     }
 }
+
+#if UI_KIDS
+// Bench screenshots in the kids UI (main_square.cpp "shot"): LVGL draws the
+// whole frame into buf1 (DIRECT mode), so it holds what the panel shows.
+const void* display_front_buffer(void) { return buf1; }
+#endif

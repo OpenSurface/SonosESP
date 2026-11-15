@@ -189,26 +189,29 @@ static void levelShow(void) {
     if (lv.item.canPlay) {
         lv_obj_t* hero = lv_obj_create(s_list);
         lv_obj_remove_style_all(hero);
-        lv_obj_set_size(hero, LV_PCT(100), 120);
-        lv_obj_t* cover = sqBox(hero, 112, 112, SQ_SURFACE, 24);
+        const int hc = SQ_TALL ? 156 : 112;   // hero cover: bigger in portrait
+        const int hx = hc + 16;               // text column
+        lv_obj_set_size(hero, LV_PCT(100), hc + 8);
+        lv_obj_t* cover = sqBox(hero, hc, hc, SQ_SURFACE, 24);
         lv_obj_align(cover, LV_ALIGN_LEFT_MID, 0, 0);
-        s_hero.ph = sqCoverPlaceholder(cover, 112, 24, lv.item.title);
+        s_hero.ph = sqCoverPlaceholder(cover, hc, 24, lv.item.title);
         s_hero.img = lv_image_create(cover);
-        lv_obj_set_size(s_hero.img, 112, 112);
+        lv_obj_set_size(s_hero.img, hc, hc);
         lv_obj_set_style_radius(s_hero.img, 24, 0);
         sqSetHidden(s_hero.img, true);
         strlcpy(s_hero.art, lv.item.art, sizeof(s_hero.art));
+        s_hero.art_px = hc;
         lv_obj_t* kind = sqLabel(hero, lv.item.subtitle[0] ? lv.item.subtitle : sqItemKind(lv.item),
                                  &font_sq_16, SQ_MUTED);
         lv_label_set_long_mode(kind, LV_LABEL_LONG_MODE_DOTS);
-        lv_obj_set_width(kind, 300);
-        lv_obj_align(kind, LV_ALIGN_TOP_LEFT, 128, 8);
+        lv_obj_set_size(kind, SQ_W - 32 - hx, 22);
+        lv_obj_align(kind, LV_ALIGN_TOP_LEFT, hx, 8);
         lv_obj_t* play = sqPillButton(hero, 52, lv.color, SQ_INK, IC_PLAY, "Tout lire", &font_sq_20);
-        lv_obj_align(play, LV_ALIGN_BOTTOM_LEFT, 128, -8);
+        lv_obj_align(play, LV_ALIGN_BOTTOM_LEFT, hx, -8);
         lv_obj_add_event_cb(play, playAll, LV_EVENT_CLICKED, nullptr);
         strlcpy(s_hero.fav_uri, sqItemUri(lv.item).c_str(), sizeof(s_hero.fav_uri));
         s_hero.star = sqRoundButton(hero, 52, SQ_RAISED, IC_STAR_O, &font_sqi_26, SQ_YELLOW);
-        lv_obj_align(s_hero.star, LV_ALIGN_BOTTOM_LEFT, 128 + 172, -8);
+        lv_obj_align(s_hero.star, LV_ALIGN_BOTTOM_LEFT, hx + 172, -8);
         lv_obj_add_event_cb(s_hero.star, heroStar, LV_EVENT_CLICKED, nullptr);
         sqItemRowStar(&s_hero);
         sqItemRowArt(&s_hero);

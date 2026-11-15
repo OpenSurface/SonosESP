@@ -34,6 +34,7 @@ lv_obj_t* sqItemRowCreate(lv_obj_t* list, const SvcItem& it, int index, lv_event
     lv_obj_set_style_radius(out->img, round ? 24 : 14, 0);
     sqSetHidden(out->img, true);
     strlcpy(out->art, it.art, sizeof(out->art));
+    out->art_px = 48;
 
     lv_obj_t* title = sqLabel(tap, it.title, &font_sq_18, SQ_TEXT);
     lv_label_set_long_mode(title, LV_LABEL_LONG_MODE_DOTS);
@@ -61,7 +62,7 @@ lv_obj_t* sqItemRowCreate(lv_obj_t* list, const SvcItem& it, int index, lv_event
 }
 
 void sqItemRowArt(SqItemRow* r) {
-    const lv_image_dsc_t* img = r->art[0] ? sqArtGet(r->art, 48) : nullptr;
+    const lv_image_dsc_t* img = r->art[0] ? sqArtGet(r->art, r->art_px > 0 ? r->art_px : 48) : nullptr;
     if (!img) return;
     lv_image_set_src(r->img, img);
     sqSetHidden(r->img, false);

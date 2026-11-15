@@ -29,7 +29,10 @@ static String   s_track;
 static uint32_t s_play_ms = 0;      // when Play was tapped, to catch a refusal
 static uint32_t s_toggle_ms = 0;    // last Play/Pause tap: polls before it lands are stale
 
-#define COVER 188
+// Cover and volume-bar sizes depend on the layout (square / portrait).
+static int s_cover_px = 188;
+static int s_vol_w    = 92;
+#define COVER s_cover_px
 
 static void playClicked(lv_event_t*) {
     if (!s_playing && !s_track.length() && !s_uri.length()) {
@@ -47,7 +50,7 @@ static void prevClicked(lv_event_t*) { sonos.previous(); }
 static void nextClicked(lv_event_t*) { sonos.next(); }
 
 static void volumeShow(void) {
-    lv_obj_set_width(s_vol_fill, s_volume <= 0 ? 0 : (s_volume >= 100 ? 92 : 92 * s_volume / 100));
+    lv_obj_set_width(s_vol_fill, s_volume <= 0 ? 0 : (s_volume >= 100 ? s_vol_w : s_vol_w * s_volume / 100));
 }
 static void volStep(int step) {
     s_volume = constrain(s_volume + step, 0, 100);
@@ -82,19 +85,7 @@ static void fmtTime(char* out, size_t n, int s) {
     else           snprintf(out, n, "%d:%02d", s / 60, s % 60);
 }
 
-void sqPlayerCreate(void) {
-    s_scr = sqScreenCreate();
-
-    // Header: speaker pill + star
-    lv_obj_t* hdr = sqBox(s_scr, SQ_W, SQ_HEADER_H, SQ_BG, 0);
-    lv_obj_set_style_pad_hor(hdr, 16, 0);
-    lv_obj_set_flex_flow(hdr, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    sqRoomPill(hdr, false);
-    s_star = sqRoundButton(hdr, 52, SQ_RAISED, IC_STAR_O, &font_sqi_32, SQ_YELLOW);
-    s_star_icon = lv_obj_get_child(s_star, 0);
-    lv_obj_add_event_cb(s_star, starClicked, LV_EVENT_CLICKED, nullptr);
-
+static void buildSquare(void) {
     // Cover + info
     s_cover_box = sqBox(s_scr, COVER, COVER, SQ_SURFACE, 28);
     lv_obj_set_pos(s_cover_box, 20, 76);
@@ -180,6 +171,110 @@ void sqPlayerCreate(void) {
     s_vol_fill = sqBox(vbar, 0, 16, SQ_SKY, 8);
     b = sqRoundButton(vol, 44, SQ_RAISED, IC_PLUS, &font_sqi_26, SQ_SKY);
     lv_obj_add_event_cb(b, volUp, LV_EVENT_CLICKED, nullptr);
+
+}
+
+// Portrait 480x800: a big cover on its own row, centred text, bigger
+// transport, the volume across the whole width (P_Main in the mockups).
+static lv_obj_t* tallRow(lv_obj_t* parent, int h, int gap, int margin_top) {
+    lv_obj_t* r = lv_obj_create(parent);
+    lv_obj_remove_style_all(r);
+    lv_obj_set_size(r, LV_PCT(100), h);
+    lv_obj_set_style_margin_top(r, margin_top, 0);
+    lv_obj_set_flex_flow(r, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(r, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(r, gap, 0);
+    lv_obj_set_scrollable(r, false);
+    return r;
+}
+
+static void buildTall(void) {
+    s_cover_px = 288;
+    s_vol_w    = 312;
+    lv_obj_t* col = lv_obj_create(s_scr);
+    lv_obj_remove_style_all(col);
+    lv_obj_set_pos(col, 0, SQ_HEADER_H + 6);
+    lv_obj_set_size(col, SQ_W, SQ_H - SQ_HEADER_H - SQ_DOCK_H - 6);
+    lv_obj_set_style_pad_hor(col, 24, 0);
+    lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(col, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_scrollable(col, false);
+
+    s_cover_box = sqBox(col, COVER, COVER, SQ_SURFACE, 34);
+    s_cover_ph = sqCoverPlaceholder(s_cover_box, COVER, 34, "sonos");
+    s_cover_img = lv_image_create(s_cover_box);
+    lv_obj_set_size(s_cover_img, COVER, COVER);
+    lv_obj_set_style_radius(s_cover_img, 34, 0);
+    sqSetHidden(s_cover_img, true);
+
+    s_chip = sqBox(col, LV_SIZE_CONTENT, 28, 0x173F3A, 14);
+    lv_obj_set_style_margin_top(s_chip, 14, 0);
+    lv_obj_set_style_pad_hor(s_chip, 12, 0);
+    lv_obj_set_style_max_width(s_chip, 400, 0);
+    s_chip_lbl = sqLabel(s_chip, "", &font_sq_14, 0x7FF0C4);
+    lv_label_set_long_mode(s_chip_lbl, LV_LABEL_LONG_MODE_DOTS);
+    lv_obj_set_style_max_width(s_chip_lbl, 376, 0);
+    lv_obj_set_height(s_chip_lbl, 19);
+    lv_obj_center(s_chip_lbl);
+    sqSetHidden(s_chip, true);
+
+    s_title = sqLabel(col, "Rien en cours", &font_sq_28, SQ_TEXT);
+    lv_obj_set_size(s_title, LV_PCT(100), 38);   // one line, cut with dots
+    lv_obj_set_style_margin_top(s_title, 6, 0);
+    lv_label_set_long_mode(s_title, LV_LABEL_LONG_MODE_DOTS);
+    lv_obj_set_style_text_align(s_title, LV_TEXT_ALIGN_CENTER, 0);
+    s_artist = sqLabel(col, "Choisis un favori ou cherche une chanson", &font_sq_20, SQ_MUTED);
+    lv_obj_set_size(s_artist, LV_PCT(100), 27);
+    lv_label_set_long_mode(s_artist, LV_LABEL_LONG_MODE_DOTS);
+    lv_obj_set_style_text_align(s_artist, LV_TEXT_ALIGN_CENTER, 0);
+
+    lv_obj_t* bar = sqBox(col, LV_PCT(100), 12, SQ_RAISED, 6);
+    lv_obj_set_style_margin_top(bar, 14, 0);
+    s_bar_fill = sqBox(bar, 0, 12, SQ_PINK, 6);
+    lv_obj_t* times = lv_obj_create(col);
+    lv_obj_remove_style_all(times);
+    lv_obj_set_size(times, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_style_margin_top(times, 4, 0);
+    s_t_now = sqLabel(times, "", &font_sq_14, SQ_MUTED);
+    s_t_total = sqLabel(times, "", &font_sq_14, SQ_MUTED);
+    lv_obj_align(s_t_total, LV_ALIGN_TOP_RIGHT, 0, 0);
+
+    lv_obj_t* ctl = tallRow(col, 104, 26, 6);
+    lv_obj_t* b = sqRoundButton(ctl, 72, SQ_RAISED, IC_PREV, &font_sqi_32, SQ_TEXT);
+    lv_obj_add_event_cb(b, prevClicked, LV_EVENT_CLICKED, nullptr);
+    b = sqRoundButton(ctl, 100, SQ_PINK, IC_PLAY, &font_sqi_44, SQ_INK);
+    lv_obj_set_style_shadow_width(b, 0, 0);
+    lv_obj_set_style_shadow_offset_y(b, 7, 0);
+    lv_obj_set_style_shadow_color(b, lv_color_hex(0xB84A80), 0);
+    lv_obj_set_style_shadow_opa(b, LV_OPA_COVER, 0);
+    s_play_icon = lv_obj_get_child(b, 0);
+    lv_obj_add_event_cb(b, playClicked, LV_EVENT_CLICKED, nullptr);
+    b = sqRoundButton(ctl, 72, SQ_RAISED, IC_NEXT, &font_sqi_32, SQ_TEXT);
+    lv_obj_add_event_cb(b, nextClicked, LV_EVENT_CLICKED, nullptr);
+
+    lv_obj_t* vol = tallRow(col, 52, 12, 8);
+    b = sqRoundButton(vol, 48, SQ_RAISED, IC_MINUS, &font_sqi_26, SQ_SKY);
+    lv_obj_add_event_cb(b, volDown, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t* vbar = sqBox(vol, s_vol_w, 18, SQ_RAISED, 9);
+    s_vol_fill = sqBox(vbar, 0, 18, SQ_SKY, 9);
+    b = sqRoundButton(vol, 48, SQ_RAISED, IC_PLUS, &font_sqi_26, SQ_SKY);
+    lv_obj_add_event_cb(b, volUp, LV_EVENT_CLICKED, nullptr);
+}
+
+void sqPlayerCreate(void) {
+    s_scr = sqScreenCreate();
+
+    // Header: speaker pill + star
+    lv_obj_t* hdr = sqBox(s_scr, SQ_W, SQ_HEADER_H, SQ_BG, 0);
+    lv_obj_set_style_pad_hor(hdr, 16, 0);
+    lv_obj_set_flex_flow(hdr, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    sqRoomPill(hdr, false);
+    s_star = sqRoundButton(hdr, 52, SQ_RAISED, IC_STAR_O, &font_sqi_32, SQ_YELLOW);
+    s_star_icon = lv_obj_get_child(s_star, 0);
+    lv_obj_add_event_cb(s_star, starClicked, LV_EVENT_CLICKED, nullptr);
+
+    if (SQ_TALL) buildTall(); else buildSquare();
 
     sqRegisterScreen(SQ_SCR_PLAYER, s_scr, SQ_TAB_PLAYER);
 }

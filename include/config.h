@@ -117,6 +117,14 @@
 #define UI_SQUARE 0
 #endif
 
+// UI_KIDS=1 builds the new, kid-friendly UI (src/square/: one colour per
+// destination, big buttons, Spotify search, Sonos favourites). The square S3
+// panel always uses it; the P4 portrait panel can too (esp32_4inch_kids).
+// UI_SQUARE stays about the S3 HARDWARE; UI_KIDS is about the UI.
+#ifndef UI_KIDS
+#define UI_KIDS UI_SQUARE
+#endif
+
 #if UI_SQUARE
     // GUITION ESP32-4848S040 "86 box" — ESP32-S3R8, ST7701S over a 16-bit RGB
     // bus, initialised through a 3-wire (9-bit) SPI that is only used at boot.

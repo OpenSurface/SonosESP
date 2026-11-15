@@ -97,7 +97,8 @@ lv_obj_t* sqKeyboardCreate(lv_obj_t* parent, lv_obj_t* ta, const char* action,
     lv_obj_t* bm = lv_buttonmatrix_create(parent);
     k->bm = bm;
     lv_obj_remove_style_all(bm);
-    lv_obj_set_size(bm, SQ_W - 16, 4 * 56 + 3 * 8);
+    const int key_h = SQ_TALL ? 60 : 56;   // taller keys where the screen allows
+    lv_obj_set_size(bm, SQ_W - 16, 4 * key_h + 3 * 8);
     lv_obj_set_style_pad_row(bm, 8, 0);
     lv_obj_set_style_pad_column(bm, 5, 0);
     lv_obj_set_style_radius(bm, 14, LV_PART_ITEMS);

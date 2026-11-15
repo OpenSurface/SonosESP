@@ -61,28 +61,11 @@ static void touch_begin_hw(void) {
     ts.setRotation(ROTATION_NORMAL);
 }
 
-// A read between two GT911 frames finds the "buffer ready" bit clear, and
-// TAMC_GT911 reports that as zero touches. Mid-drag that looked like a lift and
-// a new press, so releasing a scroll clicked whatever was under the finger.
-// A lift only counts after TOUCH_LIFT_SAMPLES empty reads in a row. 40ms was
-// not enough: the bench log showed presses split in two at the very same
-// point ("down 169,247 / up after 67ms / down 169,247"), i.e. double clicks.
-#define TOUCH_LIFT_SAMPLES 10   // ~100ms
-
 static bool touch_sample(int32_t* x, int32_t* y) {
-    static int32_t last_x = 0, last_y = 0;
-    static int     misses = TOUCH_LIFT_SAMPLES;
     ts.read();
-    if (ts.isTouched && ts.touches > 0) {
-        last_x = constrain((int32_t)(TOUCH_PANEL_WIDTH - 1 - ts.points[0].x), 0, DISPLAY_WIDTH - 1);
-        last_y = constrain((int32_t)(TOUCH_PANEL_HEIGHT - 1 - ts.points[0].y), 0, DISPLAY_HEIGHT - 1);
-        misses = 0;
-    } else if (misses < TOUCH_LIFT_SAMPLES) {
-        misses++;
-    }
-    if (misses >= TOUCH_LIFT_SAMPLES) return false;
-    *x = last_x;
-    *y = last_y;
+    if (!ts.isTouched || ts.touches <= 0) return false;
+    *x = constrain((int32_t)(TOUCH_PANEL_WIDTH - 1 - ts.points[0].x), 0, DISPLAY_WIDTH - 1);
+    *y = constrain((int32_t)(TOUCH_PANEL_HEIGHT - 1 - ts.points[0].y), 0, DISPLAY_HEIGHT - 1);
     return true;
 }
 
@@ -197,10 +180,40 @@ static volatile bool    t_wake    = false;   // a press needs the screen woken (
 
 static lv_indev_t* indev = NULL;
 
+#if UI_KIDS
+// A read between two GT911 frames finds the "buffer ready" bit clear, and
+// TAMC_GT911 reports that as zero touches. Mid-drag that looked like a lift and
+// a new press, so releasing a scroll clicked whatever was under the finger.
+// A lift only counts after TOUCH_LIFT_SAMPLES empty reads in a row. 40ms was
+// not enough: the bench log showed presses split in two at the very same
+// point ("down 169,247 / up after 67ms / down 169,247"), i.e. double clicks.
+// Kids UI only: the older P4 UI keeps its tuned behaviour.
+#define TOUCH_LIFT_SAMPLES 10   // ~100ms
+
+static bool touch_sample_held(int32_t* x, int32_t* y) {
+    static int32_t last_x = 0, last_y = 0;
+    static int     misses = TOUCH_LIFT_SAMPLES;
+    int32_t sx, sy;
+    if (touch_sample(&sx, &sy)) {
+        last_x = sx;
+        last_y = sy;
+        misses = 0;
+    } else if (misses < TOUCH_LIFT_SAMPLES) {
+        misses++;
+    }
+    if (misses >= TOUCH_LIFT_SAMPLES) return false;
+    *x = last_x;
+    *y = last_y;
+    return true;
+}
+#else
+#define touch_sample_held touch_sample
+#endif
+
 static void touchSamplerTask(void*) {
     for (;;) {
         int32_t x, y;
-        if (touch_sample(&x, &y)) {
+        if (touch_sample_held(&x, &y)) {
             t_x = x;
             t_y = y;
             if (!t_down) {

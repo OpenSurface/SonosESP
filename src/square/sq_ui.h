@@ -1,6 +1,7 @@
 #pragma once
 /**
- * sq_ui.h — the square 480x480 UI (UI_SQUARE builds only).
+ * sq_ui.h — the kids UI (UI_KIDS builds): the square 480x480 S3 panel and the
+ * 480x800 P4 portrait panel. Same screens; SQ_TALL picks the portrait layouts.
  *
  * One colour per destination, so a child who cannot read yet still finds the
  * way: pink = Lecture, orange = Chercher, yellow = Favoris, mint = Spotify,
@@ -12,6 +13,7 @@
  */
 #include <Arduino.h>
 #include "lvgl.h"
+#include "config.h"   // DISPLAY_WIDTH / DISPLAY_HEIGHT
 
 #ifdef __cplusplus
 extern "C" {
@@ -110,8 +112,9 @@ enum SqScreen {
 // Which dock tab a screen belongs to (-1: no dock on that screen).
 enum SqTab { SQ_TAB_NONE = -1, SQ_TAB_PLAYER = 0, SQ_TAB_SEARCH, SQ_TAB_FAVS, SQ_TAB_SPOTIFY };
 
-#define SQ_W        480
-#define SQ_H        480
+#define SQ_W        DISPLAY_WIDTH    // 480 on both panels
+#define SQ_H        DISPLAY_HEIGHT   // 480 square, 800 portrait
+#define SQ_TALL     (SQ_H > 600)     // portrait layouts (bigger cover, keys...)
 #define SQ_HEADER_H 72
 #define SQ_DOCK_H   84
 
@@ -178,6 +181,7 @@ struct SqItemRow {
     lv_obj_t* star;
     char      art[256];
     char      fav_uri[256];   // the URI a favourite of this item would carry
+    int       art_px;         // decoded size of the picture (48 in a row)
 };
 const char* sqItemKind(const SvcItem& it);
 // A 62px row: thumbnail, title, "kind · subtitle", star. onTap/onStar get

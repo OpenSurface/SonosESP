@@ -58,6 +58,53 @@ static void recentBuild(void) {
     }
 }
 
+// Portrait only: ideas for a child who cannot spell yet. A tap searches.
+struct Idea { const char* label; const char* icon; uint32_t color; };
+static const Idea kIdeas[] = {
+    {"Comptines",      IC_NOTE,    SQ_YELLOW},
+    {"Dessins animés", IC_MONITOR, SQ_PINK},
+    {"Dodo",           IC_MOON,    SQ_SKY},
+    {"Ça bouge !",     IC_SPARKLE, SQ_MINT},
+};
+
+static void ideaClicked(lv_event_t* e) {
+    int i = (int)(intptr_t)lv_event_get_user_data(e);
+    String term = kIdeas[i].label;
+    if (term.endsWith(" !")) term.remove(term.length() - 2);   // "Ça bouge !" -> "Ça bouge"
+    lv_textarea_set_text(s_ta, term.c_str());
+    recentPush(term);
+    sqResultsStart(term.c_str());
+}
+
+static void ideasBuild(lv_obj_t* scr, int y) {
+    lv_obj_t* lbl = sqLabel(scr, "Des idées", &font_sq_14, SQ_MUTED);
+    lv_obj_set_pos(lbl, 16, y);
+    lv_obj_t* grid = lv_obj_create(scr);
+    lv_obj_remove_style_all(grid);
+    lv_obj_set_pos(grid, 16, y + 28);
+    lv_obj_set_size(grid, SQ_W - 32, 2 * 92 + 12);
+    lv_obj_set_flex_flow(grid, LV_FLEX_FLOW_ROW_WRAP);
+    lv_obj_set_style_pad_row(grid, 12, 0);
+    lv_obj_set_style_pad_column(grid, 12, 0);
+    lv_obj_set_scrollable(grid, false);
+    for (int i = 0; i < 4; ++i) {
+        lv_obj_t* t = lv_button_create(grid);
+        lv_obj_remove_style_all(t);
+        lv_obj_set_size(t, (SQ_W - 32 - 12) / 2, 92);
+        lv_obj_set_style_radius(t, 26, 0);
+        lv_obj_set_style_bg_color(t, lv_color_hex(kIdeas[i].color), 0);
+        lv_obj_set_style_bg_opa(t, LV_OPA_COVER, 0);
+        lv_obj_set_style_pad_all(t, 14, 0);
+        sqPressFeedback(t);
+        lv_obj_add_event_cb(t, ideaClicked, LV_EVENT_CLICKED, (void*)(intptr_t)i);
+        lv_obj_t* dot = sqBox(t, 36, 36, SQ_INK, 18);
+        lv_obj_t* ic = sqIcon(dot, kIdeas[i].icon, &font_sqi_20, kIdeas[i].color);
+        lv_obj_center(ic);
+        lv_obj_t* l = sqLabel(t, kIdeas[i].label, &font_sq_18, SQ_INK);
+        lv_obj_align(l, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+    }
+}
+
 static void goClicked(lv_event_t*) {
     String term = lv_textarea_get_text(s_ta);
     term.trim();
@@ -110,6 +157,7 @@ void sqSearchCreate(void) {
     lv_obj_set_scrollbar_mode(s_recent_row, LV_SCROLLBAR_MODE_OFF);
     recentLoad();
     recentBuild();
+    if (SQ_TALL) ideasBuild(s_search, SQ_HEADER_H + 64 + 52 + 14);
 
     lv_obj_t* kb = sqKeyboardCreate(s_search, s_ta, "Chercher", SQ_ORANGE, goClicked);
     lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, -10);
