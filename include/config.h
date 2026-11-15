@@ -110,7 +110,40 @@
 #define UI_DEBUG_TAP 0
 #endif
 
-#if SCREEN_SIZE == 4
+// UI_SQUARE=1 builds the square 480x480 panel (platformio.ini, esp32s3_square):
+// a different board on a different chip (ESP32-S3, RGB panel, no HW JPEG) with
+// its own, simpler UI under src/square/. It shares the Sonos/SMAPI core only.
+#ifndef UI_SQUARE
+#define UI_SQUARE 0
+#endif
+
+#if UI_SQUARE
+    // GUITION ESP32-4848S040 "86 box" — ESP32-S3R8, ST7701S over a 16-bit RGB
+    // bus, initialised through a 3-wire (9-bit) SPI that is only used at boot.
+    // Pins and init sequence: Arduino_GFX's ESP32_4848S040_86BOX_GUITION
+    // (st7701_type9_init_operations), which is what this board ships against.
+    #define DISPLAY_WIDTH       480
+    #define DISPLAY_HEIGHT      480
+    #define PANEL_WIDTH         480
+    #define PANEL_HEIGHT        480
+    #define DISPLAY_MODEL       "ST7701S 4\" (480x480)"
+    #define PANEL_SIZE_LABEL    "4\""
+    #define BRIGHTNESS_DIM_MIN  1
+    #define LCD_BACKLIGHT       38
+    #define LCD_SPI_CS          39
+    #define LCD_SPI_SCK         48
+    #define LCD_SPI_MOSI        47
+    #define LCD_PIN_DE          18
+    #define LCD_PIN_VSYNC       17
+    #define LCD_PIN_HSYNC       16
+    #define LCD_PIN_PCLK        21
+    #define TOUCH_GT911_SDA     19
+    #define TOUCH_GT911_SCL     45
+    #define TOUCH_GT911_INT     -1
+    #define TOUCH_GT911_RST     -1
+    #define TOUCH_PANEL_WIDTH   480
+    #define TOUCH_PANEL_HEIGHT  480
+#elif SCREEN_SIZE == 4
     // GUITION JC4880P443C — ST7701 MIPI DSI
   #if UI_PORTRAIT
     #define DISPLAY_WIDTH       480     // LVGL width (portrait = panel native)

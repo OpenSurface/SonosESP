@@ -43,7 +43,33 @@ extern volatile uint32_t last_touch_time;
 #define TOUCH_WIRE_BUFFER   256
 static_assert((GT911_CONFIG_SIZE) <= TOUCH_WIRE_BUFFER, "the GT911 config read must fit Wire's buffer");
 
-#if SCREEN_SIZE != 7
+#if UI_SQUARE
+// ============================================================================
+// Square 480x480 GT911 (ESP32-4848S040). The sensor is mounted 180° from the
+// RGB panel (measured on the bench: the top-left corner reads ~449,447), so both
+// axes are flipped. INT and RST are not wired to the S3.
+// ============================================================================
+TAMC_GT911 ts = TAMC_GT911(TOUCH_GT911_SDA, TOUCH_GT911_SCL, TOUCH_GT911_INT, TOUCH_GT911_RST,
+                           TOUCH_PANEL_WIDTH, TOUCH_PANEL_HEIGHT);
+
+static void touch_begin_hw(void) {
+    if (Wire.setBufferSize(TOUCH_WIRE_BUFFER) != TOUCH_WIRE_BUFFER) {
+        Serial.println("[Touch] WARNING: could not enlarge the I2C buffer");
+    }
+    Wire.begin(TOUCH_GT911_SDA, TOUCH_GT911_SCL);
+    ts.begin();
+    ts.setRotation(ROTATION_NORMAL);
+}
+
+static bool touch_sample(int32_t* x, int32_t* y) {
+    ts.read();
+    if (!ts.isTouched || ts.touches <= 0) return false;
+    *x = constrain((int32_t)(TOUCH_PANEL_WIDTH - 1 - ts.points[0].x), 0, DISPLAY_WIDTH - 1);
+    *y = constrain((int32_t)(TOUCH_PANEL_HEIGHT - 1 - ts.points[0].y), 0, DISPLAY_HEIGHT - 1);
+    return true;
+}
+
+#elif SCREEN_SIZE != 7
 // ============================================================================
 // 4" GT911 — portrait sensor (480×800) mapped to landscape (800×480) via a
 // manual 90° rotation that matches the ST7701 display rotation.
