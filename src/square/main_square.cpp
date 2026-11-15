@@ -29,6 +29,10 @@ void sqSettingsRefresh(void);
 void sqWifiPoll(void);
 void sqSearchOnShow(void);
 
+// LVGL renders on this task: object trees nest deep and -O2 inlines more, and
+// Arduino's default 8KB overflowed (stack canary) while drawing Favoris.
+SET_LOOP_TASK_STACK_SIZE(16 * 1024);
+
 static uint32_t lvglTick(void) { return millis(); }
 
 // The last crash, kept in the coredump partition, printed at boot and then

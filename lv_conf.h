@@ -254,10 +254,11 @@
  * (LV_ATTRIBUTE_FAST_MEM below), and on the S3 IRAM comes out of the same SRAM
  * as the heap. Blending into formats this UI never draws to cost ~50KB of it at
  * -O2 and left Wi-Fi 11KB. Kept: RGB565 (the panel), ARGB8888 (LVGL's own
- * layers, e.g. a pressed button's scale), A8 (masks). */
+ * layers, e.g. a pressed button's scale), A8 (masks), and RGB565A8, which also
+ * gates transforming an RGB565 image (a pressed cover tile): without it the
+ * transform logs a warning per band, and that printf ran the stack out. */
 #if defined(UI_SQUARE) && UI_SQUARE
 #define LV_DRAW_SW_SUPPORT_RGB565_SWAPPED         0
-#define LV_DRAW_SW_SUPPORT_RGB565A8               0
 #define LV_DRAW_SW_SUPPORT_RGB888                 0
 #define LV_DRAW_SW_SUPPORT_XRGB8888               0
 #define LV_DRAW_SW_SUPPORT_ARGB8888_PREMULTIPLIED 0
