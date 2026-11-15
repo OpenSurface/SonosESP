@@ -176,8 +176,10 @@ int SonosController::discoverDevices() {
 
         // Update UI periodically to keep spinner animating
         if (millis() - lastUIUpdate > 20) {
+            #if !UI_SQUARE   // the square build runs discovery off the LVGL thread
             lv_tick_inc(20);
             lv_refr_now(NULL);  // Force display refresh
+#endif
             lastUIUpdate = millis();
         }
 
@@ -241,8 +243,10 @@ int SonosController::discoverDevices() {
         Serial.printf("[SONOS]   -> Room name: '%s'\n", devices[i].roomName.c_str());
 
         // Update UI while fetching room names
+        #if !UI_SQUARE   // the square build runs discovery off the LVGL thread
         lv_tick_inc(10);
         lv_refr_now(NULL);
+#endif
     }
 
     // Drop anything that answered SSDP but never resolved into a real speaker.
@@ -448,8 +452,10 @@ int SonosController::discoverDevices() {
             devices[i].roomName.c_str(), devices[i].ip.toString().c_str(),
             devices[i].isPlaying ? "PLAYING" : "stopped");
         // Keep UI alive during the SOAP calls
+        #if !UI_SQUARE   // the square build runs discovery off the LVGL thread
         lv_tick_inc(10);
         lv_refr_now(NULL);
+#endif
     }
 
     if (deviceCount > 0) {

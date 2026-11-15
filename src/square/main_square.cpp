@@ -1,107 +1,76 @@
 /**
  * main_square.cpp — entry point of the square 480x480 build (UI_SQUARE).
  *
- * Bring-up stage: panel, touch and LVGL only, with a test card that shows the
- * four destination colours and where the last touch landed. The Sonos core and
- * the real screens are wired in on top of this.
+ * Boot: panel and touch, then the UI straight away (the favourites saved in
+ * flash show at once), Wi-Fi in the background, then the Sonos core, the
+ * streaming accounts (from flash after the first boot) and a fresh copy of the
+ * favourites.
+ *
+ * Loop (this task, core 1) owns LVGL. Workers (sq_work.cpp, sq_art.cpp) and the
+ * Sonos tasks never call lv_*: the loop picks their results up.
  */
 #include <Arduino.h>
+#include <WiFi.h>
 #include "lvgl.h"
 #include "config.h"
+#include "ui_common.h"
 #include "display_driver.h"
 #include "touch_driver.h"
 #include "ui_fonts.h"
+#include "sq_ui.h"
+#include "sq_work.h"
+#include "mbedtls/platform.h"
+#include <esp_heap_caps.h>
+#include <esp_task_wdt.h>
 
-
+void sqSettingsRefresh(void);
+void sqWifiPoll(void);
+void sqSearchOnShow(void);
 
 static uint32_t lvglTick(void) { return millis(); }
 
-static lv_obj_t* s_touch_lbl = nullptr;
-static lv_obj_t* s_dot       = nullptr;
-
-static void touchProbe(lv_event_t* e) {
-    lv_indev_t* in = lv_indev_active();
-    if (!in) return;
-    lv_point_t p;
-    lv_indev_get_point(in, &p);
-    lv_label_set_text_fmt(s_touch_lbl, "x=%d  y=%d", (int)p.x, (int)p.y);
-    if (lv_event_get_code(e) == LV_EVENT_PRESSED) Serial.printf("[TOUCH] %d,%d\n", (int)p.x, (int)p.y);
-    lv_obj_set_pos(s_dot, p.x - 12, p.y - 12);
+// mbedTLS is built with CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC: every TLS session
+// takes ~40KB of internal RAM, and the S3 has ~120KB left once Wi-Fi, LVGL's
+// render band and the bounce buffers are in. Two sessions at once (Spotify
+// SMAPI keeps one open, a cover download opens another) and nothing is left:
+// downloads failed with "connection refused" at 12KB free. Moving mbedTLS to
+// PSRAM costs a little speed and frees all of that.
+static void* tlsCalloc(size_t n, size_t size) {
+    void* p = heap_caps_calloc(n, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    return p ? p : heap_caps_calloc(n, size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 }
 
-static void buildTestCard(void) {
-    lv_obj_t* scr = lv_screen_active();
-    lv_obj_set_style_bg_color(scr, lv_color_hex(0x16133A), 0);
-    lv_obj_add_flag(scr, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(scr, touchProbe, LV_EVENT_PRESSING, nullptr);
-    lv_obj_add_event_cb(scr, touchProbe, LV_EVENT_PRESSED, nullptr);
+static bool s_wifi_up     = false;
+static bool s_core_posted = false;
 
-    lv_obj_t* title = lv_label_create(scr);
-    lv_label_set_text(title, "SonosESP carré");
-    lv_obj_set_style_text_font(title, &font_text_32, 0);
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFFF7EA), 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 24);
-
-    // Corner markers: tells at a glance whether the panel is mirrored/rotated.
-    static const char* corners[] = {"HG", "HD", "BG", "BD"};
-    static const lv_align_t al[] = {LV_ALIGN_TOP_LEFT, LV_ALIGN_TOP_RIGHT,
-                                    LV_ALIGN_BOTTOM_LEFT, LV_ALIGN_BOTTOM_RIGHT};
-    for (int i = 0; i < 4; ++i) {
-        lv_obj_t* c = lv_label_create(scr);
-        lv_label_set_text(c, corners[i]);
-        lv_obj_set_style_text_font(c, &font_text_24, 0);
-        lv_obj_set_style_text_color(c, lv_color_hex(0xB7B1E3), 0);
-        lv_obj_align(c, al[i], (i % 2) ? -8 : 8, (i < 2) ? 8 : -8);
+// ── Bench serial commands ───────────────────────────────────────────────────
+//   bl <0..100>   backlight          shot          RLE screenshot (see below)
+//   tap <x> <y>   (UI_DEBUG_TAP)     show <n>      jump to a screen
+static void screenshot(void) {
+    // Run-length encoded RGB565 of the frame being shown, as hex lines:
+    //   SHOT 480 480 / <runs> / SHOT END. A run is 3 bytes: count (1..255),
+    //   pixel lo, pixel hi. Flat UIs compress ~10x, so 115200 baud is enough.
+    extern const void* display_front_buffer(void);
+    const uint16_t* px = (const uint16_t*)display_front_buffer();
+    const int n = DISPLAY_WIDTH * DISPLAY_HEIGHT;
+    Serial.printf("\nSHOT %d %d\n", DISPLAY_WIDTH, DISPLAY_HEIGHT);
+    // Each line starts with the index of its first pixel ("@<hex>:"), so a line
+    // lost on the UART leaves a hole instead of shifting the rest of the image.
+    char line[220];
+    int col = 0;
+    for (int i = 0; i < n;) {
+        if (col == 0) col = snprintf(line, sizeof(line), "@%X:", i);
+        uint16_t p = px[i];
+        int run = 1;
+        while (i + run < n && run < 255 && px[i + run] == p) run++;
+        col += snprintf(line + col, sizeof(line) - col, "%02X%02X%02X", run, p & 0xFF, p >> 8);
+        i += run;
+        if (col >= 180) { Serial.println(line); col = 0; }
     }
-
-    // The four destination colours, in RGB order checks: pink, orange, yellow, mint.
-    static const uint32_t cols[] = {0xFF7AB6, 0xFF9A3C, 0xFFD23F, 0x3BE0A0, 0x6CB8FF};
-    for (int i = 0; i < 5; ++i) {
-        lv_obj_t* b = lv_obj_create(scr);
-        lv_obj_remove_style_all(b);
-        lv_obj_set_size(b, 72, 72);
-        lv_obj_set_style_radius(b, 36, 0);
-        lv_obj_set_style_bg_opa(b, LV_OPA_COVER, 0);
-        lv_obj_set_style_bg_color(b, lv_color_hex(cols[i]), 0);
-        lv_obj_align(b, LV_ALIGN_CENTER, (i - 2) * 86, -20);
-        lv_obj_remove_flag(b, LV_OBJ_FLAG_CLICKABLE);
-    }
-
-    s_touch_lbl = lv_label_create(scr);
-    lv_label_set_text(s_touch_lbl, "Touchez l'écran");
-    lv_obj_set_style_text_font(s_touch_lbl, &font_text_24, 0);
-    lv_obj_set_style_text_color(s_touch_lbl, lv_color_hex(0xFFD23F), 0);
-    lv_obj_align(s_touch_lbl, LV_ALIGN_CENTER, 0, 80);
-
-    s_dot = lv_obj_create(scr);
-    lv_obj_remove_style_all(s_dot);
-    lv_obj_set_size(s_dot, 24, 24);
-    lv_obj_set_style_radius(s_dot, 12, 0);
-    lv_obj_set_style_bg_opa(s_dot, LV_OPA_COVER, 0);
-    lv_obj_set_style_bg_color(s_dot, lv_color_hex(0xFFF7EA), 0);
-    lv_obj_remove_flag(s_dot, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_set_pos(s_dot, -40, -40);
+    if (col) Serial.println(line);
+    Serial.println("SHOT END");
 }
 
-void setup() {
-    Serial.begin(SERIAL_BAUD_RATE);
-    delay(200);
-    Serial.println("\n=== SONOS ESP — CARRÉ (ESP32-S3) ===");
-    Serial.printf("Heap %u, PSRAM %u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
-
-    uiFontsInit();
-    lv_init();
-    lv_tick_set_cb(lvglTick);
-    if (!display_init()) { Serial.println("Display FAIL"); while (1) delay(1000); }
-    if (!touch_init())   { Serial.println("Touch FAIL"); }
-
-    buildTestCard();
-    lv_timer_handler();
-    display_set_brightness(80);
-    Serial.println("Ready");
-}
-
-// Bench diagnostics over the UART: "bl <0..100>" (PWM), "blhi" / "bllo" (plain GPIO).
 static void benchSerial(void) {
     static char line[48];
     static size_t n = 0;
@@ -110,23 +79,170 @@ static void benchSerial(void) {
         if (c == '\r') continue;
         if (c != '\n') { if (n < sizeof(line) - 1) line[n++] = c; continue; }
         line[n] = 0; n = 0;
-        if (!strncmp(line, "blf ", 4)) {
-            extern void display_backlight_freq(uint32_t hz);
-            display_backlight_freq((uint32_t)atoi(line + 4));
-        } else if (!strncmp(line, "bl ", 3)) {
+        if (!strncmp(line, "bl ", 3)) {
             display_set_brightness((uint8_t)atoi(line + 3));
-            Serial.printf("[BENCH] backlight PWM %d%%\n", atoi(line + 3));
-        } else if (!strcmp(line, "blhi") || !strcmp(line, "bllo")) {
-            ledcDetach(LCD_BACKLIGHT);
-            pinMode(LCD_BACKLIGHT, OUTPUT);
-            digitalWrite(LCD_BACKLIGHT, line[2] == 'h' ? HIGH : LOW);
-            Serial.printf("[BENCH] backlight GPIO%d %s\n", LCD_BACKLIGHT, line + 2);
+        } else if (!strcmp(line, "shot")) {
+            screenshot();
+        } else if (!strncmp(line, "search ", 7)) {
+            sqResultsStart(line + 7);
+        } else if (!strncmp(line, "show ", 5)) {
+            int s = atoi(line + 5);
+            if (s >= 0 && s < SQ_SCR_COUNT) sqShow((SqScreen)s);
+#if UI_DEBUG_TAP
+        } else if (!strncmp(line, "tap ", 4)) {
+            int x = 0, y = 0;
+            if (sscanf(line + 4, "%d %d", &x, &y) == 2) touch_inject_tap(x, y);
+#endif
         }
     }
 }
 
+// ── Screen hooks ────────────────────────────────────────────────────────────
+void sqOnShow(SqScreen scr) {
+    switch (scr) {
+        case SQ_SCR_PLAYER:   sqPlayerUpdate(); break;
+        case SQ_SCR_ROOMS:    sqRoomsRefresh(); break;
+        case SQ_SCR_FAVS:     sqFavsRefresh(); break;
+        case SQ_SCR_SPOTIFY:  sqSpotifyRefresh(); break;
+        case SQ_SCR_SETTINGS: sqSettingsRefresh(); break;
+        case SQ_SCR_SEARCH:   sqSearchOnShow(); break;
+        default: break;
+    }
+}
+
+void sqOnWifiConnected(void) {
+    if (s_wifi_up) return;
+    s_wifi_up = true;
+    Serial.printf("[WIFI] Connected - IP %s, AP %s ch=%d rssi=%d\n", WiFi.localIP().toString().c_str(),
+                  WiFi.BSSIDstr().c_str(), (int)WiFi.channel(), (int)WiFi.RSSI());
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+    tzset();
+    sqWorkPost(SQ_JOB_START_SONOS);
+    if (sqCurrent() == SQ_SCR_WIFI) sqShow(SQ_SCR_PLAYER);
+}
+
+void sqUiPoll(void) {
+    // Sonos core -> player
+    UIUpdate_t upd;
+    bool changed = false;
+    if (sq_sonos_ready) {
+        while (xQueueReceive(sonos.getUIUpdateQueue(), &upd, 0)) changed = true;
+    }
+    static uint32_t last_update = 0;
+    if (changed && millis() - last_update > 150) {
+        last_update = millis();
+        sqPlayerUpdate();
+        sqRoomPillsRefresh();
+    }
+
+    // Once the speakers answer: accounts and favourites, once.
+    if (sq_sonos_ready && !s_core_posted) {
+        s_core_posted = true;
+        sqWorkPost(SQ_JOB_SVC_LOAD);
+        sqWorkPost(SQ_JOB_FAVS_LOAD);
+        sqPlayerUpdate();
+        sqRoomPillsRefresh();
+    }
+
+    char msg[96];
+    if (sqWorkTakeToast(msg, sizeof(msg))) sqToast(msg);
+
+    static uint32_t last_tick = 0;
+    if (millis() - last_tick > 250) {
+        last_tick = millis();
+        switch (sqCurrent()) {
+            case SQ_SCR_PLAYER:   sqPlayerTick(); break;
+            case SQ_SCR_ROOMS:    sqRoomsRefresh(); break;
+            case SQ_SCR_FAVS:     sqFavsRefresh(); break;
+            case SQ_SCR_SETTINGS: sqSettingsRefresh(); break;
+            default: break;
+        }
+        static uint32_t rooms_seen = 0;
+        if (rooms_seen != sq_rooms_version) { rooms_seen = sq_rooms_version; sqRoomPillsRefresh(); }
+    }
+    switch (sqCurrent()) {
+        case SQ_SCR_RESULTS: sqResultsRefresh(); break;
+        case SQ_SCR_SPOTIFY: sqSpotifyRefresh(); break;
+        case SQ_SCR_BROWSE:  sqBrowseRefresh(); break;
+        case SQ_SCR_WIFI:    sqWifiPoll(); break;
+        default: break;
+    }
+    if (!s_wifi_up && WiFi.status() == WL_CONNECTED) sqOnWifiConnected();
+}
+
+void setup() {
+    Serial.begin(SERIAL_BAUD_RATE);
+    delay(200);
+    Serial.println("\n=== SONOS ESP — CARRÉ (ESP32-S3) ===");
+    Serial.printf("Heap %u, PSRAM %u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
+
+    mbedtls_platform_set_calloc_free(tlsCalloc, heap_caps_free);
+
+    // Same watchdog policy as the P4 build: idle tasks are not watched. A TLS
+    // handshake plus parsing Spotify's home page keeps core 0 busy for several
+    // seconds, and the Arduino default (IDLE0 watched, 5s) rebooted the panel
+    // in the middle of it.
+    esp_task_wdt_config_t wdt = {};
+    wdt.timeout_ms = WATCHDOG_TIMEOUT_SEC * 1000;
+    wdt.idle_core_mask = 0;
+    wdt.trigger_panic = true;
+    esp_task_wdt_reconfigure(&wdt);
+    network_mutex      = xSemaphoreCreateMutex();
+    ota_progress_mutex = xSemaphoreCreateMutex();
+    art_mutex          = xSemaphoreCreateMutex();
+
+    wifiPrefs.begin(NVS_NAMESPACE, false);
+    String ssid = wifiPrefs.getString(NVS_KEY_SSID, "");
+    String pass = wifiPrefs.getString(NVS_KEY_PASSWORD, "");
+    brightness_level = wifiPrefs.getInt(NVS_KEY_BRIGHTNESS, 80);
+
+    WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t info) {
+        Serial.printf("[WIFI] Disconnected: reason %u\n", info.wifi_sta_disconnected.reason);
+    }, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+    WiFi.mode(WIFI_STA);
+    WiFi.setSleep(false);
+    WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);     // mesh: join the strongest node
+    WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
+    if (ssid.length()) {
+        WiFi.begin(ssid.c_str(), pass.c_str());
+        Serial.printf("[WIFI] Connecting to '%s'\n", ssid.c_str());
+    }
+
+    uiFontsInit();
+    lv_init();
+    lv_tick_set_cb(lvglTick);
+    if (!display_init()) { Serial.println("Display FAIL"); while (1) delay(1000); }
+    if (!touch_init())   { Serial.println("Touch FAIL"); }
+
+    sonos.begin();
+    sqWorkStart();
+    sqArtStart();
+
+    sqNavInit();
+    sqPlayerCreate();
+    sqSearchCreate();
+    sqResultsCreate();
+    sqFavsCreate();
+    sqSpotifyCreate();
+    sqBrowseCreate();
+    sqRoomsCreate();
+    sqSettingsCreate();
+    sqWifiCreate();
+
+    if (ssid.length()) sqShow(SQ_SCR_PLAYER);
+    else               sqWifiOpen();   // first boot: nothing works without the network
+    lv_timer_handler();
+    display_set_brightness(brightness_level);
+    Serial.printf("Ready - internal free %u, largest %u\n",
+                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+                  (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+}
+
 void loop() {
     benchSerial();
+    if (touch_take_wake_request()) last_touch_time = millis();
+    sqUiPoll();
     uint32_t wait = lv_timer_handler();
     if (wait > 10) wait = 10;
     delay(wait ? wait : 1);

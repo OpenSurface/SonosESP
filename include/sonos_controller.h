@@ -259,6 +259,15 @@ public:
     void requestQueueUpdate();         // Async queue refresh (runs in network task, safe from UI thread)
     bool saveCurrentTrack(const char* playlistName = "Favorites");  // Save current track to playlist
     String browseContent(const char* objectID, int startIndex = 0, int count = 100);  // Browse ContentDirectory
+    // Sonos favourites ("My Sonos", FV:2) — ContentDirectory CreateObject /
+    // DestroyObject. `metadata` is the item's DIDL, decoded (literal < >); it
+    // becomes the favourite's r:resMD, which is what names the service account.
+    bool addFavorite(const char* title, const char* uri, const char* metadata,
+                     const char* artURI, const char* description, String* newId = nullptr);
+    bool removeFavorite(const char* objectId);
+    // What a star on the player should save: the station for radio, else the
+    // current track. URI and decoded DIDL; false when nothing usable is playing.
+    bool currentFavoriteCandidate(String* uri, String* metadata, String* title);
     bool playURI(const char* uri, const char* metadata = "");  // Play URI with optional metadata
     bool playPlaylist(const char* playlistID, const char* title = "Playlist");  // Play a Sonos playlist by ID (e.g., "SQ:25")
     bool playContainer(const char* containerURI, const char* metadata = "");  // Play a container URI with DIDL metadata

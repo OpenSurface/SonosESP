@@ -492,6 +492,11 @@ static bool httpsRequest(const std::string& url, const char* label, const std::s
         http.setConnectTimeout(SVC_CONNECT_TIMEOUT_MS);
         http.setTimeout(SVC_HTTP_TIMEOUT_MS);
         http.setReuse(true);
+        // The content home page comes back chunked, and reading a chunked body
+        // over a kept-alive TLS session sat on read timeouts: 24KB took 41s on
+        // the square panel. HTTP/1.0 forbids chunking and closes the session
+        // after the body; it is one request per session start.
+        http.useHTTP10(!strcmp(label, "content home"));
         http.setUserAgent(kUserAgent);
         for (const auto& h : headers) http.addHeader(h.first.c_str(), h.second.c_str());
 
@@ -809,6 +814,8 @@ static bool toSvcItem(const smapi::Item& it, SvcItem* d) {
     copyStr(d->subtitle, sizeof(d->subtitle), it.subtitle);
     copyStr(d->itemType, sizeof(d->itemType), it.itemType);
     copyStr(d->mimeType, sizeof(d->mimeType), it.mimeType);
+    if (it.albumArt.size() < sizeof(d->art)) copyStr(d->art, sizeof(d->art), it.albumArt);
+    else d->art[0] = '\0';   // a truncated URL would fetch the wrong image
     d->collection = it.collection;
     d->canPlay = it.canPlay;
     d->canEnumerate = it.canEnumerate;
@@ -1300,6 +1307,66 @@ void MusicServices::requestLoad(bool force) {
     g_loadPending = true;
     xSemaphoreGive(lock_);
     xTaskNotifyGive(task_);
+}
+
+String MusicServices::exportCache() {
+    if (!lock_ || state_ != SVC_READY) return "";
+    JsonDocument doc(&g_jsonAlloc);
+    xSemaphoreTake(lock_, portMAX_DELAY);
+    doc["v"]   = 1;
+    doc["hh"]  = g_household;
+    doc["dev"] = g_deviceId;
+    doc["zp"]  = g_zonePlayer;
+    JsonArray arr = doc["entries"].to<JsonArray>();
+    for (const auto& e : g_entries) {
+        JsonObject o = arr.add<JsonObject>();
+        o["label"] = e.label;
+        JsonObject a = o["a"].to<JsonObject>();
+        a["sid"] = e.acct.serviceId; a["type"] = e.acct.serviceType; a["sn"] = e.acct.serial;
+        a["udn"] = e.acct.udn; a["user"] = e.acct.username; a["pass"] = e.acct.password;
+        a["tok"] = e.acct.token; a["key"] = e.acct.key; a["nick"] = e.acct.nickname;
+        JsonObject v = o["s"].to<JsonObject>();
+        v["id"] = e.svc.id; v["caps"] = e.svc.caps; v["name"] = e.svc.name; v["uri"] = e.svc.uri;
+        v["suri"] = e.svc.secureUri; v["auth"] = e.svc.auth; v["ct"] = e.svc.containerType;
+        v["man"] = e.svc.manifestUri; v["pmap"] = e.svc.pmapUri;
+    }
+    xSemaphoreGive(lock_);
+    String out;
+    serializeJson(doc, out);
+    return out;
+}
+
+bool MusicServices::importCache(const String& json) {
+    ensureTask();
+    if (!lock_ || state_ == SVC_LOADING) return false;
+    JsonDocument doc(&g_jsonAlloc);
+    if (deserializeJson(doc, json) || doc["v"] != 1) return false;
+    std::vector<Entry> entries;
+    for (JsonObject o : doc["entries"].as<JsonArray>()) {
+        Entry e;
+        e.label = o["label"] | "";
+        JsonObject a = o["a"];
+        e.acct.serviceId = a["sid"] | 0; e.acct.serviceType = a["type"] | 0; e.acct.serial = a["sn"] | 0;
+        e.acct.udn = a["udn"] | ""; e.acct.username = a["user"] | ""; e.acct.password = a["pass"] | "";
+        e.acct.token = a["tok"] | ""; e.acct.key = a["key"] | ""; e.acct.nickname = a["nick"] | "";
+        JsonObject v = o["s"];
+        e.svc.id = v["id"] | 0; e.svc.caps = v["caps"] | 0u; e.svc.name = v["name"] | "";
+        e.svc.uri = v["uri"] | ""; e.svc.secureUri = v["suri"] | ""; e.svc.auth = v["auth"] | "";
+        e.svc.containerType = v["ct"] | ""; e.svc.manifestUri = v["man"] | ""; e.svc.pmapUri = v["pmap"] | "";
+        if (e.acct.serviceId && !e.svc.endpoint().empty()) entries.push_back(e);
+    }
+    if (entries.empty()) return false;
+    xSemaphoreTake(lock_, portMAX_DELAY);
+    g_entries.swap(entries);
+    g_household  = doc["hh"]  | "";
+    g_deviceId   = doc["dev"] | "";
+    g_zonePlayer = doc["zp"]  | "";
+    g_lastError  = "";
+    size_t n = g_entries.size();
+    xSemaphoreGive(lock_);
+    state_ = SVC_READY;
+    Serial.printf("[SVC] %u linked source(s) restored from the cache\n", (unsigned)n);
+    return true;
 }
 
 String MusicServices::lastError() {

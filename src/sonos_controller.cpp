@@ -848,6 +848,78 @@ bool SonosController::saveCurrentTrack(const char* playlistName) {
     }
 }
 
+// ── Sonos favourites (FV:2) ─────────────────────────────────────────────────
+// A favourite is an <item> of class object.itemobject.item.sonos-favorite whose
+// <res> is what to play and whose r:resMD is the DIDL to play it with. The
+// Elements argument of CreateObject is that DIDL-Lite document, escaped once
+// for the SOAP body - and resMD, being XML inside XML, is escaped once more.
+bool SonosController::addFavorite(const char* title, const char* uri, const char* metadata,
+                                  const char* artURI, const char* description, String* newId) {
+    if (!uri || !*uri) return false;
+    String scheme = String(uri);
+    int colon = scheme.indexOf(':');
+    scheme = colon > 0 ? scheme.substring(0, colon) : String("x-rincon-mp3radio");
+
+    String t = title ? title : "";        encodeXML(t);
+    String u = uri;                       encodeXML(u);
+    String a = artURI ? artURI : "";      encodeXML(a);
+    String d = description ? description : ""; encodeXML(d);
+    String md = metadata ? metadata : ""; encodeXML(md);
+
+    String didl =
+        "<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" "
+        "xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" "
+        "xmlns:r=\"urn:schemas-rinconnetworks-com:metadata-1-0/\" "
+        "xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">"
+        "<item><dc:title>" + t + "</dc:title>"
+        "<upnp:class>object.itemobject.item.sonos-favorite</upnp:class>"
+        "<res protocolInfo=\"" + scheme + ":*:*:*\">" + u + "</res>";
+    if (a.length()) didl += "<upnp:albumArtURI>" + a + "</upnp:albumArtURI>";
+    didl += "<r:type>instantPlay</r:type>";
+    if (d.length()) didl += "<r:description>" + d + "</r:description>";
+    if (md.length()) didl += "<r:resMD>" + md + "</r:resMD>";
+    didl += "</item></DIDL-Lite>";
+    encodeXML(didl);
+
+    String args = "<ContainerID>FV:2</ContainerID><Elements>" + didl + "</Elements>";
+    String resp = sendSOAP("ContentDirectory", "CreateObject", args.c_str());
+    String id = extractXML(resp, "ObjectID");
+    Serial.printf("[FAV] CreateObject '%s' -> %s (http %d)\n", title ? title : "",
+                  id.length() ? id.c_str() : "failed", last_soap_http_code);
+    if (newId) *newId = id;
+    return id.length() > 0;
+}
+
+bool SonosController::removeFavorite(const char* objectId) {
+    if (!objectId || strncmp(objectId, "FV:2/", 5) != 0) return false;   // never anything else
+    String args = String("<ObjectID>") + objectId + "</ObjectID>";
+    String resp = sendSOAP("ContentDirectory", "DestroyObject", args.c_str());
+    bool ok = last_soap_http_code == 200;
+    Serial.printf("[FAV] DestroyObject %s -> %s\n", objectId, ok ? "ok" : "failed");
+    return ok;
+}
+
+bool SonosController::currentFavoriteCandidate(String* uri, String* metadata, String* title) {
+    SonosDevice* target = transportTarget();
+    if (!target) return false;
+    // Radio and other non-queue sources: the station itself is the favourite.
+    String media = sendSOAP(target, "AVTransport", "GetMediaInfo", "<InstanceID>0</InstanceID>");
+    String curUri = decodeHTMLEntities(extractXML(media, "CurrentURI"));
+    if (curUri.length() && !curUri.startsWith("x-rincon-queue:") && !curUri.startsWith("x-rincon:")
+        && !curUri.startsWith("x-rincon-stream:") && !curUri.startsWith("x-sonos-htastream:")) {
+        *uri = curUri;
+        *metadata = decodeHTMLEntities(extractXML(media, "CurrentURIMetaData"));
+        *title = decodeHTML(extractXML(*metadata, "dc:title"));
+        return true;
+    }
+    // Playing the queue: favourite the current track.
+    String pos = sendSOAP(target, "AVTransport", "GetPositionInfo", "<InstanceID>0</InstanceID>");
+    *uri = decodeHTMLEntities(extractXML(pos, "TrackURI"));
+    *metadata = decodeHTMLEntities(extractXML(pos, "TrackMetaData"));
+    *title = decodeHTML(extractXML(*metadata, "dc:title"));
+    return uri->length() > 0 && !uri->startsWith("x-rincon");
+}
+
 String SonosController::browseContent(const char* objectID, int startIndex, int count) {
     // Use static buffer to avoid String concatenation
     static char args[512];

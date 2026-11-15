@@ -662,8 +662,16 @@
 // + UPnP NOTIFY events) overflows it → C6 asserts sdio_push_data_to_queue:928
 // → SDIO host spins in tight register-poll loop → Interrupt WDT on CPU0.
 // All values below are calibrated for this hardware. Do NOT reduce without testing.
+#if UI_SQUARE
+#define SDIO_GENERAL_COOLDOWN_MS 0   // ESP32-S3: on-chip radio, no SDIO link to protect
+#else
 #define SDIO_GENERAL_COOLDOWN_MS      200   // Min gap between any two network operations
+#endif
+#if UI_SQUARE
+#define SDIO_HTTPS_COOLDOWN_MS 0   // ESP32-S3: on-chip radio, no SDIO link to protect
+#else
 #define SDIO_HTTPS_COOLDOWN_MS       3000   // TLS teardown residue — 2000ms insufficient (DMA AES alloc failure)
+#endif
 #define SDIO_STORM_COOLDOWN_MS       3000   // HTTP-500 storm settle (HLS source transition)
 #define SDIO_TRACK_CHANGE_SETTLE_MS     0   // Disabled: Sonos lib is pure SOAP-polling (no UPnP subscriptions,
                                             // no WiFiServer, no NOTIFY events). Long idle → C6 power-save → crash.
@@ -672,8 +680,16 @@
                                             // (total 4000ms idle) crashes. Kept at 0 for the record: this comment
                                             // is the only place that finding is written down. Nothing reads it.
 #define SDIO_TCP_CLOSE_MS             200   // TCP FIN-ACK drain after http.end() (non-TLS)
+#if UI_SQUARE
+#define SDIO_HTTPS_TCP_CLOSE_MS 0   // ESP32-S3: on-chip radio, no SDIO link to protect
+#else
 #define SDIO_HTTPS_TCP_CLOSE_MS       500   // TCP FIN-ACK drain after http.end() (TLS)
+#endif
+#if UI_SQUARE
+#define SDIO_INTER_DOWNLOAD_MS 0   // ESP32-S3: on-chip radio, no SDIO link to protect
+#else
 #define SDIO_INTER_DOWNLOAD_MS       1000   // Min gap between consecutive art/BG downloads
+#endif
 #define ART_TCP_RCVBUF               4096   // TCP SO_RCVBUF for art HTTP socket. Controls app-layer recv
                                             // buffer size (conn->recv_bufsize). Does NOT directly control
                                             // TCP window advertisement (pcb->rcv_wnd). The TCP window
@@ -716,7 +732,11 @@
                                             // Confirmed crash floor: 6744 bytes. 8KB = 6744 + ~1.3KB safety margin.
 #define ART_READ_STALL_MS            8000   // Abort an art download that delivers nothing for this long
                                             // while the peer keeps the socket open (it holds network_mutex)
+#if UI_SQUARE
+#define SDIO_QUEUE_POLL_COOLDOWN_MS 0   // ESP32-S3: on-chip radio, no SDIO link to protect
+#else
 #define SDIO_QUEUE_POLL_COOLDOWN_MS  3000   // After updateQueue() 20KB Browse response residue (was 2000, too short)
+#endif
 #define SDIO_POST_QUEUE_DRAIN_MS     1000   // Polling task: drain Browse response before next cycle
 
 // Music services (src/music_services.cpp) — browsing Spotify & co. over SMAPI.

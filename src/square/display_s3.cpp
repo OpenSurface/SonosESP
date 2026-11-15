@@ -7,10 +7,17 @@
  *   - the 16-bit RGB565 parallel bus that streams pixels from then on, driven by
  *     the S3's LCD_CAM peripheral through esp_lcd's RGB panel driver.
  *
- * Rendering: the RGB driver owns two full frame buffers in PSRAM. LVGL renders
- * straight into them (LV_DISPLAY_RENDER_MODE_DIRECT, LVGL keeps the two in sync)
- * and the last flush of a frame swaps the scan-out buffer, then waits for the
- * next VSYNC so the panel never shows a half-drawn frame.
+ * Rendering: LVGL draws in bands into a small buffer that stays in cache
+ * (LV_DISPLAY_RENDER_MODE_PARTIAL); each band is copied into the hidden one of
+ * two PSRAM frame buffers. The last band of a frame swaps the scan-out buffer,
+ * waits for VSYNC, then copies the frame's dirty areas into the other buffer so
+ * both hold the same picture again.
+ *
+ * Why not LVGL's DIRECT mode on the frame buffers: blending straight into PSRAM
+ * means read-modify-write traffic all over the frame, competing with the CPU
+ * refilling the bounce buffers from that same PSRAM. On the bench that showed
+ * as small glitches during every redraw. Rendering into a cache-sized band
+ * leaves PSRAM mostly sequential row copies.
  *
  * Bounce buffers: the DMA reads two small internal-RAM buffers that the CPU
  * refills from the PSRAM frame buffer. Scanning PSRAM directly glitches as soon
@@ -32,9 +39,16 @@ static lv_display_t*          disp     = nullptr;
 static esp_lcd_panel_handle_t s_panel  = nullptr;
 static SemaphoreHandle_t      s_vsync  = nullptr;
 static void*                  s_fb[2]  = {nullptr, nullptr};
+static const void*            s_front  = nullptr;   // the buffer being scanned out
+static int                    s_back   = 1;         // index of the hidden buffer
+#define MAX_DIRTY          24
+static lv_area_t              s_dirty[MAX_DIRTY];
+static int                    s_dirty_n = 0;
+static bool                   s_dirty_all = false;
 
 #define LCD_PCLK_HZ        (12 * 1000 * 1000)   // ~42 fps at 548x518 total
 #define LCD_BOUNCE_LINES   10
+#define LCD_BAND_LINES     40      // LVGL render band, internal RAM
 #define BACKLIGHT_PWM_HZ   1000    // the backlight driver stays dark at 20 kHz (bench)
 #define BACKLIGHT_PWM_BITS 10
 
@@ -154,14 +168,40 @@ static bool IRAM_ATTR on_vsync(esp_lcd_panel_handle_t, const esp_lcd_rgb_panel_e
     return woken == pdTRUE;
 }
 
-void display_flush(lv_display_t* d, const lv_area_t*, uint8_t* px_map) {
+static inline void copyArea(uint16_t* dst, const uint16_t* src, int src_stride, const lv_area_t* a) {
+    const int w = a->x2 - a->x1 + 1;
+    for (int y = a->y1; y <= a->y2; ++y)
+        memcpy(dst + y * DISPLAY_WIDTH + a->x1, src + (y - a->y1) * src_stride, w * 2);
+}
+
+static inline void syncArea(uint16_t* dst, const uint16_t* src, const lv_area_t* a) {
+    const int w = a->x2 - a->x1 + 1;
+    for (int y = a->y1; y <= a->y2; ++y)
+        memcpy(dst + y * DISPLAY_WIDTH + a->x1, src + y * DISPLAY_WIDTH + a->x1, w * 2);
+}
+
+void display_flush(lv_display_t* d, const lv_area_t* area, uint8_t* px_map) {
+    uint16_t* back = (uint16_t*)s_fb[s_back];
+    copyArea(back, (const uint16_t*)px_map, area->x2 - area->x1 + 1, area);
+    if (s_dirty_n < MAX_DIRTY) s_dirty[s_dirty_n++] = *area;
+    else s_dirty_all = true;
+
     if (lv_display_flush_is_last(d)) {
-        // px_map is one of the driver's own frame buffers, so this only switches
-        // which one is scanned out. Wait for the VSYNC that makes it current
-        // before LVGL starts drawing into the other one.
+        // Show the finished frame at the next VSYNC...
         xSemaphoreTake(s_vsync, 0);
-        esp_lcd_panel_draw_bitmap(s_panel, 0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, px_map);
+        esp_lcd_panel_draw_bitmap(s_panel, 0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, back);
+        s_front = back;
         xSemaphoreTake(s_vsync, pdMS_TO_TICKS(50));
+        // ...then bring the now-hidden buffer up to date with it.
+        uint16_t* other = (uint16_t*)s_fb[s_back ^ 1];
+        if (s_dirty_all) {
+            memcpy(other, back, DISPLAY_WIDTH * DISPLAY_HEIGHT * 2);
+        } else {
+            for (int i = 0; i < s_dirty_n; ++i) syncArea(other, back, &s_dirty[i]);
+        }
+        s_dirty_n = 0;
+        s_dirty_all = false;
+        s_back ^= 1;
     }
     lv_display_flush_ready(d);
 }
@@ -233,12 +273,23 @@ bool display_init(void) {
     if (!disp) return false;
     lv_display_set_color_format(disp, LV_COLOR_FORMAT_RGB565);
     lv_display_set_flush_cb(disp, display_flush);
-    lv_display_set_buffers(disp, s_fb[0], s_fb[1], fb_bytes, LV_DISPLAY_RENDER_MODE_DIRECT);
+    const size_t band_bytes = DISPLAY_WIDTH * LCD_BAND_LINES * sizeof(uint16_t);
+    // PSRAM, but small enough (38KB) to live in the S3's 64KB data cache while
+    // LVGL blends into it; internal RAM is too scarce once Wi-Fi is up.
+    void* band = heap_caps_aligned_alloc(64, band_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!band) { Serial.println("[DISPLAY] no memory for the render band"); return false; }
+    lv_display_set_buffers(disp, band, nullptr, band_bytes, LV_DISPLAY_RENDER_MODE_PARTIAL);
+    s_front = s_fb[0];
+    s_back  = 1;
 
-    Serial.printf("[DISPLAY] ready: 2 x %u KB frame buffers in PSRAM, %u-line bounce buffers\n",
-                  (unsigned)(fb_bytes / 1024), LCD_BOUNCE_LINES);
+    Serial.printf("[DISPLAY] ready: 2 x %u KB frame buffers in PSRAM, %u-line band, "
+                  "%u-line bounce buffers\n", (unsigned)(fb_bytes / 1024), LCD_BAND_LINES,
+                  LCD_BOUNCE_LINES);
     return true;
 }
+
+// Bench screenshots: the frame on the glass, not the one LVGL is drawing.
+const void* display_front_buffer(void) { return s_front ? s_front : s_fb[0]; }
 
 void display_deinit(void) {
     if (s_panel) esp_lcd_panel_del(s_panel);

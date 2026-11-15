@@ -41,6 +41,7 @@ struct SvcItem {
     char subtitle[96];
     char itemType[32];
     char mimeType[32];
+    char art[256];       // albumArtURI, "" when the provider gave none
     bool collection;     // container (album, playlist, folder) vs playable leaf
     bool canPlay;
     bool canEnumerate;
@@ -113,6 +114,13 @@ public:
     // enqueue it (playContainer), false means play it directly (playURI).
     bool buildPlayback(int serviceId, int serial, const SvcItem& item,
                        String* uri, String* didl, bool* container);
+
+    // The loaded accounts and service descriptors as JSON, and back. Lets a
+    // build keep them in flash so the slow discovery (UPnP event capture, AES,
+    // ListAvailableServices) runs once instead of at every boot. The JSON holds
+    // the accounts' tokens: it belongs on the device, never in a log.
+    String exportCache();
+    bool   importCache(const String& json);
 
 private:
     void ensureTask();
