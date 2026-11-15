@@ -93,6 +93,11 @@ LV_FONT_DECLARE(font_sqi_44)
 #define IC_LIBRARY   "\xF3\xB0\x8C\xB3"   // F0333 music-box-multiple
 #define IC_ARTIST    "\xF3\xB0\xA0\x83"   // F0803 account-music
 
+// Bench: name any UI-thread call that takes long (a frozen screen).
+#define SQ_SLOW(label, expr) ([&]() { uint32_t _t = millis(); auto _r = (expr); \
+    uint32_t _d = millis() - _t; if (_d > 200) Serial.printf("[SLOW] %s %lums\n", label, (unsigned long)_d); \
+    return _r; }())
+
 // ── Destinations ────────────────────────────────────────────────────────────
 enum SqScreen {
     SQ_SCR_PLAYER = 0,

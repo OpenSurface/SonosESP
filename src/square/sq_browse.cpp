@@ -165,7 +165,7 @@ static void heroStar(lv_event_t*) { sqItemToggleFav(s_stack[s_depth - 1].item, s
 static void request(int index) {
     int sid, serial;
     if (!sqSpotify(&sid, &serial)) return;
-    s_req = musicServices.requestBrowse(sid, serial, s_stack[s_depth - 1].item.id, index, PAGE);
+    s_req = SQ_SLOW("requestBrowse", musicServices.requestBrowse(sid, serial, s_stack[s_depth - 1].item.id, index, PAGE));
 }
 
 static void moreClicked(lv_event_t*) {
@@ -206,7 +206,7 @@ static void levelShow(void) {
         lv_obj_t* play = sqPillButton(hero, 52, lv.color, SQ_INK, IC_PLAY, "Tout lire", &font_sq_20);
         lv_obj_align(play, LV_ALIGN_BOTTOM_LEFT, 128, -8);
         lv_obj_add_event_cb(play, playAll, LV_EVENT_CLICKED, nullptr);
-        strlcpy(s_hero.fav_uri, sqItemUri(lv.item).c_str(), sizeof(s_hero.fav_uri));
+        strlcpy(s_hero.fav_uri, SQ_SLOW("heroUri", sqItemUri(lv.item)).c_str(), sizeof(s_hero.fav_uri));
         s_hero.star = sqRoundButton(hero, 52, SQ_RAISED, IC_STAR_O, &font_sqi_26, SQ_YELLOW);
         lv_obj_align(s_hero.star, LV_ALIGN_BOTTOM_LEFT, 128 + 172, -8);
         lv_obj_add_event_cb(s_hero.star, heroStar, LV_EVENT_CLICKED, nullptr);
@@ -237,7 +237,7 @@ void sqBrowseOpen(const SvcItem& item, uint32_t color) {
 
 void sqBrowseRefresh(void) {
     if (s_req) {
-        SvcPage* p = musicServices.takePage(s_req);
+        SvcPage* p = SQ_SLOW("takePage", musicServices.takePage(s_req));
         if (p) {
             s_req = 0;
             // Drop the "J'ouvre…" placeholder and an old "more" row.

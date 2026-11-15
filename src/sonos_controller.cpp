@@ -224,7 +224,11 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
         if (clock_photo_in_progress) {
             Serial.println("[SOAP] Deferred - clock photo has the radio (expected)");
         } else {
-            Serial.println("[SOAP] Failed to acquire network mutex - request failed");
+            // Name the holder: "nothing reacts" is a task sitting on this mutex.
+            TaskHandle_t holder = xSemaphoreGetMutexHolder(network_mutex);
+            Serial.printf("[SOAP] %s.%s: network mutex busy for %dms (held by %s) - request failed\n",
+                          service, action, NETWORK_MUTEX_TIMEOUT_MS,
+                          holder ? pcTaskGetName(holder) : "?");
         }
         // Nothing was sent, so say that rather than leaving the last call's code.
         last_soap_http_code = SOAP_NOT_SENT;

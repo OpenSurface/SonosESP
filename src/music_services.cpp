@@ -510,8 +510,27 @@ static bool httpsRequest(const std::string& url, const char* label, const std::s
             if (len > SVC_MAX_BODY_BYTES) {
                 Serial.printf("[SVC] %s response too large (%d)\n", label, len);
                 *code = -100;
+            } else if (len > 0) {
+                // Known length: take what has arrived, never ask for more.
+                // HTTPClient::getString() reads through readBytes(), which over
+                // TLS waited out the whole read timeout whenever available()
+                // promised more than one read could return: 14KB getMetadata
+                // bodies took 10s and 20s, holding network_mutex throughout, so
+                // every speaker request in the meantime failed.
+                WiFiClient* st = http.getStreamPtr();
+                resp->resize(len);
+                int got = 0;
+                const uint32_t deadline = millis() + SVC_HTTP_TIMEOUT_MS;
+                while (st && got < len && (int32_t)(millis() - deadline) < 0) {
+                    int n = st->read((uint8_t*)&(*resp)[got], len - got);
+                    if (n > 0) { got += n; continue; }
+                    if (!st->connected() && st->available() <= 0) break;
+                    vTaskDelay(pdMS_TO_TICKS(2));
+                }
+                resp->resize(got);
+                if (got < len) Serial.printf("[SVC] %s body cut short: %d of %d bytes\n", label, got, len);
             } else {
-                String s = http.getString();
+                String s = http.getString();   // chunked or close-delimited
                 resp->assign(s.c_str(), s.length());
             }
             t_body = millis() - t_b;

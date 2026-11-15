@@ -179,6 +179,8 @@ void sqUiPoll(void) {
         last_update = millis();
         sqPlayerUpdate();
         sqRoomPillsRefresh();
+        if (millis() - last_update > 200)
+            Serial.printf("[SLOW] player+pills %lums\n", (unsigned long)(millis() - last_update));
     }
 
     // Once the speakers answer: accounts and favourites, once.
@@ -206,6 +208,7 @@ void sqUiPoll(void) {
         static uint32_t rooms_seen = 0;
         if (rooms_seen != sq_rooms_version) { rooms_seen = sq_rooms_version; sqRoomPillsRefresh(); }
     }
+    const uint32_t tr = millis();
     switch (sqCurrent()) {
         case SQ_SCR_RESULTS: sqResultsRefresh(); break;
         case SQ_SCR_SPOTIFY: sqSpotifyRefresh(); break;
@@ -213,6 +216,8 @@ void sqUiPoll(void) {
         case SQ_SCR_WIFI:    sqWifiPoll(); break;
         default: break;
     }
+    if (millis() - tr > 200)
+        Serial.printf("[SLOW] refresh of screen %d %lums\n", (int)sqCurrent(), (unsigned long)(millis() - tr));
     if (!s_wifi_up && WiFi.status() == WL_CONNECTED) sqOnWifiConnected();
 }
 
@@ -291,10 +296,18 @@ void setup() {
 }
 
 void loop() {
+    const uint32_t t0 = millis();
     benchSerial();
     if (touch_take_wake_request()) last_touch_time = millis();
     sqUiPoll();
+    const uint32_t t1 = millis();
     uint32_t wait = lv_timer_handler();
+    const uint32_t t2 = millis();
+    // A frozen screen is a long loop iteration: say which half held it.
+    if (t2 - t0 > 250)
+        Serial.printf("[STALL] loop %lums (poll %lums, lvgl %lums) on screen %d\n",
+                      (unsigned long)(t2 - t0), (unsigned long)(t1 - t0), (unsigned long)(t2 - t1),
+                      (int)sqCurrent());
     if (wait > 10) wait = 10;
     delay(wait ? wait : 1);
 }
