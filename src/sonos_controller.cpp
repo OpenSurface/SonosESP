@@ -335,13 +335,16 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
         // This is transient - don't count as error.
         // Read and discard the 500 response body: this lets the server send its FIN
         // alongside/after the body → we reach CLOSE_WAIT → passive close → no TIME_WAIT.
-        http.getString();
+        String fault = http.getString();
         last_transient_500_ms = millis();  // arm 3s storm gate in art task pre-wait (unthrottled)
+        lastUpnpError   = extractXML(fault, "errorCode").toInt();
+        lastUpnpAction  = action;          // a string literal at every call site
+        lastUpnpErrorMs = millis();
         // Throttle logging to avoid spam (only log first 500 in a burst)
         static unsigned long last_500_log = 0;
         if (millis() - last_500_log > 2000) {  // 2s throttle
-            Serial.printf("[SOAP] Transient 500 for %s.%s | adlp=%d heap=%u dma=%u\n",
-                service, action,
+            Serial.printf("[SOAP] Transient 500 for %s.%s (UPnP %d) | adlp=%d heap=%u dma=%u\n",
+                service, action, (int)lastUpnpError,
                 (int)art_download_in_progress,
                 heap_caps_get_free_size(MALLOC_CAP_DEFAULT),
                 heap_caps_get_free_size(MALLOC_CAP_DMA));

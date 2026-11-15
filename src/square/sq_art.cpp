@@ -148,10 +148,12 @@ static int download(const char* url, uint8_t* buf, int cap) {
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     int code = http.GET();
     if (code != 200) {
-        Serial.printf("[SQ/ART] GET %d (%s) - internal free %u, largest %u\n", code,
+        Serial.printf("[SQ/ART] GET %d (%s) - internal %u/%u, psram %u/%u, wifi %d\n", code,
                       code < 0 ? http.errorToString(code).c_str() : "http",
                       (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
-                      (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+                      (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
+                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                      (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM), (int)WiFi.status());
         http.end();
         return code < 0 ? code : -code;   // always negative: never a byte count
     }
@@ -211,10 +213,15 @@ static uint16_t* fitSquare(const uint16_t* src, int sw, int sh, int size) {
 }
 
 // PNG (radio logos): decoded at full size, then scaled like a JPEG.
-struct PngCtx { PNG* png; uint16_t* dst; int w; };
+struct PngCtx { PNG* png; uint16_t* dst; int w, h; uint16_t* line; };
 static int pngDraw(PNGDRAW* d) {
     PngCtx* c = (PngCtx*)d->pUser;
-    c->png->getLineAsRGB565(d, c->dst + d->y * c->w, PNG_RGB565_LITTLE_ENDIAN, 0x00161339);
+    // Never let the decoder write into the image directly: a line it reports
+    // wider than the header said, or a row past the bottom, overran the block
+    // and corrupted the heap (crash a few seconds after opening Favoris).
+    if (d->y < 0 || d->y >= c->h || d->iWidth <= 0 || d->iWidth > 1024) return 1;
+    c->png->getLineAsRGB565(d, c->line, PNG_RGB565_LITTLE_ENDIAN, 0x00161339);
+    memcpy(c->dst + d->y * c->w, c->line, (d->iWidth < c->w ? d->iWidth : c->w) * 2);
     return 1;
 }
 
@@ -224,16 +231,31 @@ static uint16_t* decodePng(const uint8_t* buf, int len, int size) {
     new (png) PNG();
     uint16_t* full = nullptr;
     int w = 0, h = 0;
-    if (png->openRAM((uint8_t*)buf, len, pngDraw) == PNG_SUCCESS) {
+    // Byte 28 of the IHDR is the interlace method; PNGdec has no Adam7 support.
+    const bool interlaced = len > 28 && buf[28] != 0;
+    uint16_t* line = (uint16_t*)heap_caps_malloc(1024 * 2, MALLOC_CAP_SPIRAM);
+    if (!interlaced && line && png->openRAM((uint8_t*)buf, len, pngDraw) == PNG_SUCCESS) {
         w = png->getWidth(); h = png->getHeight();
-        if (w > 0 && h > 0 && w <= 1024 && h <= 1024)
+        int ch = 1;
+        switch (png->getPixelType()) {
+            case PNG_PIXEL_TRUECOLOR:       ch = 3; break;
+            case PNG_PIXEL_GRAY_ALPHA:      ch = 2; break;
+            case PNG_PIXEL_TRUECOLOR_ALPHA: ch = 4; break;
+            default:                        ch = 1; break;
+        }
+        const int pitch = (w * ch * png->getBpp() + 7) / 8;
+        const bool fits = 2 * (pitch + 1) <= PNG_MAX_BUFFERED_PIXELS;   // see platformio.ini
+        if (!fits) Serial.printf("[SQ/ART] PNG %dx%d too wide for the decoder - skipped\n", w, h);
+        if (fits && w > 0 && h > 0 && w <= 1024 && h <= 1024)
             full = (uint16_t*)heap_caps_calloc(w * h, 2, MALLOC_CAP_SPIRAM);
         if (full) {
-            PngCtx ctx = {png, full, w};
+            PngCtx ctx = {png, full, w, h, line};
             if (png->decode(&ctx, 0) != PNG_SUCCESS) { heap_caps_free(full); full = nullptr; }
         }
         png->close();
     }
+    if (line) heap_caps_free(line);
+    if (interlaced) Serial.println("[SQ/ART] Interlaced PNG - skipped");
     png->~PNG();
     heap_caps_free(png);
     if (!full) return nullptr;
@@ -255,9 +277,20 @@ static uint16_t* decode(const uint8_t* buf, int len, int size) {
     uint16_t* full = nullptr;
     int fw = 0, fh = 0;
     bool progressive = false;
+    bool too_big = false;
     if (jpeg->openRAM((uint8_t*)buf, len, jpegDraw)) {
         progressive = jpeg->getJPEGType() == JPEG_MODE_PROGRESSIVE;
-        if (!progressive) {
+        // stb decodes a progressive JPEG at full size and keeps every DCT
+        // coefficient too: ~9 bytes a pixel, 18MB for a 1400px cover. Its
+        // attempts drained the PSRAM the Wi-Fi and lwIP buffers live in, and
+        // every connection failed for a while after. Small ones only.
+        if (progressive && (jpeg->getWidth() > 640 || jpeg->getHeight() > 640)) {
+            too_big = true;
+            progressive = false;
+            Serial.printf("[SQ/ART] Progressive JPEG %dx%d - too big to decode, skipped\n",
+                          jpeg->getWidth(), jpeg->getHeight());
+        }
+        if (!progressive && !too_big) {
             int w = jpeg->getWidth(), h = jpeg->getHeight();
             int side = w < h ? w : h;
             int opt = 0, div = 1;

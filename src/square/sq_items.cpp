@@ -36,14 +36,14 @@ lv_obj_t* sqItemRowCreate(lv_obj_t* list, const SvcItem& it, int index, lv_event
 
     lv_obj_t* title = sqLabel(tap, it.title, &font_sq_18, SQ_TEXT);
     lv_label_set_long_mode(title, LV_LABEL_LONG_MODE_DOTS);
-    lv_obj_set_width(title, 300);
+    lv_obj_set_size(title, 300, 25);
     lv_obj_align(title, LV_ALIGN_LEFT_MID, 60, -11);
     char sub[160];
     if (it.subtitle[0]) snprintf(sub, sizeof(sub), "%s · %s", sqItemKind(it), it.subtitle);
     else                snprintf(sub, sizeof(sub), "%s", sqItemKind(it));
     lv_obj_t* st = sqLabel(tap, sub, &font_sq_14, SQ_MUTED);
     lv_label_set_long_mode(st, LV_LABEL_LONG_MODE_DOTS);
-    lv_obj_set_width(st, 300);
+    lv_obj_set_size(st, 300, 19);
     lv_obj_align(st, LV_ALIGN_LEFT_MID, 60, 13);
 
     out->star = nullptr;

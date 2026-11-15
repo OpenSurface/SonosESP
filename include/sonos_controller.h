@@ -219,6 +219,11 @@ public:
     // The HTTP status of the last SOAP request: 200, 500, or a negative
     // HTTPClient error such as HTTPC_ERROR_READ_TIMEOUT (-11). See the member.
     int lastSoapHttpCode() const { return last_soap_http_code; }
+    // The UPnP <errorCode> of the last SOAP fault (HTTP 500) and which action
+    // drew it, so a UI can say why a tap did nothing (701: nothing to play).
+    volatile int         lastUpnpError    = 0;
+    volatile uint32_t    lastUpnpErrorMs  = 0;
+    const char* volatile lastUpnpAction   = "";
 
     // sendSOAP() returns "" for EVERY failure, and the HTTP code is how callers
     // tell them apart. A request that never left the panel - the network mutex

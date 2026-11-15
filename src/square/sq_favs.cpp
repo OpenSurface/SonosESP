@@ -154,7 +154,7 @@ void sqFavsRefresh(void) {
 
             lv_obj_t* title = sqLabel(b, f.title, &font_sq_16, SQ_TEXT);
             lv_label_set_long_mode(title, LV_LABEL_LONG_MODE_DOTS);
-            lv_obj_set_width(title, TILE_W);
+            lv_obj_set_size(title, TILE_W, 22);   // one line; DOTS only cuts at a fixed height
             lv_obj_align(title, LV_ALIGN_BOTTOM_LEFT, 0, 0);
             tileArt(t);
         }

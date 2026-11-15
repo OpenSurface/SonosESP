@@ -141,7 +141,7 @@ void sqRoomsRefresh(void) {
 
         lv_obj_t* name = sqLabel(tile, r.name.c_str(), &font_sq_20, fg);
         lv_label_set_long_mode(name, LV_LABEL_LONG_MODE_DOTS);
-        lv_obj_set_width(name, r.selected ? 140 : 100);
+        lv_obj_set_size(name, r.selected ? 140 : 100, 27);
         lv_obj_align(name, LV_ALIGN_LEFT_MID, 60, -11);
         char st[48];
         if (r.selected)      snprintf(st, sizeof(st), "On écoute ici · %d %%", r.vol);
@@ -150,7 +150,7 @@ void sqRoomsRefresh(void) {
         else                 snprintf(st, sizeof(st), "Libre");
         lv_obj_t* sub = sqLabel(tile, st, &font_sq_14, r.selected ? SQ_INK : (r.grouped ? 0xA9C9F0 : SQ_MUTED));
         lv_label_set_long_mode(sub, LV_LABEL_LONG_MODE_DOTS);
-        lv_obj_set_width(sub, 146);
+        lv_obj_set_size(sub, 146, 19);
         lv_obj_align(sub, LV_ALIGN_LEFT_MID, 60, 14);
 
         if (!r.selected) {

@@ -25,11 +25,19 @@ static bool     s_playing  = false;
 static int      s_volume   = 0;
 static uint32_t s_vol_touched = 0;   // ignore polled volume briefly after a tap
 static String   s_uri;
+static String   s_track;
+static uint32_t s_play_ms = 0;      // when Play was tapped, to catch a refusal
 
 #define COVER 188
 
 static void playClicked(lv_event_t*) {
-    if (s_playing) sonos.pause(); else sonos.play();
+    if (!s_playing && !s_track.length() && !s_uri.length()) {
+        // Nothing loaded on this speaker: Play would only draw a UPnP fault.
+        sqToast("Rien à reprendre ici : choisis un favori");
+        sqShow(SQ_SCR_FAVS);
+        return;
+    }
+    if (s_playing) sonos.pause(); else { sonos.play(); s_play_ms = millis(); }
     s_playing = !s_playing;
     lv_label_set_text(s_play_icon, s_playing ? IC_PAUSE : IC_PLAY);
 }
@@ -107,6 +115,7 @@ void sqPlayerCreate(void) {
     s_chip_lbl = sqLabel(s_chip, "", &font_sq_14, 0x7FF0C4);
     lv_label_set_long_mode(s_chip_lbl, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_set_style_max_width(s_chip_lbl, 210, 0);
+    lv_obj_set_height(s_chip_lbl, 19);
     lv_obj_center(s_chip_lbl);
     sqSetHidden(s_chip, true);
 
@@ -222,6 +231,7 @@ void sqPlayerUpdate(void) {
     lv_label_set_text(s_artist, track.length() ? artist.c_str() : "Choisis un favori ou cherche une chanson");
 
     s_uri = uri;
+    s_track = track;
     starShow();
     if (art != s_art_url) {
         s_art_url = art;
@@ -239,6 +249,15 @@ void sqPlayerTick(void) {
     SonosDevice* d = sonos.getCurrentDevice();
     if (!d) return;
     if (sq_art_version != s_art_seen) { s_art_seen = sq_art_version; artShow(); }
+    if (s_play_ms) {
+        if (sonos.lastUpnpErrorMs > s_play_ms && !strcmp(sonos.lastUpnpAction, "Play")) {
+            s_play_ms = 0;
+            sqToast(sonos.lastUpnpError == 701 ? "Rien à reprendre ici : choisis un favori"
+                                               : "L'enceinte refuse de jouer");
+        } else if (millis() - s_play_ms > 4000) {
+            s_play_ms = 0;
+        }
+    }
     int dur = d->durationSeconds;
     int pos = d->relTimeSeconds;
     if (d->isPlaying && d->posReadMs) pos += (int)((millis() - d->posReadMs) / 1000);

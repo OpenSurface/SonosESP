@@ -24,7 +24,7 @@ static lv_obj_t* card(lv_obj_t* parent, const char* icon, uint32_t color, const 
     lv_obj_align(t, LV_ALIGN_LEFT_MID, 52, -11);
     lv_obj_t* s = sqLabel(c, "", &font_sq_14, SQ_MUTED);
     lv_label_set_long_mode(s, LV_LABEL_LONG_MODE_DOTS);
-    lv_obj_set_width(s, 230);
+    lv_obj_set_size(s, 230, 19);
     lv_obj_align(s, LV_ALIGN_LEFT_MID, 52, 13);
     if (sub_out) *sub_out = s;
     return c;

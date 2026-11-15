@@ -158,6 +158,7 @@ lv_obj_t* sqRoomPill(lv_obj_t* parent, bool compact) {
     p.name = sqLabel(b, "…", &font_sq_18, SQ_SKY_TEXT);
     lv_label_set_long_mode(p.name, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_set_style_max_width(p.name, compact ? 120 : 140, 0);
+    lv_obj_set_height(p.name, 25);
     if (!compact) {
         p.extra = sqLabel(b, "", &font_sq_14, 0xA9C9F0);
     }
