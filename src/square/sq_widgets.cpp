@@ -50,7 +50,9 @@ lv_obj_t* sqBox(lv_obj_t* parent, int w, int h, uint32_t bg, int radius) {
     lv_obj_set_style_radius(o, radius, 0);
     lv_obj_set_style_bg_color(o, lv_color_hex(bg), 0);
     lv_obj_set_style_bg_opa(o, LV_OPA_COVER, 0);
-    lv_obj_set_style_clip_corner(o, radius > 0, 0);
+    // No clip_corner: in LVGL 9 it turns the box into a layer (children drawn
+    // apart, masked, blended back), which was most of the cost of a scroll
+    // frame. Nothing is laid out to overflow a rounded box instead.
     lv_obj_set_scrollable(o, false);
     lv_obj_set_clickable(o, false);
     return o;
@@ -199,8 +201,10 @@ lv_obj_t* sqCoverPlaceholder(lv_obj_t* parent, int size, int radius, const char*
     uint32_t c2 = kCandy[(h / 7 + 1 + (h % 5)) % 6];
     if (c2 == c1) c2 = SQ_BG;
     lv_obj_t* box = sqBox(parent, size, size, c1, radius);
-    lv_obj_t* big = sqBox(box, size * 3 / 4, size * 3 / 4, c2, LV_RADIUS_CIRCLE);
-    lv_obj_set_pos(big, -size / 6, size / 2);
+    // Shapes stay inside the box: there is no corner clipping to hide overflow.
+    const int big_d = size * 11 / 20;
+    lv_obj_t* big = sqBox(box, big_d, big_d, c2, LV_RADIUS_CIRCLE);
+    lv_obj_set_pos(big, size / 10, size - big_d - size / 10);
     lv_obj_t* dot = sqBox(box, size / 4, size / 4, (h & 1) ? SQ_BG : SQ_TEXT, LV_RADIUS_CIRCLE);
     // Lower right: the top corners carry the type badge and the favourite star.
     lv_obj_set_pos(dot, size - size / 4 - size / 8, size - size / 4 - size / 8);

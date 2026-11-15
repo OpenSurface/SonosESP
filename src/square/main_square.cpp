@@ -113,6 +113,17 @@ static void benchSerial(void) {
             display_set_brightness((uint8_t)atoi(line + 3));
         } else if (!strcmp(line, "shot")) {
             screenshot();
+        } else if (!strncmp(line, "scroll ", 7)) {
+            // Scroll the current screen's first scrollable container, animated
+            // like a flick, to measure frame times without a finger.
+            lv_obj_t* scr = lv_screen_active();
+            for (uint32_t i = 0; i < lv_obj_get_child_count(scr); ++i) {
+                lv_obj_t* c = lv_obj_get_child(scr, i);
+                if (lv_obj_get_scroll_dir(c) == LV_DIR_VER) {
+                    lv_obj_scroll_by(c, 0, -atoi(line + 7), LV_ANIM_ON);
+                    break;
+                }
+            }
         } else if (!strncmp(line, "search ", 7)) {
             sqResultsStart(line + 7);
         } else if (!strncmp(line, "show ", 5)) {

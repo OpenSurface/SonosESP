@@ -101,6 +101,7 @@ void sqPlayerCreate(void) {
     s_cover_ph = sqCoverPlaceholder(s_cover_box, COVER, 28, "sonos");
     s_cover_img = lv_image_create(s_cover_box);
     lv_obj_set_size(s_cover_img, COVER, COVER);
+    lv_obj_set_style_radius(s_cover_img, 28, 0);
     sqSetHidden(s_cover_img, true);
 
     lv_obj_t* info = lv_obj_create(s_scr);

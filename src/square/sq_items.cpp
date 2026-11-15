@@ -28,9 +28,10 @@ lv_obj_t* sqItemRowCreate(lv_obj_t* list, const SvcItem& it, int index, lv_event
     bool round = !strcmp(it.itemType, "artist");
     lv_obj_t* thumb = sqBox(tap, 48, 48, SQ_SURFACE, round ? 24 : 14);
     lv_obj_align(thumb, LV_ALIGN_LEFT_MID, 0, 0);
-    out->ph = sqCoverPlaceholder(thumb, 48, 0, it.title);
+    out->ph = sqCoverPlaceholder(thumb, 48, round ? 24 : 14, it.title);
     out->img = lv_image_create(thumb);
     lv_obj_set_size(out->img, 48, 48);
+    lv_obj_set_style_radius(out->img, round ? 24 : 14, 0);
     sqSetHidden(out->img, true);
     strlcpy(out->art, it.art, sizeof(out->art));
 

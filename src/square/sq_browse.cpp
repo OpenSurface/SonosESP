@@ -192,9 +192,10 @@ static void levelShow(void) {
         lv_obj_set_size(hero, LV_PCT(100), 120);
         lv_obj_t* cover = sqBox(hero, 112, 112, SQ_SURFACE, 24);
         lv_obj_align(cover, LV_ALIGN_LEFT_MID, 0, 0);
-        s_hero.ph = sqCoverPlaceholder(cover, 112, 0, lv.item.title);
+        s_hero.ph = sqCoverPlaceholder(cover, 112, 24, lv.item.title);
         s_hero.img = lv_image_create(cover);
         lv_obj_set_size(s_hero.img, 112, 112);
+        lv_obj_set_style_radius(s_hero.img, 24, 0);
         sqSetHidden(s_hero.img, true);
         strlcpy(s_hero.art, lv.item.art, sizeof(s_hero.art));
         lv_obj_t* kind = sqLabel(hero, lv.item.subtitle[0] ? lv.item.subtitle : sqItemKind(lv.item),

@@ -134,10 +134,11 @@ void sqFavsRefresh(void) {
 
             lv_obj_t* cover = sqBox(b, TILE_W, COVER_H, SQ_SURFACE, 26);
             Tile& t = s_tiles[s_tile_count++];
-            t.ph = sqCoverPlaceholder(cover, COVER_H, 0, f.title);
+            t.ph = sqCoverPlaceholder(cover, COVER_H, 26, f.title);
             lv_obj_set_width(t.ph, TILE_W);
             t.img = lv_image_create(cover);
             lv_obj_set_size(t.img, COVER_H, COVER_H);
+            lv_obj_set_style_radius(t.img, 26, 0);   // rounded while drawn, no layer
             lv_obj_center(t.img);
             sqSetHidden(t.img, true);
             strlcpy(t.art, f.art, sizeof(t.art));
