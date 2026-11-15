@@ -151,6 +151,7 @@ void sqOnShow(SqScreen scr) {
         case SQ_SCR_SPOTIFY:  sqSpotifyRefresh(); break;
         case SQ_SCR_SETTINGS: sqSettingsRefresh(); break;
         case SQ_SCR_SEARCH:   sqSearchOnShow(); break;
+        case SQ_SCR_LYRICS:   sqLyricsOnShow(); break;
         default: break;
     }
 }
@@ -207,6 +208,12 @@ void sqUiPoll(void) {
         }
         static uint32_t rooms_seen = 0;
         if (rooms_seen != sq_rooms_version) { rooms_seen = sq_rooms_version; sqRoomPillsRefresh(); }
+    }
+    // The lyrics follow the music line by line: a faster beat than the rest.
+    static uint32_t last_lyr = 0;
+    if (sqCurrent() == SQ_SCR_LYRICS && millis() - last_lyr > 100) {
+        last_lyr = millis();
+        sqLyricsTick();
     }
     const uint32_t tr = millis();
     switch (sqCurrent()) {
@@ -274,6 +281,7 @@ void setup() {
     sonos.begin();
     sqWorkStart();
     sqArtStart();
+    sqLyricsStart();
 
     sqNavInit();
     sqPlayerCreate();
@@ -285,6 +293,7 @@ void setup() {
     sqRoomsCreate();
     sqSettingsCreate();
     sqWifiCreate();
+    sqLyricsCreate();
 
     if (ssid.length()) sqShow(SQ_SCR_PLAYER);
     else               sqWifiOpen();   // first boot: nothing works without the network

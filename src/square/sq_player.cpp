@@ -9,6 +9,7 @@ static lv_obj_t* s_star_icon;
 static lv_obj_t* s_cover_box;
 static lv_obj_t* s_cover_img;
 static lv_obj_t* s_cover_ph;      // placeholder shown until the art lands
+static lv_obj_t* s_lyr_badge;     // "Paroles", only when there are some
 static lv_obj_t* s_chip;
 static lv_obj_t* s_chip_lbl;
 static lv_obj_t* s_title;
@@ -26,6 +27,8 @@ static int      s_volume   = 0;
 static uint32_t s_vol_touched = 0;   // ignore polled volume briefly after a tap
 static String   s_uri;
 static String   s_track;
+static String   s_artist_now;
+static uint32_t s_lyr_seen = 0;
 static uint32_t s_play_ms = 0;      // when Play was tapped, to catch a refusal
 static uint32_t s_toggle_ms = 0;    // last Play/Pause tap: polls before it lands are stale
 
@@ -76,6 +79,25 @@ static void starShow(void) {
     lv_obj_set_style_text_color(s_star_icon, lv_color_hex(fav ? SQ_INK : SQ_YELLOW), 0);
 }
 
+static bool lyricsAvailable(void) {
+    SqLyrState st = sqLyricsState();
+    return st == SQ_LYR_SYNCED || st == SQ_LYR_PLAIN;
+}
+
+static void coverClicked(lv_event_t*) {
+    SqLyrState st = sqLyricsState();
+    if (st == SQ_LYR_SYNCED || st == SQ_LYR_PLAIN || st == SQ_LYR_LOADING) sqShow(SQ_SCR_LYRICS);
+}
+
+static void lyricsBadgeShow(void) {
+    s_lyr_seen = sq_lyrics_version;
+    sqSetHidden(s_lyr_badge, !lyricsAvailable());
+}
+
+const char* sqPlayerTitle(void)  { return s_track.c_str(); }
+const char* sqPlayerArtist(void) { return s_artist_now.c_str(); }
+const char* sqPlayerArtUrl(void) { return s_art_url.c_str(); }
+
 static void fmtTime(char* out, size_t n, int s) {
     if (s < 0) s = 0;
     if (s >= 3600) snprintf(out, n, "%d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60);
@@ -103,6 +125,25 @@ void sqPlayerCreate(void) {
     lv_obj_set_size(s_cover_img, COVER, COVER);
     lv_obj_set_style_radius(s_cover_img, 28, 0);
     sqSetHidden(s_cover_img, true);
+
+    // The whole cover opens the lyrics; a badge says when there are some.
+    // A transparent button on top, because the image and the placeholder's
+    // shapes would otherwise take the tap.
+    lv_obj_t* hit = lv_button_create(s_cover_box);
+    lv_obj_remove_style_all(hit);
+    lv_obj_set_size(hit, COVER, COVER);
+    lv_obj_add_event_cb(hit, coverClicked, LV_EVENT_CLICKED, nullptr);
+    s_lyr_badge = sqBox(hit, LV_SIZE_CONTENT, 38, SQ_BG, 19);
+    lv_obj_remove_flag(s_lyr_badge, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_pad_left(s_lyr_badge, 10, 0);
+    lv_obj_set_style_pad_right(s_lyr_badge, 14, 0);
+    lv_obj_set_flex_flow(s_lyr_badge, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(s_lyr_badge, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(s_lyr_badge, 6, 0);
+    lv_obj_align(s_lyr_badge, LV_ALIGN_BOTTOM_LEFT, 10, -10);
+    sqIcon(s_lyr_badge, IC_MIC, &font_sqi_20, SQ_PINK);
+    sqLabel(s_lyr_badge, "Paroles", &font_sq_16, SQ_TEXT);
+    sqSetHidden(s_lyr_badge, true);
 
     lv_obj_t* info = lv_obj_create(s_scr);
     lv_obj_remove_style_all(info);
@@ -213,7 +254,9 @@ void sqPlayerUpdate(void) {
     radio   = d->isRadioStation;
     linein  = d->isLineIn;
     tv      = d->isTvAudio;
+    int dur_s = d->durationSeconds;
     xSemaphoreGive(sonos.getDeviceMutex());
+    const String song = track;   // before a radio stream's text replaces it
 
     // A poll answered before the speaker acted on the tap would flip the
     // button back, and the next tap would undo the first.
@@ -237,7 +280,12 @@ void sqPlayerUpdate(void) {
 
     s_uri = uri;
     s_track = track;
+    s_artist_now = artist;
     starShow();
+    // Lyrics: songs only, not a radio stream's "now playing" text.
+    sqLyricsWant(artist.c_str(), song.c_str(), dur_s,
+                 !radio && !linein && !tv && artist.length());
+    lyricsBadgeShow();
     if (art != s_art_url) {
         s_art_url = art;
         lv_obj_t* old = s_cover_ph;
@@ -254,6 +302,7 @@ void sqPlayerTick(void) {
     SonosDevice* d = sonos.getCurrentDevice();
     if (!d) return;
     if (sq_art_version != s_art_seen) { s_art_seen = sq_art_version; artShow(); }
+    if (sq_lyrics_version != s_lyr_seen) lyricsBadgeShow();
     if (s_play_ms) {
         if (sonos.lastUpnpErrorMs > s_play_ms && !strcmp(sonos.lastUpnpAction, "Play")) {
             s_play_ms = 0;
