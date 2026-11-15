@@ -61,8 +61,10 @@ static void volStep(int step) {
     sonos.setVolume(s_volume);
     volumeShow();
 }
-static void volDown(lv_event_t*) { volStep(-5); }
-static void volUp(lv_event_t*)   { volStep(+5); }
+// Steps of 1: low volumes need every notch. Holding a button repeats it
+// (LV_EVENT_LONG_PRESSED_REPEAT, ~10 a second) to cover a long way.
+static void volDown(lv_event_t*) { volStep(-1); }
+static void volUp(lv_event_t*)   { volStep(+1); }
 
 static void starClicked(lv_event_t*) {
     int f = sqFavsFind(s_uri.c_str());
@@ -212,10 +214,12 @@ static void buildSquare(void) {
     lv_obj_set_style_pad_column(vol, 8, 0);
     b = sqRoundButton(vol, 44, SQ_RAISED, IC_MINUS, &font_sqi_26, SQ_SKY);
     lv_obj_add_event_cb(b, volDown, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(b, volDown, LV_EVENT_LONG_PRESSED_REPEAT, nullptr);
     lv_obj_t* vbar = sqBox(vol, 92, 16, SQ_RAISED, 8);
     s_vol_fill = sqBox(vbar, 0, 16, SQ_SKY, 8);
     b = sqRoundButton(vol, 44, SQ_RAISED, IC_PLUS, &font_sqi_26, SQ_SKY);
     lv_obj_add_event_cb(b, volUp, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(b, volUp, LV_EVENT_LONG_PRESSED_REPEAT, nullptr);
 
 }
 
@@ -301,10 +305,12 @@ static void buildTall(void) {
     lv_obj_t* vol = tallRow(col, 52, 12, 8);
     b = sqRoundButton(vol, 48, SQ_RAISED, IC_MINUS, &font_sqi_26, SQ_SKY);
     lv_obj_add_event_cb(b, volDown, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(b, volDown, LV_EVENT_LONG_PRESSED_REPEAT, nullptr);
     lv_obj_t* vbar = sqBox(vol, s_vol_w, 18, SQ_RAISED, 9);
     s_vol_fill = sqBox(vbar, 0, 18, SQ_SKY, 9);
     b = sqRoundButton(vol, 48, SQ_RAISED, IC_PLUS, &font_sqi_26, SQ_SKY);
     lv_obj_add_event_cb(b, volUp, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(b, volUp, LV_EVENT_LONG_PRESSED_REPEAT, nullptr);
 }
 
 void sqPlayerCreate(void) {

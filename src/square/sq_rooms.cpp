@@ -70,8 +70,9 @@ static void groupStep(int step) {
     }
     groupCardShow();
 }
-static void groupDown(lv_event_t*) { groupStep(-5); }
-static void groupUp(lv_event_t*)   { groupStep(+5); }
+// Steps of 1, repeating while held - same as the player's volume buttons.
+static void groupDown(lv_event_t*) { groupStep(-1); }
+static void groupUp(lv_event_t*)   { groupStep(+1); }
 
 static void settingsClicked(lv_event_t*) { sqShow(SQ_SCR_SETTINGS); }
 static void closeClicked(lv_event_t*) { sqBack(); }
@@ -103,9 +104,11 @@ void sqRoomsCreate(void) {
         lv_obj_t* minus = sqRoundButton(card, 50, SQ_BG, IC_MINUS, &font_sqi_26, SQ_SKY);
         lv_obj_align(minus, LV_ALIGN_LEFT_MID, 0, 0);
         lv_obj_add_event_cb(minus, groupDown, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(minus, groupDown, LV_EVENT_LONG_PRESSED_REPEAT, nullptr);
         lv_obj_t* plus = sqRoundButton(card, 50, SQ_BG, IC_PLUS, &font_sqi_26, SQ_SKY);
         lv_obj_align(plus, LV_ALIGN_RIGHT_MID, 0, 0);
         lv_obj_add_event_cb(plus, groupUp, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(plus, groupUp, LV_EVENT_LONG_PRESSED_REPEAT, nullptr);
         s_gv_label = sqLabel(card, "", &font_sq_16, SQ_SKY_TEXT);
         lv_obj_align(s_gv_label, LV_ALIGN_TOP_MID, 0, 16);
         lv_obj_t* bar = sqBox(card, kGroupBarW, 14, SQ_BG, 7);
