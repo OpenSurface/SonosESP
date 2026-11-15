@@ -201,12 +201,24 @@ lv_obj_t* sqCoverPlaceholder(lv_obj_t* parent, int size, int radius, const char*
     uint32_t c2 = kCandy[(h / 7 + 1 + (h % 5)) % 6];
     if (c2 == c1) c2 = SQ_BG;
     lv_obj_t* box = sqBox(parent, size, size, c1, radius);
-    // Shapes stay inside the box: there is no corner clipping to hide overflow.
-    const int big_d = size * 11 / 20;
-    lv_obj_t* big = sqBox(box, big_d, big_d, c2, LV_RADIUS_CIRCLE);
-    lv_obj_set_pos(big, size / 10, size - big_d - size / 10);
-    lv_obj_t* dot = sqBox(box, size / 4, size / 4, (h & 1) ? SQ_BG : SQ_TEXT, LV_RADIUS_CIRCLE);
-    // Lower right: the top corners carry the type badge and the favourite star.
-    lv_obj_set_pos(dot, size - size / 4 - size / 8, size - size / 4 - size / 8);
+
+    // Two or three discs of random size and place, drawn from the title so a
+    // cover keeps its drawing from one screen to the next (same rule as the
+    // mockups' sqDiscs). They stay inside the box: there is no corner
+    // clipping to hide an overflow (see sqBox).
+    uint32_t r = h ? h : 0x9E3779B9u;
+    auto next = [&r]() -> uint32_t { r ^= r << 13; r ^= r >> 17; r ^= r << 5; return r; };
+    const uint32_t dark  = SQ_BG, cream = SQ_TEXT;
+    const uint32_t colors[3] = {c2, (h & 1) ? dark : cream, (h & 1) ? cream : dark};
+    const int n = 2 + (int)(next() % 2);
+    for (int i = 0; i < n; ++i) {
+        // Per mille of the side: big 420-800, medium 180-380, small 80-180.
+        const int lo = i == 0 ? 420 : i == 1 ? 180 : 80;
+        const int span = i == 0 ? 380 : i == 1 ? 200 : 100;
+        int d = size * (lo + (int)(next() % (span + 1))) / 1000;
+        if (d < 4) d = 4;
+        lv_obj_t* disc = sqBox(box, d, d, colors[i], LV_RADIUS_CIRCLE);
+        lv_obj_set_pos(disc, (int)(next() % (uint32_t)(size - d + 1)), (int)(next() % (uint32_t)(size - d + 1)));
+    }
     return box;
 }
