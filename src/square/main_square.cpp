@@ -22,12 +22,42 @@
 #include "mbedtls/platform.h"
 #include <esp_heap_caps.h>
 #include <esp_task_wdt.h>
+#include <esp_core_dump.h>
+#include <esp_app_desc.h>
 
 void sqSettingsRefresh(void);
 void sqWifiPoll(void);
 void sqSearchOnShow(void);
 
 static uint32_t lvglTick(void) { return millis(); }
+
+// The last crash, kept in the coredump partition, printed at boot and then
+// erased: a panic while no console is attached is otherwise lost, and a dump
+// left in place cannot be told from a new one. Decode the "bt" addresses with
+// addr2line against the firmware.elf of the build that crashed (its SHA below).
+static void reportStoredCrash(void) {
+    size_t addr = 0, size = 0;
+    if (esp_core_dump_image_get(&addr, &size) != ESP_OK) return;
+    Serial.println("[CRASH] *** the previous run crashed ***");
+    esp_core_dump_summary_t* sum = (esp_core_dump_summary_t*)malloc(sizeof(esp_core_dump_summary_t));
+    if (sum && esp_core_dump_image_check() == ESP_OK && esp_core_dump_get_summary(sum) == ESP_OK) {
+        char running[APP_ELF_SHA256_SZ] = {0};
+        esp_app_get_elf_sha256(running, sizeof(running));
+        const bool same = !strncmp((const char*)sum->app_elf_sha256, running, sizeof(running));
+        Serial.printf("[CRASH] task %.16s  pc 0x%08X  cause %u  vaddr 0x%08X  build %.9s (%s)\n",
+                      sum->exc_task, (unsigned)sum->exc_pc, (unsigned)sum->ex_info.exc_cause,
+                      (unsigned)sum->ex_info.exc_vaddr, (const char*)sum->app_elf_sha256,
+                      same ? "this firmware" : "another firmware");
+        Serial.print("[CRASH] bt");
+        for (uint32_t i = 0; i < sum->exc_bt_info.depth && i < 16; ++i)
+            Serial.printf(" 0x%08X", (unsigned)sum->exc_bt_info.bt[i]);
+        Serial.println(sum->exc_bt_info.corrupted ? " (corrupted)" : "");
+    } else {
+        Serial.println("[CRASH] summary unavailable");
+    }
+    free(sum);
+    esp_core_dump_image_erase();
+}
 
 // mbedTLS is built with CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC: every TLS session
 // takes ~40KB of internal RAM, and the S3 has ~120KB left once Wi-Fi, LVGL's
@@ -176,6 +206,12 @@ void setup() {
     delay(200);
     Serial.println("\n=== SONOS ESP — CARRÉ (ESP32-S3) ===");
     Serial.printf("Heap %u, PSRAM %u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
+    {
+        char sha[APP_ELF_SHA256_SZ] = {0};
+        esp_app_get_elf_sha256(sha, sizeof(sha));
+        Serial.printf("Build %.9s, reset reason %d\n", sha, (int)esp_reset_reason());
+    }
+    reportStoredCrash();
 
     mbedtls_platform_set_calloc_free(tlsCalloc, heap_caps_free);
 
