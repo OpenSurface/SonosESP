@@ -207,6 +207,15 @@ void sqUiPoll(void) {
         sqRoomPillsRefresh();
     }
 
+    // Streaming accounts: a failed discovery (speaker busy at boot) is retried
+    // every 30s until Spotify is there.
+    static uint32_t svc_retry_at = 0;
+    if (s_core_posted && musicServices.state() == SVC_FAILED && !sqWorkBusy() &&
+        (int32_t)(millis() - svc_retry_at) >= 0) {
+        if (svc_retry_at) sqWorkPost(SQ_JOB_SVC_LOAD);
+        svc_retry_at = millis() + 30000;
+    }
+
     char msg[96];
     if (sqWorkTakeToast(msg, sizeof(msg))) sqToast(msg);
 
@@ -236,7 +245,11 @@ void sqUiPoll(void) {
 void setup() {
     Serial.begin(SERIAL_BAUD_RATE);
     delay(200);
-    Serial.println("\n=== SONOS ESP — CARRÉ (ESP32-S3) ===");
+#if UI_SQUARE
+    Serial.println("\n=== SONOS ESP — KIDS UI, CARRÉ 480x480 (ESP32-S3) ===");
+#else
+    Serial.println("\n=== SONOS ESP — KIDS UI, PORTRAIT 480x800 (ESP32-P4) ===");
+#endif
     Serial.printf("Heap %u, PSRAM %u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
     {
         char sha[APP_ELF_SHA256_SZ] = {0};

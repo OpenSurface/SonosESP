@@ -36,6 +36,7 @@ struct ArtSlot {
     uint32_t       key;        // hash(url) ^ size
     int            size;
     uint32_t       last_use;   // millis() of the last get
+    uint32_t       retry_ms;   // FAILED only: when to try again, 0 = never
     enum { EMPTY, QUEUED, READY, FAILED } state;
     uint16_t*      pixels;     // PSRAM, size*size
     lv_image_dsc_t dsc;
@@ -85,6 +86,10 @@ const lv_image_dsc_t* sqArtGet(const char* url, int size) {
     if (hit) {
         hit->last_use = millis();
         if (hit->state == ArtSlot::READY) out = &hit->dsc;
+        if (hit->state == ArtSlot::FAILED && hit->retry_ms && (int32_t)(millis() - hit->retry_ms) >= 0) {
+            hit->state = ArtSlot::QUEUED;   // a network failure: try once more
+            enqueue = true;
+        }
     } else {
         ArtSlot* s = slotFor(key);
         if (s) {
@@ -405,6 +410,9 @@ static void artTask(void*) {
                 px = nullptr;
             } else {
                 s.state = ArtSlot::FAILED;
+                // Network trouble (timeouts, refused, busy radio) is worth another
+                // go a minute later; an HTTP error or an undecodable picture is not.
+                s.retry_ms = (n < 0 && n > -100) ? millis() + 60000 : 0;
             }
             break;
         }

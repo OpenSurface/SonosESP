@@ -313,7 +313,10 @@ String SonosController::sendSOAP(SonosDevice* dev, const char* service, const ch
         (!strcmp(action, "Play") || !strcmp(action, "Pause") || !strcmp(action, "Next") ||
          !strcmp(action, "Previous") || !strcmp(action, "Seek") ||
          !strcmp(action, "SetAVTransportURI") || !strcmp(action, "AddURIToQueue"));
-    http.setTimeout(transport ? 6000 : 2000);
+    // The service descriptor list is a big answer; on the P4 at boot, with
+    // discovery and artwork sharing the SDIO link, it did not arrive in 2s.
+    const bool big = !strcmp(action, "ListAvailableServices");
+    http.setTimeout(big ? 8000 : transport ? 6000 : 2000);
     http.addHeader("Content-Type", "text/xml; charset=\"utf-8\"");
     // Tell Sonos to close the connection after the response. Sonos already does this
     // (no keep-alive per comment above), but making it explicit ensures the server
