@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Résultats portrait</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&amp;display=swap">
+<style>
+body{margin:0;background:#0E0C26}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font-family:inherit;border:0;cursor:pointer;padding:0}
+</style>
+</helmet>
+<div style="width: 480px; height: 800px; box-sizing: border-box; background: #16133A; color: #FFF7EA; font-family: Nunito, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="height: 72px; flex: none; box-sizing: border-box; padding: 12px 16px; display: flex; align-items: center; gap: 10px">
+    <a href="P_Recherche.dc.html" aria-label="Modifier la recherche : aldebert" style="flex: 1; height: 52px; box-sizing: border-box; border-radius: 26px; border: 3px solid #FF9A3C; background: #231F52; display: flex; align-items: center; gap: 10px; padding: 0 16px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF9A3C" stroke-width="3" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+      <span style="font-size: 21px; font-weight: 900">aldebert</span>
+    </a>
+    <a href="P_Enceintes.dc.html" aria-label="Choisir les enceintes : Salon" style="height: 52px; box-sizing: border-box; padding: 0 12px 0 9px; border-radius: 26px; background: #22396B; color: #DDEEFF; display: flex; align-items: center; gap: 8px">
+      <span style="width: 34px; height: 34px; border-radius: 17px; background: #6CB8FF; color: #16133A; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="3"></rect><circle cx="12" cy="14" r="3.5"></circle><circle cx="12" cy="7" r="0.8"></circle></svg>
+      </span>
+      <span style="font-size: 17px; font-weight: 900">Salon</span>
+    </a>
+  </header>
+
+  <div style="height: 56px; flex: none; box-sizing: border-box; padding: 4px 16px 12px; display: flex; gap: 7px; overflow: hidden">
+    <sc-for list="{{filters}}" as="f" hint-placeholder-count="5">
+      <button type="button" onClick="{{f.pick}}" aria-pressed="{{f.on}}" style="height: 40px; flex: none; box-sizing: border-box; padding: 0 13px; border-radius: 20px; background: {{f.bg}}; color: {{f.fg}}; font-size: 15px; font-weight: 900">{{f.label}}</button>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1; min-height: 0; padding: 0 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+      <div style="height: 72px; flex: none; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 22px; background: #1F1B4D">
+        <a href="P_Main.dc.html" aria-label="Écouter {{r.title}}" style="flex: 1; min-width: 0; height: 72px; display: flex; align-items: center; gap: 14px">
+          <span aria-hidden="true" style="width: 56px; height: 56px; flex: none; border-radius: {{r.radius}}; background: {{r.c1}}; position: relative; overflow: hidden; display: block">
+            <sc-for list="{{r.discs}}" as="dd" hint-placeholder-count="3"><span aria-hidden="true" style="position: absolute; display: block; width: {{dd.d}}px; height: {{dd.d}}px; border-radius: 50%; background: {{dd.c}}; left: {{dd.x}}px; top: {{dd.y}}px"></span></sc-for>
+          </span>
+          <span style="min-width: 0; display: flex; flex-direction: column">
+            <span style="font-size: 19px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.title}}</span>
+            <span style="font-size: 14px; font-weight: 700; color: #B7B1E3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.kind}} · {{r.sub}}</span>
+          </span>
+        </a>
+        <sc-if value="{{r.starred}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{r.toggle}}" aria-label="{{r.favLabel}}" aria-pressed="{{r.fav}}" style="width: 50px; height: 50px; flex: none; border-radius: 25px; background: {{r.starBg}}; color: {{r.starFg}}; display: flex; align-items: center; justify-content: center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="{{r.starFill}}" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.3l-5.6 2.9 1.1-6.3L2.9 9.5l6.3-.9z"></path></svg>
+          </button>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+
+  <dc-import name="Dock" active="chercher" prefix="P_" hint-size="480px,84px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"tirage":{"editor":"int","default":1,"min":1,"max":99},"$preview":{"width":480,"height":800}}'>
+
+// Placeholder covers: 2-3 discs of random size and place, inside the cover.
+// Seeded by the title and the "tirage" tweak, so a cover keeps its drawing.
+function sqRng(seed) {
+  let h = 2166136261 >>> 0;
+  for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  return () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+}
+function sqDiscs(seed, w, h, colors) {
+  const r = sqRng(seed);
+  const n = 2 + Math.floor(r() * 2);
+  const side = Math.min(w, h);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const f = i === 0 ? 0.42 + r() * 0.38 : i === 1 ? 0.18 + r() * 0.2 : 0.08 + r() * 0.1;
+    const d = Math.round(side * f);
+    out.push({ d, x: Math.round(r() * (w - d)), y: Math.round(r() * (h - d)), c: colors[i % colors.length] });
+  }
+  return out;
+}
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: 'all', favs: { a2: true } };
+  }
+  renderVals() {
+    const s = this.state;
+    const items = [
+      { id: 'a1', type: 'artist', kind: 'Artiste', title: 'Aldebert', sub: '1,2 M d’auditeurs', c1: '#FFD23F', c2: '#FF7AB6' },
+      { id: 'a2', type: 'album', kind: 'Album', title: 'Enfantillages 4', sub: 'Aldebert', c1: '#3BE0A0', c2: '#16133A' },
+      { id: 'a3', type: 'track', kind: 'Titre', title: 'Pour louper l’école', sub: 'Aldebert', c1: '#FF9A3C', c2: '#FFF7EA' },
+      { id: 'a4', type: 'playlist', kind: 'Playlist', title: 'Aldebert pour les petits', sub: 'Spotify', c1: '#6CB8FF', c2: '#FFD23F' },
+      { id: 'a5', type: 'track', kind: 'Titre', title: 'Les amoureux', sub: 'Aldebert', c1: '#B69CFF', c2: '#3BE0A0' },
+      { id: 'a6', type: 'album', kind: 'Album', title: 'Enfantillages 3', sub: 'Aldebert', c1: '#FF7AB6', c2: '#6CB8FF' },
+      { id: 'a7', type: 'playlist', kind: 'Playlist', title: 'Boum des enfants', sub: 'Spotify', c1: '#FFD23F', c2: '#16133A' },
+      { id: 'a8', type: 'track', kind: 'Titre', title: 'Range ta chambre', sub: 'Aldebert', c1: '#3BE0A0', c2: '#FF9A3C' }
+    ];
+    const filters = [
+      ['all', 'Tout'], ['track', 'Titres'], ['album', 'Albums'], ['artist', 'Artistes'], ['playlist', 'Playlists']
+    ].map(([id, label]) => ({
+      label,
+      on: s.filter === id,
+      bg: s.filter === id ? '#FF9A3C' : '#2E2A66',
+      fg: s.filter === id ? '#16133A' : '#FFF7EA',
+      pick: () => this.setState({ filter: id })
+    }));
+    const rows = items
+      .filter((it) => s.filter === 'all' || it.type === s.filter)
+      .slice(0, 7)
+      .map((it) => {
+        const fav = !!s.favs[it.id];
+        return {
+          ...it,
+          discs: sqDiscs(it.title + (this.props.tirage ?? 1), 56, 56, [it.c2, '#16133A', '#FFF7EA']),
+          radius: it.type === 'artist' ? '28px' : '16px',
+          starred: it.type !== 'artist',
+          fav,
+          favLabel: fav ? 'Retirer ' + it.title + ' des favoris' : 'Ajouter ' + it.title + ' aux favoris',
+          starBg: fav ? '#FFD23F' : '#2E2A66',
+          starFg: fav ? '#16133A' : '#FFD23F',
+          starFill: fav ? 'currentColor' : 'none',
+          toggle: () => this.setState({ favs: { ...this.state.favs, [it.id]: !this.state.favs[it.id] } })
+        };
+      });
+    return { filters, rows };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Spotify portrait</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&amp;display=swap">
+<style>
+body{margin:0;background:#0E0C26}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font-family:inherit;border:0;cursor:pointer;padding:0}
+</style>
+</helmet>
+<div style="width: 480px; height: 800px; box-sizing: border-box; background: #16133A; color: #FFF7EA; font-family: Nunito, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="height: 72px; flex: none; box-sizing: border-box; padding: 12px 16px; display: flex; align-items: center; gap: 10px">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 900; color: #3BE0A0">Spotify</h1>
+    <a href="P_Enceintes.dc.html" aria-label="Choisir les enceintes : Salon" style="margin-left: auto; height: 48px; box-sizing: border-box; padding: 0 12px 0 7px; border-radius: 24px; background: #22396B; color: #DDEEFF; display: flex; align-items: center; gap: 8px">
+      <span style="width: 34px; height: 34px; border-radius: 17px; background: #6CB8FF; color: #16133A; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="3"></rect><circle cx="12" cy="14" r="3.5"></circle><circle cx="12" cy="7" r="0.8"></circle></svg>
+      </span>
+      <span style="font-size: 18px; font-weight: 900">Salon</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </a>
+  </header>
+
+  <div style="padding: 0 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+    <a href="P_Playlist.dc.html" style="height: 124px; box-sizing: border-box; padding: 16px; border-radius: 30px; background: #3BE0A0; color: #16133A; display: flex; flex-direction: column; justify-content: space-between">
+      <span style="width: 46px; height: 46px; border-radius: 23px; background: #16133A; color: #3BE0A0; display: flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h12M4 12h12M4 18h8M19 15v6M16 18h6"></path></svg>
+      </span>
+      <span style="font-size: 22px; font-weight: 900">Mes playlists</span>
+    </a>
+    <a href="P_Playlist.dc.html" style="height: 124px; box-sizing: border-box; padding: 16px; border-radius: 30px; background: #FF7AB6; color: #16133A; display: flex; flex-direction: column; justify-content: space-between">
+      <span style="width: 46px; height: 46px; border-radius: 23px; background: #16133A; color: #FF7AB6; display: flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"></path></svg>
+      </span>
+      <span style="font-size: 22px; font-weight: 900">Titres likés</span>
+    </a>
+    <a href="P_Playlist.dc.html" style="height: 124px; box-sizing: border-box; padding: 16px; border-radius: 30px; background: #FFD23F; color: #16133A; display: flex; flex-direction: column; justify-content: space-between">
+      <span style="width: 46px; height: 46px; border-radius: 23px; background: #16133A; color: #FFD23F; display: flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="2.2"></circle></svg>
+      </span>
+      <span style="font-size: 22px; font-weight: 900">Mes albums</span>
+    </a>
+    <a href="P_Playlist.dc.html" style="height: 124px; box-sizing: border-box; padding: 16px; border-radius: 30px; background: #6CB8FF; color: #16133A; display: flex; flex-direction: column; justify-content: space-between">
+      <span style="width: 46px; height: 46px; border-radius: 23px; background: #16133A; color: #6CB8FF; display: flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"></path></svg>
+      </span>
+      <span style="font-size: 22px; font-weight: 900">Découvrir</span>
+    </a>
+  </div>
+
+  <div style="margin-top: 20px; padding: 0 16px; display: flex; flex-direction: column; gap: 10px">
+    <span style="font-size: 16px; font-weight: 900; color: #B7B1E3">Écouté récemment</span>
+    <div style="display: flex; gap: 12px; overflow: hidden">
+      <sc-for list="{{recent}}" as="r" hint-placeholder-count="5">
+        <a href="P_Main.dc.html" aria-label="Écouter {{r.title}}" style="width: 96px; flex: none; display: flex; flex-direction: column; gap: 6px">
+          <span aria-hidden="true" style="width: 96px; height: 96px; border-radius: 22px; background: {{r.c1}}; position: relative; overflow: hidden; display: block">
+            <sc-for list="{{r.discs}}" as="dd" hint-placeholder-count="3"><span aria-hidden="true" style="position: absolute; display: block; width: {{dd.d}}px; height: {{dd.d}}px; border-radius: 50%; background: {{dd.c}}; left: {{dd.x}}px; top: {{dd.y}}px"></span></sc-for>
+          </span>
+          <span style="font-size: 13px; font-weight: 800; color: #B7B1E3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.title}}</span>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="margin-top: 18px; padding: 0 16px; display: flex; flex-direction: column; gap: 8px">
+    <span style="font-size: 16px; font-weight: 900; color: #B7B1E3">Tes playlists</span>
+    <sc-for list="{{lists}}" as="l" hint-placeholder-count="2">
+      <a href="P_Playlist.dc.html" style="height: 60px; box-sizing: border-box; padding: 0 14px 0 6px; border-radius: 20px; background: #1F1B4D; display: flex; align-items: center; gap: 12px">
+        <span aria-hidden="true" style="width: 48px; height: 48px; flex: none; border-radius: 14px; background: {{l.c1}}; display: block"></span>
+        <span style="flex: 1; min-width: 0; font-size: 18px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{l.title}}</span>
+        <span style="font-size: 14px; font-weight: 800; color: #B7B1E3">{{l.count}}</span>
+      </a>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1"></div>
+  <dc-import name="Dock" active="spotify" prefix="P_" hint-size="480px,84px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"tirage":{"editor":"int","default":1,"min":1,"max":99},"$preview":{"width":480,"height":800}}'>
+
+// Placeholder covers: 2-3 discs of random size and place, inside the cover.
+// Seeded by the title and the "tirage" tweak, so a cover keeps its drawing.
+function sqRng(seed) {
+  let h = 2166136261 >>> 0;
+  for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  return () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+}
+function sqDiscs(seed, w, h, colors) {
+  const r = sqRng(seed);
+  const n = 2 + Math.floor(r() * 2);
+  const side = Math.min(w, h);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const f = i === 0 ? 0.42 + r() * 0.38 : i === 1 ? 0.18 + r() * 0.2 : 0.08 + r() * 0.1;
+    const d = Math.round(side * f);
+    out.push({ d, x: Math.round(r() * (w - d)), y: Math.round(r() * (h - d)), c: colors[i % colors.length] });
+  }
+  return out;
+}
+class Component extends DCLogic {
+  renderVals() {
+    const tirage = this.props.tirage ?? 1;
+    const recent = [
+        { title: 'Boum du samedi', c1: '#FF7AB6', c2: '#FFD23F' },
+        { title: 'Enfantillages 4', c1: '#3BE0A0', c2: '#16133A' },
+        { title: 'Dodo calme', c1: '#6CB8FF', c2: '#B69CFF' },
+        { title: 'Le Roi Lion', c1: '#FFD23F', c2: '#FF9A3C' },
+        { title: 'Comptines', c1: '#B69CFF', c2: '#3BE0A0' }
+    ];
+    return {
+      recent: recent.map((r) => ({ ...r, discs: sqDiscs(r.title + tirage, 96, 96, [r.c2, '#16133A', '#FFF7EA']) })),
+      lists: [
+        { title: 'Dodo calme', count: '32 titres', c1: '#6CB8FF' },
+        { title: 'Boum du samedi', count: '48 titres', c1: '#FF7AB6' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

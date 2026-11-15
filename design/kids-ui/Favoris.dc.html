@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Favoris</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&amp;display=swap">
+<style>
+body{margin:0;background:#0E0C26}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font-family:inherit;border:0;cursor:pointer;padding:0}
+</style>
+</helmet>
+<div style="width: 480px; height: 480px; box-sizing: border-box; background: #16133A; color: #FFF7EA; font-family: Nunito, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="height: 72px; box-sizing: border-box; padding: 12px 16px; display: flex; align-items: center; gap: 10px">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 900; color: #FFD23F">Favoris</h1>
+    <span style="height: 28px; min-width: 28px; box-sizing: border-box; padding: 0 9px; border-radius: 14px; background: #4A3F1A; color: #FFE58A; font-size: 15px; font-weight: 900; display: flex; align-items: center; justify-content: center">9</span>
+    <a href="Enceintes.dc.html" aria-label="Choisir les enceintes : Salon" style="margin-left: auto; height: 48px; box-sizing: border-box; padding: 0 12px 0 7px; border-radius: 24px; background: #22396B; color: #DDEEFF; display: flex; align-items: center; gap: 8px">
+      <span style="width: 34px; height: 34px; border-radius: 17px; background: #6CB8FF; color: #16133A; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="3"></rect><circle cx="12" cy="14" r="3.5"></circle><circle cx="12" cy="7" r="0.8"></circle></svg>
+      </span>
+      <span style="font-size: 18px; font-weight: 900">Salon</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </a>
+  </header>
+
+  <div style="flex: 1; min-height: 0; overflow: hidden; padding: 0 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 12px; align-content: start">
+    <sc-for list="{{favs}}" as="f" hint-placeholder-count="6">
+      <a href="Main.dc.html" aria-label="Écouter {{f.title}}" style="min-width: 0; display: flex; flex-direction: column; gap: 6px">
+        <span aria-hidden="true" style="height: 136px; border-radius: 26px; background: {{f.c1}}; position: relative; overflow: hidden; display: block">
+          <sc-for list="{{f.discs}}" as="dd" hint-placeholder-count="3"><span aria-hidden="true" style="position: absolute; display: block; width: {{dd.d}}px; height: {{dd.d}}px; border-radius: 50%; background: {{dd.c}}; left: {{dd.x}}px; top: {{dd.y}}px"></span></sc-for>
+          <span style="position: absolute; left: 10px; top: 10px; height: 24px; box-sizing: border-box; padding: 0 9px; border-radius: 12px; background: #16133A; color: #FFF7EA; font-size: 12px; font-weight: 900; display: flex; align-items: center">{{f.kind}}</span>
+        </span>
+        <span style="font-size: 16px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{f.title}}</span>
+      </a>
+    </sc-for>
+  </div>
+
+  <dc-import name="Dock" active="favoris" hint-size="480px,84px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"tirage":{"editor":"int","default":1,"min":1,"max":99},"$preview":{"width":480,"height":480}}'>
+
+// Placeholder covers: 2-3 discs of random size and place, inside the cover.
+// Seeded by the title and the "tirage" tweak, so a cover keeps its drawing.
+function sqRng(seed) {
+  let h = 2166136261 >>> 0;
+  for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  return () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+}
+function sqDiscs(seed, w, h, colors) {
+  const r = sqRng(seed);
+  const n = 2 + Math.floor(r() * 2);
+  const side = Math.min(w, h);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const f = i === 0 ? 0.42 + r() * 0.38 : i === 1 ? 0.18 + r() * 0.2 : 0.08 + r() * 0.1;
+    const d = Math.round(side * f);
+    out.push({ d, x: Math.round(r() * (w - d)), y: Math.round(r() * (h - d)), c: colors[i % colors.length] });
+  }
+  return out;
+}
+class Component extends DCLogic {
+  renderVals() {
+    const tirage = this.props.tirage ?? 1;
+    const favs = [
+        { title: 'Enfantillages 4', kind: 'Album', c1: '#3BE0A0', c2: '#16133A', c3: '#FFD23F' },
+        { title: 'Dodo calme', kind: 'Playlist', c1: '#6CB8FF', c2: '#B69CFF', c3: '#FFF7EA' },
+        { title: 'Boum du samedi', kind: 'Playlist', c1: '#FF7AB6', c2: '#FFD23F', c3: '#16133A' },
+        { title: 'Radio Nova', kind: 'Radio', c1: '#FF9A3C', c2: '#FFF7EA', c3: '#16133A' },
+        { title: 'Le Roi Lion', kind: 'Album', c1: '#FFD23F', c2: '#FF9A3C', c3: '#16133A' },
+        { title: 'Comptines', kind: 'Playlist', c1: '#B69CFF', c2: '#3BE0A0', c3: '#FFF7EA' },
+        { title: 'France Inter', kind: 'Radio', c1: '#FF7AB6', c2: '#6CB8FF', c3: '#FFF7EA' },
+        { title: 'Discovery', kind: 'Album', c1: '#16133A', c2: '#FF7AB6', c3: '#3BE0A0' },
+        { title: 'Pop du matin', kind: 'Playlist', c1: '#3BE0A0', c2: '#FF9A3C', c3: '#16133A' }
+    ];
+    return {
+      favs: favs.map((f) => ({ ...f, discs: sqDiscs(f.title + tirage, 141, 136, [f.c2, f.c3, '#FFF7EA']) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

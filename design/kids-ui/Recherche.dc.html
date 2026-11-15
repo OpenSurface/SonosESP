@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Chercher sur Spotify</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&amp;display=swap">
+<style>
+body{margin:0;background:#0E0C26}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font-family:inherit;border:0;cursor:pointer;padding:0}
+</style>
+</helmet>
+<div style="width: 480px; height: 480px; box-sizing: border-box; background: #16133A; color: #FFF7EA; font-family: Nunito, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="height: 72px; box-sizing: border-box; padding: 12px 16px; display: flex; align-items: center; gap: 12px">
+    <a href="Main.dc.html" aria-label="Retour" style="width: 48px; height: 48px; border-radius: 24px; background: #2E2A66; color: #FF9A3C; display: flex; align-items: center; justify-content: center">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+    </a>
+    <h1 style="margin: 0; font-size: 25px; font-weight: 900; color: #FF9A3C">Chercher sur Spotify</h1>
+  </header>
+
+  <div style="margin: 0 16px; height: 60px; box-sizing: border-box; border-radius: 30px; border: 3px solid #FF9A3C; background: #231F52; display: flex; align-items: center; gap: 10px; padding: 0 7px 0 18px">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF9A3C" stroke-width="3" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+    <span style="flex: 1; min-width: 0; font-size: 24px; font-weight: 900; white-space: nowrap; overflow: hidden">
+      <sc-if value="{{hasQuery}}" hint-placeholder-val="{{true}}">{{query}}</sc-if>
+      <span style="display: inline-block; width: 3px; height: 26px; background: #FF9A3C; vertical-align: -4px; margin-left: 2px"></span>
+      <sc-if value="{{empty}}" hint-placeholder-val="{{false}}"><span style="font-size: 19px; font-weight: 700; color: #9C96CC">Un artiste, une chanson…</span></sc-if>
+    </span>
+    <sc-if value="{{hasQuery}}" hint-placeholder-val="{{true}}">
+      <button type="button" onClick="{{clear}}" aria-label="Effacer" style="width: 44px; height: 44px; border-radius: 22px; background: #2E2A66; color: #FFF7EA; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+    </sc-if>
+  </div>
+
+  <div style="height: 44px; margin: 12px 0 0; padding: 0 16px; display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap">
+    <span style="font-size: 14px; font-weight: 800; color: #B7B1E3; flex: none">Récents</span>
+    <sc-for list="{{recents}}" as="r" hint-placeholder-count="3">
+      <button type="button" onClick="{{r.pick}}" style="height: 40px; flex: none; box-sizing: border-box; padding: 0 16px; border-radius: 20px; background: #2E2A66; color: #FFF7EA; font-size: 16px; font-weight: 800">{{r.label}}</button>
+    </sc-for>
+  </div>
+
+  <div style="margin-top: 12px; padding: 0 12px; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px">
+      <sc-for list="{{row1}}" as="k" hint-placeholder-count="10">
+        <button type="button" onClick="{{k.press}}" style="height: 54px; border-radius: 14px; background: #2E2A66; color: #FFF7EA; font-size: 22px; font-weight: 900; box-shadow: 0 4px 0 #0E0C26">{{k.label}}</button>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px">
+      <sc-for list="{{row2}}" as="k" hint-placeholder-count="10">
+        <button type="button" onClick="{{k.press}}" style="height: 54px; border-radius: 14px; background: #2E2A66; color: #FFF7EA; font-size: 22px; font-weight: 900; box-shadow: 0 4px 0 #0E0C26">{{k.label}}</button>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px">
+      <sc-for list="{{row3}}" as="k" hint-placeholder-count="8">
+        <button type="button" onClick="{{k.press}}" style="height: 54px; border-radius: 14px; background: #2E2A66; color: #FFF7EA; font-size: 22px; font-weight: 900; box-shadow: 0 4px 0 #0E0C26">{{k.label}}</button>
+      </sc-for>
+      <button type="button" onClick="{{backspace}}" aria-label="Effacer une lettre" style="grid-column: span 2; height: 54px; border-radius: 14px; background: #3A3578; color: #FFF7EA; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 0 #0E0C26">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H9l-6 7 6 7h12z"></path><path d="M12 9l6 6M18 9l-6 6"></path></svg>
+      </button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px">
+      <button type="button" style="grid-column: span 2; height: 54px; border-radius: 14px; background: #3A3578; color: #FFF7EA; font-size: 18px; font-weight: 900; box-shadow: 0 4px 0 #0E0C26">123</button>
+      <button type="button" onClick="{{space}}" aria-label="Espace" style="grid-column: span 5; height: 54px; border-radius: 14px; background: #2E2A66; color: #B7B1E3; font-size: 16px; font-weight: 800; box-shadow: 0 4px 0 #0E0C26">espace</button>
+      <a href="Resultats.dc.html" style="grid-column: span 3; height: 54px; border-radius: 14px; background: #FF9A3C; color: #16133A; font-size: 18px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 0 #B8641C">
+        Chercher
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+      </a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":480,"height":480}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { query: 'alde' };
+  }
+  renderVals() {
+    const q = this.state.query;
+    const keys = (s) => s.split('').map((c) => ({
+      label: c,
+      press: () => this.setState({ query: this.state.query + c.toLowerCase() })
+    }));
+    return {
+      query: q,
+      hasQuery: q.length > 0,
+      empty: q.length === 0,
+      clear: () => this.setState({ query: '' }),
+      backspace: () => this.setState({ query: this.state.query.slice(0, -1) }),
+      space: () => this.setState({ query: this.state.query + ' ' }),
+      recents: ['Aldebert', 'La Reine des neiges', 'Comptines'].map((label) => ({
+        label,
+        pick: () => this.setState({ query: label.toLowerCase() })
+      })),
+      row1: keys('AZERTYUIOP'),
+      row2: keys('QSDFGHJKLM'),
+      row3: keys("WXCVBNÉ'")
+    };
+  }
+}
+</script>
+</body>
+</html>

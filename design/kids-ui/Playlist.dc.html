@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Playlist Dodo calme</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&amp;display=swap">
+<style>
+body{margin:0;background:#0E0C26}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font-family:inherit;border:0;cursor:pointer;padding:0}
+</style>
+</helmet>
+<div style="width: 480px; height: 480px; box-sizing: border-box; background: #16133A; color: #FFF7EA; font-family: Nunito, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="height: 72px; box-sizing: border-box; padding: 12px 16px; display: flex; align-items: center; gap: 12px">
+    <a href="Spotify.dc.html" aria-label="Retour à Spotify" style="width: 48px; height: 48px; border-radius: 24px; background: #2E2A66; color: #3BE0A0; display: flex; align-items: center; justify-content: center">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+    </a>
+    <span style="font-size: 18px; font-weight: 800; color: #B7B1E3">Mes playlists</span>
+  </header>
+
+  <div style="padding: 0 16px; display: flex; gap: 16px; align-items: center">
+    <div aria-hidden="true" style="width: 112px; height: 112px; flex: none; border-radius: 24px; background: #6CB8FF; position: relative; overflow: hidden">
+      <sc-for list="{{heroDiscs}}" as="dd" hint-placeholder-count="3"><span aria-hidden="true" style="position: absolute; display: block; width: {{dd.d}}px; height: {{dd.d}}px; border-radius: 50%; background: {{dd.c}}; left: {{dd.x}}px; top: {{dd.y}}px"></span></sc-for>
+    </div>
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+      <h1 style="margin: 0; font-size: 27px; font-weight: 900; line-height: 1.1">Dodo calme</h1>
+      <span style="font-size: 14px; font-weight: 700; color: #B7B1E3">Playlist · 32 titres · 1 h 48</span>
+      <div style="margin-top: 8px; display: flex; gap: 10px">
+        <a href="Main.dc.html" style="height: 50px; box-sizing: border-box; padding: 0 20px 0 14px; border-radius: 25px; background: #3BE0A0; color: #16133A; font-size: 18px; font-weight: 900; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 0 #1F9E6E">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"></path></svg>
+          Tout lire
+        </a>
+        <button type="button" onClick="{{toggleFav}}" aria-label="{{favLabel}}" aria-pressed="{{fav}}" style="width: 50px; height: 50px; border-radius: 25px; background: {{favBg}}; color: {{favFg}}; display: flex; align-items: center; justify-content: center">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="{{favFill}}" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.3l-5.6 2.9 1.1-6.3L2.9 9.5l6.3-.9z"></path></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; margin-top: 14px; padding: 0 16px; display: flex; flex-direction: column; gap: 6px; overflow: hidden">
+    <sc-for list="{{tracks}}" as="t" hint-placeholder-count="4">
+      <a href="Main.dc.html" aria-label="Écouter {{t.title}}" style="height: 52px; flex: none; box-sizing: border-box; padding: 0 14px; border-radius: 16px; background: #1F1B4D; display: flex; align-items: center; gap: 12px">
+        <span style="width: 22px; font-size: 16px; font-weight: 900; color: #3BE0A0; text-align: center">{{t.n}}</span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+          <span style="font-size: 17px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.title}}</span>
+          <span style="font-size: 13px; font-weight: 700; color: #B7B1E3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.artist}}</span>
+        </span>
+        <span style="font-size: 14px; font-weight: 800; color: #B7B1E3">{{t.time}}</span>
+      </a>
+    </sc-for>
+  </div>
+
+  <dc-import name="Dock" active="spotify" hint-size="480px,84px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"tirage":{"editor":"int","default":1,"min":1,"max":99},"$preview":{"width":480,"height":480}}'>
+
+// Placeholder covers: 2-3 discs of random size and place, inside the cover.
+// Seeded by the title and the "tirage" tweak, so a cover keeps its drawing.
+function sqRng(seed) {
+  let h = 2166136261 >>> 0;
+  for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  return () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+}
+function sqDiscs(seed, w, h, colors) {
+  const r = sqRng(seed);
+  const n = 2 + Math.floor(r() * 2);
+  const side = Math.min(w, h);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const f = i === 0 ? 0.42 + r() * 0.38 : i === 1 ? 0.18 + r() * 0.2 : 0.08 + r() * 0.1;
+    const d = Math.round(side * f);
+    out.push({ d, x: Math.round(r() * (w - d)), y: Math.round(r() * (h - d)), c: colors[i % colors.length] });
+  }
+  return out;
+}
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { fav: true };
+  }
+  renderVals() {
+    const fav = this.state.fav;
+    return {
+      heroDiscs: sqDiscs('Dodo calme' + (this.props.tirage ?? 1), 112, 112, ['#B69CFF', '#FFF7EA', '#16133A']),
+      fav,
+      favLabel: fav ? 'Retirer Dodo calme des favoris' : 'Ajouter Dodo calme aux favoris',
+      favBg: fav ? '#FFD23F' : '#2E2A66',
+      favFg: fav ? '#16133A' : '#FFD23F',
+      favFill: fav ? 'currentColor' : 'none',
+      toggleFav: () => this.setState({ fav: !fav }),
+      tracks: [
+        { n: '1', title: 'Berceuse', artist: 'Johannes Brahms', time: '2:41' },
+        { n: '2', title: 'Au clair de la lune', artist: 'Comptines', time: '1:58' },
+        { n: '3', title: 'Gymnopédie n° 1', artist: 'Erik Satie', time: '3:05' },
+        { n: '4', title: 'Clair de lune', artist: 'Claude Debussy', time: '5:02' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

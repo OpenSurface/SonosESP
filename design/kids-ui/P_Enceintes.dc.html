@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Enceintes portrait</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&amp;display=swap">
+<style>
+body{margin:0;background:#0E0C26}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font-family:inherit;border:0;cursor:pointer;padding:0}
+button:disabled{cursor:default}
+</style>
+</helmet>
+<div style="width: 480px; height: 800px; box-sizing: border-box; background: #16133A; color: #FFF7EA; font-family: Nunito, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="height: 72px; flex: none; box-sizing: border-box; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 900; color: #6CB8FF">Où on écoute ?</h1>
+    <a href="P_Main.dc.html" aria-label="Fermer" style="width: 48px; height: 48px; border-radius: 24px; background: #2E2A66; color: #FFF7EA; display: flex; align-items: center; justify-content: center">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+    </a>
+  </header>
+
+  <div style="padding: 0 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+    <sc-for list="{{rooms}}" as="r" hint-placeholder-count="6">
+      <div style="height: 128px; position: relative; opacity: {{r.opacity}}">
+        <button type="button" onClick="{{r.pick}}" disabled="{{r.off}}" aria-pressed="{{r.selected}}" aria-label="Écouter dans {{r.name}}" style="width: 100%; height: 128px; box-sizing: border-box; border-radius: 28px; border: 3px solid {{r.border}}; background: {{r.bg}}; color: {{r.fg}}; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 14px; text-align: left">
+          <span style="width: 50px; height: 50px; border-radius: 25px; background: {{r.iconBg}}; color: #6CB8FF; display: flex; align-items: center; justify-content: center">
+            <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{r.d1}}"></path><path d="{{r.d2}}"></path><path d="{{r.d3}}"></path></svg>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 4px; width: 100%">
+            <span style="font-size: 20px; font-weight: 900">{{r.name}}</span>
+            <sc-if value="{{r.inGroup}}" hint-placeholder-val="{{false}}">
+              <span style="display: flex; align-items: center; gap: 8px">
+                <span style="flex: 1; height: 10px; border-radius: 5px; background: {{r.track}}; overflow: hidden; display: block">
+                  <span style="width: {{r.volPct}}; height: 10px; border-radius: 5px; background: {{r.fill}}; display: block"></span>
+                </span>
+                <span style="font-size: 13px; font-weight: 900; color: {{r.subFg}}">{{r.vol}}</span>
+              </span>
+            </sc-if>
+            <sc-if value="{{r.alone}}" hint-placeholder-val="{{true}}">
+              <span style="font-size: 13px; font-weight: 800; color: {{r.subFg}}">{{r.status}}</span>
+            </sc-if>
+          </span>
+        </button>
+        <sc-if value="{{r.canGroup}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{r.toggleGroup}}" aria-pressed="{{r.grouped}}" aria-label="{{r.groupLabel}}" style="position: absolute; right: 10px; top: 10px; width: 46px; height: 46px; border-radius: 23px; background: {{r.gBg}}; color: {{r.gFg}}; display: flex; align-items: center; justify-content: center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{r.gIcon}}"></path></svg>
+          </button>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="margin: 16px 16px 0; height: 84px; box-sizing: border-box; border-radius: 26px; background: #22396B; padding: 0 12px; display: flex; align-items: center; gap: 12px">
+    <button type="button" onClick="{{groupDown}}" aria-label="Moins fort partout" style="width: 50px; height: 50px; flex: none; border-radius: 25px; background: #16133A; color: #6CB8FF; display: flex; align-items: center; justify-content: center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg>
+    </button>
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+      <span style="font-size: 15px; font-weight: 900; color: #DDEEFF">Volume du groupe · {{groupVol}}</span>
+      <div style="height: 14px; border-radius: 7px; background: #16133A; overflow: hidden">
+        <div style="width: {{groupPct}}; height: 14px; border-radius: 7px; background: #6CB8FF"></div>
+      </div>
+    </div>
+    <button type="button" onClick="{{groupUp}}" aria-label="Plus fort partout" style="width: 50px; height: 50px; flex: none; border-radius: 25px; background: #16133A; color: #6CB8FF; display: flex; align-items: center; justify-content: center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>
+    </button>
+  </div>
+
+  <div style="margin-top: auto; padding: 0 16px 20px; display: flex; gap: 12px">
+    <button type="button" onClick="{{everywhere}}" style="flex: 1; height: 64px; box-sizing: border-box; border-radius: 32px; border: 3px solid #6CB8FF; background: transparent; color: #6CB8FF; font-size: 20px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 10px">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path><path d="M10 20v-5h4v5"></path></svg>
+      Toute la maison
+    </button>
+    <a href="P_Reglages.dc.html" aria-label="Réglages" style="width: 64px; height: 64px; border-radius: 32px; background: #2E2A66; color: #B7B1E3; display: flex; align-items: center; justify-content: center">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M18 7h2M4 17h3M12 17h8"></path><circle cx="15.5" cy="7" r="2.5"></circle><circle cx="9.5" cy="17" r="2.5"></circle></svg>
+    </a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":480,"height":800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { selected: 'salon', grouped: { cuisine: true }, vol: { salon: 40, cuisine: 25, chambre: 15, enfants: 20, bureau: 30, terrasse: 0 } };
+  }
+  renderVals() {
+    const s = this.state;
+    const ICONS = {
+      salon: ['M4 11V8a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v3', 'M2.5 12.5a2 2 0 0 1 4 0V15h11v-2.5a2 2 0 0 1 4 0V18h-19z', 'M5 18v2M19 18v2'],
+      cuisine: ['M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z', 'M2 10h2M20 10h2', 'M9 6.5c0-1.2 1.2-1.2 1.2-2.5M14 6.5c0-1.2 1.2-1.2 1.2-2.5'],
+      chambre: ['M3 19V6', 'M3 14h18v5', 'M21 14a3 3 0 0 0-3-3h-7v3M5.5 11a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0-3.6 0'],
+      enfants: ['M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.3l-5.6 2.9 1.1-6.3L2.9 9.5l6.3-.9z', '', ''],
+      bureau: ['M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'M8 20h8M12 16v4', ''],
+      terrasse: ['M8 12a4 4 0 1 0 8 0a4 4 0 1 0-8 0', 'M12 2v2M12 20v2M2 12h2M20 12h2', 'M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4']
+    };
+    const list = [
+      { id: 'salon', name: 'Salon' }, { id: 'cuisine', name: 'Cuisine' }, { id: 'chambre', name: 'Chambre' },
+      { id: 'enfants', name: 'Enfants' }, { id: 'bureau', name: 'Bureau' }, { id: 'terrasse', name: 'Terrasse', off: true }
+    ];
+    const members = list.filter((r) => r.id === s.selected || (s.grouped[r.id] && r.id !== s.selected));
+    const groupVol = Math.round(members.reduce((a, r) => a + s.vol[r.id], 0) / members.length);
+    const bump = (d) => () => {
+      const v = { ...this.state.vol };
+      members.forEach((r) => { v[r.id] = Math.max(0, Math.min(100, v[r.id] + d)); });
+      this.setState({ vol: v });
+    };
+    const rooms = list.map((r) => {
+      const selected = s.selected === r.id;
+      const grouped = !selected && !!s.grouped[r.id];
+      const [d1, d2, d3] = ICONS[r.id];
+      return {
+        name: r.name, d1, d2, d3, selected, grouped,
+        inGroup: selected || grouped,
+        alone: !(selected || grouped),
+        status: r.off ? 'Éteinte' : 'Libre',
+        vol: s.vol[r.id], volPct: s.vol[r.id] + '%',
+        off: !!r.off,
+        opacity: r.off ? '0.45' : '1',
+        bg: selected ? '#6CB8FF' : (grouped ? '#22396B' : '#231F52'),
+        fg: selected ? '#16133A' : '#FFF7EA',
+        subFg: selected ? '#16133A' : (grouped ? '#A9C9F0' : '#B7B1E3'),
+        track: selected ? '#3D7FC4' : '#16133A',
+        fill: selected ? '#16133A' : '#6CB8FF',
+        border: (grouped || selected) ? '#6CB8FF' : '#231F52',
+        iconBg: selected ? '#16133A' : '#2E2A66',
+        canGroup: !selected && !r.off,
+        gBg: grouped ? '#6CB8FF' : '#2E2A66',
+        gFg: grouped ? '#16133A' : '#6CB8FF',
+        gIcon: grouped ? 'M5 12.5l4.5 4.5L19 7.5' : 'M12 5v14M5 12h14',
+        groupLabel: grouped ? 'Retirer ' + r.name + ' du groupe' : 'Ajouter ' + r.name + ' au groupe',
+        pick: () => {
+          const g = { ...this.state.grouped };
+          delete g[r.id];
+          this.setState({ selected: r.id, grouped: g });
+        },
+        toggleGroup: () => this.setState({ grouped: { ...this.state.grouped, [r.id]: !this.state.grouped[r.id] } })
+      };
+    });
+    const everywhere = () => {
+      const g = {};
+      list.forEach((r) => { if (!r.off && r.id !== this.state.selected) g[r.id] = true; });
+      this.setState({ grouped: g });
+    };
+    return { rooms, everywhere, groupVol, groupPct: groupVol + '%', groupDown: bump(-5), groupUp: bump(5) };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Paroles portrait</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&amp;display=swap">
+<style>
+body{margin:0;background:#0E0C26}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font-family:inherit;border:0;cursor:pointer;padding:0;background:none;color:inherit}
+</style>
+</helmet>
+<div style="width: 480px; height: 800px; box-sizing: border-box; background: {{bg}}; color: #FFF7EA; font-family: Nunito, system-ui, sans-serif; position: relative; overflow: hidden">
+
+  <header style="position: absolute; left: 0; right: 0; top: 0; height: 88px; box-sizing: border-box; padding: 14px 18px; display: flex; align-items: center; gap: 14px; z-index: 2">
+    <div aria-hidden="true" style="width: 60px; height: 60px; flex: none; border-radius: 16px; background: #FF7AB6; position: relative; overflow: hidden">
+      <div style="position: absolute; width: 50px; height: 50px; border-radius: 25px; background: #FFD23F; left: -12px; top: 22px"></div>
+      <div style="position: absolute; width: 20px; height: 20px; border-radius: 10px; background: #16133A; right: 9px; top: 9px"></div>
+    </div>
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+      <span style="font-size: 21px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Au clair de la lune</span>
+      <span style="font-size: 16px; font-weight: 700; color: #D9CFF2">Comptines</span>
+    </div>
+    <a href="P_Main.dc.html" aria-label="Fermer les paroles" style="width: 52px; height: 52px; flex: none; border-radius: 26px; background: {{chipBg}}; color: #FFF7EA; display: flex; align-items: center; justify-content: center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+    </a>
+  </header>
+
+  <sc-if value="{{isSync}}" hint-placeholder-val="{{true}}">
+    <div style="position: absolute; left: 0; right: 0; top: 88px; bottom: 112px; overflow: hidden">
+      <div style="position: absolute; left: 26px; right: 26px; top: 0; transform: translateY({{offset}}px); transition: transform 450ms ease">
+        <sc-for list="{{lines}}" as="l" hint-placeholder-count="10">
+          <button type="button" onClick="{{l.seek}}" aria-current="{{l.current}}" style="width: 100%; height: 66px; display: flex; align-items: center; text-align: left; font-size: {{l.size}}px; font-weight: 900; color: {{l.color}}; opacity: {{l.opacity}}; white-space: nowrap; transition: font-size 300ms, color 300ms, opacity 300ms">{{l.text}}</button>
+        </sc-for>
+      </div>
+      <div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: 48px; background: linear-gradient({{bg}}, transparent)"></div>
+      <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 72px; background: linear-gradient(transparent, {{bg}})"></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isText}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; left: 0; right: 0; top: 88px; bottom: 112px; overflow-y: auto; box-sizing: border-box; padding: 4px 26px 28px">
+      <span style="display: inline-flex; align-items: center; height: 32px; box-sizing: border-box; padding: 0 14px; border-radius: 16px; background: {{chipBg}}; color: #FFE58A; font-size: 14px; font-weight: 800">Paroles sans le rythme : on les fait défiler du doigt</span>
+      <sc-for list="{{plain}}" as="p" hint-placeholder-count="10">
+        <p style="margin: 12px 0 0; font-size: 26px; line-height: 1.25; font-weight: 800; color: #FFF7EA">{{p.text}}</p>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isNone}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; left: 0; right: 0; top: 88px; bottom: 112px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 0 44px; text-align: center">
+      <div aria-hidden="true" style="width: 120px; height: 120px; border-radius: 60px; background: {{chipBg}}; color: #FF7AB6; display: flex; align-items: center; justify-content: center">
+        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="12" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"></path><path d="M3.5 3.5l17 17"></path></svg>
+      </div>
+      <p style="margin: 0; font-size: 29px; font-weight: 900; line-height: 1.15">Pas de paroles pour cette chanson</p>
+      <p style="margin: 0; font-size: 18px; font-weight: 700; color: #D9CFF2">On retourne à la lecture dans un instant.</p>
+    </div>
+  </sc-if>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 112px; box-sizing: border-box; padding: 0 20px 18px; display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; z-index: 2">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <div style="flex: 1; height: 12px; border-radius: 6px; background: {{chipBg}}; overflow: hidden">
+        <div style="width: {{progress}}; height: 12px; border-radius: 6px; background: #FF7AB6; transition: width 450ms"></div>
+      </div>
+      <span style="font-size: 15px; font-weight: 800; color: #D9CFF2; white-space: nowrap">{{time}}</span>
+    </div>
+    <div style="display: flex; align-items: center; justify-content: center; gap: 22px">
+      <button type="button" aria-label="Morceau précédent" style="width: 52px; height: 52px; border-radius: 26px; background: {{chipBg}}; color: #FFF7EA; display: flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6v12L9.5 12z"></path><path d="M6 6v12" fill="none"></path></svg>
+      </button>
+      <button type="button" onClick="{{togglePlay}}" aria-label="{{playLabel}}" style="width: 64px; height: 64px; border-radius: 32px; background: #FF7AB6; color: #16133A; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 0 #B84A80">
+        <sc-if value="{{playing}}" hint-placeholder-val="{{true}}">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4.5" height="14" rx="1.5"></rect><rect x="13.5" y="5" width="4.5" height="14" rx="1.5"></rect></svg>
+        </sc-if>
+        <sc-if value="{{paused}}" hint-placeholder-val="{{false}}">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"></path></svg>
+        </sc-if>
+      </button>
+      <button type="button" aria-label="Morceau suivant" style="width: 52px; height: 52px; border-radius: 26px; background: {{chipBg}}; color: #FFF7EA; display: flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6v12l8.5-6z"></path><path d="M18 6v12" fill="none"></path></svg>
+      </button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"etat":{"editor":"enum","options":["synchro","texte","aucune"],"default":"synchro"},"fond":{"editor":"enum","options":["pochette","nuit"],"default":"pochette"},"$preview":{"width":480,"height":800}}'>
+const LINES = [
+  'Au clair de la lune,', 'Mon ami Pierrot,', 'Prête-moi ta plume', 'Pour écrire un mot.',
+  'Ma chandelle est morte,', 'Je n’ai plus de feu.', 'Ouvre-moi ta porte', 'Pour l’amour de Dieu.',
+  'Au clair de la lune,', 'Pierrot répondit :', '« Je n’ai pas de plume,', 'Je suis dans mon lit. »',
+  'Va chez la voisine,', 'Je crois qu’elle y est,', 'Car dans sa cuisine', 'On bat le briquet. »'
+];
+const STEP = 2.6;
+const fmt = (t) => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { i: 3, playing: true };
+  }
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      if (this.state.playing) this.setState({ i: (this.state.i + 1) % LINES.length });
+    }, STEP * 1000);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const etat = this.props.etat ?? 'synchro';
+    const fond = this.props.fond ?? 'pochette';
+    const s = this.state;
+    const bg = fond === 'pochette' ? '#3A1740' : '#16133A';
+    const total = LINES.length * STEP + 6;
+    const pos = 3 + s.i * STEP;
+    return {
+      bg,
+      chipBg: fond === 'pochette' ? '#561F5C' : '#2E2A66',
+      isSync: etat === 'synchro',
+      isText: etat === 'texte',
+      isNone: etat === 'aucune',
+      offset: 200 - s.i * 66,
+      lines: LINES.map((text, k) => {
+        const d = k - s.i;
+        return {
+          text,
+          current: d === 0 ? 'true' : 'false',
+          size: d === 0 ? 34 : (d < 0 ? 22 : 25),
+          color: d === 0 ? '#FFD23F' : (d < 0 ? '#FFF7EA' : '#E3DAF5'),
+          opacity: d === 0 ? 1 : (d < 0 ? 0.35 : (d > 4 ? 0.5 : 0.9)),
+          seek: () => this.setState({ i: k })
+        };
+      }),
+      plain: LINES.map((text) => ({ text })),
+      playing: s.playing,
+      paused: !s.playing,
+      playLabel: s.playing ? 'Pause' : 'Lecture',
+      togglePlay: () => this.setState({ playing: !s.playing }),
+      progress: Math.round(pos / total * 100) + '%',
+      time: fmt(pos) + ' / ' + fmt(total)
+    };
+  }
+}
+</script>
+</body>
+</html>

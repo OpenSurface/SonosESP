@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Barre du bas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<nav aria-label="Navigation principale" style="width: 480px; height: 84px; box-sizing: border-box; padding: 8px 12px 10px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; background: #1E1A4A; border-top: 2px solid #2E2A66; font-family: Nunito, system-ui, sans-serif; color: #FFF7EA">
+  <a href="{{lec.href}}" aria-label="Lecture" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: inherit; text-decoration: none">
+    <span style="width: 64px; height: 40px; border-radius: 20px; display: flex; align-items: center; justify-content: center; background: {{lec.bg}}; color: {{lec.fg}}">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+    </span>
+    <span style="font-size: 14px; font-weight: 900; color: {{lec.label}}">Lecture</span>
+  </a>
+  <a href="{{che.href}}" aria-label="Chercher" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: inherit; text-decoration: none">
+    <span style="width: 64px; height: 40px; border-radius: 20px; display: flex; align-items: center; justify-content: center; background: {{che.bg}}; color: {{che.fg}}">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+    </span>
+    <span style="font-size: 14px; font-weight: 900; color: {{che.label}}">Chercher</span>
+  </a>
+  <a href="{{fav.href}}" aria-label="Favoris" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: inherit; text-decoration: none">
+    <span style="width: 64px; height: 40px; border-radius: 20px; display: flex; align-items: center; justify-content: center; background: {{fav.bg}}; color: {{fav.fg}}">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.3l-5.6 2.9 1.1-6.3L2.9 9.5l6.3-.9z"></path></svg>
+    </span>
+    <span style="font-size: 14px; font-weight: 900; color: {{fav.label}}">Favoris</span>
+  </a>
+  <a href="{{spo.href}}" aria-label="Spotify" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: inherit; text-decoration: none">
+    <span style="width: 64px; height: 40px; border-radius: 20px; display: flex; align-items: center; justify-content: center; background: {{spo.bg}}; color: {{spo.fg}}">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="2.5"></circle><path d="M12 3a9 9 0 0 1 9 9"></path></svg>
+    </span>
+    <span style="font-size: 14px; font-weight: 900; color: {{spo.label}}">Spotify</span>
+  </a>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["lecture","chercher","favoris","spotify"],"default":"lecture"},"prefix":{"editor":"enum","options":["","P_"],"default":""},"$preview":{"width":480,"height":84}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'lecture';
+    // "" links the square screens, "P_" the portrait ones (P_Main.dc.html...).
+    const prefix = this.props.prefix ?? '';
+    const item = (key, color, file) => Object.assign(active === key
+      ? { bg: color, fg: '#16133A', label: color }
+      : { bg: 'transparent', fg: color, label: '#B7B1E3' }, { href: prefix + file });
+    return {
+      lec: item('lecture', '#FF7AB6', 'Main.dc.html'),
+      che: item('chercher', '#FF9A3C', 'Recherche.dc.html'),
+      fav: item('favoris', '#FFD23F', 'Favoris.dc.html'),
+      spo: item('spotify', '#3BE0A0', 'Spotify.dc.html')
+    };
+  }
+}
+</script>
+</body>
+</html>

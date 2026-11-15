@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Lecture portrait</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&amp;display=swap">
+<style>
+body{margin:0;background:#0E0C26}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font-family:inherit;border:0;cursor:pointer;padding:0}
+</style>
+</helmet>
+<div style="width: 480px; height: 800px; box-sizing: border-box; background: #16133A; color: #FFF7EA; font-family: Nunito, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="height: 72px; flex: none; box-sizing: border-box; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between">
+    <a href="P_Enceintes.dc.html" aria-label="Choisir les enceintes : Salon et Cuisine" style="height: 48px; box-sizing: border-box; padding: 0 14px 0 7px; border-radius: 24px; background: #22396B; color: #DDEEFF; display: flex; align-items: center; gap: 10px">
+      <span style="width: 34px; height: 34px; border-radius: 17px; background: #6CB8FF; color: #16133A; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="3"></rect><circle cx="12" cy="14" r="3.5"></circle><circle cx="12" cy="7" r="0.8"></circle></svg>
+      </span>
+      <span style="font-size: 19px; font-weight: 900">Salon</span>
+      <span style="font-size: 15px; font-weight: 800; color: #A9C9F0">+ Cuisine</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </a>
+    <button type="button" onClick="{{toggleFav}}" aria-label="{{favLabel}}" aria-pressed="{{fav}}" style="width: 52px; height: 52px; border-radius: 26px; background: {{favBg}}; color: {{favFg}}; display: flex; align-items: center; justify-content: center">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="{{favFill}}" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.3l-5.6 2.9 1.1-6.3L2.9 9.5l6.3-.9z"></path></svg>
+    </button>
+  </header>
+
+  <main style="flex: 1; padding: 6px 24px 0; display: flex; flex-direction: column; align-items: center">
+    <a href="P_Paroles.dc.html" aria-label="Voir les paroles" style="width: 288px; height: 288px; flex: none; border-radius: 34px; background: #FF7AB6; position: relative; overflow: hidden; display: block">
+      <sc-for list="{{coverDiscs}}" as="dd" hint-placeholder-count="3"><span aria-hidden="true" style="position: absolute; display: block; width: {{dd.d}}px; height: {{dd.d}}px; border-radius: 50%; background: {{dd.c}}; left: {{dd.x}}px; top: {{dd.y}}px"></span></sc-for>
+      <span style="position: absolute; left: 14px; bottom: 14px; height: 44px; box-sizing: border-box; padding: 0 16px 0 12px; border-radius: 22px; background: #16133A; color: #FFF7EA; font-size: 17px; font-weight: 900; display: flex; align-items: center; gap: 8px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF7AB6" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2.5" width="6" height="12" rx="3"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"></path></svg>
+        Paroles
+      </span>
+    </a>
+
+    <span style="margin-top: 18px; height: 28px; box-sizing: border-box; padding: 0 12px; border-radius: 14px; background: #173F3A; color: #7FF0C4; font-size: 13px; font-weight: 800; display: flex; align-items: center">Playlist · Boum du samedi</span>
+    <h1 style="margin: 8px 0 0; font-size: 32px; line-height: 1.1; font-weight: 900; text-align: center">Alors on danse</h1>
+    <p style="margin: 2px 0 0; font-size: 20px; font-weight: 700; color: #B7B1E3">Stromae</p>
+
+    <div style="width: 100%; margin-top: 18px">
+      <div style="height: 12px; border-radius: 6px; background: #2E2A66; overflow: hidden">
+        <div style="width: 48%; height: 12px; border-radius: 6px; background: #FF7AB6"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 800; color: #B7B1E3; margin-top: 6px"><span>1:42</span><span>3:26</span></div>
+    </div>
+
+    <div style="margin-top: 14px; display: flex; align-items: center; gap: 26px">
+      <button type="button" aria-label="Morceau précédent" style="width: 72px; height: 72px; border-radius: 36px; background: #2E2A66; color: #FFF7EA; display: flex; align-items: center; justify-content: center">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6v12L9.5 12z"></path><path d="M6 6v12" fill="none"></path></svg>
+      </button>
+      <button type="button" onClick="{{togglePlay}}" aria-label="{{playLabel}}" style="width: 100px; height: 100px; border-radius: 50px; background: #FF7AB6; color: #16133A; display: flex; align-items: center; justify-content: center; box-shadow: 0 7px 0 #B84A80">
+        <sc-if value="{{playing}}" hint-placeholder-val="{{true}}">
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4.5" height="14" rx="1.5"></rect><rect x="13.5" y="5" width="4.5" height="14" rx="1.5"></rect></svg>
+        </sc-if>
+        <sc-if value="{{paused}}" hint-placeholder-val="{{false}}">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"></path></svg>
+        </sc-if>
+      </button>
+      <button type="button" aria-label="Morceau suivant" style="width: 72px; height: 72px; border-radius: 36px; background: #2E2A66; color: #FFF7EA; display: flex; align-items: center; justify-content: center">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6v12l8.5-6z"></path><path d="M18 6v12" fill="none"></path></svg>
+      </button>
+    </div>
+
+    <div style="width: 100%; margin-top: 18px; display: flex; align-items: center; gap: 12px">
+      <button type="button" onClick="{{volDown}}" aria-label="Moins fort" style="width: 48px; height: 48px; flex: none; border-radius: 24px; background: #2E2A66; color: #6CB8FF; display: flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg>
+      </button>
+      <div aria-label="{{volLabel}}" style="flex: 1; height: 18px; border-radius: 9px; background: #2E2A66; overflow: hidden">
+        <div style="width: {{volPct}}; height: 18px; border-radius: 9px; background: #6CB8FF"></div>
+      </div>
+      <button type="button" onClick="{{volUp}}" aria-label="Plus fort" style="width: 48px; height: 48px; flex: none; border-radius: 24px; background: #2E2A66; color: #6CB8FF; display: flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>
+      </button>
+    </div>
+  </main>
+
+  <dc-import name="Dock" active="lecture" prefix="P_" hint-size="480px,84px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"tirage":{"editor":"int","default":1,"min":1,"max":99},"$preview":{"width":480,"height":800}}'>
+
+// Placeholder covers: 2-3 discs of random size and place, inside the cover.
+// Seeded by the title and the "tirage" tweak, so a cover keeps its drawing.
+function sqRng(seed) {
+  let h = 2166136261 >>> 0;
+  for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  return () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+}
+function sqDiscs(seed, w, h, colors) {
+  const r = sqRng(seed);
+  const n = 2 + Math.floor(r() * 2);
+  const side = Math.min(w, h);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const f = i === 0 ? 0.42 + r() * 0.38 : i === 1 ? 0.18 + r() * 0.2 : 0.08 + r() * 0.1;
+    const d = Math.round(side * f);
+    out.push({ d, x: Math.round(r() * (w - d)), y: Math.round(r() * (h - d)), c: colors[i % colors.length] });
+  }
+  return out;
+}
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { playing: true, fav: false, vol: 40 };
+  }
+  renderVals() {
+    const s = this.state;
+    return {
+      coverDiscs: sqDiscs('Alors on danse' + (this.props.tirage ?? 1), 288, 288, ['#FFD23F', '#16133A', '#FFF7EA']),
+      playing: s.playing,
+      paused: !s.playing,
+      playLabel: s.playing ? 'Pause' : 'Lecture',
+      togglePlay: () => this.setState({ playing: !s.playing }),
+      fav: s.fav,
+      favLabel: s.fav ? 'Retirer des favoris' : 'Ajouter aux favoris',
+      favBg: s.fav ? '#FFD23F' : '#2E2A66',
+      favFg: s.fav ? '#16133A' : '#FFD23F',
+      favFill: s.fav ? 'currentColor' : 'none',
+      toggleFav: () => this.setState({ fav: !s.fav }),
+      volPct: s.vol + '%',
+      volLabel: 'Volume ' + s.vol + ' sur 100',
+      volDown: () => this.setState({ vol: Math.max(0, s.vol - 10) }),
+      volUp: () => this.setState({ vol: Math.min(100, s.vol + 10) })
+    };
+  }
+}
+</script>
+</body>
+</html>

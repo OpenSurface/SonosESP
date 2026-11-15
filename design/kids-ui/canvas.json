@@ -1,0 +1,368 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Demarrage.dc.html": {
+      "h": 480,
+      "radius": 24,
+      "title": "Premier démarrage",
+      "w": 480,
+      "x": 0,
+      "y": 1800
+    },
+    "Dock.dc.html": {
+      "h": 84,
+      "is_interactive": true,
+      "title": "Barre du bas (composant)",
+      "w": 480,
+      "x": 1120,
+      "y": 1800
+    },
+    "Enceintes.dc.html": {
+      "h": 480,
+      "is_interactive": true,
+      "radius": 24,
+      "title": "Enceintes",
+      "w": 480,
+      "x": 1120,
+      "y": 900
+    },
+    "Favoris.dc.html": {
+      "h": 480,
+      "is_interactive": true,
+      "radius": 24,
+      "title": "Favoris",
+      "w": 480,
+      "x": 1680,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "h": 480,
+      "is_interactive": true,
+      "radius": 24,
+      "title": "Lecture",
+      "w": 480,
+      "x": 0,
+      "y": 0
+    },
+    "P_Demarrage.dc.html": {
+      "h": 800,
+      "page": "portrait",
+      "radius": 24,
+      "title": "Premier démarrage",
+      "w": 480,
+      "x": 1680,
+      "y": 1220
+    },
+    "P_Enceintes.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "portrait",
+      "radius": 24,
+      "title": "Enceintes",
+      "w": 480,
+      "x": 560,
+      "y": 1220
+    },
+    "P_Favoris.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "portrait",
+      "radius": 24,
+      "title": "Favoris",
+      "w": 480,
+      "x": 1680,
+      "y": 0
+    },
+    "P_Main.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "portrait",
+      "radius": 24,
+      "title": "Lecture",
+      "w": 480,
+      "x": 0,
+      "y": 0
+    },
+    "P_Paroles.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "portrait",
+      "radius": 24,
+      "title": "Paroles",
+      "w": 480,
+      "x": 0,
+      "y": 2440
+    },
+    "P_Playlist.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "portrait",
+      "radius": 24,
+      "title": "Playlist",
+      "w": 480,
+      "x": 0,
+      "y": 1220
+    },
+    "P_Recherche.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "portrait",
+      "radius": 24,
+      "title": "Chercher (clavier)",
+      "w": 480,
+      "x": 560,
+      "y": 0
+    },
+    "P_Reglages.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "portrait",
+      "radius": 24,
+      "title": "Réglages",
+      "w": 480,
+      "x": 1120,
+      "y": 1220
+    },
+    "P_Resultats.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "portrait",
+      "radius": 24,
+      "title": "Résultats",
+      "w": 480,
+      "x": 1120,
+      "y": 0
+    },
+    "P_Spotify.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "portrait",
+      "radius": 24,
+      "title": "Spotify",
+      "w": 480,
+      "x": 2240,
+      "y": 0
+    },
+    "Paroles.dc.html": {
+      "h": 480,
+      "is_interactive": true,
+      "radius": 24,
+      "title": "Paroles",
+      "w": 480,
+      "x": 0,
+      "y": 2700
+    },
+    "Playlist.dc.html": {
+      "h": 480,
+      "is_interactive": true,
+      "radius": 24,
+      "title": "Playlist",
+      "w": 480,
+      "x": 560,
+      "y": 900
+    },
+    "Recherche.dc.html": {
+      "h": 480,
+      "is_interactive": true,
+      "radius": 24,
+      "title": "Chercher (clavier)",
+      "w": 480,
+      "x": 560,
+      "y": 0
+    },
+    "Reglages.dc.html": {
+      "h": 480,
+      "is_interactive": true,
+      "radius": 24,
+      "title": "Réglages",
+      "w": 480,
+      "x": 560,
+      "y": 1800
+    },
+    "Resultats.dc.html": {
+      "h": 480,
+      "is_interactive": true,
+      "radius": 24,
+      "title": "Résultats",
+      "w": 480,
+      "x": 1120,
+      "y": 0
+    },
+    "Spotify.dc.html": {
+      "h": 480,
+      "is_interactive": true,
+      "radius": 24,
+      "title": "Spotify",
+      "w": 480,
+      "x": 0,
+      "y": 900
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-11-15T12:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "noteOrder": [
+    "row1",
+    "row2",
+    "row3",
+    "colors",
+    "favs",
+    "jpeg",
+    "p_row1",
+    "p_row2",
+    "p_why",
+    "paroles_row",
+    "paroles_how",
+    "p_paroles_row",
+    "p_paroles_how"
+  ],
+  "notes": {
+    "colors": {
+      "size": 24,
+      "text": "Une couleur par destination : rose = Lecture, orange = Chercher, jaune = Favoris, vert = Spotify, bleu = Enceintes. Un enfant qui ne lit pas encore retrouve son chemin à la couleur et à l'icône.",
+      "w": 360,
+      "x": 2240,
+      "y": 0
+    },
+    "favs": {
+      "fill": "orange",
+      "size": 24,
+      "text": "L'étoile = favori Sonos (« Mes Sonos »). Visible aussi dans l'app Sonos et sur un autre panneau. Le panneau en garde une copie en flash (titre, URI, vignette déjà décodée) pour s'afficher tout de suite.",
+      "w": 380,
+      "x": 1680,
+      "y": 900
+    },
+    "jpeg": {
+      "fill": "blue",
+      "size": 24,
+      "text": "Pas de JPEG matériel : décodage logiciel réduit à 1/2 ou 1/4 pendant le décodage, vignettes gardées en RGB565 dans la flash. Les listes n'affichent que des vignettes en cache ; une seule grande pochette (Lecture) est décodée à la fois.",
+      "w": 380,
+      "x": 1680,
+      "y": 1800
+    },
+    "p_paroles_how": {
+      "fill": "pink",
+      "page": "portrait",
+      "size": 24,
+      "text": "Même écran qu'en carré, avec plus de lignes à l'avance et les boutons précédent/suivant. On y entre par le badge « Paroles » sur la grande pochette de Lecture.",
+      "w": 400,
+      "x": 560,
+      "y": 2440
+    },
+    "p_paroles_row": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "portrait",
+      "text": "Paroles en direct",
+      "w": 240,
+      "x": 0,
+      "y": 2140
+    },
+    "p_row1": {
+      "kind": "title1",
+      "maxW": 2720,
+      "page": "portrait",
+      "text": "Portrait 480×800 (P4) — écouter, chercher, retrouver",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "p_row2": {
+      "kind": "title1",
+      "maxW": 2160,
+      "page": "portrait",
+      "text": "Parcourir, choisir les enceintes, régler",
+      "w": 240,
+      "x": 0,
+      "y": 920
+    },
+    "p_why": {
+      "page": "portrait",
+      "size": 24,
+      "text": "Mêmes écrans et mêmes couleurs que le carré. La hauteur en plus sert à : une plus grande pochette, un clavier plus grand avec des idées de recherche, plus de favoris d'un coup d'œil, le volume de chaque pièce.",
+      "w": 380,
+      "x": 2240,
+      "y": 1220
+    },
+    "paroles_how": {
+      "fill": "pink",
+      "size": 24,
+      "text": "Accès : un badge « Paroles » sur la pochette de Lecture, seulement quand des paroles sont trouvées. Toucher la pochette ouvre le plein écran. Toucher une ligne y saute. La croix ramène à Lecture, et sans paroles on y revient tout seul. Tweaks : état (synchro, texte, aucune) et fond (couleur de la pochette ou nuit). Texte d'exemple : comptine du domaine public.",
+      "w": 400,
+      "x": 560,
+      "y": 2700
+    },
+    "paroles_row": {
+      "kind": "title1",
+      "maxW": 1600,
+      "text": "Paroles en direct",
+      "w": 240,
+      "x": 0,
+      "y": 2400
+    },
+    "row1": {
+      "kind": "title1",
+      "maxW": 2160,
+      "text": "Écouter, chercher, retrouver",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "row2": {
+      "kind": "title1",
+      "maxW": 1600,
+      "text": "Parcourir Spotify, choisir les enceintes",
+      "w": 240,
+      "x": 0,
+      "y": 600
+    },
+    "row3": {
+      "kind": "title1",
+      "maxW": 1600,
+      "text": "Une seule fois, puis à la main",
+      "w": 240,
+      "x": 0,
+      "y": 1500
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Recherche.dc.html",
+    "Resultats.dc.html",
+    "Favoris.dc.html",
+    "Spotify.dc.html",
+    "Playlist.dc.html",
+    "Enceintes.dc.html",
+    "Demarrage.dc.html",
+    "Reglages.dc.html",
+    "Dock.dc.html",
+    "P_Main.dc.html",
+    "P_Recherche.dc.html",
+    "P_Resultats.dc.html",
+    "P_Favoris.dc.html",
+    "P_Spotify.dc.html",
+    "P_Playlist.dc.html",
+    "P_Enceintes.dc.html",
+    "P_Reglages.dc.html",
+    "P_Demarrage.dc.html",
+    "Paroles.dc.html",
+    "P_Paroles.dc.html"
+  ],
+  "pages": [
+    {
+      "id": "carre",
+      "name": "Carré 4″ (S3)"
+    },
+    {
+      "id": "portrait",
+      "name": "Portrait 4″ (P4)"
+    }
+  ],
+  "title": "Sonos carré 480"
+}

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Chercher portrait</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&amp;display=swap">
+<style>
+body{margin:0;background:#0E0C26}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+button{font-family:inherit;border:0;cursor:pointer;padding:0}
+</style>
+</helmet>
+<div style="width: 480px; height: 800px; box-sizing: border-box; background: #16133A; color: #FFF7EA; font-family: Nunito, system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="height: 72px; flex: none; box-sizing: border-box; padding: 12px 16px; display: flex; align-items: center; gap: 12px">
+    <a href="P_Main.dc.html" aria-label="Retour" style="width: 48px; height: 48px; border-radius: 24px; background: #2E2A66; color: #FF9A3C; display: flex; align-items: center; justify-content: center">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+    </a>
+    <h1 style="margin: 0; font-size: 25px; font-weight: 900; color: #FF9A3C">Chercher sur Spotify</h1>
+  </header>
+
+  <div style="margin: 0 16px; height: 64px; flex: none; box-sizing: border-box; border-radius: 32px; border: 3px solid #FF9A3C; background: #231F52; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 18px">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FF9A3C" stroke-width="3" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+    <span style="flex: 1; min-width: 0; font-size: 26px; font-weight: 900; white-space: nowrap; overflow: hidden">
+      <sc-if value="{{hasQuery}}" hint-placeholder-val="{{true}}">{{query}}</sc-if>
+      <span style="display: inline-block; width: 3px; height: 28px; background: #FF9A3C; vertical-align: -4px; margin-left: 2px"></span>
+      <sc-if value="{{empty}}" hint-placeholder-val="{{false}}"><span style="font-size: 20px; font-weight: 700; color: #9C96CC">Un artiste, une chanson…</span></sc-if>
+    </span>
+    <sc-if value="{{hasQuery}}" hint-placeholder-val="{{true}}">
+      <button type="button" onClick="{{clear}}" aria-label="Effacer" style="width: 46px; height: 46px; border-radius: 23px; background: #2E2A66; color: #FFF7EA; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+    </sc-if>
+  </div>
+
+  <div style="margin-top: 14px; padding: 0 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+    <span style="font-size: 14px; font-weight: 800; color: #B7B1E3">Récents</span>
+    <sc-for list="{{recents}}" as="r" hint-placeholder-count="3">
+      <button type="button" onClick="{{r.pick}}" style="height: 40px; box-sizing: border-box; padding: 0 16px; border-radius: 20px; background: #2E2A66; color: #FFF7EA; font-size: 16px; font-weight: 800">{{r.label}}</button>
+    </sc-for>
+  </div>
+
+  <div style="margin-top: 16px; padding: 0 16px">
+    <span style="font-size: 14px; font-weight: 800; color: #B7B1E3">Des idées</span>
+    <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{ideas}}" as="i" hint-placeholder-count="4">
+        <button type="button" onClick="{{i.pick}}" style="height: 92px; box-sizing: border-box; border-radius: 26px; background: {{i.bg}}; color: #16133A; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; text-align: left">
+          <span style="width: 36px; height: 36px; border-radius: 18px; background: #16133A; color: {{i.bg}}; display: flex; align-items: center; justify-content: center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{i.d}}"></path></svg>
+          </span>
+          <span style="font-size: 19px; font-weight: 900">{{i.label}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="margin-top: auto; padding: 0 12px 14px; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px">
+      <sc-for list="{{row1}}" as="k" hint-placeholder-count="10">
+        <button type="button" onClick="{{k.press}}" style="height: 60px; border-radius: 14px; background: #2E2A66; color: #FFF7EA; font-size: 23px; font-weight: 900; box-shadow: 0 4px 0 #0E0C26">{{k.label}}</button>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px">
+      <sc-for list="{{row2}}" as="k" hint-placeholder-count="10">
+        <button type="button" onClick="{{k.press}}" style="height: 60px; border-radius: 14px; background: #2E2A66; color: #FFF7EA; font-size: 23px; font-weight: 900; box-shadow: 0 4px 0 #0E0C26">{{k.label}}</button>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px">
+      <sc-for list="{{row3}}" as="k" hint-placeholder-count="8">
+        <button type="button" onClick="{{k.press}}" style="height: 60px; border-radius: 14px; background: #2E2A66; color: #FFF7EA; font-size: 23px; font-weight: 900; box-shadow: 0 4px 0 #0E0C26">{{k.label}}</button>
+      </sc-for>
+      <button type="button" onClick="{{backspace}}" aria-label="Effacer une lettre" style="grid-column: span 2; height: 60px; border-radius: 14px; background: #3A3578; color: #FFF7EA; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 0 #0E0C26">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H9l-6 7 6 7h12z"></path><path d="M12 9l6 6M18 9l-6 6"></path></svg>
+      </button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px">
+      <button type="button" style="grid-column: span 2; height: 60px; border-radius: 14px; background: #3A3578; color: #FFF7EA; font-size: 18px; font-weight: 900; box-shadow: 0 4px 0 #0E0C26">123</button>
+      <button type="button" onClick="{{space}}" aria-label="Espace" style="grid-column: span 5; height: 60px; border-radius: 14px; background: #2E2A66; color: #B7B1E3; font-size: 16px; font-weight: 800; box-shadow: 0 4px 0 #0E0C26">espace</button>
+      <a href="P_Resultats.dc.html" style="grid-column: span 3; height: 60px; border-radius: 14px; background: #FF9A3C; color: #16133A; font-size: 18px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 0 #B8641C">
+        Chercher
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+      </a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":480,"height":800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { query: 'alde' };
+  }
+  renderVals() {
+    const q = this.state.query;
+    const set = (v) => () => this.setState({ query: v });
+    const keys = (s) => s.split('').map((c) => ({
+      label: c,
+      press: () => this.setState({ query: this.state.query + c.toLowerCase() })
+    }));
+    return {
+      query: q,
+      hasQuery: q.length > 0,
+      empty: q.length === 0,
+      clear: set(''),
+      backspace: () => this.setState({ query: this.state.query.slice(0, -1) }),
+      space: () => this.setState({ query: this.state.query + ' ' }),
+      recents: ['Aldebert', 'La Reine des neiges', 'Comptines'].map((label) => ({ label, pick: set(label.toLowerCase()) })),
+      ideas: [
+        { label: 'Comptines', bg: '#FFD23F', d: 'M9 18V5l12-2v13M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 19a3 3 0 1 0 0-6 3 3 0 0 0 0 6z' },
+        { label: 'Dessins animés', bg: '#FF7AB6', d: 'M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM8 21h8M12 17v4' },
+        { label: 'Dodo', bg: '#6CB8FF', d: 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z' },
+        { label: 'Ça bouge !', bg: '#3BE0A0', d: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z' }
+      ].map((i) => ({ ...i, pick: set(i.label.toLowerCase()) })),
+      row1: keys('AZERTYUIOP'),
+      row2: keys('QSDFGHJKLM'),
+      row3: keys("WXCVBNÉ'")
+    };
+  }
+}
+</script>
+</body>
+</html>
