@@ -202,6 +202,7 @@ lv_obj_t* sqCoverPlaceholder(lv_obj_t* parent, int size, int radius, const char*
     lv_obj_t* big = sqBox(box, size * 3 / 4, size * 3 / 4, c2, LV_RADIUS_CIRCLE);
     lv_obj_set_pos(big, -size / 6, size / 2);
     lv_obj_t* dot = sqBox(box, size / 4, size / 4, (h & 1) ? SQ_BG : SQ_TEXT, LV_RADIUS_CIRCLE);
-    lv_obj_set_pos(dot, size - size / 4 - size / 8, size / 8);
+    // Lower right: the top corners carry the type badge and the favourite star.
+    lv_obj_set_pos(dot, size - size / 4 - size / 8, size - size / 4 - size / 8);
     return box;
 }

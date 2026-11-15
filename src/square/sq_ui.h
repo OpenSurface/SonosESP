@@ -154,6 +154,7 @@ void sqRoomsCreate(void);
 void sqRoomsRefresh(void);
 void sqFavsCreate(void);
 void sqFavsRefresh(void);           // rebuild from the favourites store
+void sqFavsCommit(void);            // send the star-removals; called on leaving Favoris
 void sqSearchCreate(void);
 void sqResultsCreate(void);
 void sqResultsStart(const char* term);

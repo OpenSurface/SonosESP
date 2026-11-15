@@ -76,7 +76,7 @@ static const char* favKind(const String& resMD, const String& uri) {
     if (resMD.indexOf("musicTrack") >= 0) return "Titre";
     if (resMD.indexOf("musicArtist") >= 0 || resMD.indexOf("person") >= 0) return "Artiste";
     if (uri.startsWith("x-rincon-cpcontainer:")) return "Liste";
-    return "Favori";
+    return "";   // unknown: the tile shows no badge rather than a meaningless one
 }
 
 // Parses a decoded FV:2 browse result into the store. Returns the count.
@@ -397,8 +397,13 @@ static void workerTask(void*) {
             case SQ_JOB_FAV_ADD_ITEM:   if (job.item) favAddItem(*job.item); break;
             case SQ_JOB_FAV_ADD_CURRENT: favAddCurrent(); break;
             case SQ_JOB_FAV_REMOVE:
-                if (sonos.removeFavorite(job.text)) { toast("Retiré des favoris"); favsLoadFromSpeaker(); }
-                else toast("Impossible de retirer ce favori");
+                // a == 1: one of a batch from the Favoris stars; the screen posts
+                // a single SQ_JOB_FAVS_LOAD after the batch and has its own toast.
+                if (sonos.removeFavorite(job.text)) {
+                    if (job.a != 1) { toast("Retiré des favoris"); favsLoadFromSpeaker(); }
+                } else {
+                    toast("Impossible de retirer ce favori");
+                }
                 break;
             case SQ_JOB_SELECT_ROOM:    selectRoom(job.a); break;
             case SQ_JOB_TOGGLE_GROUP:   toggleGroup(job.a); break;

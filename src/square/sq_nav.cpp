@@ -107,6 +107,7 @@ extern void sqOnShow(SqScreen scr);
 
 void sqShow(SqScreen scr) {
     if (!s_screens[scr].obj) return;
+    if (s_current == SQ_SCR_FAVS && scr != SQ_SCR_FAVS) sqFavsCommit();
     if (scr != s_current) {
         if (s_hist_len == (int)(sizeof(s_history) / sizeof(s_history[0])))
             memmove(s_history, s_history + 1, sizeof(s_history) - sizeof(s_history[0])), s_hist_len--;
